@@ -1,6 +1,12 @@
 import os
+import sys
+from pathlib import Path
 
 from flask import Flask, send_from_directory
+
+CURRENT_DIR = Path(__file__).resolve().parent
+if str(CURRENT_DIR) not in sys.path:
+    sys.path.insert(0, str(CURRENT_DIR))
 
 from auth import auth_blueprint
 from auth.helpers import json_response
