@@ -1,6 +1,25 @@
 import json
+import time
+from pathlib import Path
 
 from auth.helpers import normalize_cnic
+from shared.db import BASE_DIR
+
+
+UPLOADS_DIR = BASE_DIR / "backend" / "uploads" / "trucks"
+STATUS_REASON_LABELS = {
+    "assigned_job": "On job / assigned to job",
+    "maintenance": "Maintenance",
+    "driver_unavailable": "Driver unavailable",
+    "route_hold": "Route hold",
+    "documents_pending": "Documents pending",
+    "owner_hold": "Owner hold",
+    "fuel_or_loading": "Fuel/loading wait",
+    "repair": "Repair required",
+    "weather_delay": "Weather delay",
+    "blocked_by_admin": "Blocked by admin",
+}
+STATUS_OPTIONS = {"active", "inactive", "on_job", "maintenance", "blocked"}
 
 
 TRUCK_TYPES = [
@@ -52,6 +71,25 @@ def get_catalog_type(type_key):
     return None
 
 
+def get_catalog_fields(type_key):
+    catalog = get_catalog_type(type_key)
+    if not catalog:
+        return []
+    fields = []
+    for key, label in (
+        ("display_name", "Truck type"),
+        ("class_segment", "Class segment"),
+        ("typical_body_style", "Typical body style"),
+        ("payload_min_kg", "Payload min (kg)"),
+        ("payload_max_kg", "Payload max (kg)"),
+        ("volume_min_cbm", "Volume min (cbm)"),
+        ("volume_max_cbm", "Volume max (cbm)"),
+    ):
+        if catalog.get(key) not in (None, ""):
+            fields.append({"field_key": key, "field_label": label, "value": catalog.get(key)})
+    return fields
+
+
 def build_truck_payload(row):
     catalog_specs = row["catalog_specs_json"]
     try:
@@ -67,6 +105,7 @@ def build_truck_payload(row):
         "catalog_type_key": row["catalog_type_key"],
         "chassis_number": row["chassis_number"],
         "capacity_tons": row["capacity_tons"],
+        "max_capacity": row["capacity_tons"],
         "main_use": row["main_use"],
         "payload_min_kg": row["payload_min_kg"],
         "payload_max_kg": row["payload_max_kg"],
@@ -77,8 +116,82 @@ def build_truck_payload(row):
         "driver_name": row["driver_name"],
         "driver_cnic": row["driver_cnic"],
         "tracking_id": row["tracking_id"],
+        "operating_provinces": row["operating_provinces"],
+        "per_km_rate": row["per_km_rate"],
+        "waiting_charge_per_hour": row["waiting_charge_per_hour"],
+        "loading_charge": row["loading_charge"],
+        "refrigeration_supported": bool(row["refrigeration_supported"]),
+        "hazardous_supported": bool(row["hazardous_supported"]),
+        "fragile_supported": bool(row["fragile_supported"]),
+        "truck_photo_path": row["truck_photo_path"],
+        "insurance_photo_path": row["insurance_photo_path"],
+        "rc_book_photo_path": row["rc_book_photo_path"],
+        "photo": f"/{row['truck_photo_path']}" if row["truck_photo_path"] else "",
+        "insurance_photo": f"/{row['insurance_photo_path']}" if row["insurance_photo_path"] else "",
+        "rc_book_photo": f"/{row['rc_book_photo_path']}" if row["rc_book_photo_path"] else "",
         "status": row["status"],
+        "status_reason_code": row.get("status_reason_code") if isinstance(row, dict) else row["status_reason_code"],
+        "status_reason": row.get("status_reason") if isinstance(row, dict) else row["status_reason"],
         "created_at": row["created_at"],
         "updated_at": row["updated_at"],
     }
 
+
+def build_configuration_payload(row):
+    truck = build_truck_payload(row)
+    operating_provinces = truck["operating_provinces"]
+    if isinstance(operating_provinces, str):
+        operating_provinces = [item.strip() for item in operating_provinces.split(",") if item.strip()]
+    elif not operating_provinces:
+        operating_provinces = []
+    return {
+        "truck_number": truck["truck_number"] or "",
+        "truck_type": truck["truck_type"] or "",
+        "catalog_type_key": truck["catalog_type_key"] or "",
+        "max_capacity": truck["max_capacity"] or "",
+        "chassis_number": truck["chassis_number"] or "",
+        "operating_provinces": operating_provinces,
+        "body_style": truck["body_style"] or "",
+        "payload_min_kg": truck["payload_min_kg"] or "",
+        "payload_max_kg": truck["payload_max_kg"] or "",
+        "volume_min_cbm": truck["volume_min_cbm"] or "",
+        "volume_max_cbm": truck["volume_max_cbm"] or "",
+        "catalog_specs_json": truck["catalog_specs_json"] or "",
+        "tracking_id": truck["tracking_id"] or "",
+        "driver_name": truck["driver_name"] or "",
+        "driver_cnic": truck["driver_cnic"] or "",
+        "per_km_rate": truck["per_km_rate"] or "",
+        "waiting_charge_per_hour": truck["waiting_charge_per_hour"] or "",
+        "loading_charge": truck["loading_charge"] if truck["loading_charge"] is not None else "",
+        "refrigeration_supported": bool(truck["refrigeration_supported"]),
+        "hazardous_supported": bool(truck["hazardous_supported"]),
+        "fragile_supported": bool(truck["fragile_supported"]),
+        "photo": truck["photo"],
+        "insurance_photo": truck["insurance_photo"],
+        "rc_book_photo": truck["rc_book_photo"],
+        "truck_photo_path": truck["truck_photo_path"] or "",
+        "insurance_photo_path": truck["insurance_photo_path"] or "",
+        "rc_book_photo_path": truck["rc_book_photo_path"] or "",
+        "status": truck["status"] or "inactive",
+        "status_reason_code": truck["status_reason_code"] or "",
+        "status_reason": truck["status_reason"] or "",
+    }
+
+
+def parse_bool_flag(value):
+    return 1 if str(value or "").strip() in {"1", "true", "True", "yes", "on"} else 0
+
+
+def get_status_reason_label(reason_code):
+    return STATUS_REASON_LABELS.get(reason_code or "", "")
+
+
+def make_upload_relative_path(truck_id, file_storage):
+    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    from werkzeug.utils import secure_filename
+
+    original = secure_filename(file_storage.filename or "")
+    filename = f"{truck_id}_{int(time.time())}_{original or 'upload.bin'}"
+    destination = UPLOADS_DIR / filename
+    file_storage.save(destination)
+    return f"uploads/trucks/{filename}"

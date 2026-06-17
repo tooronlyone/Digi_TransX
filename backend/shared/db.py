@@ -14,6 +14,12 @@ def open_db():
     return connection
 
 
+def ensure_column(db, table_name, column_name, definition):
+    columns = [row[1] for row in db.execute(f"PRAGMA table_info({table_name})").fetchall()]
+    if column_name not in columns:
+        db.execute(f"ALTER TABLE {table_name} ADD COLUMN {column_name} {definition}")
+
+
 def init_db():
     with open_db() as db:
         db.executescript(
@@ -134,3 +140,16 @@ def init_db():
             );
             """
         )
+        ensure_column(db, "trucks", "operating_provinces", "TEXT")
+        ensure_column(db, "trucks", "per_km_rate", "REAL")
+        ensure_column(db, "trucks", "waiting_charge_per_hour", "REAL")
+        ensure_column(db, "trucks", "loading_charge", "REAL")
+        ensure_column(db, "trucks", "refrigeration_supported", "INTEGER DEFAULT 0")
+        ensure_column(db, "trucks", "hazardous_supported", "INTEGER DEFAULT 0")
+        ensure_column(db, "trucks", "fragile_supported", "INTEGER DEFAULT 0")
+        ensure_column(db, "trucks", "truck_photo_path", "TEXT")
+        ensure_column(db, "trucks", "insurance_photo_path", "TEXT")
+        ensure_column(db, "trucks", "rc_book_photo_path", "TEXT")
+        ensure_column(db, "trucks", "status_reason_code", "TEXT")
+        ensure_column(db, "trucks", "status_reason", "TEXT")
+        db.commit()

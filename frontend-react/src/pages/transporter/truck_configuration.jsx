@@ -5,7 +5,7 @@ import { useApi } from '../../hooks/useApi'
 
 const EMPTY_FORM = {
   truck_number: '', truck_type: '', max_capacity: '', chassis_number: '',
-  common_uses: '', operating_provinces: [],
+  operating_provinces: [],
   catalog_type_key: '', body_style: '', payload_min_kg: '', payload_max_kg: '',
   volume_min_cbm: '', volume_max_cbm: '', catalog_specs_json: '',
   tracking_id: '', driver_name: '', driver_cnic: '',
@@ -15,7 +15,7 @@ const EMPTY_FORM = {
   status: 'inactive', status_reason_code: '', status_reason: '',
 }
 
-const REQUIRED = ['truck_number', 'truck_type', 'max_capacity', 'chassis_number', 'common_uses', 'operating_provinces', 'per_km_rate', 'waiting_charge_per_hour']
+const REQUIRED = ['truck_number', 'truck_type', 'max_capacity', 'chassis_number', 'operating_provinces', 'per_km_rate', 'waiting_charge_per_hour']
 
 const PROVINCES = [
   'Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan',
@@ -83,13 +83,9 @@ export default function TruckConfiguration() {
 
   function normalizeConfig(raw) {
     const cfg = raw || {}
-    const commonUses = Array.isArray(cfg.common_uses)
-      ? cfg.common_uses.join(', ')
-      : (cfg.common_uses || cfg.main_use || '')
     return {
       ...EMPTY_FORM,
       ...cfg,
-      common_uses: commonUses,
       operating_provinces: Array.isArray(cfg.operating_provinces)
         ? cfg.operating_provinces
         : typeof cfg.operating_provinces === 'string'
@@ -178,7 +174,6 @@ export default function TruckConfiguration() {
       catalog_type_key: typeKey,
       truck_type: catalog?.display_name || f.truck_type,
       max_capacity: catalog?.payload_max_kg ? String(Number(catalog.payload_max_kg) / 1000) : f.max_capacity,
-      common_uses: Array.isArray(catalog?.common_uses) ? catalog.common_uses.join(', ') : f.common_uses,
       body_style: catalog?.typical_body_style || f.body_style,
       payload_min_kg: catalog?.payload_min_kg || f.payload_min_kg,
       payload_max_kg: catalog?.payload_max_kg || f.payload_max_kg,
@@ -403,12 +398,6 @@ export default function TruckConfiguration() {
                       <input type="text" name="chassis_number" value={form.chassis_number} onChange={setField}
                         placeholder="Enter chassis number" required />
                       <small>Required for truck activation and identity verification.</small>
-                    </label>
-                    <label>
-                      Common Uses
-                      <textarea name="common_uses" value={form.common_uses} onChange={setField} rows={4}
-                        placeholder="Example: Milk Transport, Water Transport, Oil Transport" required />
-                      <small>Comma separated uses.</small>
                     </label>
                     <label>
                       Body Style
