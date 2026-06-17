@@ -1,0 +1,275 @@
+/* ============================================================
+   Digi_TransX Design Tokens
+   Source: frontend-react/src/styles/transporter.css + MainPage.css
+   ============================================================ */
+
+
+:root {
+  /* --- Surfaces & background --- */
+  --primary-bg:        #f8fafc;   /* slate-50 — page bg */
+  --surface-white:     #ffffff;   /* cards & sheets */
+  --surface-elevated:  #ffffff;
+  --hover-bg:          #f1f5f9;   /* slate-100 — hover, fill */
+
+  /* --- Borders --- */
+  --border-subtle:     #e2e8f0;   /* slate-200 — default border */
+  --border-light:      #cbd5e1;   /* slate-300 — divider */
+
+  /* --- Text --- */
+  --text-primary:      #1e293b;   /* slate-800 — body */
+  --text-secondary:    #475569;   /* slate-600 — secondary copy */
+  --text-muted:        #64748b;   /* slate-500 — captions */
+  --accent-secondary:  #0f172a;   /* slate-900 — display */
+
+  /* --- Brand --- */
+  --accent-primary:      #2563eb; /* brand blue */
+  --accent-primary-dark: #1d4ed8;
+  --info:                #3b82f6;
+
+  /* --- Semantic --- */
+  --success: #10b981;
+  --warning: #f59e0b;
+  --error:   #ef4444;
+  --danger:  #dc2626;
+
+  /* --- Legacy client navy variant --- */
+  --client-primary:   #1f3a5f;
+  --client-secondary: #1f7ae0;
+  --client-accent:    #87c6ff;
+  --client-sidebar:   linear-gradient(180deg, #18304f, #10253f);
+
+  /* --- Gradients --- */
+  --gradient-primary: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+  --gradient-accent:  linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+
+  /* --- Shadows --- */
+  --shadow-subtle:   0 1px 3px rgba(0, 0, 0, 0.05);
+  --shadow-medium:   0 4px 6px -1px rgba(0, 0, 0, 0.07), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+  --shadow-elevated: 0 10px 15px -3px rgba(0, 0, 0, 0.07), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+  --shadow-brand:    0 2px 8px rgba(37, 99, 235, 0.25);
+  --shadow-brand-hi: 0 6px 16px rgba(37, 99, 235, 0.35);
+
+  /* --- Radii --- */
+  --radius-xs: 6px;
+  --radius-sm: 8px;
+  --radius-md: 10px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-pill: 999px;
+
+  /* --- Spacing scale --- */
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 20px;
+  --space-6: 24px;
+  --space-8: 32px;
+  --space-10: 40px;
+  --space-12: 48px;
+  --space-16: 64px;
+
+  /* --- Typography --- */
+  --font-sans: 'Inter', 'Segoe UI', -apple-system, BlinkMacSystemFont, sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+
+/* ============================================================
+   Base reset (matches transporter.css conventions)
+   ============================================================ */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  font-family: var(--font-sans);
+  background: var(--primary-bg);
+  color: var(--text-primary);
+  line-height: 1.6;
+  font-weight: 400;
+  font-size: 14px;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ============================================================
+   Semantic type styles
+   ============================================================ */
+
+.dx-h1, h1.dx {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  line-height: 1.1;
+  color: var(--accent-secondary);
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dx-h-display {
+  font-size: clamp(42px, 6vw, 72px);
+  font-weight: 800;
+  line-height: 1.05;
+  letter-spacing: -2px;
+  color: var(--accent-secondary);
+}
+
+.dx-h2, h2.dx {
+  font-size: 24px;
+  font-weight: 700;
+  color: var(--accent-secondary);
+  letter-spacing: -0.3px;
+}
+
+.dx-h3, h3.dx {
+  font-size: 18px;
+  font-weight: 700;
+  color: var(--accent-secondary);
+}
+
+.dx-h4, h4.dx {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--accent-secondary);
+}
+
+.dx-body, p.dx {
+  font-size: 14px;
+  line-height: 1.7;
+  color: var(--text-primary);
+}
+
+.dx-body-lg {
+  font-size: 16px;
+  line-height: 1.7;
+  color: var(--text-secondary);
+}
+
+.dx-small,
+small.dx {
+  font-size: 12px;
+  color: var(--text-muted);
+}
+
+.dx-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+  color: var(--accent-primary);
+}
+
+.dx-label {
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.dx-stat-value {
+  font-size: 32px;
+  font-weight: 800;
+  color: var(--accent-secondary);
+  line-height: 1;
+}
+
+.dx-mono {
+  font-family: var(--font-mono);
+  font-size: 13px;
+}
+
+.dx-link {
+  color: var(--accent-primary);
+  text-decoration: none;
+  font-weight: 600;
+}
+.dx-link:hover {
+  color: var(--accent-primary-dark);
+  text-decoration: underline;
+}
+
+/* ============================================================
+   Common building blocks
+   ============================================================ */
+.dx-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  padding: var(--space-6);
+  box-shadow: var(--shadow-subtle);
+  transition: transform 0.3s ease, box-shadow 0.3s ease, border-color 0.2s ease;
+}
+.dx-card:hover {
+  transform: translateY(-4px);
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-elevated);
+}
+
+.dx-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 10px 20px;
+  border-radius: var(--radius-md);
+  font-family: inherit;
+  font-size: 14px;
+  font-weight: 600;
+  border: 1px solid transparent;
+  cursor: pointer;
+  text-decoration: none;
+  transition: all 0.2s ease;
+}
+.dx-btn-primary {
+  background: var(--gradient-primary);
+  color: #fff;
+  box-shadow: var(--shadow-brand);
+}
+.dx-btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-brand-hi);
+}
+.dx-btn-ghost {
+  background: var(--surface-white);
+  color: var(--text-secondary);
+  border-color: var(--border-subtle);
+}
+.dx-btn-ghost:hover {
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  background: var(--hover-bg);
+}
+
+.dx-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: var(--radius-pill);
+  font-size: 12px;
+  font-weight: 600;
+  background: rgba(37, 99, 235, 0.10);
+  color: var(--accent-primary);
+}
+.dx-pill.success { background: rgba(16,185,129,0.12); color: var(--success); }
+.dx-pill.warning { background: rgba(245,158,11,0.12); color: var(--warning); }
+.dx-pill.danger  { background: rgba(220,38,38,0.10);  color: var(--danger);  }
+.dx-pill.muted   { background: rgba(100,116,139,0.12); color: var(--text-secondary); }
+
+.dx-input {
+  width: 100%;
+  padding: 11px 14px;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: #fff;
+  font: inherit;
+  font-size: 14px;
+  color: var(--text-primary);
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+.dx-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
