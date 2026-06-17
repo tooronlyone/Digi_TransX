@@ -108,5 +108,29 @@ def init_db():
                 payload_json TEXT,
                 created_at TEXT NOT NULL
             );
+
+            CREATE TABLE IF NOT EXISTS trucks (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                owner_user_id INTEGER NOT NULL,
+                truck_number TEXT NOT NULL,
+                truck_type TEXT NOT NULL,
+                catalog_type_key TEXT,
+                chassis_number TEXT NOT NULL,
+                capacity_tons REAL NOT NULL,
+                main_use TEXT NOT NULL,
+                payload_min_kg REAL,
+                payload_max_kg REAL,
+                volume_min_cbm REAL,
+                volume_max_cbm REAL,
+                body_style TEXT,
+                catalog_specs_json TEXT,
+                driver_name TEXT,
+                driver_cnic TEXT,
+                tracking_id TEXT,
+                status TEXT NOT NULL DEFAULT 'active',
+                created_at TEXT NOT NULL,
+                updated_at TEXT NOT NULL,
+                FOREIGN KEY(owner_user_id) REFERENCES users(id)
+            );
             """
         )

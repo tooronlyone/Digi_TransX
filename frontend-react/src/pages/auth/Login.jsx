@@ -183,7 +183,7 @@ export default function Login() {
 
             <p className="auth-shell__footer">
               Don't have an account?{' '}
-              <Link to="/signup">Register as Transporter</Link>
+              <Link to="/signup">Create an account</Link>
             </p>
           </form>
         </div>

@@ -14,6 +14,7 @@ from profile import profile_blueprint
 from settings import settings_blueprint
 from shared.db import FRONTEND_DIST, init_db
 from tracking import tracking_blueprint
+from trucks import trucks_blueprint
 
 
 app = Flask(__name__)
@@ -26,6 +27,7 @@ app.register_blueprint(auth_blueprint)
 app.register_blueprint(profile_blueprint)
 app.register_blueprint(settings_blueprint)
 app.register_blueprint(tracking_blueprint)
+app.register_blueprint(trucks_blueprint)
 
 init_db()
 
