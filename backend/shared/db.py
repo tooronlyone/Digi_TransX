@@ -2,7 +2,7 @@ from pathlib import Path
 import sqlite3
 
 
-BASE_DIR = Path(__file__).resolve().parent.parent
+BASE_DIR = Path(__file__).resolve().parent.parent.parent
 DATABASE_PATH = BASE_DIR / "Database" / "digitransx_auth.db"
 FRONTEND_DIST = BASE_DIR / "frontend-react" / "dist"
 
@@ -110,4 +110,3 @@ def init_db():
             );
             """
         )
-
