@@ -3,9 +3,10 @@ export const NAV_ITEMS = [
   { path: '/transporter/trucks',       icon: 'fa-truck',          label: 'My Trucks' },
   { path: '/transporter/trucks/add',   icon: 'fa-plus-circle',    label: 'Add New Truck' },
   { path: '/transporter/jobs',         icon: 'fa-clipboard-list', label: 'Available Jobs' },
-  { path: '/transporter/jobs/active',  icon: 'fa-shipping-fast',  label: 'Active Jobs' },
-  { path: '/transporter/jobs/history', icon: 'fa-history',        label: 'Job History' },
+  { path: '/transporter/bids',         icon: 'fa-gavel',          label: 'My Bids' },
+  { path: '/transporter/messages',     icon: 'fa-comments',       label: 'Messages' },
   { path: '/transporter/earnings',     icon: 'fa-wallet',         label: 'Earnings' },
+  { path: '/transporter/wallet',       icon: 'fa-credit-card',    label: 'Wallet' },
   { path: '/transporter/profile',      icon: 'fa-user-circle',    label: 'My Profile' },
   { path: '/transporter/settings',     icon: 'fa-cog',            label: 'Settings' },
 ]

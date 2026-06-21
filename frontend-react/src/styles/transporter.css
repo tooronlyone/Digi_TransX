@@ -2213,7 +2213,7 @@ table tbody tr:hover { background: var(--hover-bg); }
 
 .mytrucks-stats-grid {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   gap: 8px;
   margin: 14px 0;
   padding: 10px 0;
@@ -2312,6 +2312,15 @@ table tbody tr:hover { background: var(--hover-bg); }
 .mytrucks-action-small:hover {
   transform: translateY(-1px);
   box-shadow: 0 8px 18px -12px rgba(37, 99, 235, 0.85);
+}
+
+.mytrucks-activate-btn {
+  background: linear-gradient(135deg, #2563eb, #1d4ed8);
+  box-shadow: 0 10px 20px -14px rgba(37, 99, 235, 0.95);
+}
+
+.mytrucks-activate-btn:hover {
+  box-shadow: 0 12px 24px -14px rgba(29, 78, 216, 0.95);
 }
 
 .mytrucks-loading,

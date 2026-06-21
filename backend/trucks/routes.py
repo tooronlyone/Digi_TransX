@@ -1,4 +1,6 @@
 import json
+import re
+import sqlite3
 
 from flask import Blueprint, request, send_from_directory
 
@@ -23,6 +25,12 @@ from .helpers import (
 
 
 trucks_blueprint = Blueprint("trucks", __name__)
+CHASSIS_NUMBER_REGEX = re.compile(r"^[A-HJ-NPR-Z0-9]{11,17}$")
+CHASSIS_NUMBER_MESSAGE = (
+    "Chassis number must be 11-17 characters, letters and numbers only, and cannot "
+    "contain I, O, or Q (these are excluded in standard VIN format to avoid confusion "
+    "with 1, 0, and 9)."
+)
 
 
 def get_owned_truck_or_error(truck_id, owner_user_id):
@@ -34,6 +42,14 @@ def get_owned_truck_or_error(truck_id, owner_user_id):
     if truck["owner_user_id"] != owner_user_id:
         return None, json_response({"success": False, "message": "You are not allowed to access this truck."}, 403)
     return truck, None
+
+
+def normalize_chassis_number(value):
+    return (value or "").strip().upper()
+
+
+def is_valid_chassis_number(value):
+    return bool(CHASSIS_NUMBER_REGEX.fullmatch(value or ""))
 
 
 @trucks_blueprint.get("/api/catalog/truck-types")
@@ -60,7 +76,7 @@ def create_truck():
     form = request.form
     truck_number = (form.get("truckNumber") or "").strip()
     truck_type = (form.get("truckType") or form.get("truck_type") or "").strip()
-    chassis_number = (form.get("chassisNumber") or "").strip()
+    chassis_number = normalize_chassis_number(form.get("chassisNumber"))
     capacity_raw = (form.get("capacity") or "").strip()
     main_use = (form.get("mainUse") or "").strip()
 
@@ -80,10 +96,10 @@ def create_truck():
 
     if capacity <= 0:
         return json_response({"success": False, "message": "Capacity must be greater than 0."}, 400)
-    if not 11 <= len(chassis_number) <= 17:
-        return json_response({"success": False, "message": "Chassis number must be 11 to 17 characters."}, 400)
+    if not is_valid_chassis_number(chassis_number):
+        return json_response({"success": False, "message": CHASSIS_NUMBER_MESSAGE}, 400)
 
-    catalog_type_key = parse_optional_text(form.get("catalog_type_key"))
+    catalog_type_key = parse_optional_text(form.get("catalog_type_key")) or truck_type
     catalog_type = get_catalog_type(catalog_type_key) if catalog_type_key else None
     catalog_specs_raw = parse_optional_text(form.get("catalog_specs_json"))
     if catalog_specs_raw:
@@ -94,38 +110,68 @@ def create_truck():
 
     stamp = timestamp_bundle()
     with open_db() as db:
-        db.execute(
-            """
-            INSERT INTO trucks (
-                owner_user_id, truck_number, truck_type, catalog_type_key,
-                chassis_number, capacity_tons, main_use,
-                payload_min_kg, payload_max_kg, volume_min_cbm, volume_max_cbm,
-                body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id,
-                status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'active', ?, ?)
-            """,
-            (
-                request.current_user["id"],
-                truck_number,
-                truck_type,
-                catalog_type_key,
-                chassis_number,
-                capacity,
-                main_use,
-                parse_optional_float(form.get("payload_min_kg")) if form.get("payload_min_kg") is not None else (catalog_type.get("payload_min_kg") if catalog_type else None),
-                parse_optional_float(form.get("payload_max_kg")) if form.get("payload_max_kg") is not None else (catalog_type.get("payload_max_kg") if catalog_type else None),
-                parse_optional_float(form.get("volume_min_cbm")) if form.get("volume_min_cbm") is not None else (catalog_type.get("volume_min_cbm") if catalog_type else None),
-                parse_optional_float(form.get("volume_max_cbm")) if form.get("volume_max_cbm") is not None else (catalog_type.get("volume_max_cbm") if catalog_type else None),
-                parse_optional_text(form.get("body_style")) or (catalog_type.get("typical_body_style") if catalog_type else None),
-                catalog_specs_raw,
-                parse_optional_text(form.get("driverName")),
-                parse_optional_cnic(form.get("driverCnic")),
-                parse_optional_text(form.get("trackingId")),
-                stamp["display"],
-                stamp["display"],
-            ),
-        )
-        db.commit()
+        existing_truck_number = db.execute(
+            "SELECT id FROM trucks WHERE trim(truck_number) = ? COLLATE NOCASE LIMIT 1",
+            (truck_number,),
+        ).fetchone()
+        if existing_truck_number:
+            return json_response({"success": False, "message": "This truck number is already registered in the system."}, 409)
+
+        existing_chassis_number = db.execute(
+            "SELECT id FROM trucks WHERE trim(chassis_number) = ? COLLATE NOCASE LIMIT 1",
+            (chassis_number,),
+        ).fetchone()
+        if existing_chassis_number:
+            return json_response({"success": False, "message": "This chassis number is already registered in the system."}, 409)
+
+        try:
+            db.execute(
+                """
+                INSERT INTO trucks (
+                    owner_user_id, truck_number, truck_type, catalog_type_key,
+                    chassis_number, capacity_tons, main_use,
+                    payload_min_kg, payload_max_kg, volume_min_cbm, volume_max_cbm,
+                    body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id,
+                    status, created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inactive', ?, ?)
+                """,
+                (
+                    request.current_user["id"],
+                    truck_number,
+                    truck_type,
+                    catalog_type_key,
+                    chassis_number,
+                    capacity,
+                    main_use,
+                    parse_optional_float(form.get("payload_min_kg")) if form.get("payload_min_kg") is not None else (catalog_type.get("payload_min_kg") if catalog_type else None),
+                    parse_optional_float(form.get("payload_max_kg")) if form.get("payload_max_kg") is not None else (catalog_type.get("payload_max_kg") if catalog_type else None),
+                    parse_optional_float(form.get("volume_min_cbm")) if form.get("volume_min_cbm") is not None else (catalog_type.get("volume_min_cbm") if catalog_type else None),
+                    parse_optional_float(form.get("volume_max_cbm")) if form.get("volume_max_cbm") is not None else (catalog_type.get("volume_max_cbm") if catalog_type else None),
+                    parse_optional_text(form.get("body_style")) or (catalog_type.get("typical_body_style") if catalog_type else None),
+                    catalog_specs_raw,
+                    parse_optional_text(form.get("driverName")),
+                    parse_optional_cnic(form.get("driverCnic")),
+                    parse_optional_text(form.get("trackingId")),
+                    stamp["display"],
+                    stamp["display"],
+                ),
+            )
+            db.commit()
+        except sqlite3.IntegrityError:
+            duplicate_truck_number = db.execute(
+                "SELECT id FROM trucks WHERE trim(truck_number) = ? COLLATE NOCASE LIMIT 1",
+                (truck_number,),
+            ).fetchone()
+            if duplicate_truck_number:
+                return json_response({"success": False, "message": "This truck number is already registered in the system."}, 409)
+
+            duplicate_chassis_number = db.execute(
+                "SELECT id FROM trucks WHERE trim(chassis_number) = ? COLLATE NOCASE LIMIT 1",
+                (chassis_number,),
+            ).fetchone()
+            if duplicate_chassis_number:
+                return json_response({"success": False, "message": "This chassis number is already registered in the system."}, 409)
+            raise
 
     return json_response({"success": True, "message": "Truck registered successfully"})
 
@@ -144,6 +190,38 @@ def list_trucks():
         ).fetchall()
 
     return json_response({"success": True, "trucks": [build_truck_payload(dict(row)) for row in rows]})
+
+
+@trucks_blueprint.get("/api/trucks/stats")
+@login_required
+def truck_stats():
+    with open_db() as db:
+        row = db.execute(
+            """
+            SELECT
+                COUNT(*) AS total,
+                SUM(CASE WHEN status = 'active' THEN 1 ELSE 0 END) AS available,
+                SUM(CASE WHEN status = 'on_job' THEN 1 ELSE 0 END) AS on_job,
+                SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance,
+                SUM(CASE WHEN status IN ('inactive', 'blocked') THEN 1 ELSE 0 END) AS inactive
+            FROM trucks
+            WHERE owner_user_id = ?
+            """,
+            (request.current_user["id"],),
+        ).fetchone()
+
+    return json_response(
+        {
+            "success": True,
+            "stats": {
+                "total": int(row["total"] or 0),
+                "available": int(row["available"] or 0),
+                "onJob": int(row["on_job"] or 0),
+                "maintenance": int(row["maintenance"] or 0),
+                "inactive": int(row["inactive"] or 0),
+            },
+        }
+    )
 
 
 @trucks_blueprint.get("/api/trucks/<int:truck_id>")
@@ -176,9 +254,9 @@ def update_truck_configuration(truck_id):
     form = request.form
     truck_number = (form.get("truck_number") or "").strip()
     truck_type = (form.get("truck_type") or "").strip()
-    catalog_type_key = (form.get("catalog_type_key") or "").strip()
+    catalog_type_key = parse_optional_text(form.get("catalog_type_key")) or parse_optional_text(truck_type)
     max_capacity_raw = (form.get("max_capacity") or "").strip()
-    chassis_number = (form.get("chassis_number") or "").strip()
+    chassis_number = normalize_chassis_number(form.get("chassis_number"))
     operating_provinces_raw = (form.get("operating_provinces") or "").strip()
     per_km_rate_raw = (form.get("per_km_rate") or "").strip()
     waiting_charge_raw = (form.get("waiting_charge_per_hour") or "").strip()
@@ -215,8 +293,8 @@ def update_truck_configuration(truck_id):
         return json_response({"success": False, "message": "Waiting charge per hour must be greater than 0."}, 400)
     if loading_charge is not None and loading_charge < 0:
         return json_response({"success": False, "message": "Loading charge cannot be negative."}, 400)
-    if not 11 <= len(chassis_number) <= 17:
-        return json_response({"success": False, "message": "Chassis number must be 11 to 17 characters."}, 400)
+    if not is_valid_chassis_number(chassis_number):
+        return json_response({"success": False, "message": CHASSIS_NUMBER_MESSAGE}, 400)
 
     operating_provinces = ",".join([item.strip() for item in operating_provinces_raw.split(",") if item.strip()])
     if not operating_provinces:
@@ -251,7 +329,7 @@ def update_truck_configuration(truck_id):
             (
                 truck_number,
                 truck_type or (get_catalog_type(catalog_type_key) or {}).get("display_name") or truck.get("truck_type"),
-                parse_optional_text(catalog_type_key),
+                catalog_type_key,
                 chassis_number,
                 max_capacity,
                 operating_provinces,

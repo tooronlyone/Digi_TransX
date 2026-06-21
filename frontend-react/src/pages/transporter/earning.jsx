@@ -113,7 +113,7 @@ export default function Earning() {
               iconClass: 'payout-icon--amber',
               footer: 'This month',
               action: 'History',
-              to: '/transporter/jobs/history',
+              to: '/transporter/bids',
             },
             {
               value: earnings.rating,

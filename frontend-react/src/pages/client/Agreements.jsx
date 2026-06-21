@@ -11,7 +11,7 @@ import {
   formatMoney,
 } from './clientUtils'
 
-const activeAgreementStatuses = new Set(['active', 'pending', 'working', 'confirmed', 'in_progress', 'assigned'])
+const activeAgreementStatuses = new Set(['accepted', 'in_progress', 'completed'])
 
 export default function Agreements() {
   const [agreements, setAgreements] = useState([])
@@ -22,9 +22,9 @@ export default function Agreements() {
     setLoading(true)
     setError('')
     try {
-      const json = await apiGet('/api/client/orders?limit=200')
-      const orders = json.orders || json.data?.orders || []
-      setAgreements(orders.filter((order) => String(order.order_type || '').toLowerCase() === 'agreement'))
+      const json = await apiGet('/api/orders/mine')
+      const orders = json.orders || []
+      setAgreements(orders.filter((order) => activeAgreementStatuses.has(String(order.status || '').toLowerCase())))
     } catch (err) {
       setError(err.message || 'Failed to load agreement orders.')
     } finally {
@@ -37,10 +37,10 @@ export default function Agreements() {
   }, [])
 
   const metrics = useMemo(() => {
-    const active = agreements.filter((order) => activeAgreementStatuses.has(String(order.status || '').toLowerCase())).length
+    const active = agreements.filter((order) => ['accepted', 'in_progress'].includes(String(order.status || '').toLowerCase())).length
     const completed = agreements.filter((order) => String(order.status || '').toLowerCase() === 'completed').length
     return [
-      { label: 'Total Agreement Orders', value: agreements.length, icon: 'fa-file-signature', tone: 'bg-blue-50 text-blue-700' },
+      { label: 'Accepted Orders', value: agreements.length, icon: 'fa-file-signature', tone: 'bg-blue-50 text-blue-700' },
       { label: 'Active Agreements', value: active, icon: 'fa-check-circle', tone: 'bg-emerald-50 text-emerald-700' },
       { label: 'Completed Agreements', value: completed, icon: 'fa-clipboard-check', tone: 'bg-slate-100 text-slate-700' },
     ]
@@ -50,11 +50,11 @@ export default function Agreements() {
     <>
       <PageTitle
         title="Agreements"
-        subtitle="Manage your long-term transportation agreements and view contract details."
+        subtitle="Review accepted order relationships and completed client-transporter agreements."
         actions={
           <>
-            <Link to="/client/order/agreement" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-              <i className="fas fa-plus" aria-hidden="true"></i> New Agreement
+            <Link to="/client/post-order" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+              <i className="fas fa-plus" aria-hidden="true"></i> Post Order
             </Link>
             <PrimaryButton type="button" onClick={loadAgreements} disabled={loading}>
               <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`} aria-hidden="true"></i>
@@ -84,7 +84,7 @@ export default function Agreements() {
         {loading && <StateMessage type="loading">Loading agreement data...</StateMessage>}
         {error && <StateMessage type="error">{error}</StateMessage>}
         {!loading && !error && agreements.length === 0 && (
-          <StateMessage type="empty">No agreement orders found. Create one from the Agreement Order form.</StateMessage>
+          <StateMessage type="empty">No accepted or completed order agreements found yet.</StateMessage>
         )}
         {!loading && !error && agreements.length > 0 && (
           <div className="overflow-x-auto">
@@ -95,19 +95,19 @@ export default function Agreements() {
                   <th className="px-4 py-3">Pickup</th>
                   <th className="px-4 py-3">Drop</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Fare</th>
+                  <th className="px-4 py-3">Budget</th>
                   <th className="px-4 py-3">Date</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
                 {agreements.map((order) => (
-                  <tr key={order.order_id || order.id}>
-                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{order.order_id || order.id}</td>
-                    <td className="px-4 py-3 text-slate-600">{order.pickup_location || '-'}</td>
-                    <td className="px-4 py-3 text-slate-600">{order.drop_location || '-'}</td>
+                  <tr key={order.id}>
+                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{order.id}</td>
+                    <td className="px-4 py-3 text-slate-600">{order.pickup_city || '-'}</td>
+                    <td className="px-4 py-3 text-slate-600">{order.dropoff_city || '-'}</td>
                     <td className="px-4 py-3"><StatusBadge status={order.status} /></td>
-                    <td className="px-4 py-3 text-slate-700">{formatMoney(order.total_fare)}</td>
-                    <td className="px-4 py-3 text-slate-600">{formatDate(order.scheduled_date || order.created_at)}</td>
+                    <td className="px-4 py-3 text-slate-700">{formatMoney(order.estimated_budget || 0)}</td>
+                    <td className="px-4 py-3 text-slate-600">{formatDate(order.created_at)}</td>
                   </tr>
                 ))}
               </tbody>

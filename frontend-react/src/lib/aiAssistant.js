@@ -87,16 +87,10 @@ const EXACT_PAGE_MAP = {
     pagePurpose: 'Browse new jobs and apply to work that fits your fleet.',
     availableActions: ['page_explain', 'navigation', 'info_query'],
   },
-  '/transporter/jobs/active': {
-    pageName: 'transporter_active_jobs',
-    pageLabel: 'Active Jobs',
-    pagePurpose: 'Track jobs that are currently in progress.',
-    availableActions: ['page_explain', 'navigation', 'info_query'],
-  },
-  '/transporter/jobs/history': {
-    pageName: 'transporter_job_history',
-    pageLabel: 'Job History',
-    pagePurpose: 'Review completed, disputed, or cancelled job records.',
+  '/transporter/bids': {
+    pageName: 'transporter_my_bids',
+    pageLabel: 'My Bids',
+    pagePurpose: 'Track the status of bids placed on client orders.',
     availableActions: ['page_explain', 'navigation', 'info_query'],
   },
   '/transporter/maintenance': {

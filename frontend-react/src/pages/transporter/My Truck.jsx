@@ -114,21 +114,21 @@ export default function MyTruck() {
                     <span>Capacity</span>
                     <b>{truck.capacity || emptyValue}</b>
                   </div>
-                  <div>
-                    <span>Year</span>
-                    <b>{truck.year || emptyValue}</b>
-                  </div>
-                  <div>
-                    <span>Mileage</span>
-                    <b>{truck.mileage || emptyValue}</b>
-                  </div>
                 </div>
 
                 <div className="mytrucks-card-meta">
                   <span><i className="fas fa-route"></i>{truck.location || 'Karachi Depot'}</span>
                   <div>
                     <Link to={`/transporter/trucks/edit/${truck.id}`} className="mytrucks-ghost-btn">Edit</Link>
-                    <Link to={`/transporter/trucks/${truck.id}`} className="mytrucks-action-small">Track</Link>
+                    {truck.status === 'active' ? (
+                      <Link to={`/transporter/trucks/${truck.id}`} className="mytrucks-action-small">
+                        Track
+                      </Link>
+                    ) : (
+                      <Link to={`/transporter/trucks/config/${truck.id}`} className="mytrucks-action-small mytrucks-activate-btn">
+                        Activate
+                      </Link>
+                    )}
                   </div>
                 </div>
               </article>

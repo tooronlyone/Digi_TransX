@@ -23,8 +23,7 @@ export default function TransporterDashboard() {
   const [stats, setStats] = useState({ total: 0, active: 0, available: 0, onJob: 0, maintenance: 0 })
   const [trucks, setTrucks] = useState([])
   const [jobs, setJobs] = useState([])
-  const [truckFilter, setTruckFilter] = useState('all')
-  const [jobFilter, setJobFilter] = useState('all')
+  const [bids, setBids] = useState([])
   const [loading, setLoading] = useState(true)
   const [user, setUser] = useState(null)
 
@@ -35,8 +34,9 @@ export default function TransporterDashboard() {
     Promise.allSettled([
       get('/api/trucks/stats'),
       get('/api/trucks'),
-      get('/api/jobs/active'),
-    ]).then(([statsRes, trucksRes, jobsRes]) => {
+      get('/api/orders/available'),
+      get('/api/orders/my-bids'),
+    ]).then(([statsRes, trucksRes, jobsRes, bidsRes]) => {
       if (statsRes.status === 'fulfilled' && statsRes.value.success) {
         setStats(statsRes.value.stats)
       }
@@ -44,41 +44,23 @@ export default function TransporterDashboard() {
         setTrucks(trucksRes.value.trucks || [])
       }
       if (jobsRes.status === 'fulfilled' && jobsRes.value.success) {
-        setJobs(jobsRes.value.jobs || [])
+        setJobs(jobsRes.value.orders || [])
+      }
+      if (bidsRes.status === 'fulfilled' && bidsRes.value.success) {
+        setBids(bidsRes.value.bids || [])
       }
     }).finally(() => setLoading(false))
   }, [])
 
-  const filteredTrucks = truckFilter === 'all'
-    ? trucks
-    : trucks.filter(t => {
-        if (truckFilter === 'active') return t.status === 'active' || t.status === 'available'
-        if (truckFilter === 'maintenance') return t.status === 'maintenance'
-        return true
-      })
-
-  const filteredJobs = jobFilter === 'all'
-    ? jobs
-    : jobs.filter(j => {
-        const s = (j.status || '').toLowerCase()
-        if (jobFilter === 'active') return s === 'active' || s === 'in_transit' || s === 'pickup_pending'
-        if (jobFilter === 'completed') return s === 'completed' || s === 'delivered'
-        if (jobFilter === 'pending') return s === 'pending' || s === 'assigned'
-        return true
-      })
-
   const userName = user ? ((user.first_name || '') + ' ' + (user.last_name || '')).trim() || user.username : ''
-  const recentTrucks = filteredTrucks.slice(0, 4)
+  const recentTrucks = trucks.slice(0, 4)
   const emptyValue = '\u2014'
-  void filteredJobs
-  void setTruckFilter
-  void setJobFilter
 
   return (
     <TransporterLayout>
       <div className="dashboard-page-title">
         <h1>Transporter Dashboard</h1>
-        <p>Welcome back{userName ? ', ' + userName : ''}! Manage your trucks and jobs here.</p>
+        <p>Welcome back{userName ? ', ' + userName : ''}! Manage your trucks, bids, and matching jobs here.</p>
       </div>
 
       <div className="dashboard-kpi-grid">
@@ -99,8 +81,8 @@ export default function TransporterDashboard() {
         <article className="dashboard-stat-card">
           <div className="dashboard-stat-card__header">
             <div>
-              <div className="dashboard-card-value">{loading ? <i className="fas fa-spinner fa-spin"></i> : stats.available}</div>
-              <div className="dashboard-card-title">Available Trucks</div>
+              <div className="dashboard-card-value">{loading ? <i className="fas fa-spinner fa-spin"></i> : jobs.length}</div>
+              <div className="dashboard-card-title">Matching Jobs</div>
             </div>
             <div className="dashboard-card-icon dashboard-card-icon--available"><i className="fas fa-clipboard-list"></i></div>
           </div>
@@ -113,14 +95,14 @@ export default function TransporterDashboard() {
         <article className="dashboard-stat-card">
           <div className="dashboard-stat-card__header">
             <div>
-              <div className="dashboard-card-value">{loading ? <i className="fas fa-spinner fa-spin"></i> : jobs.length}</div>
-              <div className="dashboard-card-title">Active Jobs</div>
+              <div className="dashboard-card-value">{loading ? <i className="fas fa-spinner fa-spin"></i> : bids.filter((bid) => bid.status === 'pending').length}</div>
+              <div className="dashboard-card-title">Pending Bids</div>
             </div>
-            <div className="dashboard-card-icon dashboard-card-icon--active"><i className="fas fa-shipping-fast"></i></div>
+            <div className="dashboard-card-icon dashboard-card-icon--active"><i className="fas fa-gavel"></i></div>
           </div>
           <div className="dashboard-card-footer">
-            <span>{stats.maintenance} in maintenance</span>
-            <Link to="/transporter/jobs/active" className="dashboard-action-small">Details</Link>
+            <span>{bids.filter((bid) => bid.status === 'accepted').length} accepted</span>
+            <Link to="/transporter/bids" className="dashboard-action-small">Details</Link>
           </div>
         </article>
 
@@ -152,10 +134,10 @@ export default function TransporterDashboard() {
             <span>Find Jobs</span>
             <div>Browse available shipments</div>
           </Link>
-          <Link to="/transporter/jobs/active" className="dashboard-action-tile">
-            <i className="fas fa-map-marked-alt"></i>
-            <span>Track Jobs</span>
-            <div>Monitor active shipments</div>
+          <Link to="/transporter/bids" className="dashboard-action-tile">
+            <i className="fas fa-gavel"></i>
+            <span>My Bids</span>
+            <div>Track accepted and pending proposals</div>
           </Link>
           <Link to="/transporter/earnings" className="dashboard-action-tile">
             <i className="fas fa-wallet"></i>

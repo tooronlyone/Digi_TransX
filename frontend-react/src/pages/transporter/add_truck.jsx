@@ -178,7 +178,9 @@ export default function AddTruck() {
               <div className="form-group">
                 <label htmlFor="chassisNumber" className="required">Chassis Number</label>
                 <input type="text" id="chassisNumber" name="chassisNumber" required
+                  pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{11,17}"
                   placeholder="11 to 17 letters/numbers from vehicle documents" />
+                <small>11-17 characters, letters and numbers only (I, O, Q not allowed)</small>
               </div>
 
               <div className="form-group">

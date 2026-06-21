@@ -1,13 +1,13 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { getCsrfToken } from '../../pages/client/clientUtils'
+import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: 'fa-home', path: '/client/dashboard' },
-  { label: 'Place Order', icon: 'fa-shipping-fast', path: '/client/place-order', badge: 'New', match: ['/client/order'] },
-  { label: 'Order History', icon: 'fa-history', path: '/client/orders/history' },
-  { label: 'Current Orders', icon: 'fa-clipboard-list', path: '/client/orders/current' },
-  { label: 'Your Balance', icon: 'fa-wallet', path: '/client/balance' },
+  { label: 'Post Order', icon: 'fa-shipping-fast', path: '/client/post-order', badge: 'New' },
+  { label: 'My Orders', icon: 'fa-clipboard-list', path: '/client/orders' },
+  { label: 'Messages', icon: 'fa-comments', path: '/client/messages' },
+  { label: 'Your Wallet', icon: 'fa-wallet', path: '/client/wallet', match: ['/client/balance'] },
   { label: 'Cargo Insurance', icon: 'fa-shield-alt', path: '/client/insurance.html', legacy: true },
   { label: 'Documents', icon: 'fa-file-alt', path: '/client/documents.html', legacy: true },
   { label: 'Agreements', icon: 'fa-file-contract', path: '/client/agreements' },
@@ -24,6 +24,7 @@ export default function ClientLayout({ children }) {
     name: 'Client',
     role: 'Service Seeker',
   })
+  const [unreadTotal, setUnreadTotal] = useState(0)
 
   useEffect(() => {
     const stored = sessionStorage.getItem('user')
@@ -38,6 +39,26 @@ export default function ClientLayout({ children }) {
     } catch (_) {}
   }, [])
 
+  useEffect(() => {
+    let mounted = true
+
+    async function loadUnread() {
+      try {
+        const json = await apiGet('/api/chat/threads')
+        if (!mounted) return
+        const total = (json.threads || []).reduce((sum, thread) => sum + Number(thread.unread_count || 0), 0)
+        setUnreadTotal(total)
+      } catch (_) {}
+    }
+
+    loadUnread()
+    const intervalId = window.setInterval(loadUnread, 4000)
+    return () => {
+      mounted = false
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
   const initials = useMemo(() => {
     return user.name
       .split(/\s+/)
@@ -47,6 +68,15 @@ export default function ClientLayout({ children }) {
       .join('')
       .toUpperCase() || 'CL'
   }, [user.name])
+
+  const navItems = useMemo(
+    () => NAV_ITEMS.map((item) => (
+      item.path === '/client/messages'
+        ? { ...item, badge: unreadTotal > 0 ? String(unreadTotal) : '' }
+        : item
+    )),
+    [unreadTotal],
+  )
 
   async function handleLogout() {
     try {
@@ -80,7 +110,7 @@ export default function ClientLayout({ children }) {
         </Link>
       </div>
       <ul className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-        {NAV_ITEMS.map((item) => {
+        {navItems.map((item) => {
           const active = isActive(item)
           const classes = `flex min-h-11 items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold transition ${
             active

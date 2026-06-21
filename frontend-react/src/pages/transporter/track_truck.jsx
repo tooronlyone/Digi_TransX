@@ -76,7 +76,7 @@ export default function TrackTruck() {
                 <i className={`fas fa-rotate-right${loading ? ' fa-spin' : ''}`}></i> Refresh
               </button>
               {activeJob && (
-                <Link className="btn-secondary" to="/transporter/jobs/active">
+                <Link className="btn-secondary" to="/transporter/bids">
                   <i className="fas fa-briefcase"></i> Open Active Job
                 </Link>
               )}

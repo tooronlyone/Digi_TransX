@@ -10,11 +10,14 @@ if str(CURRENT_DIR) not in sys.path:
 
 from auth import auth_blueprint
 from auth.helpers import json_response
+from chat import chat_blueprint
 from profile import profile_blueprint
+from orders import orders_blueprint
 from settings import settings_blueprint
 from shared.db import FRONTEND_DIST, init_db
 from tracking import tracking_blueprint
 from trucks import trucks_blueprint
+from wallet import wallet_blueprint
 
 
 app = Flask(__name__)
@@ -24,10 +27,13 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") == "production"
 
 app.register_blueprint(auth_blueprint)
+app.register_blueprint(chat_blueprint)
 app.register_blueprint(profile_blueprint)
+app.register_blueprint(orders_blueprint)
 app.register_blueprint(settings_blueprint)
 app.register_blueprint(tracking_blueprint)
 app.register_blueprint(trucks_blueprint)
+app.register_blueprint(wallet_blueprint)
 
 init_db()
 

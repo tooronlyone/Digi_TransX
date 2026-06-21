@@ -8,7 +8,7 @@ const CATEGORIES = [
   { icon: 'fas fa-rupee-sign', title: 'Payments & Earnings', desc: 'Transactions, withdrawals, and earnings', link: '/transporter/earnings' },
   { icon: 'fas fa-tools', title: 'Fleet Overview', desc: 'Review truck status and service history from active fleet pages', link: '/transporter/trucks' },
   { icon: 'fas fa-gas-pump', title: 'Account History', desc: 'Review payments and historical account entries', link: '/transporter/account-history' },
-  { icon: 'fas fa-chart-line', title: 'Job History', desc: 'Review completed and past shipment work', link: '/transporter/jobs/history' },
+  { icon: 'fas fa-chart-line', title: 'My Bids', desc: 'Review pending, accepted, and withdrawn bids', link: '/transporter/bids' },
   { icon: 'fas fa-cog', title: 'Account Settings', desc: 'Profile, notifications, and security', link: '/transporter/settings' },
   { icon: 'fas fa-headset', title: 'Contact Support', desc: 'Reach our team for any help', link: '/transporter/contact' },
 ]

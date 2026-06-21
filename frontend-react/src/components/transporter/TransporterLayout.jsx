@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getTransporterAllowedPaths, isTransporterPathAllowed } from './accessControl'
 import { NAV_ITEMS } from './navItems'
+import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
 import '../../styles/transporter.css'
 import '../../styles/extra.css'
 
@@ -14,6 +15,7 @@ export default function TransporterLayout({ children }) {
     organization_allowed_paths: [],
     defaultRoute: '/transporter/dashboard',
   })
+  const [unreadTotal, setUnreadTotal] = useState(0)
 
   useEffect(() => {
     const stored = sessionStorage.getItem('user')
@@ -30,14 +32,43 @@ export default function TransporterLayout({ children }) {
     }
   }, [])
 
+  useEffect(() => {
+    let mounted = true
+
+    async function loadUnread() {
+      try {
+        const json = await apiGet('/api/chat/threads')
+        if (!mounted) return
+        const total = (json.threads || []).reduce((sum, thread) => sum + Number(thread.unread_count || 0), 0)
+        setUnreadTotal(total)
+      } catch (_) {}
+    }
+
+    loadUnread()
+    const intervalId = window.setInterval(loadUnread, 4000)
+    return () => {
+      mounted = false
+      window.clearInterval(intervalId)
+    }
+  }, [])
+
   async function handleLogout() {
-    try { await fetch('/auth/logout', { method: 'POST', credentials: 'include' }) } catch (_) {}
+    try {
+      const csrf = await getCsrfToken()
+      await fetch('/auth/logout', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': csrf } })
+    } catch (_) {}
     sessionStorage.clear()
     navigate('/login')
   }
 
   const initials = user.name.slice(0, 2).toUpperCase()
-  const visibleNavItems = NAV_ITEMS.filter((item) => isTransporterPathAllowed(user, item.path))
+  const visibleNavItems = NAV_ITEMS
+    .map((item) => (
+      item.path === '/transporter/messages'
+        ? { ...item, badge: unreadTotal > 0 ? String(unreadTotal) : '' }
+        : item
+    ))
+    .filter((item) => isTransporterPathAllowed(user, item.path))
   const activePath = visibleNavItems.reduce((best, item) => {
     const exactMatch = location.pathname === item.path
     const nestedMatch = location.pathname.startsWith(`${item.path}/`)
@@ -98,6 +129,7 @@ export default function TransporterLayout({ children }) {
                 >
                   <i className={`fas ${item.icon}`}></i>
                   <span className="nav-text">{item.label}</span>
+                  {item.badge && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">{item.badge}</span>}
                 </Link>
               </li>
             )

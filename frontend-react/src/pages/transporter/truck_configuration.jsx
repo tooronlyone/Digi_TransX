@@ -342,8 +342,20 @@ export default function TruckConfiguration() {
                       value={statusForm.status}
                       onChange={e => setStatusForm(current => ({ ...current, status: e.target.value, reason_code: e.target.value === 'active' ? '' : current.reason_code }))}
                     >
-                      {STATUS_OPTIONS.map(option => <option key={option.value} value={option.value}>{option.label}</option>)}
+                      {STATUS_OPTIONS.map(option => (
+                        <option
+                          key={option.value}
+                          value={option.value}
+                          disabled={option.value === 'active' && missing.length > 0}
+                        >
+                          {option.label}
+                          {option.value === 'active' && missing.length > 0 ? ' (complete required fields first)' : ''}
+                        </option>
+                      ))}
                     </select>
+                    {missing.length > 0 && (
+                      <small>Complete these fields before activation: {missing.map(k => k.replace(/_/g, ' ')).join(', ')}</small>
+                    )}
                   </label>
                   {statusForm.status !== 'active' && (
                     <label>
@@ -396,8 +408,8 @@ export default function TruckConfiguration() {
                     <label>
                       Chassis Number
                       <input type="text" name="chassis_number" value={form.chassis_number} onChange={setField}
-                        placeholder="Enter chassis number" required />
-                      <small>Required for truck activation and identity verification.</small>
+                        placeholder="Enter chassis number" pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{11,17}" required />
+                      <small>11-17 characters, letters and numbers only (I, O, Q not allowed)</small>
                     </label>
                     <label>
                       Body Style

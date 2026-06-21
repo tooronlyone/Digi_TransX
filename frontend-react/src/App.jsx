@@ -29,10 +29,10 @@ import EditTruck from './pages/transporter/edit_truck'
 import TruckConfiguration from './pages/transporter/truck_configuration'
 import TrackTruck from './pages/transporter/track_truck'
 import ServiceHistory from './pages/transporter/service_history'
-import AvailableJobs from './pages/transporter/job'
-import ActiveJobs from './pages/transporter/active_job'
-import JobHistory from './pages/transporter/job_history'
+import AvailableJobs from './pages/transporter/AvailableJobs'
+import MyBids from './pages/transporter/MyBids'
 import Earnings from './pages/transporter/earning'
+import TransporterWallet from './pages/transporter/wallet'
 import AccountHistory from './pages/transporter/ac_history'
 import Profile from './pages/transporter/profile'
 import Settings from './pages/transporter/settings'
@@ -68,14 +68,13 @@ import OrgPartnerDashboard from './pages/org/partner/Dashboard'
 import OrgPartnerDepartments from './pages/org/partner/Departments'
 import OrgPartnerActivity from './pages/org/partner/Activity'
 import ClientDashboard from './pages/client/ClientDashboard'
-import PlaceOrder from './pages/client/PlaceOrder'
-import OneTimeOrder from './pages/client/OneTimeOrder'
-import AgreementOrder from './pages/client/AgreementOrder'
-import CurrentOrders from './pages/client/CurrentOrders'
-import OrderHistory from './pages/client/OrderHistory'
+import PostOrder from './pages/client/PostOrder'
+import MyOrders from './pages/client/MyOrders'
 import Agreements from './pages/client/Agreements'
-import Balance from './pages/client/Balance'
+import Wallet from './pages/client/Wallet'
 import ClientAccount from './pages/client/ClientAccount'
+import ClientMessages from './pages/client/Messages'
+import TransporterMessages from './pages/transporter/Messages'
 
 function ClientGuard({ children }) {
   const { ready } = useClientAuth()
@@ -99,14 +98,13 @@ function ClientPortal() {
         <Routes>
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="dashboard" element={<ClientDashboard />} />
-          <Route path="place-order" element={<PlaceOrder />} />
-          <Route path="order/one-time" element={<OneTimeOrder />} />
-          <Route path="order/agreement" element={<AgreementOrder />} />
-          <Route path="orders/current" element={<CurrentOrders />} />
-          <Route path="orders/history" element={<OrderHistory />} />
+          <Route path="post-order" element={<PostOrder />} />
+          <Route path="orders" element={<MyOrders />} />
           <Route path="agreements" element={<Agreements />} />
-          <Route path="balance" element={<Balance />} />
+          <Route path="wallet" element={<Wallet />} />
+          <Route path="balance" element={<Wallet />} />
           <Route path="account" element={<ClientAccount />} />
+          <Route path="messages" element={<ClientMessages />} />
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Routes>
       </ClientLayout>
@@ -131,12 +129,13 @@ function TransporterPortal() {
         <Route path="service-history" element={<ServiceHistory />} />
 
         <Route path="jobs" element={<AvailableJobs />} />
-        <Route path="jobs/active" element={<ActiveJobs />} />
-        <Route path="jobs/history" element={<JobHistory />} />
+        <Route path="bids" element={<MyBids />} />
+        <Route path="messages" element={<TransporterMessages />} />
 
         <Route path="account-history" element={<AccountHistory />} />
 
         <Route path="earnings" element={<Earnings />} />
+        <Route path="wallet" element={<TransporterWallet />} />
 
         <Route path="profile" element={<Profile />} />
         <Route path="settings" element={<Settings />} />

@@ -213,7 +213,7 @@ export default function CustomerRating() {
           <Link to="/transporter/dashboard" className="page-shortcut">
             <i className="fas fa-tachometer-alt"></i><span>Dashboard</span>
           </Link>
-          <Link to="/transporter/jobs/history" className="page-shortcut">
+          <Link to="/transporter/bids" className="page-shortcut">
             <i className="fas fa-history"></i><span>Job History</span>
           </Link>
           <Link to="/transporter/earnings" className="page-shortcut">

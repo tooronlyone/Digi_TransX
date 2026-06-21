@@ -1,16 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   PageTitle,
   PrimaryButton,
-  SecondaryButton,
   SectionCard,
   StateMessage,
   StatusBadge,
   apiGet,
   formatMoney,
-  isActiveStatus,
-  isCompletedStatus,
 } from './clientUtils'
 
 const initialStats = {
@@ -23,7 +20,6 @@ const initialStats = {
 export default function ClientDashboard() {
   const [stats, setStats] = useState(initialStats)
   const [orders, setOrders] = useState([])
-  const [filter, setFilter] = useState('all')
   const [dashboardLoading, setDashboardLoading] = useState(true)
   const [ordersLoading, setOrdersLoading] = useState(true)
   const [dashboardError, setDashboardError] = useState('')
@@ -33,17 +29,17 @@ export default function ClientDashboard() {
     setDashboardLoading(true)
     setDashboardError('')
     try {
-      const [dashboardJson, balanceJson] = await Promise.all([
-        apiGet('/api/client/dashboard'),
-        apiGet('/api/client/balance'),
+      const [ordersJson, balanceJson] = await Promise.all([
+        apiGet('/api/orders/mine'),
+        apiGet('/api/wallet'),
       ])
-      const dashboardStats = dashboardJson.stats || dashboardJson.data?.stats || {}
-      const balance = balanceJson.balance || balanceJson.data?.balance || {}
+      const myOrders = ordersJson.orders || []
+      const wallet = balanceJson.wallet || {}
       setStats({
-        walletBalance: balance.balance ?? dashboardStats.walletBalance ?? dashboardStats.wallet_balance ?? 0,
-        totalOrders: dashboardStats.totalOrders ?? dashboardStats.total_orders ?? 0,
-        activeOrders: dashboardStats.activeOrders ?? dashboardStats.active_orders ?? 0,
-        completedOrders: dashboardStats.completedOrders ?? dashboardStats.deliveredOrders ?? dashboardStats.delivered_orders ?? 0,
+        walletBalance: wallet.balance ?? 0,
+        totalOrders: myOrders.length,
+        activeOrders: myOrders.filter((order) => ['open', 'accepted', 'in_progress'].includes(order.status)).length,
+        completedOrders: myOrders.filter((order) => order.status === 'completed').length,
       })
     } catch (error) {
       setDashboardError(error.message || 'Failed to load dashboard.')
@@ -56,8 +52,8 @@ export default function ClientDashboard() {
     setOrdersLoading(true)
     setOrdersError('')
     try {
-      const json = await apiGet('/api/client/orders?limit=50')
-      setOrders(json.orders || json.data?.orders || [])
+      const json = await apiGet('/api/orders/mine')
+      setOrders((json.orders || []).slice(0, 6))
     } catch (error) {
       setOrdersError(error.message || 'Failed to load recent orders.')
     } finally {
@@ -70,12 +66,6 @@ export default function ClientDashboard() {
     loadOrders()
   }, [])
 
-  const filteredOrders = useMemo(() => {
-    if (filter === 'active') return orders.filter((order) => isActiveStatus(order.status))
-    if (filter === 'completed') return orders.filter((order) => isCompletedStatus(order.status))
-    return orders
-  }, [filter, orders])
-
   const statCards = [
     { label: 'Wallet Balance', value: formatMoney(stats.walletBalance), icon: 'fa-wallet', tone: 'bg-blue-50 text-blue-700' },
     { label: 'Total Orders', value: stats.totalOrders, icon: 'fa-receipt', tone: 'bg-emerald-50 text-emerald-700' },
@@ -87,7 +77,7 @@ export default function ClientDashboard() {
     <>
       <PageTitle
         title="Client Dashboard"
-        subtitle="Track your orders, manage shipments, and view your balance."
+        subtitle="Track your orders, compare bids, and keep an eye on your wallet balance."
       />
 
       <SectionCard>
@@ -112,14 +102,11 @@ export default function ClientDashboard() {
             </div>
 
             <div className="flex flex-wrap gap-2">
-              <Link to="/client/place-order" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-                <i className="fas fa-plus-circle" aria-hidden="true"></i> Place Order
+              <Link to="/client/post-order" className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                <i className="fas fa-plus-circle" aria-hidden="true"></i> Post Order
               </Link>
-              <Link to="/client/orders/current" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                <i className="fas fa-location-dot" aria-hidden="true"></i> Current Orders
-              </Link>
-              <Link to="/client/orders/history" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                <i className="fas fa-history" aria-hidden="true"></i> Order History
+              <Link to="/client/orders" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <i className="fas fa-gavel" aria-hidden="true"></i> My Orders
               </Link>
             </div>
           </div>
@@ -130,63 +117,47 @@ export default function ClientDashboard() {
         title="Recent Orders"
         icon="fa-clock"
         actions={
-          <>
-            {['all', 'active', 'completed'].map((name) => (
-              filter === name ? (
-                <PrimaryButton key={name} type="button" onClick={() => setFilter(name)}>
-                  {name[0].toUpperCase() + name.slice(1)}
-                </PrimaryButton>
-              ) : (
-                <SecondaryButton key={name} type="button" onClick={() => setFilter(name)}>
-                  {name[0].toUpperCase() + name.slice(1)}
-                </SecondaryButton>
-              )
-            ))}
-            <PrimaryButton type="button" onClick={loadOrders} disabled={ordersLoading}>
-              <i className={`fas ${ordersLoading ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`} aria-hidden="true"></i>
-              Refresh
-            </PrimaryButton>
-          </>
+          <PrimaryButton type="button" onClick={loadOrders} disabled={ordersLoading}>
+            <i className={`fas ${ordersLoading ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`} aria-hidden="true"></i>
+            Refresh
+          </PrimaryButton>
         }
       >
         {ordersLoading && <StateMessage type="loading">Loading recent orders...</StateMessage>}
         {ordersError && <StateMessage type="error">{ordersError}</StateMessage>}
-        {!ordersLoading && !ordersError && filteredOrders.length === 0 && (
-          <StateMessage type="empty">No orders found for this filter.</StateMessage>
+        {!ordersLoading && !ordersError && orders.length === 0 && (
+          <StateMessage type="empty">No orders found yet.</StateMessage>
         )}
-        {!ordersLoading && !ordersError && filteredOrders.length > 0 && (
+        {!ordersLoading && !ordersError && orders.length > 0 && (
           <div className="overflow-x-auto">
             <table className="min-w-full divide-y divide-slate-200 text-sm">
               <thead className="bg-slate-50 text-left text-xs font-bold uppercase tracking-normal text-slate-500">
                 <tr>
                   <th className="px-4 py-3">Order ID</th>
                   <th className="px-4 py-3">Route</th>
-                  <th className="px-4 py-3">Type</th>
+                  <th className="px-4 py-3">Goods</th>
                   <th className="px-4 py-3">Status</th>
-                  <th className="px-4 py-3">Amount</th>
+                  <th className="px-4 py-3">Budget</th>
                   <th className="px-4 py-3">Action</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100 bg-white">
-                {filteredOrders.map((order) => {
-                  const orderId = order.order_id || order.id
-                  return (
-                    <tr key={orderId}>
-                      <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{orderId || '-'}</td>
-                      <td className="px-4 py-3 text-slate-600">
-                        {order.pickup_location || '-'} <i className="fas fa-arrow-right mx-2 text-slate-400" aria-hidden="true"></i> {order.drop_location || '-'}
-                      </td>
-                      <td className="px-4 py-3 capitalize text-slate-600">{order.order_type || '-'}</td>
-                      <td className="px-4 py-3"><StatusBadge status={order.status} /></td>
-                      <td className="px-4 py-3 text-slate-700">{formatMoney(order.total_fare || order.base_fare || 0)}</td>
-                      <td className="px-4 py-3">
-                        <Link to={`/client/orders/current?orderId=${encodeURIComponent(orderId || '')}`} className="text-sm font-semibold text-blue-700 hover:text-blue-900">
-                          View
-                        </Link>
-                      </td>
-                    </tr>
-                  )
-                })}
+                {orders.map((order) => (
+                  <tr key={order.id}>
+                    <td className="whitespace-nowrap px-4 py-3 font-semibold text-slate-900">{order.id}</td>
+                    <td className="px-4 py-3 text-slate-600">
+                      {order.pickup_city || '-'} <i className="fas fa-arrow-right mx-2 text-slate-400" aria-hidden="true"></i> {order.dropoff_city || '-'}
+                    </td>
+                    <td className="px-4 py-3 capitalize text-slate-600">{order.goods_type || '-'}</td>
+                    <td className="px-4 py-3"><StatusBadge status={order.status} /></td>
+                    <td className="px-4 py-3 text-slate-700">{order.estimated_budget ? formatMoney(order.estimated_budget) : '-'}</td>
+                    <td className="px-4 py-3">
+                      <Link to="/client/orders" className="text-sm font-semibold text-blue-700 hover:text-blue-900">
+                        View
+                      </Link>
+                    </td>
+                  </tr>
+                ))}
               </tbody>
             </table>
           </div>

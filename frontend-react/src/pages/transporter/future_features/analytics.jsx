@@ -71,7 +71,7 @@ export default function Analytics() {
           <Link to="/transporter/fuel" className="page-shortcut"><i className="fas fa-gas-pump"></i><span>Fuel</span></Link>
           <Link to="/transporter/analytics" className="page-shortcut active"><i className="fas fa-chart-line"></i><span>Analytics</span></Link>
           <Link to="/transporter/insights" className="page-shortcut"><i className="fas fa-brain"></i><span>Insights</span></Link>
-          <Link to="/transporter/jobs/active" className="page-shortcut"><i className="fas fa-shipping-fast"></i><span>Active Jobs</span></Link>
+          <Link to="/transporter/bids" className="page-shortcut"><i className="fas fa-shipping-fast"></i><span>My Bids</span></Link>
         </div>
 
         {loading && (
