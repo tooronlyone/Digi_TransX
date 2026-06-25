@@ -89,6 +89,7 @@ def role_redirect(role):
         "shopkeeper": "/shopkeeper/dashboard",
         "everyday_user": "/client/dashboard",
         "fuel_station_manager": "/fuelstation/dashboard",
+        "platform_admin": "/admin/dashboard",
     }
     return mapping.get((role or "").strip().lower(), "/transporter/dashboard")
 
@@ -208,6 +209,12 @@ def login_required(view):
         return view(*args, **kwargs)
 
     return wrapped
+
+
+def require_admin_role(user):
+    if not user or (user.get("role") or "").strip().lower() != "platform_admin":
+        return json_response({"success": False, "message": "Admin access required."}, 403)
+    return None
 
 
 def generate_numeric_code(length):
@@ -468,4 +475,3 @@ def verify_otp_for_user(user_id, purpose, otp_code):
         db.execute("UPDATE password_reset_otps SET verified = 1 WHERE id = ?", (record["id"],))
         db.commit()
     return latest_otp_record(user_id, purpose), ""
-

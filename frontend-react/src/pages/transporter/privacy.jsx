@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 
 const privacyHighlights = [
   {
@@ -131,7 +130,6 @@ export default function Privacy() {
   }, [])
 
   return (
-    <TransporterLayout>
       <div className="page-privacy">
         <div className="top-bar">
           <div className="page-title">
@@ -237,6 +235,6 @@ export default function Privacy() {
           </div>
         </div>
       </div>
-    </TransporterLayout>
+    
   )
 }

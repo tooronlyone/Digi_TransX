@@ -148,6 +148,9 @@ CREATE TABLE IF NOT EXISTS chat_threads (
     client_user_id INTEGER NOT NULL,
     transporter_user_id INTEGER NOT NULL,
     bid_id INTEGER,
+    is_group_chat INTEGER DEFAULT 0,
+    admin_user_id INTEGER,
+    dispute_trip_id INTEGER,
     last_message_at TEXT,
     created_at TEXT NOT NULL,
     UNIQUE(order_id, transporter_user_id),
@@ -170,6 +173,150 @@ CREATE TABLE IF NOT EXISTS chat_messages (
     created_at TEXT NOT NULL,
     FOREIGN KEY(thread_id) REFERENCES chat_threads(id),
     FOREIGN KEY(sender_user_id) REFERENCES users(id)
+);
+"""
+AGREEMENT_POSTS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS agreement_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_user_id INTEGER NOT NULL,
+    title TEXT NOT NULL,
+    cargo_type TEXT NOT NULL,
+    service_area TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'open',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(client_user_id) REFERENCES users(id)
+);
+"""
+AGREEMENT_POST_TRUCKS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS agreement_post_trucks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    truck_type TEXT NOT NULL,
+    capacity_tons REAL NOT NULL,
+    quantity INTEGER NOT NULL,
+    FOREIGN KEY(post_id) REFERENCES agreement_posts(id)
+);
+"""
+AGREEMENT_BIDS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS agreement_bids (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    transporter_user_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    message TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(post_id) REFERENCES agreement_posts(id),
+    FOREIGN KEY(transporter_user_id) REFERENCES users(id)
+);
+"""
+AGREEMENT_BID_TRUCKS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS agreement_bid_trucks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bid_id INTEGER NOT NULL,
+    truck_id INTEGER NOT NULL,
+    per_km_rate REAL NOT NULL,
+    minimum_monthly_guarantee REAL NOT NULL,
+    FOREIGN KEY(bid_id) REFERENCES agreement_bids(id),
+    FOREIGN KEY(truck_id) REFERENCES trucks(id)
+);
+"""
+AGREEMENTS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS agreements (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    post_id INTEGER NOT NULL,
+    client_user_id INTEGER NOT NULL,
+    duration_months INTEGER NOT NULL,
+    cargo_type TEXT NOT NULL,
+    service_area TEXT NOT NULL,
+    start_date TEXT NOT NULL,
+    end_date TEXT NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    contract_text TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(post_id) REFERENCES agreement_posts(id),
+    FOREIGN KEY(client_user_id) REFERENCES users(id)
+);
+"""
+AGREEMENT_TRUCKS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS agreement_trucks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agreement_id INTEGER NOT NULL,
+    truck_id INTEGER NOT NULL,
+    transporter_user_id INTEGER NOT NULL,
+    per_km_rate REAL NOT NULL,
+    minimum_monthly_guarantee REAL NOT NULL,
+    status TEXT NOT NULL DEFAULT 'active',
+    FOREIGN KEY(agreement_id) REFERENCES agreements(id),
+    FOREIGN KEY(truck_id) REFERENCES trucks(id),
+    FOREIGN KEY(transporter_user_id) REFERENCES users(id)
+);
+"""
+AGREEMENT_TRIPS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS agreement_trips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agreement_id INTEGER NOT NULL,
+    agreement_truck_id INTEGER NOT NULL,
+    truck_id INTEGER NOT NULL,
+    transporter_user_id INTEGER NOT NULL,
+    pickup_description TEXT NOT NULL,
+    pickup_location TEXT,
+    dropoff_location TEXT,
+    trip_date TEXT NOT NULL,
+    gps_start_lat REAL,
+    gps_start_lng REAL,
+    gps_end_lat REAL,
+    gps_end_lng REAL,
+    distance_km REAL,
+    started_at TEXT,
+    ended_at TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    client_acknowledged INTEGER DEFAULT 0,
+    admin_decision TEXT,
+    admin_note TEXT,
+    admin_decided_at TEXT,
+    admin_decided_by INTEGER,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(agreement_id) REFERENCES agreements(id),
+    FOREIGN KEY(agreement_truck_id) REFERENCES agreement_trucks(id),
+    FOREIGN KEY(truck_id) REFERENCES trucks(id),
+    FOREIGN KEY(transporter_user_id) REFERENCES users(id)
+);
+"""
+AGREEMENT_MONTHLY_PAYMENTS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS agreement_monthly_payments (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    agreement_id INTEGER NOT NULL,
+    agreement_truck_id INTEGER NOT NULL,
+    transporter_user_id INTEGER NOT NULL,
+    client_user_id INTEGER NOT NULL,
+    month_year TEXT NOT NULL,
+    total_km REAL NOT NULL DEFAULT 0,
+    total_earned REAL NOT NULL DEFAULT 0,
+    minimum_guarantee REAL NOT NULL,
+    final_amount REAL NOT NULL,
+    company_fee REAL NOT NULL,
+    transporter_amount REAL NOT NULL,
+    penalty_amount REAL NOT NULL DEFAULT 0,
+    status TEXT NOT NULL DEFAULT 'pending',
+    payment_due_date TEXT NOT NULL,
+    paid_at TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(agreement_id) REFERENCES agreements(id),
+    FOREIGN KEY(agreement_truck_id) REFERENCES agreement_trucks(id)
+);
+"""
+AGREEMENT_PAYMENT_PENALTIES_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS agreement_payment_penalties (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    monthly_payment_id INTEGER NOT NULL,
+    client_user_id INTEGER NOT NULL,
+    penalty_amount REAL NOT NULL DEFAULT 5000,
+    penalty_number INTEGER NOT NULL,
+    applied_at TEXT NOT NULL,
+    FOREIGN KEY(monthly_payment_id) REFERENCES agreement_monthly_payments(id)
 );
 """
 WALLET_WITHDRAWAL_REQUESTS_TABLE_DEFINITION = """
@@ -399,7 +546,18 @@ def init_db():
         db.executescript(ORDER_CANCELLATIONS_TABLE_DEFINITION)
         db.executescript(CHAT_THREADS_TABLE_DEFINITION)
         db.executescript(CHAT_MESSAGES_TABLE_DEFINITION)
+        db.executescript(AGREEMENT_POSTS_TABLE_DEFINITION)
+        db.executescript(AGREEMENT_POST_TRUCKS_TABLE_DEFINITION)
+        db.executescript(AGREEMENT_BIDS_TABLE_DEFINITION)
+        db.executescript(AGREEMENT_BID_TRUCKS_TABLE_DEFINITION)
+        db.executescript(AGREEMENTS_TABLE_DEFINITION)
+        db.executescript(AGREEMENT_TRUCKS_TABLE_DEFINITION)
+        db.executescript(AGREEMENT_TRIPS_TABLE_DEFINITION)
+        db.executescript(AGREEMENT_MONTHLY_PAYMENTS_TABLE_DEFINITION)
+        db.executescript(AGREEMENT_PAYMENT_PENALTIES_TABLE_DEFINITION)
         ensure_column(db, "wallets", "completed_trips_count", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(db, "users", "is_blocked", "INTEGER DEFAULT 0")
+        ensure_column(db, "users", "block_reason", "TEXT")
         ensure_column(db, "orders", "trip_started_at", "TEXT")
         ensure_column(db, "orders", "trip_stage", "TEXT DEFAULT 'not_started'")
         ensure_column(db, "orders", "accepted_at", "TEXT")
@@ -419,12 +577,24 @@ def init_db():
         ensure_column(db, "trucks", "status_reason_code", "TEXT")
         ensure_column(db, "trucks", "status_reason", "TEXT")
         ensure_column(db, "chat_threads", "bid_id", "INTEGER")
+        ensure_column(db, "chat_threads", "agreement_post_id", "INTEGER")
+        ensure_column(db, "chat_threads", "agreement_bid_id", "INTEGER")
+        ensure_column(db, "chat_threads", "is_group_chat", "INTEGER DEFAULT 0")
+        ensure_column(db, "chat_threads", "admin_user_id", "INTEGER")
+        ensure_column(db, "chat_threads", "dispute_trip_id", "INTEGER")
         ensure_column(db, "chat_threads", "last_message_at", "TEXT")
         ensure_column(db, "chat_messages", "message_type", "TEXT NOT NULL DEFAULT 'text'")
         ensure_column(db, "chat_messages", "content", "TEXT")
         ensure_column(db, "chat_messages", "media_path", "TEXT")
         ensure_column(db, "chat_messages", "media_request_status", "TEXT")
         ensure_column(db, "chat_messages", "is_read", "INTEGER NOT NULL DEFAULT 0")
+        ensure_column(db, "agreement_trips", "admin_decision", "TEXT")
+        ensure_column(db, "agreement_trips", "admin_note", "TEXT")
+        ensure_column(db, "agreement_trips", "admin_decided_at", "TEXT")
+        ensure_column(db, "agreement_trips", "admin_decided_by", "INTEGER")
+        ensure_column(db, "trucks", "traccar_device_id", "TEXT")
+        ensure_column(db, "agreement_trips", "distance_source", "TEXT")
+        ensure_column(db, "agreement_trips", "updated_at", "TEXT")
         ensure_trucks_status_default(db)
         ensure_truck_catalog_type_keys(db)
         ensure_unique_normalized_index(db, "trucks", "truck_number", "idx_trucks_truck_number_unique_normalized")
@@ -442,4 +612,10 @@ def init_db():
         db.execute("CREATE INDEX IF NOT EXISTS idx_chat_threads_transporter_last ON chat_threads(transporter_user_id, last_message_at DESC)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_created ON chat_messages(thread_id, id ASC)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_read ON chat_messages(thread_id, is_read, sender_user_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agreement_posts_client_status ON agreement_posts(client_user_id, status, created_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agreement_post_trucks_post_type ON agreement_post_trucks(post_id, truck_type)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agreement_bids_post_transporter ON agreement_bids(post_id, transporter_user_id, status)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agreement_trucks_agreement_transporter ON agreement_trucks(agreement_id, transporter_user_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agreement_trips_agreement_truck ON agreement_trips(agreement_id, truck_id, status)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_agreement_payments_due_status ON agreement_monthly_payments(status, payment_due_date)")
         db.commit()

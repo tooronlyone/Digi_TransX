@@ -120,6 +120,9 @@ def login():
     if not user:
         record_login_activity(None, lookup_value, login_method, "failed", "Account not found.")
         return json_response({"success": False, "field": "loginId", "message": "Account not found."}, 401)
+    if user.get("is_blocked"):
+        record_login_activity(user["id"], lookup_value, login_method, "failed", "Account blocked.")
+        return json_response({"success": False, "field": "loginId", "message": "This account is blocked."}, 403)
     if not check_password_hash(user["password_hash"], password):
         record_login_activity(user["id"], lookup_value, login_method, "failed", "Invalid password.")
         return json_response({"success": False, "field": "password", "message": "Incorrect password."}, 401)
@@ -310,4 +313,3 @@ def disable_fast_login():
         db.commit()
     user = get_user_by_id(request.current_user["id"])
     return json_response({"success": True, "message": "MPIN disabled successfully.", "user": serialize_user(user), "csrf_token": session.get("csrf_token", "")})
-

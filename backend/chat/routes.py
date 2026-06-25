@@ -23,7 +23,7 @@ from .helpers import (
 chat_blueprint = Blueprint("chat", __name__)
 
 
-def get_thread_with_parties(db, thread_id):
+def get_thread_with_parties(db, thread_id, user_id):
     row = db.execute(
         """
         SELECT
@@ -33,25 +33,55 @@ def get_thread_with_parties(db, thread_id):
             o.dropoff_city,
             o.dropoff_area,
             o.status AS order_status,
+            ap.title AS agreement_title,
+            ap.service_area AS agreement_service_area,
+            ap.status AS agreement_status,
             COALESCE(NULLIF(trim(client.full_name), ''), trim(COALESCE(client.first_name, '') || ' ' || COALESCE(client.last_name, '')), client.email, 'Client') AS client_name,
-            COALESCE(NULLIF(trim(transporter.full_name), ''), trim(COALESCE(transporter.first_name, '') || ' ' || COALESCE(transporter.last_name, '')), transporter.email, 'Transporter') AS transporter_name
+            COALESCE(NULLIF(trim(transporter.full_name), ''), trim(COALESCE(transporter.first_name, '') || ' ' || COALESCE(transporter.last_name, '')), transporter.email, 'Transporter') AS transporter_name,
+            COALESCE(NULLIF(trim(admin.full_name), ''), trim(COALESCE(admin.first_name, '') || ' ' || COALESCE(admin.last_name, '')), admin.email, 'Admin') AS admin_name,
+            (
+                SELECT COALESCE(
+                    CASE
+                        WHEN message_type = 'media' THEN '[Media]'
+                        WHEN message_type = 'media_request' THEN COALESCE(content, 'Media request')
+                        WHEN message_type = 'system' THEN COALESCE(content, 'System update')
+                        ELSE COALESCE(content, '')
+                    END,
+                    ''
+                )
+                FROM chat_messages
+                WHERE thread_id = ct.id
+                ORDER BY id DESC
+                LIMIT 1
+            ) AS last_message_preview,
+            (
+                SELECT COUNT(*)
+                FROM chat_messages
+                WHERE thread_id = ct.id
+                  AND sender_user_id <> ?
+                  AND is_read = 0
+            ) AS unread_count
         FROM chat_threads ct
-        JOIN orders o ON o.id = ct.order_id
+        LEFT JOIN orders o ON o.id = ct.order_id
+        LEFT JOIN agreement_posts ap ON ap.id = ct.agreement_post_id
         JOIN users client ON client.id = ct.client_user_id
         JOIN users transporter ON transporter.id = ct.transporter_user_id
+        LEFT JOIN users admin ON admin.id = ct.admin_user_id
         WHERE ct.id = ?
         """,
-        (thread_id,),
+        (user_id, thread_id),
     ).fetchone()
     return dict(row) if row else None
 
 
 def user_can_access_thread(thread, user_id):
-    return user_id in {thread["client_user_id"], thread["transporter_user_id"]}
+    return user_id in {thread["client_user_id"], thread["transporter_user_id"]} or (
+        bool(thread.get("is_group_chat")) and thread.get("admin_user_id") == user_id
+    )
 
 
 def get_thread_or_error(db, thread_id, user_id):
-    thread = get_thread_with_parties(db, thread_id)
+    thread = get_thread_with_parties(db, thread_id, user_id)
     if not thread:
         return None, json_response({"success": False, "message": "Chat thread not found."}, 404)
     if not user_can_access_thread(thread, user_id):
@@ -144,10 +174,13 @@ def list_threads():
                 ct.*,
                 o.pickup_city,
                 o.pickup_area,
-                o.dropoff_city,
-                o.dropoff_area,
-                o.status AS order_status,
-                COALESCE(NULLIF(trim(client.full_name), ''), trim(COALESCE(client.first_name, '') || ' ' || COALESCE(client.last_name, '')), client.email, 'Client') AS client_name,
+            o.dropoff_city,
+            o.dropoff_area,
+            o.status AS order_status,
+            ap.title AS agreement_title,
+            ap.service_area AS agreement_service_area,
+            ap.status AS agreement_status,
+            COALESCE(NULLIF(trim(client.full_name), ''), trim(COALESCE(client.first_name, '') || ' ' || COALESCE(client.last_name, '')), client.email, 'Client') AS client_name,
                 COALESCE(NULLIF(trim(transporter.full_name), ''), trim(COALESCE(transporter.first_name, '') || ' ' || COALESCE(transporter.last_name, '')), transporter.email, 'Transporter') AS transporter_name,
                 (
                     SELECT COALESCE(
@@ -172,16 +205,18 @@ def list_threads():
                       AND is_read = 0
                 ) AS unread_count
             FROM chat_threads ct
-            JOIN orders o ON o.id = ct.order_id
+            LEFT JOIN orders o ON o.id = ct.order_id
+            LEFT JOIN agreement_posts ap ON ap.id = ct.agreement_post_id
+            LEFT JOIN users admin ON admin.id = ct.admin_user_id
             JOIN users client ON client.id = ct.client_user_id
             JOIN users transporter ON transporter.id = ct.transporter_user_id
-            WHERE ct.client_user_id = ? OR ct.transporter_user_id = ?
+            WHERE ct.client_user_id = ? OR ct.transporter_user_id = ? OR (ct.is_group_chat = 1 AND ct.admin_user_id = ?)
             ORDER BY
                 CASE WHEN ct.last_message_at IS NULL OR trim(ct.last_message_at) = '' THEN 1 ELSE 0 END,
                 ct.last_message_at DESC,
                 ct.id DESC
             """,
-            (user_id, user_id, user_id),
+            (user_id, user_id, user_id, user_id),
         ).fetchall()
 
     threads = [serialize_thread(dict(row), user_id) for row in rows]
@@ -259,6 +294,7 @@ def list_messages(thread_id):
                 (thread_id, user_id),
             )
             db.commit()
+            thread["unread_count"] = 0
             unread_ids = {row["id"] for row in unread_rows}
             rows = [
                 {**dict(row), "is_read": 1 if row["id"] in unread_ids and row["sender_user_id"] != user_id else row["is_read"]}

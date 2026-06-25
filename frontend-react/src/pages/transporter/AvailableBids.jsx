@@ -1,5 +1,4 @@
 import { useEffect, useMemo, useState } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { getCsrfToken } from '../client/clientUtils'
 import { loadTruckCatalog } from '../../lib/truckCatalog'
 
@@ -9,7 +8,7 @@ function formatMoney(value) {
   return `PKR ${amount.toLocaleString('en-PK', { maximumFractionDigits: 2 })}`
 }
 
-export default function AvailableJobs() {
+export default function AvailableBids() {
   const [orders, setOrders] = useState([])
   const [trucks, setTrucks] = useState([])
   const [catalog, setCatalog] = useState([])
@@ -31,13 +30,13 @@ export default function AvailableJobs() {
       ])
       const ordersJson = await ordersRes.json().catch(() => ({}))
       const trucksJson = await trucksRes.json().catch(() => ({}))
-      if (!ordersRes.ok || ordersJson.success === false) throw new Error(ordersJson.message || 'Unable to load jobs.')
+      if (!ordersRes.ok || ordersJson.success === false) throw new Error(ordersJson.message || 'Unable to load bids.')
       if (!trucksRes.ok || trucksJson.success === false) throw new Error(trucksJson.message || 'Unable to load trucks.')
       setOrders(ordersJson.orders || [])
       setTrucks(trucksJson.trucks || [])
       setCatalog(catalogRes)
     } catch (loadError) {
-      setError(loadError.message || 'Unable to load available jobs.')
+      setError(loadError.message || 'Unable to load available bids.')
     } finally {
       setLoading(false)
     }
@@ -109,20 +108,19 @@ export default function AvailableJobs() {
   }
 
   return (
-    <TransporterLayout>
       <div className="space-y-6">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-slate-900">Available Jobs</h1>
+          <h1 className="text-2xl font-bold text-slate-900">Available Bids</h1>
           <p className="mt-2 text-sm text-slate-500">Only open orders that match one of your active truck types are shown here.</p>
         </div>
 
-        {loading && <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading jobs...</div>}
+        {loading && <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading bids...</div>}
         {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         {success && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div>}
 
         {!loading && !error && orders.length === 0 && (
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
-            No matching open jobs right now. Activate more trucks or check back soon.
+            No matching open bids right now. Activate more trucks or check back soon.
           </div>
         )}
 
@@ -197,6 +195,6 @@ export default function AvailableJobs() {
           </div>
         )}
       </div>
-    </TransporterLayout>
+    
   )
 }

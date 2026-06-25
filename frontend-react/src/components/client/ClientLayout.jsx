@@ -6,13 +6,10 @@ const NAV_ITEMS = [
   { label: 'Dashboard', icon: 'fa-home', path: '/client/dashboard' },
   { label: 'Post Order', icon: 'fa-shipping-fast', path: '/client/post-order', badge: 'New' },
   { label: 'My Orders', icon: 'fa-clipboard-list', path: '/client/orders' },
+  { label: 'Post Agreement', icon: 'fa-file-circle-plus', path: '/client/post-agreement' },
+  { label: 'My Agreements', icon: 'fa-file-contract', path: '/client/my-agreements' },
   { label: 'Messages', icon: 'fa-comments', path: '/client/messages' },
   { label: 'Your Wallet', icon: 'fa-wallet', path: '/client/wallet', match: ['/client/balance'] },
-  { label: 'Cargo Insurance', icon: 'fa-shield-alt', path: '/client/insurance.html', legacy: true },
-  { label: 'Documents', icon: 'fa-file-alt', path: '/client/documents.html', legacy: true },
-  { label: 'Agreements', icon: 'fa-file-contract', path: '/client/agreements' },
-  { label: 'About Us', icon: 'fa-info-circle', path: '/client/about.html', legacy: true },
-  { label: 'Contact Us', icon: 'fa-address-book', path: '/client/contact.html', legacy: true },
   { label: 'Your Account', icon: 'fa-user-circle', path: '/client/account' },
 ]
 
@@ -20,6 +17,7 @@ export default function ClientLayout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
   const [menuOpen, setMenuOpen] = useState(false)
+  const [isMobile, setIsMobile] = useState(false)
   const [user, setUser] = useState({
     name: 'Client',
     role: 'Service Seeker',
@@ -57,6 +55,18 @@ export default function ClientLayout({ children }) {
       mounted = false
       window.clearInterval(intervalId)
     }
+  }, [])
+
+  useEffect(() => {
+    function checkViewport() {
+      const mobile = window.innerWidth < 768
+      setIsMobile(mobile)
+      if (!mobile) setMenuOpen(false)
+    }
+
+    checkViewport()
+    window.addEventListener('resize', checkViewport)
+    return () => window.removeEventListener('resize', checkViewport)
   }, [])
 
   const initials = useMemo(() => {
@@ -130,15 +140,9 @@ export default function ClientLayout({ children }) {
           )
           return (
             <li key={item.path}>
-              {item.legacy ? (
-                <a href={item.path} className={classes} onClick={() => setMenuOpen(false)}>
-                  {content}
-                </a>
-              ) : (
-                <Link to={item.path} className={classes} onClick={() => setMenuOpen(false)}>
-                  {content}
-                </Link>
-              )}
+              <Link to={item.path} className={classes} onClick={() => setMenuOpen(false)}>
+                {content}
+              </Link>
             </li>
           )
         })}
@@ -151,23 +155,19 @@ export default function ClientLayout({ children }) {
       <header className="sticky top-0 z-30 border-b border-slate-200 bg-white">
         <div className="flex min-h-16 items-center justify-between gap-3 px-4 lg:px-6">
           <div className="flex items-center gap-3">
-            <button
-              type="button"
-              className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 text-slate-700 lg:hidden"
-              onClick={() => setMenuOpen((open) => !open)}
-              aria-label="Toggle navigation"
-            >
-              <i className={`fas ${menuOpen ? 'fa-times' : 'fa-bars'}`} aria-hidden="true"></i>
-            </button>
+            {isMobile && (
+              <button
+                type="button"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-slate-300 text-slate-700"
+                onClick={() => setMenuOpen((open) => !open)}
+                aria-label="Toggle navigation"
+              >
+                <i className={`fas ${menuOpen ? 'fa-times' : 'fa-bars'}`} aria-hidden="true"></i>
+              </button>
+            )}
             <Link to="/main" className="hidden text-sm font-semibold text-slate-600 hover:text-blue-700 sm:inline-flex">
               Home
             </Link>
-            <a href="/client/about.html" className="hidden text-sm font-semibold text-slate-600 hover:text-blue-700 sm:inline-flex">
-              About
-            </a>
-            <a href="/client/contact.html" className="hidden text-sm font-semibold text-slate-600 hover:text-blue-700 sm:inline-flex">
-              Contact
-            </a>
           </div>
 
           <div className="flex items-center gap-3">
@@ -191,28 +191,29 @@ export default function ClientLayout({ children }) {
       </header>
 
       <div className="flex">
-        <aside className="fixed inset-y-16 left-0 z-20 hidden w-72 lg:block">
-          {sidebar}
-        </aside>
-        {menuOpen && (
-          <div className="fixed inset-0 z-20 bg-slate-900/30 lg:hidden" onClick={() => setMenuOpen(false)}>
+        {!isMobile && (
+          <aside className="fixed left-0 z-20 w-72" style={{ top: '64px', bottom: 0 }}>
+            {sidebar}
+          </aside>
+        )}
+        {isMobile && menuOpen && (
+          <div className="fixed inset-0 z-20 bg-slate-900/30" onClick={() => setMenuOpen(false)}>
             <aside className="h-full w-72" onClick={(event) => event.stopPropagation()}>
               {sidebar}
             </aside>
           </div>
         )}
 
-        <main className="min-w-0 flex-1 px-4 py-6 lg:ml-72 lg:px-8">
+        <main
+          className="min-w-0 flex-1 px-4 py-6 lg:px-8"
+          style={{ marginLeft: isMobile ? 0 : '288px' }}
+        >
           <div className="mx-auto max-w-7xl space-y-6">{children}</div>
           <footer className="mx-auto mt-10 max-w-7xl border-t border-slate-200 py-6 text-sm text-slate-500">
             <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
               <p>(c) 2026 Digi_TransX Transport Services. All rights reserved.</p>
               <div className="flex flex-wrap gap-4">
-                <a className="hover:text-blue-700" href="/client/about.html">About Us</a>
-                <a className="hover:text-blue-700" href="/client/contact.html">Contact</a>
-                <a className="hover:text-blue-700" href="/client/terms-details.html">Terms</a>
-                <a className="hover:text-blue-700" href="/client/privacy.html">Privacy</a>
-                <a className="hover:text-blue-700" href="/client/help.html">Help</a>
+                <span>More client pages coming soon.</span>
               </div>
             </div>
           </footer>

@@ -1,5 +1,4 @@
 import { useState, useEffect } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 
@@ -294,7 +293,6 @@ export default function TruckConfiguration() {
   const statusLabel = STATUS_OPTIONS.find(item => item.value === form.status)?.label || form.status || 'Inactive'
 
   return (
-    <TransporterLayout>
       <div className="page-truck-configuration">
         <div className="config-shell">
           <Link className="back-link" to="/transporter/trucks">
@@ -586,6 +584,6 @@ export default function TruckConfiguration() {
           )}
         </div>
       </div>
-    </TransporterLayout>
+    
   )
 }

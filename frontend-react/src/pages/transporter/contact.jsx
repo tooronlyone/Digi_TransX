@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 
@@ -94,7 +93,6 @@ export default function Contact() {
   }
 
   return (
-    <TransporterLayout>
       <div className="page-contact">
         <div className="page-title">
           <h1>Contact Us</h1>
@@ -292,6 +290,6 @@ export default function Contact() {
           </div>
         )}
       </div>
-    </TransporterLayout>
+    
   )
 }

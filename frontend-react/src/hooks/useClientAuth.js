@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 
 function isClientRole(role) {
   const value = String(role || '').trim().toLowerCase()
@@ -8,7 +8,6 @@ function isClientRole(role) {
 
 export default function useClientAuth() {
   const navigate = useNavigate()
-  const location = useLocation()
   const [ready, setReady] = useState(false)
   const [user, setUser] = useState(null)
 
@@ -66,7 +65,7 @@ export default function useClientAuth() {
     return () => {
       active = false
     }
-  }, [location.pathname, navigate])
+  }, [navigate])
 
   return { ready, user }
 }

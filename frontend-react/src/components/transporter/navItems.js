@@ -1,8 +1,7 @@
 export const NAV_ITEMS = [
   { path: '/transporter/dashboard',    icon: 'fa-tachometer-alt', label: 'Dashboard' },
   { path: '/transporter/trucks',       icon: 'fa-truck',          label: 'My Trucks' },
-  { path: '/transporter/trucks/add',   icon: 'fa-plus-circle',    label: 'Add New Truck' },
-  { path: '/transporter/jobs',         icon: 'fa-clipboard-list', label: 'Available Jobs' },
+  { path: '/transporter/my-agreements', icon: 'fa-file-contract', label: 'My Agreements' },
   { path: '/transporter/bids',         icon: 'fa-gavel',          label: 'My Bids' },
   { path: '/transporter/messages',     icon: 'fa-comments',       label: 'Messages' },
   { path: '/transporter/earnings',     icon: 'fa-wallet',         label: 'Earnings' },

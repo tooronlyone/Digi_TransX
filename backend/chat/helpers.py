@@ -78,6 +78,17 @@ def make_chat_upload_relative_path(thread_id, file_storage):
 
 
 def build_thread_order_summary(row):
+    if row.get("agreement_post_id"):
+        return {
+            "id": row["agreement_post_id"],
+            "pickup_city": row.get("agreement_title") or "Agreement",
+            "pickup_area": "",
+            "dropoff_city": row.get("agreement_service_area") or "",
+            "dropoff_area": "",
+            "status": row.get("agreement_status") or "open",
+            "route_label": row.get("agreement_title") or "Agreement shipment",
+            "kind": "agreement",
+        }
     return {
         "id": row["order_id"],
         "pickup_city": row["pickup_city"],
@@ -86,23 +97,27 @@ def build_thread_order_summary(row):
         "dropoff_area": row["dropoff_area"] or "",
         "status": row["order_status"],
         "route_label": f"{row['pickup_city']} to {row['dropoff_city']}",
+        "kind": "order",
     }
 
 
 def serialize_thread(row, current_user_id):
+    row = dict(row)
     other_user_id = row["transporter_user_id"] if row["client_user_id"] == current_user_id else row["client_user_id"]
     other_party_name = row["transporter_name"] if row["client_user_id"] == current_user_id else row["client_name"]
     return {
         "id": row["id"],
         "order_id": row["order_id"],
         "bid_id": row["bid_id"],
+        "agreement_post_id": row.get("agreement_post_id"),
+        "agreement_bid_id": row.get("agreement_bid_id"),
         "client_user_id": row["client_user_id"],
         "transporter_user_id": row["transporter_user_id"],
         "other_user_id": other_user_id,
         "other_party_name": other_party_name,
         "last_message_at": row["last_message_at"] or row["created_at"],
-        "last_message_preview": row["last_message_preview"] or "No messages yet.",
-        "unread_count": int(row["unread_count"] or 0),
+        "last_message_preview": row.get("last_message_preview") or "No messages yet.",
+        "unread_count": int(row.get("unread_count") or 0),
         "order": build_thread_order_summary(row),
     }
 

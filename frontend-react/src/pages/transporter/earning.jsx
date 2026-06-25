@@ -1,7 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { useApi } from '../../hooks/useApi'
 
 const fmtPKR = (n) => {
@@ -12,7 +11,7 @@ const fmtPKR = (n) => {
 }
 
 function formatDate(value) {
-  if (!value) return '—'
+  if (!value) return 'Ã¢â‚¬â€'
   const date = new Date(value)
   if (Number.isNaN(date.getTime())) return String(value).slice(0, 10)
   return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
@@ -79,7 +78,6 @@ export default function Earning() {
   const hasExtras = earnings.payouts.some(payout => payout.extras)
 
   return (
-    <TransporterLayout>
       <div className="page-earnings">
         <div className="payout-page-title">
           <h1>Earnings</h1>
@@ -181,7 +179,7 @@ export default function Earning() {
                         {status}
                       </span>
                     </span>
-                    {hasExtras && <span>{payout.extras ? fmtPKR(payout.extras) : '—'}</span>}
+                    {hasExtras && <span>{payout.extras ? fmtPKR(payout.extras) : 'Ã¢â‚¬â€'}</span>}
                     <span className="payout-amount">{fmtPKR(payout.amount)}</span>
                   </div>
                 )
@@ -190,6 +188,6 @@ export default function Earning() {
           )}
         </section>
       </div>
-    </TransporterLayout>
+    
   )
 }

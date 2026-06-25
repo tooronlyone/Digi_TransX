@@ -1,9 +1,7 @@
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { Link } from 'react-router-dom'
 
 export default function Leaderboard() {
   return (
-    <TransporterLayout>
       <div className="page-leaderboard">
         <div className="page-title">
           <h1>Leaderboard</h1>
@@ -21,6 +19,6 @@ export default function Leaderboard() {
           </div>
         </div>
       </div>
-    </TransporterLayout>
+    
   )
 }

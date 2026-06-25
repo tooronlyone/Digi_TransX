@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 
 const ABOUT_FALLBACK = {
   company: {
@@ -251,7 +250,6 @@ export default function About() {
   }, [aboutData.company.name])
 
   return (
-    <TransporterLayout>
       <div className="page-about">
         <div className="page-title">
           <h1>About {aboutData.company.name}</h1>
@@ -347,6 +345,6 @@ export default function About() {
           </div>
         </div>
       </div>
-    </TransporterLayout>
+    
   )
 }

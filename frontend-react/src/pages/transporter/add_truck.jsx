@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 
 const FALLBACK_TRUCK_TYPES = [
   { type_key: 'mini_pickup', display_name: 'Mini pickup', common_uses: ['Last-mile retail supply', 'Cartons'], payload_min_kg: 500, payload_max_kg: 700, volume_min_cbm: 2, volume_max_cbm: 3, typical_body_style: 'Low-side deck', class_segment: 'Small urban cargo' },
@@ -109,7 +108,6 @@ export default function AddTruck() {
   }
 
   return (
-    <TransporterLayout>
       <div className="page-add-truck">
         {/* Page Title */}
         <div className="page-title">
@@ -238,9 +236,9 @@ export default function AddTruck() {
               </div>
 
               <div className="form-group">
-                <label htmlFor="trackingId" className="optional">Tracking ID</label>
+                <label htmlFor="trackingId" className="optional">GPS Device IMEI</label>
                 <input type="text" id="trackingId" name="trackingId"
-                  placeholder="Optional - GPS / device ID" />
+                  placeholder="Optional - 15-digit GPS device IMEI number" />
               </div>
             </div>
           </div>
@@ -266,6 +264,6 @@ export default function AddTruck() {
           </div>
         </div>
       </div>
-    </TransporterLayout>
+    
   )
 }

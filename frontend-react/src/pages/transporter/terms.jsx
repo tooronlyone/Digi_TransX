@@ -1,6 +1,5 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 
 const termHighlights = [
   {
@@ -158,7 +157,6 @@ export default function Terms() {
   }, [])
 
   return (
-    <TransporterLayout>
       <div className="page-terms">
         <div className="top-bar">
           <div className="page-title">
@@ -282,6 +280,6 @@ export default function Terms() {
           </div>
         </div>
       </div>
-    </TransporterLayout>
+    
   )
 }

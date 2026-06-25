@@ -1,207 +1,200 @@
-import { useEffect, useState } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
+import { useEffect, useMemo, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
-import { useApi } from '../../hooks/useApi'
+import AgreementTripMap from '../../components/AgreementTripMap'
+import { StateMessage, apiGet, formatDateTime } from '../client/clientUtils'
 
-export default function TrackTruck() {
-  const { id } = useParams()
-  const api = useApi()
-  const [truck, setTruck] = useState(null)
-  const [activeJob, setActiveJob] = useState(null)
-  const [loading, setLoading] = useState(true)
-  const [toast, setToast] = useState(null)
-
-  function showToast(message) {
-    setToast(message)
-    setTimeout(() => setToast(null), 2500)
-  }
-
-  function load() {
-    setLoading(true)
-
-    const truckReq = id ? api.get(`/api/trucks/${id}`) : Promise.resolve(null)
-    const jobsReq = api.get('/api/jobs/active')
-
-    Promise.allSettled([truckReq, jobsReq]).then(([truckRes, jobsRes]) => {
-      let currentTruck = null
-
-      if (truckRes.status === 'fulfilled' && truckRes.value) {
-        currentTruck = truckRes.value.truck || truckRes.value
-        setTruck(currentTruck)
-      }
-
-      if (jobsRes.status === 'fulfilled') {
-        const jobs = jobsRes.value.jobs || jobsRes.value.active_jobs || []
-        const job = id
-          ? jobs.find((item) => item.truck_id === id || item.truck === currentTruck?.truck_number)
-          : jobs[0]
-        setActiveJob(job || null)
-      }
-    }).finally(() => setLoading(false))
-  }
-
-  useEffect(() => {
-    load()
-  }, [id])
-
-  function refresh() {
-    load()
-    showToast('Tracking data refreshed')
-  }
-
-  const truckStatus = truck?.status || 'inactive'
-  const statusColor = {
+function statusColor(status) {
+  const colors = {
     active: '#22c55e',
     available: '#22c55e',
     on_job: '#3b82f6',
     maintenance: '#f59e0b',
     inactive: '#94a3b8',
   }
-  const color = statusColor[truckStatus.toLowerCase()] || '#94a3b8'
+  return colors[(status || '').toLowerCase()] || '#94a3b8'
+}
 
-  const progress = activeJob ? activeJob.progress || 0 : 0
-  const checkpoints = activeJob?.checkpoints || []
+function truckFromAgreementTrip(agreements, trip) {
+  if (!trip) return null
+  for (const agreement of agreements) {
+    const truck = (agreement.trucks || []).find((item) => Number(item.truck_id) === Number(trip.truck_id))
+    if (truck) return truck
+  }
+  return null
+}
+
+export default function TrackTruck() {
+  const { id } = useParams()
+  const [truck, setTruck] = useState(null)
+  const [agreements, setAgreements] = useState([])
+  const [activeTrip, setActiveTrip] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+
+  async function loadTruck() {
+    if (!id) {
+      setTruck(null)
+      return
+    }
+    const json = await apiGet(`/api/trucks/${id}`)
+    setTruck(json.truck || json)
+  }
+
+  async function loadTrips({ initial = false } = {}) {
+    if (initial) setLoading(true)
+    else setRefreshing(true)
+    setError('')
+
+    try {
+      const agreementsJson = await apiGet('/api/agreements/my')
+      const nextAgreements = agreementsJson.agreements || []
+      const tripEntries = await Promise.all(nextAgreements.map(async (agreement) => {
+        try {
+          const tripJson = await apiGet(`/api/agreements/${agreement.id}/trips`)
+          return tripJson.trips || []
+        } catch (_) {
+          return []
+        }
+      }))
+      const inProgressTrips = tripEntries.flat().filter((trip) => trip.status === 'in_progress')
+      const matchedTrip = id
+        ? inProgressTrips.find((trip) => Number(trip.truck_id) === Number(id))
+        : inProgressTrips[0]
+
+      setAgreements(nextAgreements)
+      setActiveTrip(matchedTrip || null)
+    } catch (loadError) {
+      setError(loadError.message || 'Unable to load tracking data.')
+    } finally {
+      setLoading(false)
+      setRefreshing(false)
+    }
+  }
+
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadInitialData() {
+      setLoading(true)
+      try {
+        await Promise.all([loadTruck(), loadTrips({ initial: true })])
+      } catch (loadError) {
+        if (!cancelled) {
+          setError(loadError.message || 'Unable to load tracking data.')
+          setLoading(false)
+        }
+      }
+    }
+
+    loadInitialData()
+    const intervalId = window.setInterval(() => {
+      if (!cancelled) loadTrips()
+    }, 30000)
+
+    return () => {
+      cancelled = true
+      window.clearInterval(intervalId)
+    }
+  }, [id])
+
+  const agreementTruck = useMemo(() => truckFromAgreementTrip(agreements, activeTrip), [agreements, activeTrip])
+  const displayTruck = truck || agreementTruck || {}
+  const currentStatus = displayTruck.status || (activeTrip ? 'on_job' : 'inactive')
+  const color = statusColor(currentStatus)
+  const truckNumber = displayTruck.truck_number || activeTrip?.truck_number || 'No truck selected'
+  const truckType = displayTruck.truck_type || displayTruck.truck_type_name || '-'
 
   return (
-    <TransporterLayout>
-      <div className="page-track-truck">
-        <main className="page">
-          <section className="hero">
-            <div>
-              <h2>{id && truck ? `${truck.truck_number} - ` : ''}Truck Tracking</h2>
-              <p>{truck?.truck_type || ''} - {truck?.current_location || 'Location not available'}</p>
-            </div>
-            <div className="hero-actions">
-              <button className="btn" type="button" onClick={refresh} disabled={loading}>
-                <i className={`fas fa-rotate-right${loading ? ' fa-spin' : ''}`}></i> Refresh
-              </button>
-              {activeJob && (
-                <Link className="btn-secondary" to="/transporter/bids">
-                  <i className="fas fa-briefcase"></i> Open Active Job
+    <div className="page-track-truck">
+      <main className="page">
+        <section className="hero">
+          <div>
+            <h2>{truckNumber} - Truck Tracking</h2>
+            <p>{truckType}</p>
+          </div>
+          <div className="hero-actions">
+            <button className="btn" type="button" onClick={() => loadTrips()} disabled={refreshing || loading}>
+              <i className={`fas fa-rotate-right${refreshing || loading ? ' fa-spin' : ''}`}></i> Refresh
+            </button>
+            {id && (
+              <>
+                <Link className="btn-secondary" to={`/transporter/trucks/${id}`}>
+                  <i className="fas fa-circle-info"></i> Truck Details
                 </Link>
-              )}
-              {id && (
-                <>
-                  <Link className="btn-secondary" to={`/transporter/trucks/${id}`}>
-                    <i className="fas fa-circle-info"></i> Truck Details
-                  </Link>
-                  <Link className="btn-secondary" to={`/transporter/trucks/${id}/service`}>
-                    <i className="fas fa-wrench"></i> Service History
-                  </Link>
-                </>
-              )}
-            </div>
-          </section>
+                <Link className="btn-secondary" to={`/transporter/trucks/${id}/service`}>
+                  <i className="fas fa-wrench"></i> Service History
+                </Link>
+              </>
+            )}
+          </div>
+        </section>
 
-          {loading ? (
-            <div className="truck-state-card">
-              <i className="fas fa-spinner fa-spin" style={{ fontSize: 28 }}></i>
-              <p style={{ marginTop: 12, color: 'var(--text-secondary)' }}>Loading tracking data...</p>
-            </div>
-          ) : (
-            <>
-              <section className="cards">
-                <div className="card">
-                  <div className="metric-label">Live Status</div>
-                  <div className="metric-value">
-                    <span
-                      style={{
-                        background: `${color}22`,
-                        color,
-                        padding: '3px 12px',
-                        borderRadius: 20,
-                        fontSize: 14,
-                        fontWeight: 600,
-                        textTransform: 'capitalize',
-                      }}
-                    >
-                      {truckStatus.replace(/_/g, ' ')}
-                    </span>
-                  </div>
-                  <div className="metric-note">Derived from current active assignment.</div>
+        {loading ? (
+          <StateMessage type="loading">Loading tracking data...</StateMessage>
+        ) : error ? (
+          <StateMessage type="error">{error}</StateMessage>
+        ) : (
+          <>
+            <section className="cards">
+              <div className="card">
+                <div className="metric-label">Truck Status</div>
+                <div className="metric-value">
+                  <span
+                    style={{
+                      background: `${color}22`,
+                      color,
+                      padding: '3px 12px',
+                      borderRadius: 20,
+                      fontSize: 14,
+                      fontWeight: 600,
+                      textTransform: 'capitalize',
+                    }}
+                  >
+                    {currentStatus.replace(/_/g, ' ')}
+                  </span>
                 </div>
-                <div className="card">
-                  <div className="metric-label">Current Location</div>
-                  <div className="metric-value">{truck?.current_location || '-'}</div>
-                  <div className="metric-note">Latest synced position.</div>
-                </div>
-                <div className="card">
-                  <div className="metric-label">Trip Progress</div>
-                  <div className="metric-value">{progress}%</div>
-                  <div className="progress-shell">
-                    <div className="progress-fill" style={{ width: `${progress}%`, background: color }}></div>
-                  </div>
-                  <div className="metric-note">{activeJob ? `Job #${activeJob.id}` : 'No active job'}</div>
-                </div>
-                <div className="card">
-                  <div className="metric-label">Last Updated</div>
-                  <div className="metric-value">{truck?.updated_at ? new Date(truck.updated_at).toLocaleString() : '-'}</div>
-                  <div className="metric-note">Last time this truck record changed.</div>
+                <div className="metric-note">Current truck operational status.</div>
+              </div>
+              <div className="card">
+                <div className="metric-label">Truck Number</div>
+                <div className="metric-value">{truckNumber}</div>
+                <div className="metric-note">Registered fleet identity.</div>
+              </div>
+              <div className="card">
+                <div className="metric-label">Truck Type</div>
+                <div className="metric-value">{truckType}</div>
+                <div className="metric-note">Configured vehicle category.</div>
+              </div>
+              <div className="card">
+                <div className="metric-label">Active Trip</div>
+                <div className="metric-value">{activeTrip ? `#${activeTrip.id}` : '-'}</div>
+                <div className="metric-note">{activeTrip?.started_at ? `Started ${formatDateTime(activeTrip.started_at)}` : 'No active trip found.'}</div>
+              </div>
+            </section>
+
+            {activeTrip ? (
+              <section className="section">
+                <h3>Live GPS Location</h3>
+                <AgreementTripMap tripId={activeTrip.id} isActive={true} />
+                <div className="route-meta" style={{ marginTop: 12 }}>
+                  <strong>Trip:</strong> {activeTrip.pickup_description || '-'} {' '}
+                  <strong>Status:</strong> {activeTrip.status.replace(/_/g, ' ')}
                 </div>
               </section>
-
-              {activeJob ? (
-                <section className="section-grid">
-                  <section className="section">
-                    <h3>Route Summary</h3>
-                    <div className="route-stack">
-                      <div className="route-node">
-                        <div className="route-dot route-dot-start"></div>
-                        <div>
-                          <div className="route-label">Pickup</div>
-                          <div className="route-value">{activeJob.pickup_location || '-'}</div>
-                        </div>
-                      </div>
-                      <div className="route-divider">
-                        {activeJob.distance ? `${activeJob.distance} km` : 'Distance TBD'}
-                      </div>
-                      <div className="route-node">
-                        <div className="route-dot route-dot-end"></div>
-                        <div>
-                          <div className="route-label">Destination</div>
-                          <div className="route-value">{activeJob.drop_location || '-'}</div>
-                        </div>
-                      </div>
-                      <div className="route-meta">
-                        <strong>Cargo:</strong> {activeJob.cargo_type || activeJob.cargo || '-'} {' '}
-                        <strong>Fare:</strong> PKR {parseFloat(activeJob.total_fare || activeJob.fare || 0).toLocaleString()}
-                      </div>
-                    </div>
-                  </section>
-
-                  <section className="section">
-                    <h3>Checkpoint Timeline</h3>
-                    <div className="timeline">
-                      {checkpoints.length === 0 ? (
-                        <p className="empty-copy">No checkpoints recorded yet.</p>
-                      ) : checkpoints.map((checkpoint, index) => (
-                        <div key={index} className="timeline-item">
-                          <div className="timeline-dot"></div>
-                          <div>
-                            <div className="timeline-title">{checkpoint.label || checkpoint.location}</div>
-                            <div className="timeline-copy">{checkpoint.time || checkpoint.timestamp}</div>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </section>
-                </section>
-              ) : (
-                <section className="section truck-empty-section">
-                  <i className="fas fa-location-dot truck-empty-icon"></i>
-                  <h3>No Active Trip</h3>
-                  <p className="empty-copy">This truck is not currently assigned to any job.</p>
-                  <Link to="/transporter/jobs" className="action-btn" style={{ marginTop: 16 }}>
-                    Browse Available Jobs
-                  </Link>
-                </section>
-              )}
-            </>
-          )}
-        </main>
-
-        {toast && <div className="truck-toast">{toast}</div>}
-      </div>
-    </TransporterLayout>
+            ) : (
+              <section className="section truck-empty-section">
+                <i className="fas fa-location-dot truck-empty-icon"></i>
+                <h3>No active trip</h3>
+                <p className="empty-copy">This truck does not currently have an in-progress agreement trip.</p>
+                <Link to="/transporter/my-agreements" className="action-btn" style={{ marginTop: 16 }}>
+                  Open My Agreements
+                </Link>
+              </section>
+            )}
+          </>
+        )}
+      </main>
+    </div>
   )
 }

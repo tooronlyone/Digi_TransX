@@ -1,7 +1,6 @@
 /* eslint-disable no-empty, react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { useApi } from '../../hooks/useApi'
 import './Dashboard.css'
 
@@ -57,10 +56,10 @@ export default function TransporterDashboard() {
   const emptyValue = '\u2014'
 
   return (
-    <TransporterLayout>
+    <>
       <div className="dashboard-page-title">
         <h1>Transporter Dashboard</h1>
-        <p>Welcome back{userName ? ', ' + userName : ''}! Manage your trucks, bids, and matching jobs here.</p>
+        <p>Welcome back{userName ? ', ' + userName : ''}! Manage your trucks, bids, and available bids here.</p>
       </div>
 
       <div className="dashboard-kpi-grid">
@@ -82,13 +81,13 @@ export default function TransporterDashboard() {
           <div className="dashboard-stat-card__header">
             <div>
               <div className="dashboard-card-value">{loading ? <i className="fas fa-spinner fa-spin"></i> : jobs.length}</div>
-              <div className="dashboard-card-title">Matching Jobs</div>
+              <div className="dashboard-card-title">Available Bids</div>
             </div>
             <div className="dashboard-card-icon dashboard-card-icon--available"><i className="fas fa-clipboard-list"></i></div>
           </div>
           <div className="dashboard-card-footer">
             <span>{stats.onJob} on job</span>
-            <Link to="/transporter/jobs" className="dashboard-action-small">Browse</Link>
+            <Link to="/transporter/available-bids" className="dashboard-action-small">Browse</Link>
           </div>
         </article>
 
@@ -129,10 +128,10 @@ export default function TransporterDashboard() {
             <span>Add New Truck</span>
             <div>Register a new vehicle</div>
           </Link>
-          <Link to="/transporter/jobs" className="dashboard-action-tile">
+          <Link to="/transporter/available-bids" className="dashboard-action-tile">
             <i className="fas fa-clipboard-list"></i>
-            <span>Find Jobs</span>
-            <div>Browse available shipments</div>
+            <span>Available Bids</span>
+            <div>Browse available bids</div>
           </Link>
           <Link to="/transporter/bids" className="dashboard-action-tile">
             <i className="fas fa-gavel"></i>
@@ -186,6 +185,6 @@ export default function TransporterDashboard() {
           </div>
         )}
       </section>
-    </TransporterLayout>
+    </>
   )
 }

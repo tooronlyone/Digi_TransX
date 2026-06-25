@@ -1,5 +1,4 @@
 import { useState, useEffect, useMemo } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 
@@ -120,7 +119,7 @@ export default function AcHistory() {
   }
 
   return (
-    <TransporterLayout>
+    <>
       <div className="page-account-history">
         <div className="page-title">
           <h1>Account History</h1>
@@ -273,6 +272,6 @@ export default function AcHistory() {
           {toast.msg}
         </div>
       )}
-    </TransporterLayout>
+    </>
   )
 }

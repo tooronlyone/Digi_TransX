@@ -1,10 +1,9 @@
 import { useState, useMemo } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { Link } from 'react-router-dom'
 
 const CATEGORIES = [
   { icon: 'fas fa-truck', title: 'Truck Management', desc: 'Add, edit, and manage your trucks', link: '/transporter/trucks' },
-  { icon: 'fas fa-briefcase', title: 'Jobs & Bookings', desc: 'Browse and manage shipment jobs', link: '/transporter/jobs' },
+  { icon: 'fas fa-briefcase', title: 'Available Bids', desc: 'Browse and manage shipment bids', link: '/transporter/available-bids' },
   { icon: 'fas fa-rupee-sign', title: 'Payments & Earnings', desc: 'Transactions, withdrawals, and earnings', link: '/transporter/earnings' },
   { icon: 'fas fa-tools', title: 'Fleet Overview', desc: 'Review truck status and service history from active fleet pages', link: '/transporter/trucks' },
   { icon: 'fas fa-gas-pump', title: 'Account History', desc: 'Review payments and historical account entries', link: '/transporter/account-history' },
@@ -14,16 +13,16 @@ const CATEGORIES = [
 ]
 
 const FAQS = [
-  { q: 'How do I add a new truck to my fleet?', a: 'Go to My Trucks → click "Add Truck". Fill in the truck number, type, capacity, and chassis number. Upload the truck photo and insurance document for faster verification.' },
-  { q: 'How do I accept an available job?', a: 'Navigate to Jobs → Available Jobs. Browse listings and click "Apply" on any job. Once a service seeker accepts your application, the job appears in Active Jobs.' },
+  { q: 'How do I add a new truck to my fleet?', a: 'Go to My Trucks Ã¢â€ â€™ click "Add Truck". Fill in the truck number, type, capacity, and chassis number. Upload the truck photo and insurance document for faster verification.' },
+  { q: 'How do I accept an available bid?', a: 'Navigate to Available Bids. Browse listings and click "Apply" on any bid. Once a service seeker accepts your application, the job appears in Active Jobs.' },
   { q: 'When do I receive payment for completed jobs?', a: 'Payments are processed after job completion and confirmation by the service seeker. Funds appear in your Earnings section and can be withdrawn to your bank account.' },
-  { q: 'How do I configure truck pricing?', a: 'Go to My Trucks → select a truck → click Edit/Configure. Enter your per-km rate, waiting charge per hour, and optionally loading/unloading charges to make the truck dispatch-ready.' },
-  { q: 'How do I track my truck location?', a: 'Go to My Trucks → select a truck → click Track. If the truck has a tracking device ID configured and an active job, you can view the current status and route progress.' },
+  { q: 'How do I configure truck pricing?', a: 'Go to My Trucks Ã¢â€ â€™ select a truck Ã¢â€ â€™ click Edit/Configure. Enter your per-km rate, waiting charge per hour, and optionally loading/unloading charges to make the truck dispatch-ready.' },
+  { q: 'How do I track my truck location?', a: 'Go to My Trucks Ã¢â€ â€™ select a truck Ã¢â€ â€™ click Track. If the truck has a tracking device ID configured and an active job, you can view the current status and route progress.' },
   { q: 'What documents are needed for truck activation?', a: 'You need: truck number, truck type, capacity, chassis number, operating provinces, per-km rate, and waiting charge. Truck photo and insurance paper are optional but recommended.' },
-  { q: 'How do I update my profile information?', a: 'Go to Profile or Settings → Account section. Update your name, email, phone, and business details. Changes are saved immediately.' },
-  { q: 'What is the Predictive Insights feature?', a: 'Predictive Insights uses your historical data — jobs, fuel, maintenance — to forecast earnings for the next 7, 15, 30, and 90 days. It also gives smart recommendations to grow your business.' },
+  { q: 'How do I update my profile information?', a: 'Go to Profile or Settings Ã¢â€ â€™ Account section. Update your name, email, phone, and business details. Changes are saved immediately.' },
+  { q: 'What is the Predictive Insights feature?', a: 'Predictive Insights uses your historical data Ã¢â‚¬â€ jobs, fuel, maintenance Ã¢â‚¬â€ to forecast earnings for the next 7, 15, 30, and 90 days. It also gives smart recommendations to grow your business.' },
   { q: 'How do I export my transaction history?', a: 'Go to Account History. Use the date filters if needed, then click "Export Excel" to download a CSV file, or "Export PDF" to print the full transaction list.' },
-  { q: 'How do I change my password or PIN?', a: 'Go to Settings → Privacy & Security. Click "Change Password" or use the OTP verification flow. An OTP will be sent to your registered email or phone.' },
+  { q: 'How do I change my password or PIN?', a: 'Go to Settings Ã¢â€ â€™ Privacy & Security. Click "Change Password" or use the OTP verification flow. An OTP will be sent to your registered email or phone.' },
 ]
 
 const ARTICLES = [
@@ -58,7 +57,6 @@ export default function Help() {
   }, [search])
 
   return (
-    <TransporterLayout>
       <div className="page-help">
         <div className="page-title">
           <h1>Help Center</h1>
@@ -82,7 +80,7 @@ export default function Help() {
           </div>
           {search && (
             <p style={{ color: 'var(--text-secondary)', marginTop: 8, fontSize: 14 }}>
-              Showing results for "<strong>{search}</strong>" — {filteredFaqs.length} FAQs, {filteredArticles.length} articles
+              Showing results for "<strong>{search}</strong>" Ã¢â‚¬â€ {filteredFaqs.length} FAQs, {filteredArticles.length} articles
             </p>
           )}
         </div>
@@ -181,6 +179,6 @@ export default function Help() {
           </div>
         </div>
       </div>
-    </TransporterLayout>
+    
   )
 }

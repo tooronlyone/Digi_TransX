@@ -1,7 +1,6 @@
 /* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { useApi } from '../../hooks/useApi'
 
 function statusBadge(status) {
@@ -55,7 +54,6 @@ export default function MyTruck() {
   void stats
 
   return (
-    <TransporterLayout>
       <div className="page-my-truck">
         <div className="mytrucks-page-title">
           <h1>My Trucks</h1>
@@ -112,7 +110,7 @@ export default function MyTruck() {
                 <div className="mytrucks-stats-grid">
                   <div>
                     <span>Capacity</span>
-                    <b>{truck.capacity || emptyValue}</b>
+                    <b>{truck.capacity_tons ? `${truck.capacity_tons} tons` : emptyValue}</b>
                   </div>
                 </div>
 
@@ -136,6 +134,6 @@ export default function MyTruck() {
           </div>
         )}
       </div>
-    </TransporterLayout>
+    
   )
 }

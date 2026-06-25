@@ -1,5 +1,4 @@
 import { useState } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 
@@ -58,7 +57,6 @@ export default function PartnerWithUs() {
   }
 
   return (
-    <TransporterLayout>
       <div className="page-partner-with-us">
         <div className="top-bar">
           <div className="page-title">
@@ -111,11 +109,11 @@ export default function PartnerWithUs() {
                     </div>
                     <div>
                       <div style={{ fontWeight: 700 }}>{s.name}</div>
-                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{s.city} · {s.trucks} trucks</div>
+                      <div style={{ fontSize: 13, color: 'var(--text-secondary)' }}>{s.city} Ã‚Â· {s.trucks} trucks</div>
                     </div>
                   </div>
                   <p style={{ margin: '0 0 12px', color: 'var(--text-secondary)', fontSize: 14, lineHeight: 1.6, fontStyle: 'italic' }}>"{s.story}"</p>
-                  <div style={{ color: '#f39c12' }}>{'★'.repeat(s.rating)}</div>
+                  <div style={{ color: '#f39c12' }}>{'Ã¢Ëœâ€¦'.repeat(s.rating)}</div>
                 </div>
               ))}
             </div>
@@ -197,6 +195,6 @@ export default function PartnerWithUs() {
           </div>
         </div>
       </div>
-    </TransporterLayout>
+    
   )
 }

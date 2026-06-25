@@ -6,6 +6,7 @@ from flask import Blueprint, request, send_from_directory
 
 from auth.helpers import json_response, login_required, require_csrf, timestamp_bundle
 from shared.db import open_db
+from tracking.traccar import register_device
 from .helpers import (
     STATUS_OPTIONS,
     STATUS_REASON_LABELS,
@@ -157,6 +158,19 @@ def create_truck():
                 ),
             )
             db.commit()
+            truck_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+            try:
+                imei = parse_optional_text(form.get("trackingId"))
+                if imei is not None and imei.strip() != "":
+                    gps_device_id = register_device(imei.strip(), truck_number)
+                    if gps_device_id is not None:
+                        db.execute(
+                            "UPDATE trucks SET traccar_device_id = ? WHERE id = ?",
+                            (str(gps_device_id), truck_id),
+                        )
+                        db.commit()
+            except Exception:
+                pass
         except sqlite3.IntegrityError:
             duplicate_truck_number = db.execute(
                 "SELECT id FROM trucks WHERE trim(truck_number) = ? COLLATE NOCASE LIMIT 1",

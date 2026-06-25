@@ -1,9 +1,7 @@
 import ChatWindow from '../../components/chat/ChatWindow'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 
 export default function Messages() {
   return (
-    <TransporterLayout>
       <div className="space-y-6">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-bold text-slate-900">Messages</h1>
@@ -11,6 +9,6 @@ export default function Messages() {
         </div>
         <ChatWindow role="transporter" />
       </div>
-    </TransporterLayout>
+    
   )
 }

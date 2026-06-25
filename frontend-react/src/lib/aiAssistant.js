@@ -81,10 +81,10 @@ const EXACT_PAGE_MAP = {
     pagePurpose: 'Review fleet details, status, and truck-level actions.',
     availableActions: ['page_explain', 'navigation', 'info_query'],
   },
-  '/transporter/jobs': {
-    pageName: 'transporter_available_jobs',
-    pageLabel: 'Available Jobs',
-    pagePurpose: 'Browse new jobs and apply to work that fits your fleet.',
+  '/transporter/available-bids': {
+    pageName: 'transporter_available_bids',
+    pageLabel: 'Available Bids',
+    pagePurpose: 'Browse available bids and apply to work that fits your fleet.',
     availableActions: ['page_explain', 'navigation', 'info_query'],
   },
   '/transporter/bids': {

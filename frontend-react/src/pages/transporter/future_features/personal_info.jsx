@@ -200,7 +200,7 @@ export default function PersonalInfo() {
             </div>
             <div className="card-footer">
               <span>This month</span>
-              <Link to="/transporter/jobs" className="action-btn-small">Browse</Link>
+              <Link to="/transporter/available-bids" className="action-btn-small">Browse</Link>
             </div>
           </div>
 
@@ -260,10 +260,10 @@ export default function PersonalInfo() {
             <span>Predictive Analytics</span>
             <div className="action-desc">Future insights</div>
           </Link>
-          <Link to="/transporter/jobs" className="action-btn">
+          <Link to="/transporter/available-bids" className="action-btn">
             <i className="fas fa-clipboard-list"></i>
-            <span>Find Jobs</span>
-            <div className="action-desc">Browse available shipments</div>
+            <span>Available Bids</span>
+            <div className="action-desc">Browse available bids</div>
           </Link>
         </div>
 

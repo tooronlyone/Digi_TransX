@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
+import { Link } from 'react-router-dom'
 import { apiGet, apiSend, formatDateTime, formatStatus, getCsrfToken } from '../client/clientUtils'
 
 function statusClasses(status) {
@@ -224,11 +224,21 @@ export default function MyBids() {
   }
 
   return (
-    <TransporterLayout>
       <div className="space-y-6">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
-          <h1 className="text-2xl font-bold text-slate-900">My Bids</h1>
-          <p className="mt-2 text-sm text-slate-500">Track every proposal you have placed and withdraw pending bids when needed.</p>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-slate-900">My Bids</h1>
+              <p className="mt-2 text-sm text-slate-500">Track every proposal you have placed and withdraw pending bids when needed.</p>
+            </div>
+            <Link
+              to="/transporter/available-bids"
+              className="inline-flex min-h-10 items-center justify-center rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm hover:bg-amber-500"
+            >
+              <i className="fas fa-clipboard-list mr-2" aria-hidden="true"></i>
+              Available Bids
+            </Link>
+          </div>
         </div>
 
         {loading && <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading bids...</div>}
@@ -303,6 +313,6 @@ export default function MyBids() {
           </div>
         )}
       </div>
-    </TransporterLayout>
+    
   )
 }

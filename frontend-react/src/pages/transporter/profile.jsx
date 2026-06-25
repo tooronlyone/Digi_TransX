@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { useApi } from '../../hooks/useApi'
 
 function getInitials(user) {
@@ -45,18 +44,17 @@ export default function Profile() {
   }
 
   function fullName() {
-    if (!user) return '— —'
+    if (!user) return 'Ã¢â‚¬â€ Ã¢â‚¬â€'
     const f = user.first_name || ''
     const l = user.last_name || ''
-    return (f + ' ' + l).trim() || user.username || '—'
+    return (f + ' ' + l).trim() || user.username || 'Ã¢â‚¬â€'
   }
 
   function val(v) {
-    return v || '—'
+    return v || 'Ã¢â‚¬â€'
   }
 
   return (
-    <TransporterLayout>
       <div className="page-profile">
       {msg && (
         <div style={{
@@ -165,7 +163,7 @@ export default function Profile() {
                 </div>
                 <div className="detail-content">
                   <div className="detail-row"><Link to="/transporter/trucks" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-truck"></i> My Trucks</Link></div>
-                  <div className="detail-row"><Link to="/transporter/jobs" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-briefcase"></i> Available Jobs</Link></div>
+                  <div className="detail-row"><Link to="/transporter/available-bids" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-briefcase"></i> Available Bids</Link></div>
                   <div className="detail-row"><Link to="/transporter/earnings" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-wallet"></i> Earnings</Link></div>
                   <div className="detail-row"><Link to="/transporter/settings" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-cog"></i> Settings</Link></div>
                 </div>
@@ -202,6 +200,6 @@ export default function Profile() {
         </div>
       </div>
       </div>
-    </TransporterLayout>
+    
   )
 }

@@ -1,6 +1,5 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { useApi } from '../../hooks/useApi'
 
 export default function Settings() {
@@ -211,7 +210,6 @@ export default function Settings() {
   ]
 
   return (
-    <TransporterLayout>
       <div className="page-settings">
         {toast.msg && (
           <div style={{
@@ -233,7 +231,7 @@ export default function Settings() {
               {user ? (user.first_name?.[0] || user.username?.[0] || 'U').toUpperCase() : 'U'}
             </div>
             <div className="user-details">
-              <h3>{user ? ((user.first_name || '') + ' ' + (user.last_name || '')).trim() || user.username : '—'}</h3>
+              <h3>{user ? ((user.first_name || '') + ' ' + (user.last_name || '')).trim() || user.username : 'Ã¢â‚¬â€'}</h3>
               <p><i className="fas fa-briefcase"></i> {user?.role || 'Transporter'}</p>
             </div>
           </div>
@@ -440,7 +438,7 @@ export default function Settings() {
                     {activityLogs.map((log, i) => (
                       <div key={i} style={{ fontSize: '0.85rem', color: '#64748b', padding: '0.3rem 0', borderBottom: '1px solid #e2e8f0' }}>
                         <i className="fas fa-circle" style={{ fontSize: '0.5rem', marginRight: '8px', color: '#22c55e' }}></i>
-                        {log.created_at} — {log.ip_address || 'Unknown IP'}
+                        {log.created_at} Ã¢â‚¬â€ {log.ip_address || 'Unknown IP'}
                       </div>
                     ))}
                   </div>
@@ -725,6 +723,6 @@ export default function Settings() {
         </div>
         <div className="notification-panel" id="notificationPanel"></div>
       </div>
-    </TransporterLayout>
+    
   )
 }

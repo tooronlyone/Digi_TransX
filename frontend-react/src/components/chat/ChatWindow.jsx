@@ -17,7 +17,7 @@ function canSendMediaForApproval(message) {
   return message.message_type === 'media_request' && message.is_own && message.media_request_status === 'approved'
 }
 
-export default function ChatWindow({ role = 'client', onUnreadChange }) {
+export default function ChatWindow({ role = 'client', onUnreadChange, initialThreadId = null }) {
   const [threads, setThreads] = useState([])
   const [activeThreadId, setActiveThreadId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -105,8 +105,8 @@ export default function ChatWindow({ role = 'client', onUnreadChange }) {
   }
 
   useEffect(() => {
-    loadThreads()
-  }, [])
+    loadThreads(initialThreadId ? Number(initialThreadId) : null)
+  }, [initialThreadId])
 
   useEffect(() => {
     if (!activeThreadId) {

@@ -16,6 +16,7 @@ import FuelStationDetails from './pages/auth/roledetails/FuelStationDetails'
 import ShopkeeperDetails from './pages/auth/roledetails/ShopkeeperDetails'
 
 import TransporterGuard from './components/transporter/TransporterGuard'
+import TransporterLayout from './components/transporter/TransporterLayout'
 import ShopkeeperGuard from './components/shopkeeper/ShopkeeperGuard'
 import TransporterPlaceholderPage from './components/transporter/TransporterPlaceholderPage'
 import ClientLayout from './components/client/ClientLayout'
@@ -29,7 +30,9 @@ import EditTruck from './pages/transporter/edit_truck'
 import TruckConfiguration from './pages/transporter/truck_configuration'
 import TrackTruck from './pages/transporter/track_truck'
 import ServiceHistory from './pages/transporter/service_history'
-import AvailableJobs from './pages/transporter/AvailableJobs'
+import AvailableBids from './pages/transporter/AvailableBids'
+import TransporterAgreementBids from './pages/transporter/AgreementBids'
+import TransporterMyAgreements from './pages/transporter/MyAgreements'
 import MyBids from './pages/transporter/MyBids'
 import Earnings from './pages/transporter/earning'
 import TransporterWallet from './pages/transporter/wallet'
@@ -71,10 +74,25 @@ import ClientDashboard from './pages/client/ClientDashboard'
 import PostOrder from './pages/client/PostOrder'
 import MyOrders from './pages/client/MyOrders'
 import Agreements from './pages/client/Agreements'
+import PostAgreement from './pages/client/PostAgreement'
+import ClientAgreementBids from './pages/client/AgreementBids'
+import ClientMyAgreements from './pages/client/MyAgreements'
+import AgreementDetail from './pages/client/AgreementDetail'
 import Wallet from './pages/client/Wallet'
 import ClientAccount from './pages/client/ClientAccount'
 import ClientMessages from './pages/client/Messages'
 import TransporterMessages from './pages/transporter/Messages'
+import AdminLayout from './components/admin/AdminLayout'
+import AdminLogin from './pages/admin/AdminLogin'
+import AdminDashboard from './pages/admin/AdminDashboard'
+import AdminUsers from './pages/admin/AdminUsers'
+import AdminUserDetail from './pages/admin/AdminUserDetail'
+import AdminTrucks from './pages/admin/AdminTrucks'
+import AdminWithdrawals from './pages/admin/AdminWithdrawals'
+import AdminAgreements from './pages/admin/AdminAgreements'
+import AdminDisputes from './pages/admin/AdminDisputes'
+import AdminDisputeChat from './pages/admin/AdminDisputeChat'
+import AdminPayments from './pages/admin/AdminPayments'
 
 function ClientGuard({ children }) {
   const { ready } = useClientAuth()
@@ -91,6 +109,40 @@ function ClientGuard({ children }) {
   return children
 }
 
+function AdminGuard({ children }) {
+  const raw = sessionStorage.getItem('user')
+  let user = null
+  try {
+    user = raw ? JSON.parse(raw) : null
+  } catch (_) {}
+  if ((user?.role || '').trim().toLowerCase() !== 'platform_admin') {
+    return <Navigate to="/admin/login" replace />
+  }
+  return children
+}
+
+function AdminPortal() {
+  return (
+    <AdminGuard>
+      <AdminLayout>
+        <Routes>
+          <Route path="dashboard" element={<AdminDashboard />} />
+          <Route path="users" element={<AdminUsers />} />
+          <Route path="users/:id" element={<AdminUserDetail />} />
+          <Route path="trucks" element={<AdminTrucks />} />
+          <Route path="withdrawals" element={<AdminWithdrawals />} />
+          <Route path="agreements" element={<AdminAgreements />} />
+          <Route path="disputes" element={<AdminDisputes />} />
+          <Route path="dispute-chat/:threadId" element={<AdminDisputeChat />} />
+          <Route path="payments" element={<AdminPayments />} />
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="*" element={<Navigate to="dashboard" replace />} />
+        </Routes>
+      </AdminLayout>
+    </AdminGuard>
+  )
+}
+
 function ClientPortal() {
   return (
     <ClientGuard>
@@ -101,6 +153,10 @@ function ClientPortal() {
           <Route path="post-order" element={<PostOrder />} />
           <Route path="orders" element={<MyOrders />} />
           <Route path="agreements" element={<Agreements />} />
+          <Route path="post-agreement" element={<PostAgreement />} />
+          <Route path="agreement-bids/:postId" element={<ClientAgreementBids />} />
+          <Route path="my-agreements" element={<ClientMyAgreements />} />
+          <Route path="agreement/:id" element={<AgreementDetail />} />
           <Route path="wallet" element={<Wallet />} />
           <Route path="balance" element={<Wallet />} />
           <Route path="account" element={<ClientAccount />} />
@@ -115,49 +171,55 @@ function ClientPortal() {
 function TransporterPortal() {
   return (
     <TransporterGuard>
-      <Routes>
-        <Route path="dashboard" element={<Dashboard />} />
+      <TransporterLayout>
+        <Routes>
+          <Route path="dashboard" element={<Dashboard />} />
 
-        <Route path="trucks" element={<MyTrucks />} />
-        <Route path="trucks/add" element={<AddTruck />} />
-        <Route path="trucks/edit/:id" element={<EditTruck />} />
-        <Route path="trucks/config/:id" element={<TruckConfiguration />} />
-        <Route path="trucks/:id" element={<TruckDetails />} />
-        <Route path="trucks/:id/track" element={<TrackTruck />} />
-        <Route path="trucks/:id/service" element={<ServiceHistory />} />
-        <Route path="track" element={<TrackTruck />} />
-        <Route path="service-history" element={<ServiceHistory />} />
+          <Route path="trucks" element={<MyTrucks />} />
+          <Route path="trucks/add" element={<AddTruck />} />
+          <Route path="trucks/edit/:id" element={<EditTruck />} />
+          <Route path="trucks/config/:id" element={<TruckConfiguration />} />
+          <Route path="trucks/:id" element={<TruckDetails />} />
+          <Route path="trucks/:id/track" element={<TrackTruck />} />
+          <Route path="trucks/:id/service" element={<ServiceHistory />} />
+          <Route path="track" element={<TrackTruck />} />
+          <Route path="service-history" element={<ServiceHistory />} />
 
-        <Route path="jobs" element={<AvailableJobs />} />
-        <Route path="bids" element={<MyBids />} />
-        <Route path="messages" element={<TransporterMessages />} />
+          <Route path="available-bids" element={<AvailableBids />} />
+          <Route path="jobs" element={<Navigate to="/transporter/available-bids" replace />} />
+          <Route path="agreement-bids" element={<TransporterAgreementBids />} />
+          <Route path="agreement-jobs" element={<Navigate to="/transporter/agreement-bids" replace />} />
+          <Route path="my-agreements" element={<TransporterMyAgreements />} />
+          <Route path="bids" element={<MyBids />} />
+          <Route path="messages" element={<TransporterMessages />} />
 
-        <Route path="account-history" element={<AccountHistory />} />
+          <Route path="account-history" element={<AccountHistory />} />
 
-        <Route path="earnings" element={<Earnings />} />
-        <Route path="wallet" element={<TransporterWallet />} />
+          <Route path="earnings" element={<Earnings />} />
+          <Route path="wallet" element={<TransporterWallet />} />
 
-        <Route path="profile" element={<Profile />} />
-        <Route path="settings" element={<Settings />} />
+          <Route path="profile" element={<Profile />} />
+          <Route path="settings" element={<Settings />} />
 
-        <Route path="leaderboard" element={<Leaderboard />} />
+          <Route path="leaderboard" element={<Leaderboard />} />
 
-        <Route path="help" element={<Help />} />
-        <Route path="about" element={<About />} />
-        <Route path="contact" element={<Contact />} />
-        <Route path="terms" element={<Terms />} />
-        <Route path="privacy" element={<Privacy />} />
-        <Route path="partner" element={<Partner />} />
-        <Route
-          path="*"
-          element={
-            <TransporterPlaceholderPage
-              title="Coming Soon"
-              description="This transporter section is still being prepared."
-            />
-          }
-        />
-      </Routes>
+          <Route path="help" element={<Help />} />
+          <Route path="about" element={<About />} />
+          <Route path="contact" element={<Contact />} />
+          <Route path="terms" element={<Terms />} />
+          <Route path="privacy" element={<Privacy />} />
+          <Route path="partner" element={<Partner />} />
+          <Route
+            path="*"
+            element={
+              <TransporterPlaceholderPage
+                title="Coming Soon"
+                description="This transporter section is still being prepared."
+              />
+            }
+          />
+        </Routes>
+      </TransporterLayout>
     </TransporterGuard>
   )
 }
@@ -242,6 +304,8 @@ export default function App() {
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/unlock" element={<Unlock />} />
             <Route path="/ai-chat" element={<AiChat />} />
+            <Route path="/admin/login" element={<AdminLogin />} />
+            <Route path="/admin/*" element={<AdminPortal />} />
 
             <Route path="/transporter/*" element={<TransporterPortal />} />
             <Route path="/client/*" element={<ClientPortal />} />

@@ -63,6 +63,7 @@ export default function TransporterLayout({ children }) {
 
   const initials = user.name.slice(0, 2).toUpperCase()
   const visibleNavItems = NAV_ITEMS
+    .filter((item) => item.path !== '/transporter/trucks/add')
     .map((item) => (
       item.path === '/transporter/messages'
         ? { ...item, badge: unreadTotal > 0 ? String(unreadTotal) : '' }

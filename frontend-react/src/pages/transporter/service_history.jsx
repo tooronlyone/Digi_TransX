@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 
@@ -96,7 +95,6 @@ export default function ServiceHistory() {
   }
 
   return (
-    <TransporterLayout>
       <div className="page-service-history">
         <main className="page">
           <section className="hero">
@@ -211,6 +209,6 @@ export default function ServiceHistory() {
           )}
         </main>
       </div>
-    </TransporterLayout>
+    
   )
 }

@@ -10,6 +10,8 @@ if str(CURRENT_DIR) not in sys.path:
 
 from auth import auth_blueprint
 from auth.helpers import json_response
+from admin import admin_blueprint
+from agreements import agreements_blueprint
 from chat import chat_blueprint
 from profile import profile_blueprint
 from orders import orders_blueprint
@@ -27,6 +29,8 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") == "production"
 
 app.register_blueprint(auth_blueprint)
+app.register_blueprint(admin_blueprint)
+app.register_blueprint(agreements_blueprint)
 app.register_blueprint(chat_blueprint)
 app.register_blueprint(profile_blueprint)
 app.register_blueprint(orders_blueprint)
@@ -36,6 +40,8 @@ app.register_blueprint(trucks_blueprint)
 app.register_blueprint(wallet_blueprint)
 
 init_db()
+from scheduler import start_scheduler
+start_scheduler()
 
 
 @app.get("/")

@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import TransporterLayout from '../../components/transporter/TransporterLayout'
 import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 
@@ -44,7 +43,7 @@ export default function TruckDetails() {
 
   function calcCompleteness(value) {
     if (!value) return 0
-    const required = ['truck_number', 'truck_type', 'max_capacity', 'chassis_number', 'common_uses', 'per_km_rate', 'waiting_charge_per_hour']
+    const required = ['truck_number', 'truck_type', 'max_capacity', 'chassis_number', 'per_km_rate', 'waiting_charge_per_hour']
     const filled = required.filter((key) => value[key] && String(value[key]).trim() !== '').length
     return Math.round((filled / required.length) * 100)
   }
@@ -99,36 +98,31 @@ export default function TruckDetails() {
 
   if (loading) {
     return (
-      <TransporterLayout>
-        <div className="page-truck-details">
-          <div className="truck-state-card">
-            <i className="fas fa-spinner fa-spin" style={{ fontSize: 36 }}></i>
-            <p style={{ marginTop: 12, color: 'var(--text-secondary)' }}>Loading truck details...</p>
-          </div>
+      <div className="page-truck-details">
+        <div className="truck-state-card">
+          <i className="fas fa-spinner fa-spin" style={{ fontSize: 36 }}></i>
+          <p style={{ marginTop: 12, color: 'var(--text-secondary)' }}>Loading truck details...</p>
         </div>
-      </TransporterLayout>
+      </div>
     )
   }
 
   if (!truck) {
     return (
-      <TransporterLayout>
-        <div className="page-truck-details">
-          <div className="truck-state-card">
-            <i className="fas fa-exclamation-circle" style={{ fontSize: 48, color: '#e74c3c' }}></i>
-            <p style={{ marginTop: 12 }}>Truck not found</p>
-            <Link to="/transporter/trucks" className="action-btn" style={{ marginTop: 16 }}>
-              Back to My Trucks
-            </Link>
-          </div>
+      <div className="page-truck-details">
+        <div className="truck-state-card">
+          <i className="fas fa-exclamation-circle" style={{ fontSize: 48, color: '#e74c3c' }}></i>
+          <p style={{ marginTop: 12 }}>Truck not found</p>
+          <Link to="/transporter/trucks" className="action-btn" style={{ marginTop: 16 }}>
+            Back to My Trucks
+          </Link>
         </div>
-      </TransporterLayout>
+      </div>
     )
   }
 
   return (
-    <TransporterLayout>
-      <div className="page-truck-details">
+    <div className="page-truck-details">
         <div className="topbar">
           <div>
             <h1>Truck Details</h1>
@@ -218,7 +212,6 @@ export default function TruckDetails() {
                 { label: 'Per KM Rate', value: truck.per_km_rate ? `PKR ${truck.per_km_rate}` : null },
                 { label: 'Waiting Charge', value: truck.waiting_charge_per_hour ? `PKR ${truck.waiting_charge_per_hour}/hr` : null },
                 { label: 'Driver', value: truck.driver_name },
-                { label: 'Common Uses', value: truck.common_uses },
               ].map(({ label, value }) => (
                 <div className="meta-item" key={label}>
                   <span className="meta-label">{label}</span>
@@ -403,6 +396,5 @@ export default function TruckDetails() {
           </div>
         </div>
       </div>
-    </TransporterLayout>
   )
 }
