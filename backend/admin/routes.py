@@ -352,13 +352,12 @@ def approve_withdrawal(request_id):
         if wallet_error:
             return wallet_error
         amount = round_money(req["amount"])
-        if round_money(wallet["locked_balance"]) + 1e-9 < amount or round_money(wallet["balance"]) + 1e-9 < amount:
+        if round_money(wallet["balance"]) + 1e-9 < amount:
             return json_response({"success": False, "message": "Wallet balance is lower than the requested withdrawal amount."}, 400)
-        wallet["locked_balance"] = round_money(wallet["locked_balance"] - amount)
         wallet["balance"] = round_money(wallet["balance"] - amount)
-        db.execute("UPDATE wallets SET locked_balance = ?, balance = ?, updated_at = ? WHERE id = ?", (wallet["locked_balance"], wallet["balance"], stamp["display"], wallet["id"]))
+        db.execute("UPDATE wallets SET balance = ?, updated_at = ? WHERE id = ?", (wallet["balance"], stamp["display"], wallet["id"]))
         db.execute("UPDATE wallet_withdrawal_requests SET status = 'approved', resolved_at = ? WHERE id = ?", (stamp["iso"], request_id))
-        insert_wallet_transaction(db, wallet, req["user_id"], "withdrawal", -amount, description="Approved locked withdrawal", reference_id=str(request_id))
+        insert_wallet_transaction(db, wallet, req["user_id"], "withdrawal", -amount, description="Approved withdrawal", reference_id=str(request_id))
         db.commit()
     return json_response({"success": True})
 
@@ -534,7 +533,7 @@ def create_group_chat(trip_id):
             (-(trip_id + 1000000), trip["client_user_id"], trip["transporter_user_id"], request.current_user["id"], trip_id, stamp, stamp),
         )
         thread_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
-        insert_chat_message(db, thread_id, request.current_user["id"], "system", content=f"Admin ne ye group chat dispute resolve karne ke liye create ki hai. Trip #{trip_id} - {trip.get('pickup_description') or ''} - {round_money(trip.get('distance_km'))} km")
+        insert_chat_message(db, thread_id, request.current_user["id"], "system", content=f"Admin created this group chat to resolve the dispute for Trip #{trip_id} - {trip.get('pickup_description') or ''} - {round_money(trip.get('distance_km'))} km")
         db.commit()
     return json_response({"success": True, "thread_id": thread_id})
 

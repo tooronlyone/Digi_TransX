@@ -1,193 +1,461 @@
-/* eslint-disable react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
-import { useEffect, useMemo, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { useApi } from '../../hooks/useApi'
+/* eslint-disable react-hooks/set-state-in-effect */
+import { useEffect, useState } from 'react'
 
-const fmtPKR = (n) => {
+async function getCsrf() {
+  const res = await fetch('/auth/csrf-token', { credentials: 'same-origin' })
+  const json = await res.json()
+  return json.csrf_token
+}
+
+async function apiGet(url) {
+  const res = await fetch(url, { credentials: 'same-origin' })
+  const json = await res.json()
+  if (!json.success) throw new Error(json.message || 'Request failed.')
+  return json
+}
+
+async function apiPost(url, body) {
+  const csrf = await getCsrf()
+  const res = await fetch(url, {
+    method: 'POST',
+    credentials: 'same-origin',
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+    body: JSON.stringify(body),
+  })
+  const json = await res.json()
+  if (!json.success) throw new Error(json.message || 'Request failed.')
+  return json
+}
+
+function fmtPKR(n) {
   const amount = Number(n || 0)
-  if (amount >= 1_000_000) return 'PKR ' + (amount / 1_000_000).toFixed(2).replace(/\.?0+$/, '') + 'M'
-  if (amount >= 1_000) return 'PKR ' + (amount / 1_000).toFixed(amount >= 100_000 ? 0 : 1).replace(/\.0$/, '') + 'k'
+  if (amount >= 1000000) return 'PKR ' + (amount / 1000000).toFixed(2).replace(/\.?0+$/, '') + 'M'
+  if (amount >= 1000) return 'PKR ' + (amount / 1000).toFixed(amount >= 100000 ? 0 : 1).replace(/\.0$/, '') + 'k'
   return 'PKR ' + amount.toLocaleString()
 }
 
 function formatDate(value) {
-  if (!value) return 'Ã¢â‚¬â€'
-  const date = new Date(value)
-  if (Number.isNaN(date.getTime())) return String(value).slice(0, 10)
-  return date.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
-}
-
-function isPayoutPaid(payout) {
-  const status = (payout.status || '').toLowerCase()
-  const type = (payout.transaction_type || payout.type || '').toLowerCase()
-  if (['pending', 'processing', 'hold'].includes(status)) return false
-  if (['paid', 'completed', 'success', 'processed'].includes(status)) return true
-  return type.includes('payment') ||
-    type === 'credit' ||
-    type === 'earning'
-}
-
-function payoutStatusLabel(payout) {
-  return isPayoutPaid(payout) ? 'Paid' : 'Pending'
+  if (!value) return '-'
+  const d = new Date(value)
+  if (Number.isNaN(d.getTime())) return String(value).slice(0, 10)
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
 export default function Earning() {
-  const { get } = useApi()
-  const [transactions, setTransactions] = useState([])
-  const [analytics, setAnalytics] = useState(null)
+  const [summary, setSummary] = useState(null)
+  const [limits, setLimits] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [period] = useState('month')
+  const [error, setError] = useState('')
+  const [notice, setNotice] = useState('')
+  const [withdrawAmount, setWithdrawAmount] = useState('')
+  const [withdrawing, setWithdrawing] = useState(false)
+  const [upgrading, setUpgrading] = useState(false)
+  const [upgradeConfirm, setUpgradeConfirm] = useState(null)
+  const [card, setCard] = useState(null)
+  const [cardLoading, setCardLoading] = useState(true)
+  const [showCardForm, setShowCardForm] = useState(false)
+  const [cardForm, setCardForm] = useState({ card_number: '', card_holder: '', card_expiry: '', bank: '' })
+  const [savingCard, setSavingCard] = useState(false)
 
-  function load() {
+  async function loadData() {
     setLoading(true)
-    Promise.allSettled([
-      get(`/api/analytics?period=${period}`),
-      get('/api/history/account'),
-    ]).then(([analyticsRes, txRes]) => {
-      if (analyticsRes.status === 'fulfilled' && analyticsRes.value?.success) {
-        setAnalytics(analyticsRes.value)
+    setError('')
+    try {
+      const [s, l] = await Promise.all([
+        apiGet('/api/wallet/earnings-summary'),
+        apiGet('/api/wallet/withdrawal-limits'),
+      ])
+      setSummary(s)
+      setLimits(l)
+      try {
+        setCardLoading(true)
+        const cardRes = await apiGet('/api/wallet/payout-card')
+        setCard(cardRes.card || false)
+      } catch {
+        setCard(false)
+      } finally {
+        setCardLoading(false)
       }
-      if (txRes.status === 'fulfilled' && txRes.value?.success) {
-        setTransactions(txRes.value.transactions || [])
-      }
-    }).finally(() => setLoading(false))
+    } catch (e) {
+      setError(e.message || 'Unable to load earnings.')
+      setCard(false)
+      setCardLoading(false)
+    } finally {
+      setLoading(false)
+    }
   }
 
-  useEffect(() => { load() }, [period])
+  useEffect(() => { loadData() }, [])
 
-  const earnings = useMemo(() => {
-    const total = Number(analytics?.earnings?.total || analytics?.total_earnings || 0) || transactions.reduce((sum, t) => {
-      const type = (t.transaction_type || t.type || '').toLowerCase()
-      if (type.includes('payment') || type === 'credit' || type === 'earning') return sum + Number(t.amount || 0)
-      return sum
-    }, 0)
-
-    const pending = transactions
-      .filter(t => (t.status || '').toLowerCase() === 'pending')
-      .reduce((sum, t) => sum + Number(t.amount || 0), 0)
-
-    return {
-      total,
-      pending,
-      completed: analytics?.completedJobs || analytics?.completed_jobs || transactions.filter(isPayoutPaid).length,
-      rating: analytics?.rating || analytics?.avg_rating || analytics?.average_rating || '4.8',
-      payouts: transactions.slice(0, 8),
+  async function handleWithdraw() {
+    setError('')
+    setNotice('')
+    const amt = Number(withdrawAmount)
+    if (!amt || amt <= 0) { setError('Enter a valid amount.'); return }
+    setWithdrawing(true)
+    try {
+      const res = await apiPost('/api/wallet/withdraw-locked', { amount: amt })
+      if (res.auto_approved) {
+        const remaining = res.remaining_withdrawable ?? 0
+        setNotice(
+          `PKR ${Number(res.withdrawn).toLocaleString()} has been transferred to your card. ` +
+          `Remaining withdrawable balance: PKR ${Number(remaining).toLocaleString()}.`
+        )
+      } else {
+        setNotice(res.message || 'Withdrawal request submitted. Admin will process it shortly.')
+      }
+      setWithdrawAmount('')
+      await loadData()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setWithdrawing(false)
     }
-  }, [analytics, transactions])
+  }
 
-  const hasExtras = earnings.payouts.some(payout => payout.extras)
+  function openUpgradeConfirm(tier, duration_years, tierInfo) {
+    const fee = duration_years === 3 ? tierInfo.fee_3yr : tierInfo.fee_5yr
+    setUpgradeConfirm({ tier, duration_years, fee, label: `Tier ${tier} - ${duration_years} Year Plan` })
+    setError('')
+    setNotice('')
+  }
+
+  async function handleUpgrade() {
+    if (!upgradeConfirm) return
+    const { tier, duration_years } = upgradeConfirm
+    setError('')
+    setNotice('')
+    setUpgrading(true)
+    try {
+      const res = await apiPost('/api/wallet/upgrade-limit', { tier, duration_years })
+      setNotice(res.message)
+      setUpgradeConfirm(null)
+      await loadData()
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setUpgrading(false)
+    }
+  }
+
+  async function handleSaveCard() {
+    setError('')
+    setNotice('')
+    setSavingCard(true)
+    try {
+      await apiPost('/api/wallet/payout-card', cardForm)
+      setNotice('Payout card saved successfully.')
+      setShowCardForm(false)
+      const cardRes = await apiGet('/api/wallet/payout-card')
+      setCard(cardRes.card || false)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setSavingCard(false)
+    }
+  }
+
+  const wallet = summary?.wallet || {}
+  const transactions = summary?.recent_transactions || []
+  const maxWithdrawable = Number(limits?.max_withdrawable || 0)
+  const hasCard = Boolean(card)
+  const canWithdraw = maxWithdrawable > 0 && hasCard
+  const upgradeTiers = Object.entries(limits?.all_tiers || {})
+    .filter(([t]) => Number(t) > 0)
+    .sort(([a], [b]) => Number(a) - Number(b))
+
+  const statCards = [
+    { label: 'This Month', value: fmtPKR(summary?.month_earnings), icon: 'fa-calendar-days', tone: 'green' },
+    { label: 'Lifetime Earned', value: fmtPKR(summary?.lifetime_earnings), icon: 'fa-award', tone: 'indigo' },
+    { label: 'Pending', value: fmtPKR(summary?.pending_earnings), icon: 'fa-clock', tone: 'yellow' },
+    { label: 'Trips Done', value: Number(summary?.completed_trips || 0).toLocaleString(), icon: 'fa-truck', tone: 'gray' },
+  ]
 
   return (
-      <div className="page-earnings">
-        <div className="payout-page-title">
-          <h1>Earnings</h1>
-          <p>Your payouts and balance, refreshed at every job completion.</p>
+    <div className="earnings-dashboard">
+      <div className="payout-page-title">
+        <h1>Earnings</h1>
+        <p>Track agreement income, wallet balances, withdrawal limits, and payout readiness.</p>
+      </div>
+
+      {error && (
+        <div className="earnings-alert earnings-alert--error">
+          <i className="fas fa-circle-exclamation"></i>
+          <span>{error}</span>
         </div>
-
-        <div className="payout-kpi-grid">
-          {[
-            {
-              value: fmtPKR(earnings.total),
-              title: 'Total Earned',
-              icon: 'fa-wallet',
-              iconClass: 'payout-icon--green',
-              footer: 'Last 30 days',
-              action: 'Statement',
-              to: '/transporter/earnings/statement',
-            },
-            {
-              value: fmtPKR(earnings.pending),
-              title: 'Pending Payout',
-              icon: 'fa-coins',
-              iconClass: 'payout-icon--blue',
-              footer: 'Releases in 2 days',
-              action: 'Details',
-              to: '/transporter/earnings/pending',
-            },
-            {
-              value: earnings.completed,
-              title: 'Completed Jobs',
-              icon: 'fa-check',
-              iconClass: 'payout-icon--amber',
-              footer: 'This month',
-              action: 'History',
-              to: '/transporter/bids',
-            },
-            {
-              value: earnings.rating,
-              title: 'Avg. Rating',
-              icon: 'fa-star',
-              iconClass: 'payout-icon--violet',
-              footer: 'From shippers',
-              action: 'Reviews',
-              to: '/transporter/profile',
-            },
-          ].map(card => (
-            <article className="payout-kpi-card" key={card.title}>
-              <div className="payout-kpi-card__header">
-                <div>
-                  <div className="card-value payout-card-value">
-                    {loading ? <i className="fas fa-spinner fa-spin"></i> : card.value}
-                  </div>
-                  <div className="payout-card-title">{card.title}</div>
-                </div>
-                <div className={`payout-card-icon ${card.iconClass}`}><i className={`fas ${card.icon}`}></i></div>
-              </div>
-              <div className="payout-card-footer">
-                <span>{card.footer}</span>
-                <Link to={card.to} className="payout-action-small">{card.action}</Link>
-              </div>
-            </article>
-          ))}
+      )}
+      {notice && (
+        <div className="earnings-alert earnings-alert--success">
+          <i className="fas fa-check-circle"></i>
+          <span>{notice}</span>
         </div>
+      )}
 
-        <section className="payout-section">
-          <h2 className="payout-section-title">Recent Payouts</h2>
-
-          {loading ? (
-            <div className="payout-loading">
-              <i className="fas fa-spinner fa-spin"></i>
-              <p>Loading payouts...</p>
+      <div className="earnings-stats-grid">
+        {statCards.map(item => (
+          <article className="earnings-card earnings-stat-card" key={item.label}>
+            <div className={`earnings-icon earnings-icon--${item.tone}`}>
+              <i className={`fas ${item.icon}`}></i>
             </div>
-          ) : earnings.payouts.length === 0 ? (
-            <div className="payout-empty-state">
-              <i className="fas fa-wallet"></i>
-              <p>No payouts yet. Complete a job to see your first earning.</p>
+            <div>
+              <strong>{loading ? <i className="fas fa-spinner fa-spin"></i> : item.value}</strong>
+              <span>{item.label}</span>
+            </div>
+          </article>
+        ))}
+      </div>
+
+      <section className="earnings-card earnings-wallet-card">
+        <div className="earnings-section-heading">
+          <div>
+            <h2>Wallet & Withdrawal</h2>
+            <p>Balance overview with deposit lock and current withdrawal capacity.</p>
+          </div>
+        </div>
+        <div className="earnings-wallet-grid">
+          <div className="earnings-wallet-metric">
+            <strong>{loading ? '-' : fmtPKR(wallet.balance)}</strong>
+            <span>Total Balance</span>
+          </div>
+          <div className="earnings-wallet-metric earnings-wallet-metric--locked">
+            <strong>{loading ? '-' : fmtPKR(wallet.locked_balance)}</strong>
+            <span>Locked Balance</span>
+            <small>Security Deposit: Rs 30,000</small>
+          </div>
+          <div className="earnings-wallet-metric">
+            <strong>{loading ? '-' : fmtPKR(wallet.available_balance)}</strong>
+            <span>Available Balance</span>
+          </div>
+          <div className="earnings-wallet-metric earnings-wallet-metric--accent">
+            <strong>{loading ? '-' : fmtPKR(limits?.max_withdrawable)}</strong>
+            <span>Max Withdrawable</span>
+          </div>
+        </div>
+      </section>
+
+      <div className="earnings-action-grid">
+        <section className="earnings-dashed-card">
+          <i className="fas fa-credit-card"></i>
+          <h3>Payout Card</h3>
+          {cardLoading ? (
+            <p><i className="fas fa-spinner fa-spin"></i> Loading card info...</p>
+          ) : card ? (
+            <div className="earnings-card-summary">
+              <strong>{card.card_number_masked}</strong>
+              <span>{card.card_holder}</span>
+              <span>{card.bank ? `${card.bank} | ` : ''}Expires {card.card_expiry}</span>
             </div>
           ) : (
-            <div className="payout-table">
-              <div className={`payout-table-row payout-table-row--head${hasExtras ? ' has-extras' : ''}`}>
-                <span>Date</span>
-                <span>Reference</span>
-                <span>Job</span>
-                <span>Status</span>
-                {hasExtras && <span>Extras</span>}
-                <span>Amount</span>
-              </div>
+            <p>No payout card saved. Add a card to receive withdrawals.</p>
+          )}
+          <button type="button" className="earnings-secondary-btn" onClick={() => setShowCardForm(v => !v)}>
+            <i className={`fas ${card ? 'fa-pen' : 'fa-plus'}`}></i>
+            {card ? 'Change Card' : 'Save Card'}
+          </button>
 
-              {earnings.payouts.map(payout => {
-                const reference = payout.reference || payout.transaction_ref || payout.transaction_id || `TX-PAY-${payout.id}`
-                const job = payout.job_label || payout.description || payout.job || payout.route || `Job ${payout.job_id || payout.id}`
-                const status = payoutStatusLabel(payout)
-                return (
-                  <div key={payout.id || reference} className={`payout-table-row${hasExtras ? ' has-extras' : ''}`}>
-                    <span>{formatDate(payout.created_at || payout.date)}</span>
-                    <span className="payout-reference">{reference}</span>
-                    <span>{job}</span>
-                    <span>
-                      <span className={`payout-status-pill payout-status-pill--${status.toLowerCase()}`}>
-                        {status}
-                      </span>
-                    </span>
-                    {hasExtras && <span>{payout.extras ? fmtPKR(payout.extras) : 'Ã¢â‚¬â€'}</span>}
-                    <span className="payout-amount">{fmtPKR(payout.amount)}</span>
-                  </div>
-                )
-              })}
+          {showCardForm && (
+            <div className="earnings-card-form">
+              <label>
+                <span>Card Number</span>
+                <input
+                  type="text"
+                  placeholder="1234 5678 9012 3456"
+                  maxLength={19}
+                  value={cardForm.card_number}
+                  onChange={e => {
+                    const digits = e.target.value.replace(/\D/g, '').slice(0, 16)
+                    const formatted = digits.replace(/(.{4})/g, '$1 ').trim()
+                    setCardForm(f => ({ ...f, card_number: formatted }))
+                  }}
+                />
+              </label>
+              <label>
+                <span>Card Holder Name</span>
+                <input type="text" placeholder="Name as on card" value={cardForm.card_holder}
+                  onChange={e => setCardForm(f => ({ ...f, card_holder: e.target.value }))} />
+              </label>
+              <div className="earnings-form-row">
+                <label>
+                  <span>Expiry (MM/YY)</span>
+                  <input
+                    type="text"
+                    placeholder="MM/YY"
+                    maxLength={5}
+                    value={cardForm.card_expiry}
+                    onChange={e => {
+                      const digits = e.target.value.replace(/\D/g, '').slice(0, 4)
+                      const formatted = digits.length > 2 ? digits.slice(0, 2) + '/' + digits.slice(2) : digits
+                      setCardForm(f => ({ ...f, card_expiry: formatted }))
+                    }}
+                  />
+                </label>
+                <label>
+                  <span>Bank Name (optional)</span>
+                  <input type="text" placeholder="e.g. HBL, UBL, Meezan" value={cardForm.bank}
+                    onChange={e => setCardForm(f => ({ ...f, bank: e.target.value }))} />
+                </label>
+              </div>
+              <button type="button" className="earnings-primary-btn" disabled={savingCard} onClick={handleSaveCard}>
+                {savingCard ? 'Saving...' : 'Save Card'}
+              </button>
             </div>
           )}
         </section>
+
+        <section className="earnings-dashed-card">
+          <i className="fas fa-plus"></i>
+          <h3>Request Withdrawal</h3>
+          {!hasCard && !cardLoading && (
+            <p style={{ color: 'var(--warning-text,#92400e)', fontSize: 13, marginBottom: 8 }}>
+              <i className="fas fa-exclamation-triangle" style={{ marginRight: 6 }}></i>
+              Please save your payout card first to enable withdrawals.
+            </p>
+          )}
+          {hasCard && (
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
+              Amount will be transferred to card <strong>{card.card_number_masked}</strong>.
+            </p>
+          )}
+          {!loading && maxWithdrawable <= 0 && (
+            <p style={{ fontSize: 13, color: 'var(--text-secondary)', marginBottom: 8 }}>
+              <i className="fas fa-info-circle" style={{ marginRight: 6 }}></i>
+              No withdrawable balance. Rs 30,000 security deposit must remain in wallet at all times.
+            </p>
+          )}
+          <div className="earnings-withdraw-row">
+            <input
+              id="withdrawAmount"
+              type="number"
+              min="1"
+              step="1"
+              aria-label="Amount to Withdraw"
+              placeholder={maxWithdrawable > 0 ? `Max ${fmtPKR(maxWithdrawable)}` : 'Enter amount'}
+              value={withdrawAmount}
+              disabled={withdrawing}
+              onChange={e => setWithdrawAmount(e.target.value)}
+            />
+            <button type="button" className="earnings-primary-btn" disabled={withdrawing || !hasCard} onClick={handleWithdraw}>
+              {withdrawing ? 'Processing...' : 'Request Withdrawal'}
+            </button>
+          </div>
+          <div className="earnings-limit-note">
+            <strong>{fmtPKR(limits?.limits?.single_max)}</strong> single limit
+            <span></span>
+            <strong>{fmtPKR(limits?.remaining_daily)}</strong> daily remaining
+          </div>
+        </section>
       </div>
-    
+
+      <section className="earnings-limits-section tier-section">
+        <div className="earnings-section-heading">
+          <div>
+            <h2>Withdrawal Limits & Tiers</h2>
+            <p>Upgrade tiers to increase single and daily withdrawal limits.</p>
+          </div>
+        </div>
+
+        <div className="earnings-current-tier">
+          <div>
+            <strong>{limits?.active_tier === 0 ? 'Default' : `Tier ${limits?.active_tier || 0}`}</strong>
+            <span>Current Tier</span>
+            {Number(limits?.active_tier || 0) > 0 && <small>Expires: {formatDate(limits?.tier_expires_at)}</small>}
+          </div>
+          <div>
+            <strong>{fmtPKR(limits?.limits?.single_max)}</strong>
+            <span>Single Limit</span>
+          </div>
+          <div>
+            <strong>{fmtPKR(limits?.limits?.daily_max)}</strong>
+            <span>Daily Limit</span>
+          </div>
+          <div>
+            <strong>{fmtPKR(limits?.withdrawn_24h)}</strong>
+            <span>Withdrawn 24h</span>
+          </div>
+        </div>
+
+        <div className="earnings-tier-grid">
+          {upgradeTiers.map(([tierKey, tierInfo]) => {
+            const tier = Number(tierKey)
+            const isActive = tier === Number(limits?.active_tier || 0)
+            return (
+              <article className={`earnings-card earnings-tier-card${isActive ? ' is-active' : ''}`} key={tierKey}>
+                <div className="earnings-tier-title">
+                  <h3>Tier {tier}</h3>
+                  {isActive && <span>ACTIVE</span>}
+                </div>
+                <ul>
+                  <li>
+                    <i className="fas fa-arrow-up"></i>
+                    <span>Single max</span>
+                    <strong>{fmtPKR(tierInfo.single_max)}</strong>
+                  </li>
+                  <li>
+                    <i className="fas fa-calendar-day"></i>
+                    <span>Daily max</span>
+                    <strong>{fmtPKR(tierInfo.daily_max)}</strong>
+                  </li>
+                </ul>
+                <div className="earnings-tier-actions">
+                  <button type="button" className="earnings-primary-btn" disabled={upgrading} onClick={() => openUpgradeConfirm(tier, 3, tierInfo)}>
+                    {isActive ? 'Renew 3yr' : 'Buy 3yr'} <span>{fmtPKR(tierInfo.fee_3yr)}</span>
+                  </button>
+                  <button type="button" className="earnings-outline-btn" disabled={upgrading} onClick={() => openUpgradeConfirm(tier, 5, tierInfo)}>
+                    {isActive ? 'Renew 5yr' : 'Buy 5yr'} <span>{fmtPKR(tierInfo.fee_5yr)}</span>
+                  </button>
+                </div>
+              </article>
+            )
+          })}
+        </div>
+
+        {upgradeConfirm && (
+          <div className="earnings-card earnings-confirm-card">
+            <h3>Confirm Plan Purchase</h3>
+            <p>Fee will be deducted from your available wallet balance.</p>
+            <div className="earnings-confirm-grid">
+              <span>Plan <strong>{upgradeConfirm.label}</strong></span>
+              <span>Fee <strong>{fmtPKR(upgradeConfirm.fee)}</strong></span>
+              <span>Available Balance <strong>{fmtPKR(wallet.available_balance)}</strong></span>
+            </div>
+            <div className="earnings-confirm-actions">
+              <button type="button" className="earnings-primary-btn" disabled={upgrading} onClick={handleUpgrade}>
+                {upgrading ? 'Processing...' : `Confirm - Pay ${fmtPKR(upgradeConfirm.fee)}`}
+              </button>
+              <button type="button" className="earnings-outline-btn" disabled={upgrading} onClick={() => setUpgradeConfirm(null)}>
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+      </section>
+
+      <section className="earnings-card earnings-recent-card">
+        <div className="earnings-section-heading">
+          <div>
+            <h2>Recent Earnings</h2>
+            <p>Agreement trip income will appear here after completion.</p>
+          </div>
+        </div>
+        {loading ? (
+          <div className="earnings-table-empty"><i className="fas fa-spinner fa-spin"></i><p>Loading earnings...</p></div>
+        ) : transactions.length === 0 ? (
+          <div className="earnings-table-empty"><i className="fas fa-wallet"></i><p>No earnings yet. Complete agreement trips to see income here.</p></div>
+        ) : (
+          <div className="earnings-table">
+            <div className="earnings-table-row earnings-table-row--head">
+              <span>Date</span><span>Description</span><span>Amount</span>
+            </div>
+            {transactions.map(tx => (
+              <div key={tx.id} className="earnings-table-row">
+                <span>{formatDate(tx.created_at)}</span>
+                <span>{tx.description || tx.reference_id || `Transaction ${tx.id}`}</span>
+                <strong>{fmtPKR(tx.amount)}</strong>
+              </div>
+            ))}
+          </div>
+        )}
+      </section>
+    </div>
   )
 }

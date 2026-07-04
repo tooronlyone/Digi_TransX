@@ -636,7 +636,7 @@ def start_trip(agreement_id):
             (agreement_id, agreement_truck["id"], truck_id, request.current_user["id"], pickup_description, date.today().isoformat(), gps_start_lat, gps_start_lng, stamp["iso"], stamp["iso"]),
         )
         trip_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
-        insert_system_note_for_agreement(db, agreement_id, request.current_user["id"], f"Truck {agreement_truck['truck_number']} ne trip start ki: {pickup_description}")
+        insert_system_note_for_agreement(db, agreement_id, request.current_user["id"], f"Truck {agreement_truck['truck_number']} started trip: {pickup_description}")
         db.commit()
         trip = db.execute(
             "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN trucks t ON t.id = atr.truck_id WHERE atr.id = ?",
@@ -734,7 +734,7 @@ def end_trip(agreement_id, trip_id):
                 """,
                 (total_km, total_earned, final_amount, company_fee, transporter_amount, payment["id"]),
             )
-        insert_system_note_for_agreement(db, agreement_id, request.current_user["id"], f"Truck {trip['truck_number']} trip complete: {distance_km} km")
+        insert_system_note_for_agreement(db, agreement_id, request.current_user["id"], f"Truck {trip['truck_number']} completed trip: {distance_km:.2f} km")
         db.commit()
         updated = db.execute(
             "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN trucks t ON t.id = atr.truck_id WHERE atr.id = ?",
@@ -951,6 +951,10 @@ def agreement_detail(agreement_id):
 @agreements_blueprint.post("/api/agreements/process-payments")
 @login_required
 def process_payments():
+    from auth.helpers import require_admin_role
+    role_error = require_admin_role(request.current_user)
+    if role_error:
+        return role_error
     today = date.today().isoformat()
     processed = 0
     failed = 0
@@ -976,6 +980,10 @@ def process_payments():
 @agreements_blueprint.post("/api/agreements/apply-penalties")
 @login_required
 def apply_penalties():
+    from auth.helpers import require_admin_role
+    role_error = require_admin_role(request.current_user)
+    if role_error:
+        return role_error
     today = date.today().isoformat()
     penalties_applied = 0
     with open_db() as db:

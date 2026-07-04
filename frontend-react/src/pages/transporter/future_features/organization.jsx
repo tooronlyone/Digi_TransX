@@ -413,17 +413,6 @@ export default function Organization() {
           )}
         </section>
 
-        <div className="footer">
-          <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>
-          <div className="footer-links">
-            <Link to="/transporter/about">About Us</Link>
-            <Link to="/transporter/contact">Contact</Link>
-            <Link to="/transporter/terms">Terms &amp; Conditions</Link>
-            <Link to="/transporter/privacy">Privacy Policy</Link>
-            <Link to="/transporter/help">Help Center</Link>
-          </div>
-        </div>
-
         {credentials && (
           <div className="organization-credentials-overlay">
             <div className="organization-credentials-modal">

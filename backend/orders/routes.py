@@ -6,7 +6,7 @@ from auth.helpers import json_response, login_required, require_csrf, timestamp_
 from chat.helpers import create_thread_for_bid
 from shared.db import open_db
 from trucks.helpers import get_catalog_type
-from wallet.helpers import adjust_wallet_balance, ensure_wallet_locked_balance, get_or_create_wallet, get_or_create_wallet_for_user, insert_wallet_transaction, round_money
+from wallet.helpers import adjust_wallet_balance, available_balance, ensure_wallet_locked_balance, get_or_create_wallet, get_or_create_wallet_for_user, insert_wallet_transaction, round_money
 from .helpers import (
     BID_STATUS_ACCEPTED,
     BID_STATUS_NOT_SELECTED,
@@ -384,6 +384,25 @@ def accept_bid(order_id, bid_id):
         return json_response({"success": False, "message": "Bid not found."}, 404)
     if bid["status"] != BID_STATUS_PENDING:
         return json_response({"success": False, "message": "Only pending bids can be accepted."}, 400)
+
+    # Risk 1 fix: client ka available balance >= bid price hona chahiye
+    client_wallet, wallet_error = get_or_create_wallet(request.current_user)
+    if wallet_error:
+        return wallet_error
+    bid_price = round_money(bid["bid_price"])
+    client_available = available_balance(client_wallet)
+    if client_available + 1e-9 < bid_price:
+        shortfall = round_money(bid_price - client_available)
+        return json_response(
+            {
+                "success": False,
+                "message": f"Insufficient wallet balance to accept this bid. Bid amount is Rs {bid_price:,.0f} but your available balance is Rs {client_available:,.0f}. Please add Rs {shortfall:,.0f} to your wallet.",
+                "bid_price": bid_price,
+                "available_balance": client_available,
+                "shortfall": shortfall,
+            },
+            400,
+        )
 
     stamp = timestamp_bundle()["display"]
     accepted_at = timestamp_bundle()["iso"]

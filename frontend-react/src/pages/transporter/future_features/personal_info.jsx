@@ -405,18 +405,6 @@ export default function PersonalInfo() {
           </div>
         </div>
 
-        <div className="footer">
-          <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>
-          <div className="footer-links">
-            <Link to="/transporter/about">About Us</Link>
-            <Link to="/transporter/contact">Contact</Link>
-            <Link to="/transporter/terms">Terms &amp; Conditions</Link>
-            <Link to="/transporter/privacy">Privacy Policy</Link>
-            <Link to="/transporter/help">Help Center</Link>
-            <Link to="/transporter/partner">Partner With Us</Link>
-          </div>
-        </div>
-
         {showMaintModal && (
           <div style={{ position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.5)', zIndex: 9998, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <div className="modal-content" style={{ background: 'var(--card-bg)', borderRadius: 12, padding: 28, maxWidth: 480, width: '90%', maxHeight: '90vh', overflowY: 'auto' }}>

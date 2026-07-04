@@ -242,18 +242,6 @@ export default function Contact() {
           </div>
         </div>
 
-        <div className="footer">
-          <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>
-          <div className="footer-links">
-            <Link to="/transporter/about">About Us</Link>
-            <Link to="/transporter/contact">Contact</Link>
-            <Link to="/transporter/terms">Terms &amp; Conditions</Link>
-            <Link to="/transporter/privacy">Privacy Policy</Link>
-            <Link to="/transporter/help">Help Center</Link>
-            <Link to="/transporter/partner">Partner With Us</Link>
-          </div>
-        </div>
-
         {isChatOpen && (
           <div className="chat-modal active" style={{ position: 'fixed', inset: 0, zIndex: 9990, display: 'flex', alignItems: 'flex-end', justifyContent: 'flex-end', padding: 24 }}>
             <div className="chat-modal-content" style={{ width: 360, maxHeight: '70vh', display: 'flex', flexDirection: 'column', background: 'var(--card-bg)', borderRadius: 16, boxShadow: '0 8px 32px rgba(0,0,0,0.3)' }}>

@@ -247,6 +247,59 @@ def get_truck(truck_id):
     return json_response({"success": True, "truck": build_truck_payload(truck)})
 
 
+@trucks_blueprint.get("/api/trucks/<int:truck_id>/live-location")
+@login_required
+def truck_live_location(truck_id):
+    from tracking.traccar import get_latest_position, GPS_PROVIDER_ENABLED
+    truck, error = get_owned_truck_or_error(truck_id, request.current_user["id"])
+    if error:
+        return error
+
+    traccar_device_id = truck.get("traccar_device_id")
+    if not traccar_device_id:
+        return json_response({
+            "success": True,
+            "gps_available": False,
+            "reason": "no_device",
+            "message": "No GPS device (IMEI) configured for this truck.",
+        })
+
+    if not GPS_PROVIDER_ENABLED:
+        return json_response({
+            "success": True,
+            "gps_available": False,
+            "reason": "provider_not_configured",
+            "message": "GPS provider is not connected yet. Location will be available once a GPS provider is set up.",
+        })
+
+    try:
+        position = get_latest_position(traccar_device_id)
+    except Exception as exc:
+        return json_response({
+            "success": True,
+            "gps_available": False,
+            "reason": "fetch_error",
+            "message": f"GPS fetch error: {exc}",
+        })
+
+    if not position:
+        return json_response({
+            "success": True,
+            "gps_available": False,
+            "reason": "no_data",
+            "message": "GPS device has not sent any location data yet.",
+        })
+
+    return json_response({
+        "success": True,
+        "gps_available": True,
+        "lat": position["lat"],
+        "lon": position["lon"],
+        "speed": position.get("speed"),
+        "timestamp": position.get("timestamp"),
+    })
+
+
 @trucks_blueprint.get("/api/trucks/<int:truck_id>/configuration")
 @login_required
 def get_truck_configuration(truck_id):
@@ -272,9 +325,6 @@ def update_truck_configuration(truck_id):
     max_capacity_raw = (form.get("max_capacity") or "").strip()
     chassis_number = normalize_chassis_number(form.get("chassis_number"))
     operating_provinces_raw = (form.get("operating_provinces") or "").strip()
-    per_km_rate_raw = (form.get("per_km_rate") or "").strip()
-    waiting_charge_raw = (form.get("waiting_charge_per_hour") or "").strip()
-    loading_charge_raw = (form.get("loading_charge") or "").strip()
 
     if not truck_number:
         return json_response({"success": False, "message": "Truck number is required."}, 400)
@@ -286,27 +336,14 @@ def update_truck_configuration(truck_id):
         return json_response({"success": False, "message": "Chassis number is required."}, 400)
     if not operating_provinces_raw:
         return json_response({"success": False, "message": "At least one operating province is required."}, 400)
-    if not per_km_rate_raw:
-        return json_response({"success": False, "message": "Per KM rate is required."}, 400)
-    if not waiting_charge_raw:
-        return json_response({"success": False, "message": "Waiting charge per hour is required."}, 400)
 
     try:
         max_capacity = float(max_capacity_raw)
-        per_km_rate = float(per_km_rate_raw)
-        waiting_charge_per_hour = float(waiting_charge_raw)
-        loading_charge = float(loading_charge_raw) if loading_charge_raw else None
     except (TypeError, ValueError):
-        return json_response({"success": False, "message": "Numeric fields contain invalid values."}, 400)
+        return json_response({"success": False, "message": "Capacity must be a valid number."}, 400)
 
     if max_capacity <= 0:
         return json_response({"success": False, "message": "Truck capacity must be greater than 0."}, 400)
-    if per_km_rate <= 0:
-        return json_response({"success": False, "message": "Per KM rate must be greater than 0."}, 400)
-    if waiting_charge_per_hour <= 0:
-        return json_response({"success": False, "message": "Waiting charge per hour must be greater than 0."}, 400)
-    if loading_charge is not None and loading_charge < 0:
-        return json_response({"success": False, "message": "Loading charge cannot be negative."}, 400)
     if not is_valid_chassis_number(chassis_number):
         return json_response({"success": False, "message": CHASSIS_NUMBER_MESSAGE}, 400)
 
@@ -334,7 +371,7 @@ def update_truck_configuration(truck_id):
             SET truck_number = ?, truck_type = ?, catalog_type_key = ?, chassis_number = ?,
                 capacity_tons = ?, operating_provinces = ?, body_style = ?, payload_min_kg = ?, payload_max_kg = ?,
                 volume_min_cbm = ?, volume_max_cbm = ?, catalog_specs_json = ?, tracking_id = ?, driver_name = ?,
-                driver_cnic = ?, per_km_rate = ?, waiting_charge_per_hour = ?, loading_charge = ?,
+                driver_cnic = ?,
                 refrigeration_supported = ?, hazardous_supported = ?, fragile_supported = ?,
                 truck_photo_path = ?, insurance_photo_path = ?, rc_book_photo_path = ?,
                 updated_at = ?, status_reason_code = ?, status_reason = ?
@@ -356,9 +393,6 @@ def update_truck_configuration(truck_id):
                 parse_optional_text(form.get("tracking_id")),
                 parse_optional_text(form.get("driver_name")),
                 parse_optional_cnic(form.get("driver_cnic")),
-                per_km_rate,
-                waiting_charge_per_hour,
-                loading_charge,
                 parse_bool_flag(form.get("refrigeration_supported")),
                 parse_bool_flag(form.get("hazardous_supported")),
                 parse_bool_flag(form.get("fragile_supported")),
@@ -373,6 +407,18 @@ def update_truck_configuration(truck_id):
             ),
         )
         db.commit()
+        try:
+            imei = parse_optional_text(form.get("tracking_id"))
+            if imei is not None and imei.strip() != "":
+                gps_device_id = register_device(imei.strip(), truck_number)
+                if gps_device_id is not None:
+                    db.execute(
+                        "UPDATE trucks SET traccar_device_id = ? WHERE id = ?",
+                        (str(gps_device_id), truck_id),
+                    )
+                    db.commit()
+        except Exception:
+            pass
         updated = db.execute("SELECT * FROM trucks WHERE id = ? AND owner_user_id = ?", (truck_id, request.current_user["id"])).fetchone()
 
     return json_response({"success": True, "truck": build_configuration_payload(dict(updated))})
@@ -399,8 +445,6 @@ def update_truck_status(truck_id):
         truck.get("capacity_tons"),
         truck.get("chassis_number"),
         truck.get("operating_provinces"),
-        truck.get("per_km_rate"),
-        truck.get("waiting_charge_per_hour"),
     ]
     if status == "active":
         if any(value in (None, "", []) for value in required_for_active):

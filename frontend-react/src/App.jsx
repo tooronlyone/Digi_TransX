@@ -1,3 +1,4 @@
+import React from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ActivityTracker from './components/ActivityTracker'
 import GlobalAiAssistant from './components/ai/GlobalAiAssistant'
@@ -29,7 +30,7 @@ import TruckDetails from './pages/transporter/truck_details'
 import EditTruck from './pages/transporter/edit_truck'
 import TruckConfiguration from './pages/transporter/truck_configuration'
 import TrackTruck from './pages/transporter/track_truck'
-import ServiceHistory from './pages/transporter/service_history'
+// import ServiceHistory from './pages/future/service_history'
 import AvailableBids from './pages/transporter/AvailableBids'
 import TransporterAgreementBids from './pages/transporter/AgreementBids'
 import TransporterMyAgreements from './pages/transporter/MyAgreements'
@@ -110,14 +111,33 @@ function ClientGuard({ children }) {
 }
 
 function AdminGuard({ children }) {
-  const raw = sessionStorage.getItem('user')
-  let user = null
-  try {
-    user = raw ? JSON.parse(raw) : null
-  } catch (_) {}
-  if ((user?.role || '').trim().toLowerCase() !== 'platform_admin') {
+  const [status, setStatus] = React.useState('checking')
+
+  React.useEffect(() => {
+    fetch('/auth/me', { credentials: 'include' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.success && data.user?.role === 'platform_admin') {
+          setStatus('allowed')
+        } else {
+          setStatus('denied')
+        }
+      })
+      .catch(() => setStatus('denied'))
+  }, [])
+
+  if (status === 'checking') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-slate-950">
+        <div className="h-8 w-8 animate-spin rounded-full border-4 border-cyan-500 border-t-transparent" />
+      </div>
+    )
+  }
+
+  if (status === 'denied') {
     return <Navigate to="/admin/login" replace />
   }
+
   return children
 }
 
@@ -181,9 +201,9 @@ function TransporterPortal() {
           <Route path="trucks/config/:id" element={<TruckConfiguration />} />
           <Route path="trucks/:id" element={<TruckDetails />} />
           <Route path="trucks/:id/track" element={<TrackTruck />} />
-          <Route path="trucks/:id/service" element={<ServiceHistory />} />
           <Route path="track" element={<TrackTruck />} />
-          <Route path="service-history" element={<ServiceHistory />} />
+          {/* <Route path="trucks/:id/service" element={<ServiceHistory />} /> */}
+          {/* <Route path="service-history" element={<ServiceHistory />} /> */}
 
           <Route path="available-bids" element={<AvailableBids />} />
           <Route path="jobs" element={<Navigate to="/transporter/available-bids" replace />} />

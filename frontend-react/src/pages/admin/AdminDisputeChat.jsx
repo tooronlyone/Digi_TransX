@@ -4,12 +4,12 @@ import ChatWindow from '../../components/chat/ChatWindow'
 export default function AdminDisputeChat() {
   const { threadId } = useParams()
   return (
-    <div className="space-y-5">
-      <section className="rounded-lg border border-slate-800 bg-slate-900 p-5">
-        <h1 className="text-2xl font-bold text-white">Dispute Chat</h1>
-        <p className="mt-2 text-sm text-slate-400">Thread #{threadId}</p>
-      </section>
-      <div className="text-slate-900">
+    <div>
+      <div style={{ marginBottom: 24 }}>
+        <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0 }}>Dispute Chat</h1>
+        <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>Thread #{threadId} — group conversation with client and transporter.</p>
+      </div>
+      <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 1px 3px rgba(0,0,0,0.04)', overflow: 'hidden' }}>
         <ChatWindow role="admin" initialThreadId={threadId} />
       </div>
     </div>

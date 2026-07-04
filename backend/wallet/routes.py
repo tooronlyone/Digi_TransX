@@ -37,6 +37,96 @@ def get_wallet():
     return json_response({"success": True, "wallet": serialize_wallet(wallet)})
 
 
+@wallet_blueprint.get("/api/wallet/earnings-summary")
+@login_required
+def earnings_summary():
+    """Transporter earnings summary for the Earnings page."""
+    from agreements.helpers import TRANSPORTER_AGREEMENT_ROLES
+    user = request.current_user
+    role = (user.get("role") or "").strip().lower()
+    if role not in TRANSPORTER_AGREEMENT_ROLES:
+        return json_response({"success": False, "message": "Transporter account required."}, 403)
+
+    wallet, error = get_or_create_wallet(user)
+    if error:
+        return error
+
+    with open_db() as db:
+        # Total lifetime earnings from agreement payments
+        lifetime_row = db.execute(
+            """
+            SELECT COALESCE(SUM(transporter_amount), 0) AS total
+            FROM agreement_monthly_payments
+            WHERE transporter_user_id = ? AND status = 'paid'
+            """,
+            (user["id"],),
+        ).fetchone()
+
+        # This month earnings
+        current_month = __import__('datetime').date.today().strftime("%Y-%m")
+        month_row = db.execute(
+            """
+            SELECT COALESCE(SUM(transporter_amount), 0) AS total
+            FROM agreement_monthly_payments
+            WHERE transporter_user_id = ? AND status = 'paid' AND month_year = ?
+            """,
+            (user["id"], current_month),
+        ).fetchone()
+
+        # Pending (payment due but not yet paid)
+        pending_row = db.execute(
+            """
+            SELECT COALESCE(SUM(final_amount), 0) AS total
+            FROM agreement_monthly_payments
+            WHERE transporter_user_id = ? AND status = 'pending'
+            """,
+            (user["id"],),
+        ).fetchone()
+
+        # Completed trips count
+        trips_row = db.execute(
+            """
+            SELECT COUNT(*) AS total
+            FROM agreement_trips
+            WHERE transporter_user_id = ? AND status = 'completed'
+            """,
+            (user["id"],),
+        ).fetchone()
+
+        # Recent payment transactions (agreement_income type)
+        tx_rows = db.execute(
+            """
+            SELECT * FROM wallet_transactions
+            WHERE user_id = ? AND type = 'agreement_income'
+            ORDER BY id DESC
+            LIMIT 10
+            """,
+            (user["id"],),
+        ).fetchall()
+
+    transactions = [
+        {
+            "id": tx["id"],
+            "amount": round_money(tx["amount"]),
+            "description": tx["description"] or "",
+            "reference_id": tx["reference_id"] or "",
+            "created_at": tx["created_at"],
+            "type": tx["type"],
+        }
+        for tx in tx_rows
+    ]
+
+    return json_response({
+        "success": True,
+        "wallet": serialize_wallet(wallet),
+        "lifetime_earnings": round_money(lifetime_row["total"]),
+        "month_earnings": round_money(month_row["total"]),
+        "pending_earnings": round_money(pending_row["total"]),
+        "completed_trips": int(trips_row["total"] or 0),
+        "recent_transactions": transactions,
+    })
+
+
 @wallet_blueprint.post("/api/wallet/topup")
 @login_required
 def topup_wallet():
@@ -297,87 +387,250 @@ def create_locked_withdrawal_request():
         amount = float(data.get("amount"))
     except (TypeError, ValueError):
         return json_response({"success": False, "message": "Amount must be a valid number."}, 400)
-    if amount <= 0:
-        return json_response({"success": False, "message": "Amount must be greater than 0."}, 400)
-    if round_money(amount) - round_money(wallet["locked_balance"]) > 1e-9:
-        return json_response({"success": False, "message": "Requested amount exceeds your locked balance."}, 400)
 
-    stamp = timestamp_bundle()["iso"]
+    from wallet.withdrawal_limits import validate_withdrawal, get_limits, get_active_tier
     with open_db() as db:
-        db.execute(
-            """
-            INSERT INTO wallet_withdrawal_requests (user_id, amount, status, requested_at, resolved_at)
-            VALUES (?, ?, 'pending', ?, NULL)
-            """,
-            (request.current_user["id"], round_money(amount), stamp),
+        user_row = db.execute("SELECT * FROM users WHERE id = ?", (request.current_user["id"],)).fetchone()
+        user_row = dict(user_row) if user_row else {}
+        error_msg = validate_withdrawal(db, user_row, wallet, amount)
+        if error_msg:
+            return json_response({"success": False, "message": error_msg}, 400)
+
+        stamp = timestamp_bundle()
+        rounded_amount = round_money(amount)
+        limits = get_limits(user_row)
+        active_tier = get_active_tier(user_row)
+        within_limits = (
+            rounded_amount <= limits["single_max"] and
+            rounded_amount <= limits["daily_max"]
         )
-        db.commit()
 
-    return json_response(
-        {"success": True, "message": "Withdrawal request submitted, pending admin approval."}
-    )
+        # Re-fetch wallet inside transaction for accuracy
+        fresh_wallet = db.execute("SELECT * FROM wallets WHERE user_id = ?", (request.current_user["id"],)).fetchone()
+        fresh_wallet = dict(fresh_wallet) if fresh_wallet else wallet
+
+        if within_limits:
+            # Auto-approve: deduct from balance only, preserve locked_balance
+            new_balance = round_money(fresh_wallet["balance"] - rounded_amount)
+            db.execute(
+                "UPDATE wallets SET balance = ?, updated_at = ? WHERE user_id = ?",
+                (new_balance, stamp["display"], request.current_user["id"]),
+            )
+            fresh_wallet["balance"] = new_balance
+            db.execute(
+                """
+                INSERT INTO wallet_withdrawal_requests (user_id, amount, status, requested_at, resolved_at)
+                VALUES (?, ?, 'approved', ?, ?)
+                """,
+                (request.current_user["id"], rounded_amount, stamp["iso"], stamp["iso"]),
+            )
+            insert_wallet_transaction(
+                db,
+                fresh_wallet,
+                request.current_user["id"],
+                "withdrawal",
+                -rounded_amount,
+                description="Auto-approved withdrawal (within tier limit)",
+                reference_id=f"tier_{active_tier}_auto",
+            )
+            db.commit()
+            remaining = max(round_money(new_balance - 30000), 0)
+            return json_response({
+                "success": True,
+                "auto_approved": True,
+                "message": f"Rs {rounded_amount:,.0f} withdrawn successfully. Remaining withdrawable: Rs {remaining:,.0f}.",
+                "withdrawn": rounded_amount,
+                "remaining_withdrawable": remaining,
+            })
+        else:
+            # Over tier limit → queue for admin approval
+            db.execute(
+                """
+                INSERT INTO wallet_withdrawal_requests (user_id, amount, status, requested_at, resolved_at)
+                VALUES (?, ?, 'pending', ?, NULL)
+                """,
+                (request.current_user["id"], rounded_amount, stamp["iso"]),
+            )
+            db.commit()
+            return json_response({
+                "success": True,
+                "auto_approved": False,
+                "message": f"Rs {rounded_amount:,.0f} withdrawal request submitted. Admin approval required (amount exceeds tier limit).",
+            })
 
 
-@wallet_blueprint.post("/api/wallet/withdrawal-requests/<int:request_id>/approve")
+@wallet_blueprint.get("/api/wallet/withdrawal-limits")
 @login_required
-def approve_locked_withdrawal_request(request_id):
+def get_withdrawal_limits():
+    """Return user's current withdrawal limits and tier info."""
+    role_error = ensure_transporter_role()
+    if role_error:
+        return role_error
+
+    from wallet.withdrawal_limits import TIERS, get_active_tier, get_limits, get_24h_withdrawn, max_withdrawable, PERMANENT_LOCK
+
+    wallet, error = get_or_create_wallet(request.current_user)
+    if error:
+        return error
+
+    with open_db() as db:
+        user_row = db.execute("SELECT * FROM users WHERE id = ?", (request.current_user["id"],)).fetchone()
+        user_row = dict(user_row) if user_row else {}
+        withdrawn_24h = get_24h_withdrawn(db, request.current_user["id"])
+
+    active_tier = get_active_tier(user_row)
+    limits = get_limits(user_row)
+    withdrawable = max_withdrawable(wallet)
+
+    return json_response({
+        "success": True,
+        "active_tier": active_tier,
+        "tier_expires_at": user_row.get("withdrawal_tier_expires_at"),
+        "limits": limits,
+        "withdrawn_24h": withdrawn_24h,
+        "remaining_daily": round_money(limits["daily_max"] - withdrawn_24h),
+        "max_withdrawable": withdrawable,
+        "permanent_lock": PERMANENT_LOCK,
+        "all_tiers": TIERS,
+    })
+
+
+@wallet_blueprint.post("/api/wallet/upgrade-limit")
+@login_required
+def upgrade_withdrawal_limit():
+    """Purchase a withdrawal limit upgrade tier."""
+    role_error = ensure_transporter_role()
+    if role_error:
+        return role_error
     if not require_csrf():
         return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
 
-    stamp = timestamp_bundle()
+    from datetime import datetime, timedelta
+    from wallet.withdrawal_limits import TIERS, PERMANENT_LOCK
+
+    data = request.get_json(silent=True) or {}
+    try:
+        tier = int(data.get("tier"))
+        duration = int(data.get("duration_years"))
+    except (TypeError, ValueError):
+        return json_response({"success": False, "message": "Invalid tier or duration."}, 400)
+
+    if tier not in TIERS or tier == 0:
+        return json_response({"success": False, "message": "Invalid tier selected."}, 400)
+    if duration not in (3, 5):
+        return json_response({"success": False, "message": "Duration must be 3 or 5 years."}, 400)
+
+    tier_info = TIERS[tier]
+    fee = round_money(tier_info["fee_3yr"] if duration == 3 else tier_info["fee_5yr"])
+    days = 1095 if duration == 3 else 1825
+
+    wallet, error = get_or_create_wallet(request.current_user)
+    if error:
+        return error
+
+    spendable = round_money(
+        (wallet.get("balance") or 0) - (wallet.get("locked_balance") or 0)
+    )
+    if spendable + 1e-9 < fee:
+        return json_response(
+            {
+                "success": False,
+                "message": "Insufficient balance to purchase plan. Please top up your wallet.",
+            },
+            400,
+        )
+
+    expires_at = (datetime.utcnow() + timedelta(days=days)).isoformat()
+    stamp = timestamp_bundle()["iso"]
+
     with open_db() as db:
-        withdrawal_request = db.execute(
-            "SELECT * FROM wallet_withdrawal_requests WHERE id = ?",
-            (request_id,),
-        ).fetchone()
-        if not withdrawal_request:
-            return json_response({"success": False, "message": "Withdrawal request not found."}, 404)
-
-        withdrawal_request = dict(withdrawal_request)
-        if withdrawal_request["status"] != "pending":
-            return json_response({"success": False, "message": "Withdrawal request is already resolved."}, 400)
-
-        user_row = db.execute("SELECT id, role FROM users WHERE id = ?", (withdrawal_request["user_id"],)).fetchone()
-        if not user_row:
-            return json_response({"success": False, "message": "Withdrawal request user not found."}, 404)
-
-        wallet, error = get_or_create_wallet_for_user(db, dict(user_row))
-        if error:
-            return error
-
-        amount = round_money(withdrawal_request["amount"])
-        if round_money(wallet["locked_balance"]) + 1e-9 < amount:
-            return json_response({"success": False, "message": "Locked balance is lower than the requested withdrawal amount."}, 400)
-        if round_money(wallet["balance"]) + 1e-9 < amount:
-            return json_response({"success": False, "message": "Wallet balance is lower than the requested withdrawal amount."}, 400)
-
-        wallet["locked_balance"] = round_money(wallet["locked_balance"] - amount)
-        wallet["balance"] = round_money(wallet["balance"] - amount)
         db.execute(
-            """
-            UPDATE wallets
-            SET locked_balance = ?, balance = ?, updated_at = ?
-            WHERE id = ? AND user_id = ?
-            """,
-            (wallet["locked_balance"], wallet["balance"], stamp["display"], wallet["id"], wallet["user_id"]),
+            "UPDATE wallets SET balance = balance - ?, updated_at = ? WHERE user_id = ?",
+            (fee, stamp, request.current_user["id"]),
         )
         db.execute(
             """
-            UPDATE wallet_withdrawal_requests
-            SET status = 'approved', resolved_at = ?
-            WHERE id = ?
+            INSERT INTO wallet_transactions
+            (wallet_id, user_id, type, amount, gross_amount, gateway_fee, description, reference_id, balance_after, created_at)
+            SELECT id, user_id, 'plan_purchase', ?, ?, 0,
+                   ?, ?, balance, ?
+            FROM wallets WHERE user_id = ?
             """,
-            (stamp["iso"], request_id),
+            (
+                -fee,
+                -fee,
+                f"Withdrawal limit upgrade - Tier {tier} ({duration} years)",
+                f"tier_{tier}_{duration}yr",
+                stamp,
+                request.current_user["id"],
+            ),
         )
-        insert_wallet_transaction(
-            db,
-            wallet,
-            withdrawal_request["user_id"],
-            "withdrawal",
-            -amount,
-            description="Approved locked withdrawal",
-            reference_id=str(request_id),
+        db.execute(
+            "UPDATE users SET withdrawal_tier = ?, withdrawal_tier_expires_at = ? WHERE id = ?",
+            (tier, expires_at, request.current_user["id"]),
         )
         db.commit()
 
-    return json_response({"success": True, "message": "Withdrawal request approved."})
+    return json_response({
+        "success": True,
+        "message": f"Tier {tier} activated for {duration} years. New single limit: Rs {tier_info['single_max']:,.0f}.",
+        "tier": tier,
+        "expires_at": expires_at,
+    })
+
+
+@wallet_blueprint.get("/api/wallet/payout-card")
+@login_required
+def get_payout_card():
+    role_error = ensure_transporter_role()
+    if role_error:
+        return role_error
+    with open_db() as db:
+        user = db.execute(
+            "SELECT payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank FROM users WHERE id = ?",
+            (request.current_user["id"],)
+        ).fetchone()
+    if not user:
+        return json_response({"success": True, "card": None})
+    card_number = user["payout_card_number"]
+    if not card_number:
+        return json_response({"success": True, "card": None})
+    return json_response({
+        "success": True,
+        "card": {
+            "card_number_masked": "**** **** **** " + str(card_number)[-4:],
+            "card_holder": user["payout_card_holder"] or "",
+            "card_expiry": user["payout_card_expiry"] or "",
+            "bank": user["payout_card_bank"] or "",
+        }
+    })
+
+
+@wallet_blueprint.post("/api/wallet/payout-card")
+@login_required
+def save_payout_card():
+    role_error = ensure_transporter_role()
+    if role_error:
+        return role_error
+    if not require_csrf():
+        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    data = request.get_json(silent=True) or {}
+    card_number = str(data.get("card_number") or "").strip().replace(" ", "")
+    card_holder = str(data.get("card_holder") or "").strip()
+    card_expiry = str(data.get("card_expiry") or "").strip()
+    bank = str(data.get("bank") or "").strip()
+    if not card_number or len(card_number) < 12:
+        return json_response({"success": False, "message": "Valid card number required (min 12 digits)."}, 400)
+    if not card_holder:
+        return json_response({"success": False, "message": "Card holder name required."}, 400)
+    if not card_expiry:
+        return json_response({"success": False, "message": "Card expiry required."}, 400)
+    stamp = timestamp_bundle()["iso"]
+    with open_db() as db:
+        db.execute(
+            """UPDATE users SET payout_card_number = ?, payout_card_holder = ?,
+               payout_card_expiry = ?, payout_card_bank = ? WHERE id = ?""",
+            (card_number, card_holder, card_expiry, bank, request.current_user["id"])
+        )
+        db.commit()
+    return json_response({"success": True, "message": "Payout card saved successfully."})

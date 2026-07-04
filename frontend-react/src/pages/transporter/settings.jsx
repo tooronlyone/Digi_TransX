@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+﻿import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 
@@ -12,7 +12,7 @@ export default function Settings() {
 
   const [account, setAccount] = useState({ companyName: '', email: '', phone: '', address: '', about: '' })
   const [notifs, setNotifs] = useState({ email: true, sms: true, whatsapp: true, push: true, jobAlerts: true, payments: true, system: false, promo: false })
-  const [security, setSecurity] = useState({ newPassword: '', confirmPassword: '' })
+  const [security, setSecurity] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [mpinForm, setMpinForm] = useState({ mpin: '', confirmMpin: '' })
   const [otpSent, setOtpSent] = useState(false)
   const [otpCode, setOtpCode] = useState('')
@@ -22,6 +22,9 @@ export default function Settings() {
   const [integrations, setIntegrations] = useState({ mapsEnabled: true, excelExport: true, apiAccess: false })
   const [apiKey, setApiKey] = useState('')
   const [activityLogs, setActivityLogs] = useState([])
+  const [savedCard, setSavedCard] = useState(null)
+  const [cardForm, setCardForm] = useState({ card_number: '', card_holder: '', card_expiry: '', bank: '' })
+  const [showCardForm, setShowCardForm] = useState(false)
 
   function showToast(msg, type = 'success') {
     setToast({ msg, type })
@@ -30,8 +33,8 @@ export default function Settings() {
 
   function normalizeNotifications(raw = {}) {
     return {
-      email: Boolean(raw.email),
-      sms: Boolean(raw.sms),
+      email: raw.email !== false,
+      sms: raw.sms !== false,
       whatsapp: raw.whatsapp !== false,
       push: raw.push !== false,
       jobAlerts: raw.jobAlerts !== false,
@@ -59,7 +62,7 @@ export default function Settings() {
         const u = profileRes.value.user
         setUser(u)
         setAccount({
-          companyName: u.company_name || u.first_name || u.username || '',
+          companyName: u.company_name || u.full_name || u.first_name || u.username || '',
           email: u.email || '',
           phone: u.phone || '',
           address: u.address || u.city || '',
@@ -72,7 +75,26 @@ export default function Settings() {
         if (s.preferences) setPrefs(p => ({ ...p, ...normalizePreferences(s.preferences) }))
       }
     }).catch(() => undefined)
+    get('/api/wallet/payout-card').then(res => {
+      if (res?.success && res.card) setSavedCard(res.card)
+    }).catch(() => undefined)
   }, [])
+
+  async function saveCard() {
+    setSaving(true)
+    try {
+      const res = await post('/api/wallet/payout-card', cardForm)
+      if (res.success) {
+        showToast('Card saved successfully!')
+        setShowCardForm(false)
+        const cardRes = await get('/api/wallet/payout-card')
+        if (cardRes?.success && cardRes.card) setSavedCard(cardRes.card)
+      } else {
+        showToast(res.message || 'Failed to save card', 'error')
+      }
+    } catch { showToast('Failed to save card', 'error') }
+    finally { setSaving(false) }
+  }
 
   async function saveAccount() {
     setSaving(true)
@@ -102,12 +124,13 @@ export default function Settings() {
   }
 
   async function updateSecurity() {
+    if (!security.currentPassword) return showToast('Enter your current password', 'error')
     if (!security.newPassword) return showToast('Enter a new password', 'error')
     if (security.newPassword !== security.confirmPassword) return showToast('Passwords do not match', 'error')
     setSaving(true)
     try {
       if (!otpSent) {
-        const res = await post('/api/profile/password/request-otp', {})
+        const res = await post('/api/profile/password/request-otp', { current_password: security.currentPassword })
         if (res.success) { setOtpSent(true); showToast('OTP sent to your email!') }
         else showToast(res.message || 'Failed to send OTP', 'error')
       } else {
@@ -115,7 +138,7 @@ export default function Settings() {
         const res = await put('/api/profile/password', { new_password: security.newPassword, otp_code: otpCode })
         if (res.success) {
           showToast('Password changed successfully!')
-          setSecurity({ newPassword: '', confirmPassword: '' })
+          setSecurity({ currentPassword: '', newPassword: '', confirmPassword: '' })
           setOtpSent(false); setOtpCode('')
         } else showToast(res.message || 'Failed to update password', 'error')
       }
@@ -231,7 +254,7 @@ export default function Settings() {
               {user ? (user.first_name?.[0] || user.username?.[0] || 'U').toUpperCase() : 'U'}
             </div>
             <div className="user-details">
-              <h3>{user ? ((user.first_name || '') + ' ' + (user.last_name || '')).trim() || user.username : 'Ã¢â‚¬â€'}</h3>
+              <h3>{user ? ((user.first_name || '') + ' ' + (user.last_name || '')).trim() || user.username : '&mdash;'}</h3>
               <p><i className="fas fa-briefcase"></i> {user?.role || 'Transporter'}</p>
             </div>
           </div>
@@ -350,6 +373,11 @@ export default function Settings() {
                   <h3><i className="fas fa-shield-alt"></i> Privacy &amp; Security</h3>
                   <p>Manage your privacy settings and account security</p>
                 </div>
+                <div className="form-group" style={{ marginBottom: '16px' }}>
+                  <label className="form-label">Current Password</label>
+                  <input type="password" className="form-control" value={security.currentPassword}
+                    onChange={e => setSecurity(p => ({ ...p, currentPassword: e.target.value }))} placeholder="Enter current password" />
+                </div>
                 <div className="form-row">
                   <div className="form-group">
                     <label className="form-label">New Password</label>
@@ -438,7 +466,7 @@ export default function Settings() {
                     {activityLogs.map((log, i) => (
                       <div key={i} style={{ fontSize: '0.85rem', color: '#64748b', padding: '0.3rem 0', borderBottom: '1px solid #e2e8f0' }}>
                         <i className="fas fa-circle" style={{ fontSize: '0.5rem', marginRight: '8px', color: '#22c55e' }}></i>
-                        {log.created_at} Ã¢â‚¬â€ {log.ip_address || 'Unknown IP'}
+                        {log.created_at} &mdash; {log.ip_address || 'Unknown IP'}
                       </div>
                     ))}
                   </div>
@@ -467,7 +495,7 @@ export default function Settings() {
                 </div>
                 {[
                   { id: 'language', label: 'Language', options: [{ val: 'en', label: 'English' }, { val: 'ur', label: 'Urdu' }, { val: 'hi', label: 'Hindi' }] },
-                  { id: 'currency', label: 'Currency', options: [{ val: 'PKR', label: 'Pakistani Rupee (PKR)' }, { val: 'USD', label: 'US Dollar ($)' }, { val: 'EUR', label: 'Euro (EUR)' }] },
+                  { id: 'currency', label: 'Currency', options: [{ val: 'PKR', label: 'Pakistani Rupee (PKR)' }, { val: 'CNY', label: 'Chinese Yuan (CNY)' }] },
                   { id: 'timezone', label: 'Timezone', options: [{ val: 'PKT', label: 'Pakistani Standard Time (PKT)' }, { val: 'UTC', label: 'UTC' }, { val: 'EST', label: 'Eastern Standard Time' }] },
                 ].map(field => (
                   <div key={field.id} className="form-group">
@@ -489,18 +517,6 @@ export default function Settings() {
                         <input type="radio" id={`df-${f.val}`} name="dateFormat" value={f.val}
                           checked={prefs.dateFormat === f.val} onChange={e => setPrefs(p => ({ ...p, dateFormat: e.target.value }))} />
                         <label htmlFor={`df-${f.val}`}>{f.val}</label>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Theme</label>
-                  <div className="radio-group">
-                    {['light', 'dark', 'auto'].map(t => (
-                      <div key={t} className="radio-item">
-                        <input type="radio" id={`theme-${t}`} name="theme" value={t}
-                          checked={prefs.theme === t} onChange={e => setPrefs(p => ({ ...p, theme: e.target.value }))} />
-                        <label htmlFor={`theme-${t}`}>{t.charAt(0).toUpperCase() + t.slice(1)}</label>
                       </div>
                     ))}
                   </div>
@@ -536,19 +552,76 @@ export default function Settings() {
                   <h3><i className="fas fa-credit-card"></i> Billing &amp; Payments</h3>
                   <p>Manage your payment methods and billing information</p>
                 </div>
-                <div className="settings-cards">
-                  {[
-                    { icon: 'fa-plus-circle', title: 'Add Payment Method', desc: 'Add a new bank account or UPI', action: () => navigate('/transporter/account-history') },
-                    { icon: 'fa-file-invoice', title: 'View Invoices', desc: 'Access and download transaction invoices', action: () => navigate('/transporter/account-history') },
-                    { icon: 'fa-percentage', title: 'Tax Settings', desc: 'Configure GST and other tax settings', action: () => showToast('Tax settings coming soon!') },
-                  ].map(card => (
-                    <div key={card.title} className="settings-card" style={{ cursor: 'pointer' }} onClick={card.action}>
-                      <div className="settings-card-icon"><i className={`fas ${card.icon}`}></i></div>
-                      <h4>{card.title}</h4>
-                      <p>{card.desc}</p>
+
+                {savedCard && !showCardForm && (
+                  <div className="saved-card-display" style={{ background: 'linear-gradient(135deg, #1a1a2e, #16213e)', borderRadius: '16px', padding: '24px', color: '#fff', marginBottom: '24px', position: 'relative' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
+                      <i className="fas fa-credit-card" style={{ fontSize: '28px', opacity: 0.8 }}></i>
+                      <span style={{ fontSize: '13px', opacity: 0.7 }}>{savedCard.bank || 'Bank Card'}</span>
                     </div>
-                  ))}
-                </div>
+                    <div style={{ fontSize: '20px', letterSpacing: '3px', marginBottom: '16px', fontFamily: 'monospace' }}>{savedCard.card_number_masked}</div>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '13px' }}>
+                      <div><span style={{ opacity: 0.6, display: 'block', marginBottom: '4px' }}>Card Holder</span>{savedCard.card_holder}</div>
+                      <div><span style={{ opacity: 0.6, display: 'block', marginBottom: '4px' }}>Expiry</span>{savedCard.card_expiry}</div>
+                    </div>
+                  </div>
+                )}
+
+                {!showCardForm && (
+                  <div className="btn-group" style={{ marginBottom: '24px' }}>
+                    <button type="button" className="btn btn-primary" onClick={() => { setShowCardForm(true); setCardForm({ card_number: '', card_holder: '', card_expiry: '', bank: '' }) }}>
+                      <i className={`fas ${savedCard ? 'fa-edit' : 'fa-plus-circle'}`}></i> {savedCard ? 'Update Card' : 'Add Payment Method'}
+                    </button>
+                  </div>
+                )}
+
+                {showCardForm && (
+                  <div style={{ marginBottom: '24px' }}>
+                    <h4 style={{ margin: '0 0 16px 0', color: 'var(--text-primary)', fontWeight: 600 }}>{savedCard ? 'Update Card' : 'Add Payment Method'}</h4>
+                    <div className="form-group">
+                      <label className="form-label">Card Number</label>
+                      <input type="text" className="form-control" placeholder="1234 5678 9012 3456" maxLength="19"
+                        value={cardForm.card_number}
+                        onChange={e => {
+                          const v = e.target.value.replace(/[^\d]/g, '').replace(/(.{4})/g, '$1 ').trim()
+                          setCardForm(p => ({ ...p, card_number: v }))
+                        }} />
+                    </div>
+                    <div className="form-group">
+                      <label className="form-label">Card Holder Name</label>
+                      <input type="text" className="form-control" placeholder="Name as on card"
+                        value={cardForm.card_holder}
+                        onChange={e => setCardForm(p => ({ ...p, card_holder: e.target.value }))} />
+                    </div>
+                    <div className="form-row" style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '16px' }}>
+                      <div className="form-group">
+                        <label className="form-label">Expiry (MM/YY)</label>
+                        <input type="text" className="form-control" placeholder="MM/YY" maxLength="5"
+                          value={cardForm.card_expiry}
+                          onChange={e => {
+                            let v = e.target.value.replace(/[^\d]/g, '')
+                            if (v.length >= 2) v = v.slice(0, 2) + '/' + v.slice(2, 4)
+                            setCardForm(p => ({ ...p, card_expiry: v }))
+                          }} />
+                      </div>
+                      <div className="form-group">
+                        <label className="form-label">Bank Name <span style={{ opacity: 0.5 }}>(optional)</span></label>
+                        <input type="text" className="form-control" placeholder="e.g. HBL, UBL, Meezan"
+                          value={cardForm.bank}
+                          onChange={e => setCardForm(p => ({ ...p, bank: e.target.value }))} />
+                      </div>
+                    </div>
+                    <div className="btn-group">
+                      <button type="button" className="btn btn-primary" onClick={saveCard} disabled={saving}>
+                        <i className="fas fa-save"></i> {saving ? 'Saving...' : 'Save Card'}
+                      </button>
+                      <button type="button" className="btn btn-secondary" onClick={() => setShowCardForm(false)}>
+                        <i className="fas fa-times"></i> Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 <h4 style={{ margin: '30px 0 15px 0', color: 'var(--text-primary)', fontWeight: 600 }}>Payment Settings</h4>
                 {[
                   { key: 'autoWithdrawal', label: 'Auto-Withdrawal',       desc: 'Auto-transfer earnings to your bank every week' },
@@ -565,9 +638,6 @@ export default function Settings() {
                 ))}
                 <div className="btn-group">
                   <button type="button" className="btn btn-primary" onClick={() => navigate('/transporter/account-history')}>
-                    <i className="fas fa-cog"></i> Manage Billing
-                  </button>
-                  <button type="button" className="btn btn-secondary" onClick={() => navigate('/transporter/account-history')}>
                     <i className="fas fa-history"></i> Payment History
                   </button>
                 </div>
@@ -709,19 +779,6 @@ export default function Settings() {
 
           </div>
         </div>
-
-        <div className="footer">
-          <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>
-          <div className="footer-links">
-            <Link to="/transporter/about">About Us</Link>
-            <Link to="/transporter/contact">Contact</Link>
-            <Link to="/transporter/terms">Terms &amp; Conditions</Link>
-            <Link to="/transporter/privacy">Privacy Policy</Link>
-            <Link to="/transporter/help">Help Center</Link>
-            <Link to="/transporter/partner">Partner With Us</Link>
-          </div>
-        </div>
-        <div className="notification-panel" id="notificationPanel"></div>
       </div>
     
   )

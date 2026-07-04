@@ -1,0 +1,316 @@
+/* ========================================
+   FILE: globals.css
+   PROJECT: Digi_TransX Transporter Module
+   PURPOSE: Global CSS variables, reset, shared animation keyframes
+   SCOPE: Entire transporter application — imported once in index.css
+   NOTE: This file consolidates design tokens from design-tokens.css,
+         transporter.css :root, and extra.css into a single source of truth.
+         Old variable names are preserved as aliases so existing CSS
+         (transporter.css, extra.css, wallet.css) continues working
+         until each page is individually migrated.
+   ======================================== */
+
+
+/* ========================================
+   SECTION 1: CSS CUSTOM PROPERTIES
+   PURPOSE: Centralized design tokens for colors, typography, spacing,
+            shadows, radii, and layout dimensions.
+   SOURCE: Values extracted from design-tokens.css :root (lines 7-76)
+           and transporter.css :root (lines 240-262).
+   ======================================== */
+
+:root {
+
+  /* ===== BRAND COLORS ===== */
+
+  /* Primary blue — D-HAG brand identity, used for buttons, links,
+     active states, focus rings, and branded accents site-wide */
+  --color-primary: #2563eb;
+
+  /* Darker blue for hover/active on primary elements.
+     Provides sufficient contrast shift on interaction */
+  --color-primary-dark: #1d4ed8;
+
+  /* Light blue tint for soft highlights, disabled primary surfaces,
+     and low-emphasis informational backgrounds */
+  --color-primary-light: #dbeafe;
+
+
+  /* ===== SEMANTIC STATUS COLORS ===== */
+
+  /* Green — success toasts, "available" status pills, positive KPIs */
+  --color-success: #10b981;
+
+  /* Amber — warning alerts, "maintenance" status, caution indicators */
+  --color-warning: #f59e0b;
+
+  /* Red — form validation errors, error toasts, negative deltas */
+  --color-error: #ef4444;
+
+  /* Darker red — destructive actions (delete account, reset all),
+     danger buttons that require conscious intent */
+  --color-danger: #dc2626;
+
+  /* Blue (lighter) — informational badges, neutral status, "on job" pills */
+  --color-info: #3b82f6;
+
+
+  /* ===== TEXT COLORS (Tailwind Slate Scale) ===== */
+
+  /* slate-900 — display headings, highest-contrast text, section titles */
+  --color-text-900: #0f172a;
+
+  /* slate-800 — primary body copy, form input values, page headings */
+  --color-text-800: #1e293b;
+
+  /* slate-600 — secondary text, descriptions, form labels */
+  --color-text-600: #475569;
+
+  /* slate-500 — tertiary text, placeholders, captions, timestamps */
+  --color-text-500: #64748b;
+
+  /* slate-400 — disabled text, faint indicators */
+  --color-text-400: #94a3b8;
+
+  /* slate-300 — lightest text, used sparingly for very subtle copy */
+  --color-text-300: #cbd5e1;
+
+
+  /* ===== BACKGROUND COLORS ===== */
+
+  /* Pure white — cards, content panels, form inputs */
+  --color-bg-white: #ffffff;
+
+  /* slate-50 — main page background behind all cards */
+  --color-bg-50: #f8fafc;
+
+  /* slate-100 — hover fills, secondary surfaces, sidebar item backgrounds */
+  --color-bg-100: #f1f5f9;
+
+  /* slate-200 — subtle backgrounds, alternate rows, divider fills */
+  --color-bg-200: #e2e8f0;
+
+
+  /* ===== BORDER COLORS ===== */
+
+  /* Default border for cards, form inputs, dividers (slate-200) */
+  --color-border: #e2e8f0;
+
+  /* Slightly darker border for toggle tracks, secondary dividers (slate-300) */
+  --color-border-light: #cbd5e1;
+
+
+  /* ===== GRADIENTS ===== */
+
+  /* Primary brand gradient — used for primary buttons, active nav items,
+     avatar backgrounds, and icon containers */
+  --gradient-primary: linear-gradient(135deg, #2563eb 0%, #3b82f6 100%);
+
+  /* Dark gradient — display headings with background-clip: text,
+     premium/elevated elements */
+  --gradient-accent: linear-gradient(135deg, #0f172a 0%, #1e293b 100%);
+
+
+  /* ===== SHADOWS ===== */
+
+  /* Minimal depth — cards at rest, default surface elevation */
+  --shadow-xs: 0 1px 3px rgba(0, 0, 0, 0.05);
+
+  /* Small elevation — slightly raised elements */
+  --shadow-sm: 0 1px 3px 0 rgba(0, 0, 0, 0.1),
+               0 1px 2px 0 rgba(0, 0, 0, 0.06);
+
+  /* Medium elevation — hover states on cards, popovers */
+  --shadow-md: 0 4px 6px -1px rgba(0, 0, 0, 0.07),
+               0 2px 4px -1px rgba(0, 0, 0, 0.06);
+
+  /* High elevation — modals, dropdowns, expanded panels */
+  --shadow-lg: 0 10px 15px -3px rgba(0, 0, 0, 0.07),
+               0 4px 6px -2px rgba(0, 0, 0, 0.05);
+
+  /* Brand-colored glow at rest — primary buttons, branded cards */
+  --shadow-brand: 0 2px 8px rgba(37, 99, 235, 0.25);
+
+  /* Brand-colored glow on hover — intensified blue halo */
+  --shadow-brand-hover: 0 6px 16px rgba(37, 99, 235, 0.35);
+
+
+  /* ===== TYPOGRAPHY ===== */
+
+  /* System font stack — Inter preferred for its clean numerals
+     and OpenType features; falls back to platform sans-serif */
+  --font-family-sans: 'Inter', 'Segoe UI', -apple-system,
+                      BlinkMacSystemFont, sans-serif;
+
+  /* Monospace — API keys, code snippets, technical identifiers */
+  --font-family-mono: ui-monospace, SFMono-Regular, Menlo,
+                      Consolas, monospace;
+
+  /* === Font Sizes (project-established scale) === */
+  --font-size-2xs: 11px;   /* eyebrow labels, role badges, tiny captions */
+  --font-size-xs: 12px;    /* helper text, toggle descriptions, timestamps */
+  --font-size-sm: 13px;    /* form labels, card meta, small UI text */
+  --font-size-base: 14px;  /* body text, form inputs, menu items — default */
+  --font-size-md: 15px;    /* descriptions, subtitles, slightly larger copy */
+  --font-size-lg: 16px;    /* card titles, stat labels, section meta */
+  --font-size-xl: 18px;    /* responsive section headings (mobile) */
+  --font-size-2xl: 20px;   /* section headings (desktop) */
+  --font-size-3xl: 24px;   /* page sub-headings */
+  --font-size-4xl: 32px;   /* page main titles */
+
+  /* === Font Weights === */
+  --font-weight-normal: 400;    /* body text, descriptions */
+  --font-weight-medium: 500;    /* menu items, secondary labels */
+  --font-weight-semibold: 600;  /* form labels, buttons, active emphasis */
+  --font-weight-bold: 700;      /* page titles, section headings, card names */
+  --font-weight-extrabold: 800; /* display headings, hero KPI values */
+
+  /* === Line Heights === */
+  --line-height-tight: 1.2;     /* headings, compact single-line text */
+  --line-height-snug: 1.35;     /* cards, status pills, dense UI */
+  --line-height-normal: 1.5;    /* body text, general readability */
+  --line-height-relaxed: 1.6;   /* descriptions, form help text */
+  --line-height-loose: 1.7;     /* long-form content, maximum readability */
+
+
+  /* ===== BORDER RADIUS ===== */
+
+  --radius-sm: 8px;       /* buttons, small inputs, action tiles */
+  --radius-md: 10px;      /* form controls, standard cards, btn */
+  --radius-lg: 12px;      /* menu items, icon containers, nav links */
+  --radius-xl: 14px;      /* dashboard cards, KPI tiles */
+  --radius-2xl: 16px;     /* settings cards, prominent elements */
+  --radius-3xl: 20px;     /* page-level panels: sidebar, content, profile */
+  --radius-pill: 999px;   /* pills, toggle tracks, user-info chip */
+
+
+  /* ===== SPACING SCALE (4px base) ===== */
+
+  --space-1: 4px;    /* micro gaps: icon-to-text, inline spacing */
+  --space-2: 8px;    /* small padding: badges, compact gaps */
+  --space-3: 12px;   /* menu-item icon gaps, form label spacing */
+  --space-4: 16px;   /* standard padding: form fields, card inner gaps */
+  --space-5: 20px;   /* card padding, sidebar padding, grid gaps */
+  --space-6: 24px;   /* content padding, section gaps */
+  --space-7: 28px;   /* content area padding, settings grid gap */
+  --space-8: 32px;   /* major section margins, page title bottom */
+
+
+  /* ===== TRANSITIONS ===== */
+
+  /* Fast — micro-interactions: hover color, focus ring, button press */
+  --transition-fast: 0.2s ease;
+
+  /* Normal — state changes: panel slides, card lifts, toggle flips */
+  --transition-normal: 0.3s ease;
+
+
+  /* ===== LAYOUT DIMENSIONS ===== */
+
+  /* Top navbar height — fixed across all pages */
+  --navbar-height: 70px;
+
+  /* Collapsed icon sidebar — icons only, always visible on desktop */
+  --sidebar-width: 70px;
+
+  /* Maximum content width — prevents lines from becoming too long
+     on ultra-wide displays; content centers within main-content */
+  --content-max-width: 1440px;
+
+
+  /* ========================================
+     BACKWARD-COMPATIBLE ALIASES
+     PURPOSE: Map old variable names (used in transporter.css,
+     extra.css, wallet.css, Dashboard.css) to new names so those
+     files keep working during incremental migration.
+     REMOVE: Once all pages use internal styles with new names.
+     ======================================== */
+  --primary-bg:        var(--color-bg-50);
+  --surface-white:     var(--color-bg-white);
+  --surface-elevated:  var(--color-bg-white);
+  --hover-bg:          var(--color-bg-100);
+  --border-subtle:     var(--color-border);
+  --border-light:      var(--color-border-light);
+  --text-primary:      var(--color-text-800);
+  --text-secondary:    var(--color-text-600);
+  --text-muted:        var(--color-text-500);
+  --accent-primary:    var(--color-primary);
+  --accent-primary-dark: var(--color-primary-dark);
+  --accent-secondary:  var(--color-text-900);
+  --info:              var(--color-info);
+  --success:           var(--color-success);
+  --warning:           var(--color-warning);
+  --error:             var(--color-error);
+  --danger:            var(--color-danger);
+  --shadow-subtle:     var(--shadow-xs);
+  --shadow-medium:     var(--shadow-md);
+  --shadow-elevated:   var(--shadow-lg);
+  --shadow-brand-hi:   var(--shadow-brand-hover);
+  --font-sans:         var(--font-family-sans);
+  --font-mono:         var(--font-family-mono);
+
+  /* spacing aliases (old design-tokens.css names) */
+  --radius-xs: 6px;
+  --radius-2xl: 20px;
+}
+
+
+/* ========================================
+   SECTION 2: GLOBAL RESET
+   PURPOSE: Consistent box-model baseline.
+   NOTE: Minimal reset — only box-sizing.
+         Body/heading/paragraph styles remain in design-tokens.css
+         until all pages are migrated to internal styles.
+   ======================================== */
+
+*,
+*::before,
+*::after {
+  /* Border-box ensures padding/border don't expand element size —
+     critical for grid/flex layouts to behave predictably */
+  box-sizing: border-box;
+}
+
+
+/* ========================================
+   SECTION 3: SHARED KEYFRAME ANIMATIONS
+   PURPOSE: Reusable animations referenced by multiple components.
+   ======================================== */
+
+/* Fade-in with subtle upward slide — used when switching settings
+   sections, loading card content, revealing form panels */
+@keyframes dtx-fade-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+
+/* ========================================
+   SECTION 4: SCREEN-READER UTILITY
+   PURPOSE: Hide element visually while keeping it accessible
+            to assistive technology.
+   ======================================== */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border-width: 0;
+}
+
+
+/* ========================================
+   END: globals.css
+   Total custom properties: ~80 (including aliases)
+   ======================================== */

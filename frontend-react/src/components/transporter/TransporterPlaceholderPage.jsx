@@ -1,4 +1,3 @@
-import TransporterFooter from './TransporterFooter'
 import TransporterLayout from './TransporterLayout'
 
 function toReadableLabel(value) {
@@ -62,7 +61,6 @@ export default function TransporterPlaceholderPage({
           </div>
         )}
       </section>
-      <TransporterFooter />
     </TransporterLayout>
   )
 }

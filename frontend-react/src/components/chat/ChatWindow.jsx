@@ -9,6 +9,21 @@ function statusTone(status) {
   return 'text-amber-700'
 }
 
+function orderStatusTone(status = '') {
+  const normalized = String(status).toLowerCase()
+  if (normalized.includes('active') || normalized.includes('approved') || normalized.includes('assigned')) {
+    return 'bg-emerald-50 text-emerald-700'
+  }
+  if (normalized.includes('cancel') || normalized.includes('reject') || normalized.includes('inactive')) {
+    return 'bg-red-50 text-red-700'
+  }
+  return 'bg-gray-100 text-gray-500'
+}
+
+function partyInitial(name = '') {
+  return String(name).trim().charAt(0).toUpperCase() || 'C'
+}
+
 function canRespondToMediaRequest(message, currentUserId) {
   return message.message_type === 'media_request' && !message.is_own && message.media_request_status === 'pending' && message.sender_user_id !== currentUserId
 }
@@ -17,7 +32,7 @@ function canSendMediaForApproval(message) {
   return message.message_type === 'media_request' && message.is_own && message.media_request_status === 'approved'
 }
 
-export default function ChatWindow({ role = 'client', onUnreadChange, initialThreadId = null }) {
+export default function ChatWindow({ role = 'client', onUnreadChange, initialThreadId = null, heightClass = 'h-[calc(100vh-118px)]' }) {
   const [threads, setThreads] = useState([])
   const [activeThreadId, setActiveThreadId] = useState(null)
   const [messages, setMessages] = useState([])
@@ -29,20 +44,35 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
   const [notice, setNotice] = useState('')
   const [actingOnMessage, setActingOnMessage] = useState('')
   const [uploading, setUploading] = useState(false)
-  const [currentUser, setCurrentUser] = useState(null)
+  const [currentUser] = useState(() => {
+    const stored = sessionStorage.getItem('user')
+    if (!stored) return null
+    try {
+      return JSON.parse(stored)
+    } catch {
+      return null
+    }
+  })
+  const [searchTerm, setSearchTerm] = useState('')
   const fileInputRef = useRef(null)
   const activeThread = useMemo(
     () => threads.find((thread) => thread.id === activeThreadId) || null,
     [threads, activeThreadId],
   )
-
-  useEffect(() => {
-    const stored = sessionStorage.getItem('user')
-    if (!stored) return
-    try {
-      setCurrentUser(JSON.parse(stored))
-    } catch (_) {}
-  }, [])
+  const visibleThreads = useMemo(() => {
+    const query = searchTerm.trim().toLowerCase()
+    if (!query) return threads
+    return threads.filter((thread) => {
+      const haystack = [
+        thread.other_party_name,
+        thread.order?.id,
+        thread.order?.route_label,
+        thread.order?.status,
+        thread.last_message_preview,
+      ].join(' ').toLowerCase()
+      return haystack.includes(query)
+    })
+  }, [searchTerm, threads])
 
   const currentUserId = currentUser?.id ?? null
   const totalUnread = useMemo(
@@ -105,11 +135,13 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadThreads(initialThreadId ? Number(initialThreadId) : null)
   }, [initialThreadId])
 
   useEffect(() => {
     if (!activeThreadId) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setMessages([])
       return
     }
@@ -218,99 +250,131 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
     [messages],
   )
 
+  const scrollPaneClass = '[scrollbar-width:thin] [scrollbar-color:#D1D5DB_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300'
+
   return (
-    <div className="grid gap-6 xl:grid-cols-[320px_minmax(0,1fr)]">
-      <section className="rounded-2xl border border-slate-200 bg-white shadow-sm">
-        <div className="border-b border-slate-200 px-5 py-4">
+    <div className={`grid ${heightClass} min-h-0 overflow-hidden rounded-2xl bg-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] lg:grid-cols-[34%_66%]`}>
+      <section className="flex min-h-0 flex-col border-gray-100 lg:border-r">
+        <div className="sticky top-0 z-10 flex-shrink-0 space-y-4 border-b border-gray-100 bg-white p-5">
           <div className="flex items-center justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-bold text-slate-900">Chats</h2>
-              <p className="mt-1 text-sm text-slate-500">Order-linked conversations for your {role} portal.</p>
-            </div>
-            {totalUnread > 0 && (
-              <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-semibold text-blue-700">
-                {totalUnread} unread
-              </span>
-            )}
+            <h1 className="text-2xl font-bold text-[#111827]">Chats</h1>
+            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
+              {totalUnread || threads.length}
+            </span>
           </div>
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#E5E7EB] bg-gray-50 px-3 text-[#6B7280]">
+            <i className="fas fa-search text-sm" aria-hidden="true"></i>
+            <input
+              type="search"
+              value={searchTerm}
+              onChange={(event) => setSearchTerm(event.target.value)}
+              placeholder="Search chats..."
+              className="h-full min-w-0 flex-1 border-0 bg-transparent text-sm text-[#111827] outline-none placeholder:text-[#6B7280]"
+            />
+          </label>
         </div>
-        <div className="max-h-[70vh] overflow-y-auto p-3">
-          {loadingThreads && <div className="rounded-xl bg-slate-50 px-4 py-5 text-sm text-slate-500">Loading chats...</div>}
+
+        <div className={`min-h-0 flex-1 overflow-y-auto ${scrollPaneClass}`}>
+          {loadingThreads && <div className="m-5 rounded-lg bg-[#F3F4F6] px-4 py-5 text-sm text-[#6B7280]">Loading chats...</div>}
           {!loadingThreads && threads.length === 0 && (
-            <div className="rounded-xl border border-dashed border-slate-200 bg-slate-50 px-4 py-8 text-center text-sm text-slate-500">
+            <div className="m-5 rounded-lg border border-dashed border-[#E5E7EB] bg-gray-50 px-4 py-8 text-center text-sm text-[#6B7280]">
               No chat threads yet. A thread is created automatically when a bid is placed.
             </div>
           )}
-          {!loadingThreads && threads.map((thread) => {
+          {!loadingThreads && threads.length > 0 && visibleThreads.length === 0 && (
+            <div className="m-5 rounded-lg bg-gray-50 px-4 py-8 text-center text-sm text-[#6B7280]">
+              No chats match your search.
+            </div>
+          )}
+          {!loadingThreads && visibleThreads.map((thread) => {
             const active = thread.id === activeThreadId
+            const status = thread.order?.status || 'Inactive'
             return (
               <button
                 key={thread.id}
                 type="button"
                 onClick={() => setActiveThreadId(thread.id)}
-                className={`mb-3 w-full rounded-2xl border px-4 py-4 text-left transition ${
-                  active
-                    ? 'border-blue-200 bg-blue-50'
-                    : 'border-slate-200 bg-white hover:border-slate-300 hover:bg-slate-50'
+                className={`flex w-full items-start gap-3 border-b border-gray-100 px-5 py-4 text-left transition ${
+                  active ? 'bg-indigo-50/70' : 'bg-white hover:bg-gray-50'
                 }`}
               >
-                <div className="flex items-start justify-between gap-3">
-                  <div className="min-w-0">
-                    <div className="truncate text-sm font-bold text-slate-900">{thread.other_party_name}</div>
-                    <div className="mt-1 truncate text-xs text-slate-500">Order #{thread.order.id} - {thread.order.route_label}</div>
-                  </div>
-                  {thread.unread_count > 0 && (
-                    <span className="rounded-full bg-emerald-100 px-2 py-1 text-[11px] font-bold text-emerald-700">
-                      {thread.unread_count}
+                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+                  {partyInitial(thread.other_party_name)}
+                </span>
+                <span className="min-w-0 flex-1">
+                  <span className="flex items-start justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="block truncate text-sm font-semibold text-[#111827]">
+                        {thread.other_party_name}
+                        <span className="ml-2 font-medium text-[#6B7280]">#{thread.order.id}</span>
+                      </span>
+                      <span className="mt-1 block truncate text-sm text-[#6B7280]">{thread.order.route_label}</span>
                     </span>
-                  )}
-                </div>
-                <div className="mt-3 text-sm text-slate-600">{thread.last_message_preview}</div>
-                <div className="mt-2 text-xs text-slate-400">{formatDateTime(thread.last_message_at)}</div>
+                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${orderStatusTone(status)}`}>
+                      {status}
+                    </span>
+                  </span>
+                  <span className="mt-2 flex items-center justify-between gap-3">
+                    <span className="truncate text-xs text-[#9CA3AF]">{thread.last_message_preview || 'No messages yet'}</span>
+                    {thread.unread_count > 0 && (
+                      <span className="rounded-full bg-[#10B981] px-2 py-0.5 text-[11px] font-bold text-white">
+                        {thread.unread_count}
+                      </span>
+                    )}
+                  </span>
+                </span>
               </button>
             )
           })}
         </div>
       </section>
 
-      <section className="flex min-h-[70vh] flex-col rounded-2xl border border-slate-200 bg-white shadow-sm">
+      <section className="flex min-h-0 flex-col bg-white">
         {!activeThread && (
-          <div className="grid flex-1 place-items-center px-6 py-10 text-center text-sm text-slate-500">
-            Select a chat thread to start messaging.
+          <div className="grid min-h-0 flex-1 place-items-center px-6 py-10 text-center">
+            <div>
+              <i className="far fa-comments text-6xl text-gray-300" aria-hidden="true"></i>
+              <p className="mt-5 text-lg font-semibold text-gray-600">No messages yet.</p>
+              <p className="mt-1 text-sm text-gray-400">Select a chat to start the conversation below.</p>
+            </div>
           </div>
         )}
 
         {activeThread && (
           <>
-            <div className="border-b border-slate-200 px-5 py-4">
+            <div className="sticky top-0 z-10 flex-shrink-0 border-b border-gray-100 bg-white px-5 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-slate-900">{activeThread.other_party_name}</h2>
-                  <p className="mt-1 text-sm text-slate-500">
+                  <h2 className="text-lg font-bold text-[#111827]">{activeThread.other_party_name}</h2>
+                  <p className="mt-1 text-sm text-[#6B7280]">
                     Order #{activeThread.order.id} - {activeThread.order.route_label} - {activeThread.order.status}
                   </p>
                 </div>
-                {approvedRequest && (
-                  <button
-                    type="button"
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="inline-flex min-h-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
-                  >
-                    <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-image'} mr-2`} aria-hidden="true"></i>
-                    Send Photo/Video
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => {
+                    loadMessages(activeThread.id)
+                    loadThreads(activeThread.id, { silent: true })
+                  }}
+                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#6B7280] transition hover:bg-gray-50 hover:text-[#4F46E5]"
+                  title="Refresh"
+                >
+                  <i className="fas fa-rotate-right text-sm" aria-hidden="true"></i>
+                </button>
               </div>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50 px-5 py-5">
-              {loadingMessages && <div className="text-sm text-slate-500">Loading conversation...</div>}
+            <div className={`min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#F9FAFB] px-5 py-5 ${scrollPaneClass}`}>
+              {loadingMessages && <div className="text-sm text-[#6B7280]">Loading conversation...</div>}
               {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
               {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div>}
               {!loadingMessages && messages.length === 0 && (
-                <div className="rounded-xl border border-dashed border-slate-200 bg-white px-4 py-8 text-center text-sm text-slate-500">
-                  No messages yet. Start the conversation below.
+                <div className="grid min-h-full place-items-center text-center">
+                  <div>
+                    <i className="far fa-comments text-7xl text-gray-300" aria-hidden="true"></i>
+                    <p className="mt-5 text-lg font-semibold text-gray-600">No messages yet.</p>
+                    <p className="mt-1 text-sm text-gray-400">Start the conversation below.</p>
+                  </div>
                 </div>
               )}
               {messages.map((message) => (
@@ -320,8 +384,8 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
                       message.message_type === 'system'
                         ? 'bg-amber-50 text-amber-900'
                         : message.is_own
-                          ? 'bg-blue-600 text-white'
-                          : 'bg-white text-slate-900'
+                          ? 'bg-[#4F46E5] text-white'
+                          : 'bg-white text-[#111827]'
                     }`}
                   >
                     <div className="mb-1 text-xs font-semibold opacity-80">
@@ -366,7 +430,7 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
                       </div>
                     )}
 
-                    <div className={`mt-2 text-[11px] ${message.is_own && message.message_type !== 'system' ? 'text-blue-100' : 'text-slate-400'}`}>
+                    <div className={`mt-2 text-[11px] ${message.is_own && message.message_type !== 'system' ? 'text-indigo-100' : 'text-slate-400'}`}>
                       {formatDateTime(message.created_at)}
                     </div>
                   </div>
@@ -374,32 +438,41 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
               ))}
             </div>
 
-            <div className="border-t border-slate-200 px-5 py-4">
+            <div className="flex-shrink-0 border-t border-gray-100 bg-white px-5 py-4">
               <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.mp4,.mov" className="hidden" onChange={uploadMediaFile} />
-              <div className="mb-3 flex flex-wrap gap-3">
+              {approvedRequest && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  disabled={uploading}
+                  className="mb-3 inline-flex min-h-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-image'} mr-2`} aria-hidden="true"></i>
+                  Send Photo/Video
+                </button>
+              )}
+              <form className="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-2 sm:flex-row sm:items-center" onSubmit={sendTextMessage}>
                 <button
                   type="button"
                   onClick={sendMediaRequest}
                   disabled={actingOnMessage === 'request'}
-                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700 transition hover:bg-amber-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-[#111827] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  title="Request Photo/Video"
                 >
-                  <i className={`fas ${actingOnMessage === 'request' ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2`} aria-hidden="true"></i>
+                  <i className={`fas ${actingOnMessage === 'request' ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2 text-[#6B7280]`} aria-hidden="true"></i>
                   Request Photo/Video
                 </button>
-              </div>
-              <form className="flex flex-col gap-3 sm:flex-row" onSubmit={sendTextMessage}>
-                <textarea
+                <input
                   value={messageText}
                   onChange={(event) => setMessageText(event.target.value)}
                   placeholder="Type your message..."
                   maxLength={2000}
-                  rows={3}
-                  className="min-h-[52px] flex-1 rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-blue-500"
+                  className="min-h-10 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-[#111827] outline-none placeholder:text-[#6B7280]"
                 />
                 <button
                   type="submit"
                   disabled={sending || !messageText.trim()}
-                  className="inline-flex min-h-[52px] items-center justify-center rounded-xl bg-blue-600 px-5 py-3 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[#4F46E5] px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <i className={`fas ${sending ? 'fa-spinner fa-spin' : 'fa-paper-plane'} mr-2`} aria-hidden="true"></i>
                   Send

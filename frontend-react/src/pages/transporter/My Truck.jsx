@@ -115,7 +115,8 @@ export default function MyTruck() {
                 </div>
 
                 <div className="mytrucks-card-meta">
-                  <span><i className="fas fa-route"></i>{truck.location || 'Karachi Depot'}</span>
+                  {/* TODO before deployment: implement real GPS location via tracking API */}
+                  <span><i className="fas fa-route"></i>{truck.location || '—'}</span>
                   <div>
                     <Link to={`/transporter/trucks/edit/${truck.id}`} className="mytrucks-ghost-btn">Edit</Link>
                     {truck.status === 'active' ? (

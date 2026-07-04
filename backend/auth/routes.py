@@ -185,7 +185,7 @@ def forgot_password():
             "Digi_TransX Password Reset OTP",
             user["email"],
             [
-                f"Assalam o Alaikum {user.get('first_name') or user.get('full_name') or 'User'},",
+                f"Dear {user.get('first_name') or user.get('full_name') or 'User'},",
                 "",
                 f"Your Digi_TransX password reset code is: {otp_code}",
                 f"This code will expire in {OTP_EXPIRY_MINUTES} minutes.",

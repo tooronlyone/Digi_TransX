@@ -59,6 +59,13 @@ def profile_update():
 def request_password_change_otp():
     if not require_csrf():
         return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    data = request.get_json(silent=True) or {}
+    current_password = data.get("current_password") or ""
+    if not current_password:
+        return json_response({"success": False, "message": "Current password is required."}, 400)
+    from werkzeug.security import check_password_hash
+    if not check_password_hash(request.current_user.get("password_hash", ""), current_password):
+        return json_response({"success": False, "message": "Current password is incorrect."}, 400)
     latest = latest_otp_record(request.current_user["id"], "password_change")
     if latest and latest.get("cooldown_until_iso"):
         from auth.helpers import is_future
@@ -70,7 +77,7 @@ def request_password_change_otp():
             "Digi_TransX Password Change OTP",
             request.current_user["email"],
             [
-                f"Assalam o Alaikum {request.current_user.get('first_name') or request.current_user.get('full_name') or 'User'},",
+                f"Dear {request.current_user.get('first_name') or request.current_user.get('full_name') or 'User'},",
                 "",
                 f"Your Digi_TransX password change code is: {otp_code}",
                 f"This code will expire in {OTP_EXPIRY_MINUTES} minutes.",

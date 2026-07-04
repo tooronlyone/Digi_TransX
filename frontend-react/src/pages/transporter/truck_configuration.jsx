@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
@@ -8,13 +9,12 @@ const EMPTY_FORM = {
   catalog_type_key: '', body_style: '', payload_min_kg: '', payload_max_kg: '',
   volume_min_cbm: '', volume_max_cbm: '', catalog_specs_json: '',
   tracking_id: '', driver_name: '', driver_cnic: '',
-  per_km_rate: '', waiting_charge_per_hour: '', loading_charge: '',
-  refrigeration_supported: false, hazardous_supported: false, fragile_supported: false,
+  refrigeration_supported: true, hazardous_supported: true, fragile_supported: true,
   photo: '', insurance_photo: '', rc_book_photo: '',
   status: 'inactive', status_reason_code: '', status_reason: '',
 }
 
-const REQUIRED = ['truck_number', 'truck_type', 'max_capacity', 'chassis_number', 'operating_provinces', 'per_km_rate', 'waiting_charge_per_hour']
+const REQUIRED = ['truck_number', 'truck_type', 'max_capacity', 'chassis_number', 'operating_provinces']
 
 const PROVINCES = [
   'Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan',
@@ -77,7 +77,7 @@ export default function TruckConfiguration() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [statusSaving, setStatusSaving] = useState(false)
-  const [statusForm, setStatusForm] = useState({ status: 'active', reason_code: '' })
+  const [statusForm, setStatusForm] = useState({ status: 'inactive', reason_code: '' })
   const [toast, setToast] = useState(null)
 
   function normalizeConfig(raw) {
@@ -130,7 +130,7 @@ export default function TruckConfiguration() {
       .catch(() => setTruckTypes(FALLBACK_TRUCK_TYPES))
   }
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect, react-hooks/exhaustive-deps
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { loadConfig() }, [id])
   useEffect(() => { loadCatalog() }, [])
 
@@ -207,6 +207,32 @@ export default function TruckConfiguration() {
     setInsurancePhoto(null)
   }
 
+  async function handleStatusUpdate() {
+    const nextStatus = statusForm.status || 'inactive'
+    const missing = getMissing()
+    if (nextStatus === 'active' && missing.length > 0) {
+      showToast(`Complete required fields first: ${missing.map(k => k.replace(/_/g, ' ')).join(', ')}`, 'error')
+      return
+    }
+    if (nextStatus !== 'active' && !statusForm.reason_code) {
+      showToast('Please select a reason before changing status.', 'error')
+      return
+    }
+    setStatusSaving(true)
+    try {
+      const saved = await api.put(`/api/trucks/${id}/status`, {
+        status: nextStatus,
+        reason_code: nextStatus === 'active' ? '' : statusForm.reason_code,
+      })
+      applySavedTruck(saved.truck)
+      showToast('Truck status updated successfully')
+    } catch (err) {
+      showToast(err.message || 'Failed to update status', 'error')
+    } finally {
+      setStatusSaving(false)
+    }
+  }
+
   function toggleProvince(province) {
     setForm(f => {
       const list = f.operating_provinces || []
@@ -262,328 +288,286 @@ export default function TruckConfiguration() {
     }
   }
 
-  async function handleStatusUpdate() {
-    const nextStatus = statusForm.status || 'inactive'
-    const missing = getMissing()
-    if (nextStatus === 'active' && missing.length > 0) {
-      showToast(`Please fill: ${missing.map(k => k.replace(/_/g, ' ')).join(', ')}`, 'error')
-      return
-    }
-    if (nextStatus !== 'active' && !statusForm.reason_code) {
-      showToast('Please select a reason before changing truck status.', 'error')
-      return
-    }
-    setStatusSaving(true)
-    try {
-      const saved = await api.put(`/api/trucks/${id}/status`, {
-        status: nextStatus,
-        reason_code: nextStatus === 'active' ? '' : statusForm.reason_code,
-      })
-      applySavedTruck(saved.truck)
-      showToast('Truck status updated successfully')
-    } catch (err) {
-      showToast(err.message || 'Failed to update truck status', 'error')
-    } finally {
-      setStatusSaving(false)
-    }
-  }
-
   const completeness = calcCompleteness()
   const missing = getMissing()
   const statusLabel = STATUS_OPTIONS.find(item => item.value === form.status)?.label || form.status || 'Inactive'
+  const statusIsActive = form.status === 'active'
 
   return (
-      <div className="page-truck-configuration">
-        <div className="config-shell">
-          <Link className="back-link" to="/transporter/trucks">
-            <i className="fas fa-arrow-left"></i> Back To My Trucks
-          </Link>
+    <div className="min-h-[calc(100vh-70px)] bg-[#F9FAFB]">
+      <div className="space-y-6">
+        <Link to="/transporter/trucks" className="inline-flex items-center gap-2 text-sm font-semibold text-[#6B7280] hover:text-[#4F46E5]">
+          <i className="fas fa-arrow-left" aria-hidden="true"></i>
+          Back To My Trucks
+        </Link>
 
-          <div className="page-header">
-            <h1>Truck Configuration</h1>
-            <p>Set this truck&apos;s pricing, profile, and documents in one place.</p>
+        <div className="flex flex-wrap items-start justify-between gap-4">
+          <div>
+            <h1 className="text-2xl font-bold text-[#111827]">Truck Configuration</h1>
+            <p className="mt-1 text-sm text-[#6B7280]">Set this truck&apos;s pricing, profile, and documents in one place.</p>
           </div>
+        </div>
 
-          {loading ? (
-            <div className="loading-state">
-              <i className="fas fa-spinner fa-spin"></i>
-              <p>Loading configuration...</p>
+        {loading ? (
+          <div className="grid min-h-80 place-items-center rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+            <div className="text-center">
+              <i className="fas fa-spinner fa-spin text-3xl text-[#4F46E5]" aria-hidden="true"></i>
+              <p className="mt-3 text-sm text-[#6B7280]">Loading configuration...</p>
             </div>
-          ) : (
-            <>
-              <div className="status-panel">
-                <div className="status-item">
-                  <div className="status-label">Current Status</div>
-                  <div className={`status-badge ${form.status === 'active' ? 'status-active' : 'status-draft'}`}>
-                    {statusLabel}
+          </div>
+        ) : (
+          <>
+            <div className="grid gap-6 md:grid-cols-2">
+              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <div className="flex items-center gap-4">
+                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-green-50 text-[#10B981]">
+                    <i className="fas fa-power-off" aria-hidden="true"></i>
+                  </span>
+                  <div>
+                    <div className="text-xs font-bold uppercase tracking-wide text-gray-400">Current Status</div>
+                    <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusIsActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {statusLabel}
+                    </span>
                   </div>
                 </div>
-                <div className="status-item">
-                  <div className="status-label">Configuration</div>
-                  <div className="config-completeness">{completeness}% Complete</div>
-                </div>
-                {missing.length > 0 && (
-                  <div className="missing-fields">
-                    <div className="missing-fields-title">Missing Fields</div>
-                    <p className="missing-fields-copy">{missing.map(k => k.replace(/_/g, ' ')).join(', ')}</p>
-                  </div>
-                )}
-              </div>
+              </section>
 
-              <div className="config-card">
-                <h2>Truck Status</h2>
-                <p className="section-note">Required configuration activates the truck automatically. Non-active status needs a selected reason.</p>
-                <div className="field-grid">
-                  <label>
-                    Status
+              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <div className="flex items-center gap-4">
+                  <span className="grid h-11 w-11 place-items-center rounded-xl bg-indigo-50 text-[#4F46E5]">
+                    <i className="fas fa-sliders" aria-hidden="true"></i>
+                  </span>
+                  <div className="flex-1">
+                    <div className="text-xs font-bold uppercase tracking-wide text-gray-400">Configuration</div>
+                    <span className="mt-2 inline-flex rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
+                      {completeness}% Complete
+                    </span>
+                    <div className="mt-3 h-2 overflow-hidden rounded-full bg-[#F3F4F6]">
+                      <div className="h-full rounded-full bg-[#4F46E5]" style={{ width: `${completeness}%` }}></div>
+                    </div>
+                  </div>
+                </div>
+              </section>
+            </div>
+
+            {missing.length > 0 && (
+              <div className="rounded-lg border-l-4 border-blue-500 bg-[#EFF6FF] p-4 text-sm text-[#1E40AF]">
+                <strong>Missing fields:</strong> {missing.map(k => k.replace(/_/g, ' ')).join(', ')}
+              </div>
+            )}
+
+            <form className="space-y-6" onSubmit={handleSubmit} noValidate>
+              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <h2 className="text-lg font-bold text-[#111827]">Truck Status</h2>
+                <p className="mt-1 text-sm text-[#6B7280]">Change truck status. Active requires all required fields to be filled.</p>
+                <div className="mt-5 grid gap-5 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Status</span>
                     <select
+                      className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
                       value={statusForm.status}
-                      onChange={e => setStatusForm(current => ({ ...current, status: e.target.value, reason_code: e.target.value === 'active' ? '' : current.reason_code }))}
+                      onChange={e => setStatusForm(s => ({ ...s, status: e.target.value, reason_code: e.target.value === 'active' ? '' : s.reason_code }))}
                     >
-                      {STATUS_OPTIONS.map(option => (
-                        <option
-                          key={option.value}
-                          value={option.value}
-                          disabled={option.value === 'active' && missing.length > 0}
-                        >
-                          {option.label}
-                          {option.value === 'active' && missing.length > 0 ? ' (complete required fields first)' : ''}
-                        </option>
+                      {STATUS_OPTIONS.map(opt => (
+                        <option key={opt.value} value={opt.value}>{opt.label}</option>
                       ))}
                     </select>
-                    {missing.length > 0 && (
-                      <small>Complete these fields before activation: {missing.map(k => k.replace(/_/g, ' ')).join(', ')}</small>
-                    )}
                   </label>
                   {statusForm.status !== 'active' && (
-                    <label>
-                      Reason
+                    <label className="block">
+                      <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Reason</span>
                       <select
+                        className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
                         value={statusForm.reason_code}
-                        onChange={e => setStatusForm(current => ({ ...current, reason_code: e.target.value }))}
+                        onChange={e => setStatusForm(s => ({ ...s, reason_code: e.target.value }))}
                       >
                         <option value="">Select reason</option>
-                        {STATUS_REASONS.map(reason => <option key={reason.value} value={reason.value}>{reason.label}</option>)}
+                        {STATUS_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
                       </select>
-                      <small>Reason must be selected from the list.</small>
                     </label>
                   )}
-                  <label>
-                    Last Reason
-                    <input type="text" value={form.status_reason || 'None'} readOnly />
+                </div>
+                {form.status_reason && (
+                  <p className="mt-3 text-sm text-[#6B7280]">Last reason: <strong>{form.status_reason}</strong></p>
+                )}
+                <div className="mt-5">
+                  <button
+                    type="button"
+                    onClick={handleStatusUpdate}
+                    disabled={statusSaving}
+                    className="inline-flex items-center gap-2 rounded-lg bg-[#4F46E5] px-5 py-2.5 text-sm font-semibold text-white disabled:opacity-60"
+                  >
+                    <i className={`fas ${statusSaving ? 'fa-spinner fa-spin' : 'fa-toggle-on'}`}></i>
+                    {statusSaving ? 'Updating...' : 'Update Status'}
+                  </button>
+                </div>
+              </section>
+
+              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <h2 className="text-lg font-bold text-[#111827]">Truck Details</h2>
+                <div className="mt-5 grid gap-5 md:grid-cols-2">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Number</span>
+                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="truck_number" value={form.truck_number} onChange={setField} placeholder="Example: LE-1234" required />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Type</span>
+                    <select className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" name="catalog_type_key" value={form.catalog_type_key} onChange={e => applyCatalogType(e.target.value)} required>
+                      <option value="">Select truck type</option>
+                      {truckTypes.map(t => <option key={t.type_key} value={t.type_key}>{t.display_name}</option>)}
+                    </select>
+                    <input type="hidden" name="truck_type" value={form.truck_type} />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Capacity (tons)</span>
+                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="number" name="max_capacity" value={form.max_capacity} onChange={setField} min="0.1" step="0.1" required />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Chassis Number</span>
+                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="chassis_number" value={form.chassis_number} onChange={setField} placeholder="Enter chassis number" pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{11,17}" required />
+                    <span className="mt-2 block text-xs italic text-gray-400">11-17 characters, letters and numbers only (I, O, Q not allowed)</span>
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Body Style</span>
+                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="body_style" value={form.body_style} onChange={setField} placeholder="Catalog body style" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Payload Range (kg)</span>
+                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" value={`${form.payload_min_kg || 0} - ${form.payload_max_kg || 0}`} readOnly />
+                    <span className="mt-2 block text-xs italic text-gray-400">Loaded from Pakistan vehicle catalog.</span>
                   </label>
                 </div>
-                <div className="form-actions">
-                  <button type="button" className="btn secondary" onClick={handleStatusUpdate} disabled={statusSaving}>
-                    <i className="fas fa-toggle-on"></i> {statusSaving ? 'Updating...' : 'Update Status'}
-                  </button>
+              </section>
+
+              <div className="rounded-lg border-l-4 border-blue-500 bg-[#EFF6FF] p-4">
+                <div className="flex items-center gap-2 font-bold text-[#1E40AF]">
+                  <i className="fas fa-circle-info" aria-hidden="true"></i>
+                  Catalog Fields
                 </div>
+                <p className="mt-2 text-sm text-gray-600">
+                  {catalogFields.length > 0
+                    ? catalogFields.map(field => field.field_label).join(', ')
+                    : 'Truck type, Class segment, Typical body style, Payload min (kg), Payload max (kg), Volume min (cbm), Volume max (cbm)'}
+                </p>
               </div>
 
-              <form className="config-form" onSubmit={handleSubmit} noValidate>
-                <div className="config-card">
-                  <h2>Truck Details</h2>
-                  <p className="section-note">Enter required truck details for activation.</p>
-                  <div className="field-grid">
-                    <label>
-                      Truck Number
-                      <input type="text" name="truck_number" value={form.truck_number} onChange={setField}
-                        placeholder="Example: LE-1234" required />
+              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <h2 className="text-lg font-bold text-[#111827]">Operating Provinces</h2>
+                <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                  {PROVINCES.map(p => (
+                    <label key={p} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-semibold text-[#111827] transition hover:border-indigo-200 hover:bg-indigo-50/50">
+                      <input className="h-4 w-4 accent-indigo-600 focus:ring-2 focus:ring-indigo-500" type="checkbox" checked={form.operating_provinces.includes(p)} onChange={() => toggleProvince(p)} />
+                      <span>{p}</span>
                     </label>
-                    <label>
-                      Truck Type
-                      <select name="catalog_type_key" value={form.catalog_type_key} onChange={e => applyCatalogType(e.target.value)} required>
-                        <option value="">Select truck type</option>
-                        {truckTypes.map(t => <option key={t.type_key} value={t.type_key}>{t.display_name}</option>)}
-                      </select>
-                      <input type="hidden" name="truck_type" value={form.truck_type} />
+                  ))}
+                </div>
+                <p className="mt-4 text-xs text-gray-400">Click to select or deselect provinces.</p>
+              </section>
+
+              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <h2 className="text-lg font-bold text-[#111827]">Optional Details</h2>
+                <div className="mt-5 grid gap-5 md:grid-cols-3">
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Tracking ID</span>
+                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] px-4 py-3 text-sm text-[#111827] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500" type="text" name="tracking_id" value={form.tracking_id} onChange={setField} placeholder="Optional - Tracking / device ID" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Driver CNIC</span>
+                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] px-4 py-3 text-sm text-[#111827] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500" type="text" name="driver_cnic" value={form.driver_cnic} onChange={setField} placeholder="Optional - 13 digit CNIC" />
+                  </label>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Driver Name</span>
+                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] px-4 py-3 text-sm text-[#111827] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500" type="text" name="driver_name" value={form.driver_name} onChange={setField} placeholder="Enter driver name" />
+                  </label>
+                </div>
+              </section>
+
+              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <h2 className="text-lg font-bold text-[#111827]">Documents (Optional)</h2>
+                <div className="mt-5 grid gap-5 md:grid-cols-2">
+                  <div>
+                    <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 px-5 py-8 text-center transition hover:border-indigo-400 hover:bg-indigo-50/40">
+                      <i className="fas fa-cloud-arrow-up text-4xl text-gray-300" aria-hidden="true"></i>
+                      <span className="mt-3 font-bold text-[#111827]">Truck Pic</span>
+                      <span className="mt-1 text-sm font-semibold text-[#4F46E5]">Choose File</span>
+                      <span className="mt-1 text-sm text-gray-400">{truckPhoto ? truckPhoto.name : form.photo ? `Saved: ${fileName(form.photo)}` : 'No file chosen'}</span>
+                      <input className="hidden" type="file" accept=".jpg,.jpeg,.png,.webp" onChange={e => setTruckPhoto(e.target.files[0] || null)} />
                     </label>
-                    <label>
-                      Truck Capacity (tons)
-                      <input type="number" name="max_capacity" value={form.max_capacity} onChange={setField}
-                        min="0.1" step="0.1" required />
+                    <p className="mt-2 text-xs text-gray-400">{truckPhoto ? truckPhoto.name : form.photo ? `Saved truck photo: ${fileName(form.photo)}` : 'No truck photo selected.'}</p>
+                    {form.photo && !truckPhoto && <a href={form.photo} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs font-semibold text-[#4F46E5]">View saved truck pic</a>}
+                  </div>
+                  <div>
+                    <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 px-5 py-8 text-center transition hover:border-indigo-400 hover:bg-indigo-50/40">
+                      <i className="fas fa-file-arrow-up text-4xl text-gray-300" aria-hidden="true"></i>
+                      <span className="mt-3 font-bold text-[#111827]">Insurance Paper</span>
+                      <span className="mt-1 text-sm font-semibold text-[#4F46E5]">Choose File</span>
+                      <span className="mt-1 text-sm text-gray-400">{insurancePhoto ? insurancePhoto.name : form.insurance_photo ? `Saved: ${fileName(form.insurance_photo)}` : 'No file chosen'}</span>
+                      <input className="hidden" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => setInsurancePhoto(e.target.files[0] || null)} />
                     </label>
-                    <label>
-                      Chassis Number
-                      <input type="text" name="chassis_number" value={form.chassis_number} onChange={setField}
-                        placeholder="Enter chassis number" pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{11,17}" required />
-                      <small>11-17 characters, letters and numbers only (I, O, Q not allowed)</small>
-                    </label>
-                    <label>
-                      Body Style
-                      <input type="text" name="body_style" value={form.body_style} onChange={setField}
-                        placeholder="Catalog body style" />
-                    </label>
-                    <label>
-                      Payload Range (kg)
-                      <input type="text" value={`${form.payload_min_kg || 0} - ${form.payload_max_kg || 0}`} readOnly />
-                      <small>Loaded from Pakistan vehicle catalog.</small>
-                    </label>
-                    {catalogFields.length > 0 && (
-                      <label className="full-width">
-                        Catalog Fields
-                        <textarea readOnly rows={3} value={catalogFields.map(field => field.field_label).join(', ')} />
-                        <small>Use these fields as the reference for this vehicle type.</small>
-                      </label>
-                    )}
-                    <label className="full-width">
-                      Operating Provinces
-                      <div className="province-grid">
-                        {PROVINCES.map(p => (
-                          <label
-                            key={p}
-                            className={`province-chip ${form.operating_provinces.includes(p) ? 'selected' : ''}`}
-                          >
-                            <input
-                              type="checkbox"
-                              checked={form.operating_provinces.includes(p)}
-                              onChange={() => toggleProvince(p)}
-                            />
-                            <span>{p}</span>
-                          </label>
-                        ))}
-                      </div>
-                      <small>Click to select or deselect provinces.</small>
-                    </label>
+                    <p className="mt-2 text-xs text-gray-400">{insurancePhoto ? insurancePhoto.name : form.insurance_photo ? `Saved insurance paper: ${fileName(form.insurance_photo)}` : 'No insurance document selected.'}</p>
+                    {form.insurance_photo && !insurancePhoto && <a href={form.insurance_photo} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs font-semibold text-[#4F46E5]">View saved insurance paper</a>}
                   </div>
                 </div>
+              </section>
 
-                <div className="config-card">
-                  <h2>Optional Details</h2>
-                  <p className="section-note">Tracking and driver information (optional).</p>
-                  <div className="field-grid">
-                    <label>
-                      Tracking ID
-                      <input type="text" name="tracking_id" value={form.tracking_id} onChange={setField}
-                        placeholder="Optional - Tracking / device ID" />
+              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <h2 className="text-lg font-bold text-[#111827]">Special Capabilities</h2>
+                <div className="mt-5 grid gap-4 md:grid-cols-3">
+                  {[
+                    ['refrigeration_supported', 'Refrigeration Supported'],
+                    ['hazardous_supported', 'Hazardous Material License'],
+                    ['fragile_supported', 'Fragile Goods Supported'],
+                  ].map(([name, label]) => (
+                    <label key={name} className="flex items-center justify-between gap-4 rounded-xl border border-[#E5E7EB] bg-white px-4 py-4 text-sm font-semibold text-[#111827]">
+                      <span>{label}</span>
+                      <input className="h-5 w-5 accent-indigo-600 focus:ring-2 focus:ring-indigo-500" type="checkbox" name={name} checked={form[name]} onChange={setField} />
                     </label>
-                    <label>
-                      Driver Name
-                      <input type="text" name="driver_name" value={form.driver_name} onChange={setField}
-                        placeholder="Enter driver name" />
-                    </label>
-                    <label>
-                      Driver CNIC
-                      <input type="text" name="driver_cnic" value={form.driver_cnic} onChange={setField}
-                        placeholder="Optional - 13 digit CNIC" />
-                    </label>
-                  </div>
+                  ))}
                 </div>
+              </section>
 
-                <div className="config-card">
-                  <h2>Documents (Optional)</h2>
-                  <p className="section-note">Truck photo and insurance paper are optional.</p>
-                  <div className="field-grid">
-                    <label className="upload-field full-width">
-                      Truck Pic
-                      <input type="file" accept=".jpg,.jpeg,.png,.webp"
-                        onChange={e => setTruckPhoto(e.target.files[0] || null)} />
-                      <small>
-                        {truckPhoto
-                          ? truckPhoto.name
-                          : form.photo
-                            ? `Saved: ${fileName(form.photo)}`
-                            : 'No truck photo selected.'}
-                      </small>
-                      {form.photo && !truckPhoto && (
-                        <a href={form.photo} target="_blank" rel="noreferrer">View saved truck pic</a>
-                      )}
-                    </label>
-                    <label className="upload-field full-width">
-                      Insurance Paper
-                      <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp"
-                        onChange={e => setInsurancePhoto(e.target.files[0] || null)} />
-                      <small>
-                        {insurancePhoto
-                          ? insurancePhoto.name
-                          : form.insurance_photo
-                            ? `Saved: ${fileName(form.insurance_photo)}`
-                            : 'No insurance document selected.'}
-                      </small>
-                      {form.insurance_photo && !insurancePhoto && (
-                        <a href={form.insurance_photo} target="_blank" rel="noreferrer">View saved insurance paper</a>
-                      )}
-                    </label>
-                  </div>
-                </div>
-
-                <div className="config-card">
-                  <h2>Activation Details</h2>
-                  <p className="section-note">Loading and unloading charges can be left blank if not applicable.</p>
-                  <div className="field-grid">
-                    <label>
-                      Per KM Rate (PKR)
-                      <input type="number" name="per_km_rate" value={form.per_km_rate} onChange={setField}
-                        min="0.01" step="0.01" required />
-                    </label>
-                    <label>
-                      Waiting Charges / Hour (PKR)
-                      <input type="number" name="waiting_charge_per_hour" value={form.waiting_charge_per_hour} onChange={setField}
-                        min="0.01" step="0.01" required />
-                    </label>
-                    <label>
-                      Loading/Unloading Charges (PKR)
-                      <input type="number" name="loading_charge" value={form.loading_charge} onChange={setField}
-                        min="0" step="0.01" />
-                    </label>
-                  </div>
-                </div>
-
-                <div className="config-card">
-                  <h2>Special Capabilities</h2>
-                  <p className="section-note">Capabilities based on the selected truck type.</p>
-                  <div className="field-grid">
-                    <label className="checkbox-field">
-                      <input type="checkbox" name="refrigeration_supported"
-                        checked={form.refrigeration_supported} onChange={setField} />
-                      <span>Refrigeration Supported</span>
-                    </label>
-                    <label className="checkbox-field">
-                      <input type="checkbox" name="hazardous_supported"
-                        checked={form.hazardous_supported} onChange={setField} />
-                      <span>Hazardous Material License</span>
-                    </label>
-                    <label className="checkbox-field">
-                      <input type="checkbox" name="fragile_supported"
-                        checked={form.fragile_supported} onChange={setField} />
-                      <span>Fragile Goods Supported</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="form-actions">
-                  <button type="button" className="btn secondary" onClick={loadConfig} disabled={loading}>
-                    <i className="fas fa-sync-alt"></i> Reload
-                  </button>
-                  <button type="submit" className="btn primary" disabled={saving}>
-                    <i className="fas fa-save"></i> {saving ? 'Saving...' : 'Save Configuration'}
-                  </button>
-                </div>
-              </form>
-
-              <div className="footer">
-                <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>
-                <div className="footer-links">
-                  <Link to="/transporter/about">About Us</Link>
-                  <Link to="/transporter/contact">Contact</Link>
-                  <Link to="/transporter/terms">Terms &amp; Conditions</Link>
-                  <Link to="/transporter/privacy">Privacy Policy</Link>
-                  <Link to="/transporter/help">Help Center</Link>
-                  <Link to="/transporter/partner">Partner With Us</Link>
-                </div>
+              <div className="flex justify-end gap-4">
+                <button type="button" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60" onClick={loadConfig} disabled={loading}>
+                  <i className="fas fa-sync-alt" aria-hidden="true"></i>
+                  Reload
+                </button>
+                <button type="submit" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#4F46E5] px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60" disabled={saving}>
+                  <i className="fas fa-save" aria-hidden="true"></i>
+                  {saving ? 'Saving...' : 'Save Configuration'}
+                </button>
               </div>
-            </>
-          )}
-          {toast && (
-            <div className="toast-container">
-              <div className={`toast ${toast.type}`}>
-                <i className={`fas ${toast.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}`}></i>
-                <span>{toast.msg}</span>
+            </form>
+
+            <footer className="pb-4 pt-2 text-center text-sm text-gray-400">
+              <p>Copyright 2026 Digi_TransX Transport Services. All rights reserved.</p>
+              <div className="mt-2 flex flex-wrap justify-center gap-x-2 gap-y-1">
+                {[
+                  ['About Us', '/transporter/about'],
+                  ['Contact', '/transporter/contact'],
+                  ['Terms & Conditions', '/transporter/terms'],
+                  ['Privacy Policy', '/transporter/privacy'],
+                  ['Help Center', '/transporter/help'],
+                  ['Partner With Us', '/transporter/partner'],
+                ].map(([label, to], index, array) => (
+                  <span key={label}>
+                    <Link to={to} className="text-gray-400 hover:text-[#4F46E5]">{label}</Link>
+                    {index < array.length - 1 && <span className="ml-2">|</span>}
+                  </span>
+                ))}
               </div>
+            </footer>
+          </>
+        )}
+
+        {toast && (
+          <div className="fixed bottom-6 right-6 z-[1400]">
+            <div className={`flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-semibold shadow-lg ${toast.type === 'error' ? 'bg-red-50 text-red-700' : 'bg-green-50 text-green-700'}`}>
+              <i className={`fas ${toast.type === 'error' ? 'fa-circle-exclamation' : 'fa-circle-check'}`} aria-hidden="true"></i>
+              <span>{toast.msg}</span>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
-    
+    </div>
   )
 }
