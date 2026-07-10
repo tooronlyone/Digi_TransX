@@ -107,11 +107,10 @@ def create_agreement_thread(db, post, transporter_user_id, bid_id=None):
     db.execute(
         """
         INSERT OR IGNORE INTO chat_threads (
-            order_id, client_user_id, transporter_user_id, bid_id,
-            agreement_post_id, agreement_bid_id, last_message_at, created_at
-        ) VALUES (?, ?, ?, NULL, ?, ?, ?, ?)
+            client_user_id, transporter_user_id, agreement_post_id, agreement_bid_id, last_message_at, created_at
+        ) VALUES (?, ?, ?, ?, ?, ?)
         """,
-        (-int(post["id"]), post["client_user_id"], transporter_user_id, post["id"], bid_id, stamp, stamp),
+        (post["client_user_id"], transporter_user_id, post["id"], bid_id, stamp, stamp),
     )
     db.execute(
         """
@@ -205,6 +204,8 @@ def create_post():
     try:
         title = parse_required_text(data, "title", "Title")
         cargo_type = parse_required_text(data, "cargo_type", "Cargo type")
+        pickup_location = parse_required_text(data, "pickup_location", "Pickup location")
+        dropoff_location = parse_required_text(data, "dropoff_location", "Dropoff location")
         service_area = service_area_to_text(data.get("service_area"))
         if not service_area:
             raise ValueError("Service area is required.")
@@ -228,10 +229,13 @@ def create_post():
     with open_db() as db:
         db.execute(
             """
-            INSERT INTO agreement_posts (client_user_id, title, cargo_type, service_area, status, created_at, updated_at)
-            VALUES (?, ?, ?, ?, 'open', ?, ?)
+            INSERT INTO agreement_posts (
+                client_user_id, title, cargo_type, service_area, pickup_location, dropoff_location,
+                status, created_at, updated_at
+            )
+            VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)
             """,
-            (request.current_user["id"], title, cargo_type, service_area, stamp, stamp),
+            (request.current_user["id"], title, cargo_type, service_area, pickup_location, dropoff_location, stamp, stamp),
         )
         post_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
         for truck in parsed_trucks:

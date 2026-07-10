@@ -6,7 +6,6 @@ from uuid import uuid4
 
 from werkzeug.utils import secure_filename
 
-from auth.helpers import timestamp_bundle
 from shared.db import BASE_DIR
 
 
@@ -78,26 +77,15 @@ def make_chat_upload_relative_path(thread_id, file_storage):
 
 
 def build_thread_order_summary(row):
-    if row.get("agreement_post_id"):
-        return {
-            "id": row["agreement_post_id"],
-            "pickup_city": row.get("agreement_title") or "Agreement",
-            "pickup_area": "",
-            "dropoff_city": row.get("agreement_service_area") or "",
-            "dropoff_area": "",
-            "status": row.get("agreement_status") or "open",
-            "route_label": row.get("agreement_title") or "Agreement shipment",
-            "kind": "agreement",
-        }
     return {
-        "id": row["order_id"],
-        "pickup_city": row["pickup_city"],
-        "pickup_area": row["pickup_area"] or "",
-        "dropoff_city": row["dropoff_city"],
-        "dropoff_area": row["dropoff_area"] or "",
-        "status": row["order_status"],
-        "route_label": f"{row['pickup_city']} to {row['dropoff_city']}",
-        "kind": "order",
+        "id": row.get("agreement_post_id"),
+        "pickup_city": row.get("agreement_title") or "Agreement",
+        "pickup_area": "",
+        "dropoff_city": row.get("agreement_service_area") or "",
+        "dropoff_area": "",
+        "status": row.get("agreement_status") or "open",
+        "route_label": row.get("agreement_title") or "Agreement shipment",
+        "kind": "agreement",
     }
 
 
@@ -107,8 +95,6 @@ def serialize_thread(row, current_user_id):
     other_party_name = row["transporter_name"] if row["client_user_id"] == current_user_id else row["client_name"]
     return {
         "id": row["id"],
-        "order_id": row["order_id"],
-        "bid_id": row["bid_id"],
         "agreement_post_id": row.get("agreement_post_id"),
         "agreement_bid_id": row.get("agreement_bid_id"),
         "client_user_id": row["client_user_id"],
@@ -147,24 +133,3 @@ def make_media_approval_system_message(requester_name):
     if requester_name:
         return f"{base}, {requester_name}."
     return base
-
-
-def create_thread_for_bid(db, order, transporter_user_id, bid_id=None):
-    stamp = timestamp_bundle()["iso"]
-    db.execute(
-        """
-        INSERT OR IGNORE INTO chat_threads (
-            order_id, client_user_id, transporter_user_id, bid_id, last_message_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?)
-        """,
-        (order["id"], order["client_user_id"], transporter_user_id, bid_id, stamp, stamp),
-    )
-    if bid_id:
-        db.execute(
-            """
-            UPDATE chat_threads
-            SET bid_id = COALESCE(bid_id, ?)
-            WHERE order_id = ? AND transporter_user_id = ?
-            """,
-            (bid_id, order["id"], transporter_user_id),
-        )

@@ -28,11 +28,6 @@ def get_thread_with_parties(db, thread_id, user_id):
         """
         SELECT
             ct.*,
-            o.pickup_city,
-            o.pickup_area,
-            o.dropoff_city,
-            o.dropoff_area,
-            o.status AS order_status,
             ap.title AS agreement_title,
             ap.service_area AS agreement_service_area,
             ap.status AS agreement_status,
@@ -62,7 +57,6 @@ def get_thread_with_parties(db, thread_id, user_id):
                   AND is_read = 0
             ) AS unread_count
         FROM chat_threads ct
-        LEFT JOIN orders o ON o.id = ct.order_id
         LEFT JOIN agreement_posts ap ON ap.id = ct.agreement_post_id
         JOIN users client ON client.id = ct.client_user_id
         JOIN users transporter ON transporter.id = ct.transporter_user_id
@@ -172,15 +166,10 @@ def list_threads():
             """
             SELECT
                 ct.*,
-                o.pickup_city,
-                o.pickup_area,
-            o.dropoff_city,
-            o.dropoff_area,
-            o.status AS order_status,
-            ap.title AS agreement_title,
-            ap.service_area AS agreement_service_area,
-            ap.status AS agreement_status,
-            COALESCE(NULLIF(trim(client.full_name), ''), trim(COALESCE(client.first_name, '') || ' ' || COALESCE(client.last_name, '')), client.email, 'Client') AS client_name,
+                ap.title AS agreement_title,
+                ap.service_area AS agreement_service_area,
+                ap.status AS agreement_status,
+                COALESCE(NULLIF(trim(client.full_name), ''), trim(COALESCE(client.first_name, '') || ' ' || COALESCE(client.last_name, '')), client.email, 'Client') AS client_name,
                 COALESCE(NULLIF(trim(transporter.full_name), ''), trim(COALESCE(transporter.first_name, '') || ' ' || COALESCE(transporter.last_name, '')), transporter.email, 'Transporter') AS transporter_name,
                 (
                     SELECT COALESCE(
@@ -205,7 +194,6 @@ def list_threads():
                       AND is_read = 0
                 ) AS unread_count
             FROM chat_threads ct
-            LEFT JOIN orders o ON o.id = ct.order_id
             LEFT JOIN agreement_posts ap ON ap.id = ct.agreement_post_id
             LEFT JOIN users admin ON admin.id = ct.admin_user_id
             JOIN users client ON client.id = ct.client_user_id

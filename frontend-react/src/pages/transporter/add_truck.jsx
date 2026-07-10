@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Link, useNavigate } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
+import '../../styles/pages/add-truck.css'
 
 const FALLBACK_TRUCK_TYPES = [
   { type_key: 'mini_pickup', display_name: 'Mini pickup', common_uses: ['Last-mile retail supply', 'Cartons'], payload_min_kg: 500, payload_max_kg: 700, volume_min_cbm: 2, volume_max_cbm: 3, typical_body_style: 'Low-side deck', class_segment: 'Small urban cargo' },
-  { type_key: 'one_ton_pickup', display_name: 'One-ton pickup', common_uses: ['Field deliveries', 'Agri-inputs'], payload_min_kg: 900, payload_max_kg: 1300, volume_min_cbm: 3, volume_max_cbm: 5, typical_body_style: 'Open bed', class_segment: 'Small urban cargo' },
-  { type_key: 'cargo_van_panel_van', display_name: 'Cargo van / panel van', common_uses: ['Parcel movement', 'Pharmacy stock'], payload_min_kg: 400, payload_max_kg: 800, volume_min_cbm: 2.5, volume_max_cbm: 4.5, typical_body_style: 'Closed metal van', class_segment: 'Small enclosed cargo' },
-  { type_key: 'mini_truck_high_deck_mini_truck', display_name: 'Mini truck / high-deck mini truck', common_uses: ['City cargo', 'Market supply'], payload_min_kg: 1000, payload_max_kg: 2000, volume_min_cbm: 5, volume_max_cbm: 10, typical_body_style: 'High deck / open bed', class_segment: 'Light rigid truck' },
   { type_key: 'light_truck_2_3_5_ton', display_name: 'Light truck 2-3.5 ton', common_uses: ['Branch replenishment', 'Consumer goods'], payload_min_kg: 2000, payload_max_kg: 3500, volume_min_cbm: 10, volume_max_cbm: 18, typical_body_style: 'Open bed / dry box', class_segment: 'Light rigid truck' },
   { type_key: 'light_truck_3_5_5_ton', display_name: 'Light truck 3.5-5 ton', common_uses: ['Retail distribution', 'Packaging'], payload_min_kg: 3500, payload_max_kg: 5000, volume_min_cbm: 15, volume_max_cbm: 24, typical_body_style: 'Open bed / dry box', class_segment: 'Light rigid truck' },
   { type_key: 'medium_rigid_truck_5_9_ton', display_name: 'Medium rigid truck 5-9 ton', common_uses: ['General cargo', 'Textile'], payload_min_kg: 5000, payload_max_kg: 9000, volume_min_cbm: 20, volume_max_cbm: 36, typical_body_style: 'Rigid cargo body', class_segment: 'Medium rigid truck' },
@@ -43,7 +41,7 @@ export default function AddTruck() {
       .catch(() => setTruckTypes(FALLBACK_TRUCK_TYPES))
   }, [])
 
-  const selectedCatalog = useMemo(
+  const selectedTruckType = useMemo(
     () => truckTypes.find(item => item.type_key === selectedTypeKey) || null,
     [truckTypes, selectedTypeKey],
   )
@@ -56,32 +54,12 @@ export default function AddTruck() {
 
     const form = e.target
     const data = new FormData(form)
-    if (selectedCatalog) {
-      data.set('catalog_type_key', selectedCatalog.type_key)
-      data.set('truckType', selectedCatalog.display_name)
-      data.set('truck_type', selectedCatalog.display_name)
-      data.set('payload_min_kg', selectedCatalog.payload_min_kg || '')
-      data.set('payload_max_kg', selectedCatalog.payload_max_kg || '')
-      data.set('volume_min_cbm', selectedCatalog.volume_min_cbm || '')
-      data.set('volume_max_cbm', selectedCatalog.volume_max_cbm || '')
-      data.set('body_style', selectedCatalog.typical_body_style || '')
-      data.set('catalog_specs_json', JSON.stringify({
-        class_segment: selectedCatalog.class_segment,
-        common_local_names: selectedCatalog.common_local_names,
-        common_uses: selectedCatalog.common_uses,
-        companies_models: selectedCatalog.companies_models,
-        engine_fuel_notes: selectedCatalog.engine_fuel_notes,
-        routes_terrain_suitability: selectedCatalog.routes_terrain_suitability,
-        special_transport_features: selectedCatalog.special_transport_features,
-        constraints_tradeoffs: selectedCatalog.constraints_tradeoffs,
-      }))
-      if (!data.get('capacity') && selectedCatalog.payload_max_kg) {
-        data.set('capacity', String(Number(selectedCatalog.payload_max_kg) / 1000))
-      }
-      if (!data.get('mainUse') && Array.isArray(selectedCatalog.common_uses)) {
-        data.set('mainUse', selectedCatalog.common_uses[0] || 'General Cargo')
-      }
+    if (selectedTruckType) {
+      data.set('catalog_type_key', selectedTruckType.type_key)
+      data.set('truckType', selectedTruckType.display_name)
+      data.set('truck_type', selectedTruckType.display_name)
     }
+    data.set('mainUse', selectedTruckType?.display_name || data.get('truckType') || '')
 
     try {
       const csrf = sessionStorage.getItem('csrf_token') || ''
@@ -119,20 +97,12 @@ export default function AddTruck() {
 
         {/* Alerts */}
         {error && (
-          <div style={{
-            background: '#fee2e2', color: '#dc2626', padding: '0.75rem 1rem',
-            borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem',
-            border: '1px solid #fca5a5'
-          }}>
+          <div className="addtruck-alert addtruck-alert--error">
             <i className="fas fa-exclamation-circle"></i> {error}
           </div>
         )}
         {success && (
-          <div style={{
-            background: '#dcfce7', color: '#16a34a', padding: '0.75rem 1rem',
-            borderRadius: '8px', marginBottom: '1rem', fontSize: '0.9rem',
-            border: '1px solid #86efac'
-          }}>
+          <div className="addtruck-alert addtruck-alert--success">
             <i className="fas fa-check-circle"></i> {success}
           </div>
         )}
@@ -184,32 +154,11 @@ export default function AddTruck() {
               <div className="form-group">
                 <label htmlFor="capacity" className="required">Capacity (tons)</label>
                 <input type="number" id="capacity" name="capacity" required min="0.1" step="0.1"
-                  placeholder={selectedCatalog?.payload_max_kg ? `Catalog max: ${(Number(selectedCatalog.payload_max_kg) / 1000).toFixed(1)} tons` : 'Example: 10'} />
+                  placeholder="Example: 10" />
               </div>
 
-              <div className="form-group full-width">
-                <label htmlFor="mainUse" className="required">Main Use</label>
-                <select id="mainUse" name="mainUse" required>
-                  <option value="">Select Main Use</option>
-                  {(selectedCatalog?.common_uses?.length ? selectedCatalog.common_uses : [
-                    'Milk Transport', 'Water Transport', 'Oil Transport', 'Cement Transport',
-                    'Container Transport', 'General Cargo', 'Refrigerated Goods', 'Waste/Garbage', 'Livestock',
-                  ]).map(use => <option key={use} value={use}>{use}</option>)}
-                </select>
-              </div>
+
             </div>
-            {selectedCatalog && (
-              <div style={{ marginTop: '1rem', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 8, padding: '1rem' }}>
-                <div style={{ fontWeight: 700, color: '#1e293b', marginBottom: 6 }}>{selectedCatalog.class_segment}</div>
-                <div style={{ color: '#475569', fontSize: '0.9rem' }}>{selectedCatalog.common_local_names}</div>
-                <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '0.75rem', marginTop: '0.8rem', fontSize: '0.85rem' }}>
-                  <div><strong>Payload:</strong> {Number(selectedCatalog.payload_min_kg || 0).toLocaleString()}-{Number(selectedCatalog.payload_max_kg || 0).toLocaleString()} kg</div>
-                  <div><strong>Volume:</strong> {selectedCatalog.volume_min_cbm}-{selectedCatalog.volume_max_cbm} cbm</div>
-                  <div><strong>Body:</strong> {selectedCatalog.typical_body_style || '-'}</div>
-                  <div><strong>Companies:</strong> {selectedCatalog.companies_models || '-'}</div>
-                </div>
-              </div>
-            )}
           </div>
 
           {/* Card 2: Driver & Tracking (Optional) */}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AgreementTripMap from '../../components/AgreementTripMap'
 import { PrimaryButton, SecondaryButton, StateMessage, StatusBadge, apiGet, apiSend, formatMoney, formatNumber } from '../client/clientUtils'
+import '../../styles/pages/my-agreements.css'
 
 function getPosition() {
   return new Promise((resolve, reject) => {
@@ -110,71 +111,73 @@ export default function MyAgreements() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <div>
-            <h1 className="text-2xl font-bold text-slate-900">My Agreements</h1>
-            <p className="mt-1 text-sm text-slate-500">Manage trips and monthly earnings for assigned agreement trucks.</p>
-          </div>
-          <Link
-            to="/transporter/agreement-bids"
-            className="inline-flex min-h-10 items-center justify-center rounded-lg bg-amber-400 px-4 py-2 text-sm font-semibold text-slate-950 shadow-sm hover:bg-amber-500"
-          >
-            <i className="fas fa-file-signature mr-2" aria-hidden="true"></i>
-            Agreement Bids
-          </Link>
+    <div className="myagreements-page">
+      <div className="myagreements-page-title">
+        <div>
+          <h1>My Agreements</h1>
+          <p>Manage trips and monthly earnings for assigned agreement trucks.</p>
         </div>
+        <Link to="/transporter/agreement-bids" className="myagreements-primary-btn">
+          <i className="fas fa-file-signature" aria-hidden="true"></i>
+            Agreement Bids
+        </Link>
       </div>
+
       {loading && <StateMessage type="loading">Loading agreements...</StateMessage>}
       {error && <StateMessage type="error">{error}</StateMessage>}
       {notice && <StateMessage type="success">{notice}</StateMessage>}
-      {!loading && !error && agreements.length === 0 && <StateMessage type="empty">No active transporter agreements yet.</StateMessage>}
+      {!loading && !error && agreements.length === 0 && (
+        <div className="myagreements-empty-state">
+          <i className="fas fa-file-contract" aria-hidden="true"></i>
+          <p>No active transporter agreements yet.</p>
+          <Link to="/transporter/agreement-bids">Browse Agreement Bids</Link>
+        </div>
+      )}
 
-      <div className="grid gap-4">
+      <div className="myagreements-grid">
         {agreements.map((agreement) => (
-          <article key={agreement.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex flex-wrap items-start justify-between gap-3">
+          <article key={agreement.id} className="myagreements-card">
+            <div className="myagreements-card-header">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">Agreement #{agreement.id} with {agreement.client_name}</h2>
-                <p className="mt-1 text-sm text-slate-500">{agreement.cargo_type} | {agreement.duration_months} months</p>
+                <h2>Agreement #{agreement.id} with {agreement.client_name}</h2>
+                <p>{agreement.cargo_type} | {agreement.duration_months} months</p>
               </div>
               <StatusBadge status={agreement.status} />
             </div>
-            <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 p-3 text-sm text-blue-800">
+            <div className="myagreements-summary">
               This month: {formatNumber(agreement.current_month_km)} km | Projected payment {formatMoney(agreement.current_month_earnings)}
             </div>
-            <div className="mt-4 grid gap-3">
+            <div className="myagreements-truck-list">
               {(agreement.trucks || []).map((truck) => {
                 const key = `${agreement.id}:${truck.truck_id}`
                 const activeTrip = activeTripByTruck[key]
                 return (
-                  <div key={truck.id} className="rounded-lg border border-slate-200 bg-slate-50 p-4">
+                  <div key={truck.id} className="myagreements-truck-card">
                     {activeTrip && (
-                      <div className="mb-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm font-semibold text-red-700">
+                      <div className="myagreements-trip-alert">
                         {truck.truck_number} - TRIP IN PROGRESS: {activeTrip.pickup_description}
                       </div>
                     )}
                     {activeTrip && (
-                      <div className="mt-3 mb-2">
+                      <div className="myagreements-map-wrap">
                         <AgreementTripMap tripId={activeTrip.id} isActive={true} />
                       </div>
                     )}
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="text-sm text-slate-600">
-                        <div className="font-semibold text-slate-900">{truck.truck_number} - {truck.truck_type_name}</div>
+                    <div className="myagreements-truck-row">
+                      <div className="myagreements-truck-info">
+                        <div>{truck.truck_number} - {truck.truck_type_name}</div>
                         <div>{formatMoney(truck.per_km_rate)} per km | Minimum {formatMoney(truck.minimum_monthly_guarantee)}</div>
                       </div>
                       {!activeTrip ? (
-                        <div className="flex flex-col gap-2 sm:flex-row">
-                          <input className="min-h-10 rounded-lg border border-slate-300 px-3 py-2 text-sm" placeholder="Trip description" value={descriptions[key] || ''} onChange={(event) => setDescriptions((current) => ({ ...current, [key]: event.target.value }))} />
-                          <PrimaryButton type="button" onClick={() => startTrip(agreement, truck)} disabled={working === `start:${key}`}>
+                        <div className="myagreements-trip-actions">
+                          <input className="myagreements-trip-input" placeholder="Trip description" value={descriptions[key] || ''} onChange={(event) => setDescriptions((current) => ({ ...current, [key]: event.target.value }))} />
+                          <PrimaryButton type="button" className="myagreements-action-btn" onClick={() => startTrip(agreement, truck)} disabled={working === `start:${key}`}>
                             <i className={`fas ${working === `start:${key}` ? 'fa-spinner fa-spin' : 'fa-play'}`} aria-hidden="true"></i>
                             Trip Start
                           </PrimaryButton>
                         </div>
                       ) : (
-                        <SecondaryButton type="button" onClick={() => endTrip(agreement, truck, activeTrip)} disabled={working === `end:${key}`}>
+                        <SecondaryButton type="button" className="myagreements-action-btn" onClick={() => endTrip(agreement, truck, activeTrip)} disabled={working === `end:${key}`}>
                           <i className={`fas ${working === `end:${key}` ? 'fa-spinner fa-spin' : 'fa-stop'}`} aria-hidden="true"></i>
                           End Trip
                         </SecondaryButton>

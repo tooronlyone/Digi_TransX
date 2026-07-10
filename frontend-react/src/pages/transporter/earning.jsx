@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react'
+import '../../styles/pages/earnings.css'
 
 async function getCsrf() {
   const res = await fetch('/auth/csrf-token', { credentials: 'same-origin' })

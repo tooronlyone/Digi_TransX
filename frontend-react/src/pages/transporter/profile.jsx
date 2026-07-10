@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
+import '../../styles/pages/profile.css'
 
 function getInitials(user) {
   const first = (user?.first_name || '').trim()
@@ -44,14 +45,14 @@ export default function Profile() {
   }
 
   function fullName() {
-    if (!user) return 'Ã¢â‚¬â€ Ã¢â‚¬â€'
+    if (!user) return '-'
     const f = user.first_name || ''
     const l = user.last_name || ''
-    return (f + ' ' + l).trim() || user.username || 'Ã¢â‚¬â€'
+    return (f + ' ' + l).trim() || user.username || '-'
   }
 
   function val(v) {
-    return v || 'Ã¢â‚¬â€'
+    return v || '-'
   }
 
   return (

@@ -1,49 +1,71 @@
 import { Link, useNavigate } from 'react-router-dom'
+import '../../../styles/pages/auth.css'
+
+const ICONS = {
+  'Service Seeker': 'fa-box',
+  'Logistics Provider': 'fa-truck-fast',
+  'Everyday User': 'fa-user',
+  'Fuel Station Manager': 'fa-gas-pump',
+  'Shop Owner / Vendor': 'fa-store',
+}
 
 export default function StepShell({ title, subtitle, icon, children }) {
   const navigate = useNavigate()
+  const iconClass = ICONS[title] || icon || 'fa-user'
+
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center p-4">
-      <div className="w-full max-w-lg bg-white rounded-xl shadow-lg p-8">
-        {/* Logo */}
-        <div className="text-center mb-6">
-          <Link to="/login">
-            <span className="text-3xl font-bold text-blue-500">DigiTransX</span>
+    <main className="auth-details-page">
+      <section className="auth-details-card">
+        <div className="auth-details-logo">
+          <Link to="/login" className="auth-card-brand">
+            <span className="auth-card-logo">
+              <svg viewBox="0 0 32 32" fill="none" width="28" height="28" aria-hidden="true">
+                <g stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 9 L13 9 L19 23 L27 23"/>
+                  <path d="M27 9 L19 9 L13 23 L5 23"/>
+                </g>
+              </svg>
+            </span>
+            <span className="auth-card-brand-text">
+              Digi_Trans<span>X</span>
+            </span>
           </Link>
         </div>
 
-        {/* Step indicator */}
-        <div className="flex items-center justify-center gap-2 mb-6">
-          <div className="flex items-center gap-1">
-            <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-bold">✓</div>
-            <span className="text-xs text-gray-400">Basic Info</span>
+        <div className="auth-steps auth-steps--details" aria-label="Signup progress">
+          <div className="auth-step auth-step--done">
+            <span><i className="fas fa-check" aria-hidden="true"></i></span>
+            <strong>Basic Info</strong>
           </div>
-          <div className="w-8 h-px bg-blue-300" />
-          <div className="flex items-center gap-1">
-            <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-bold">✓</div>
-            <span className="text-xs text-gray-400">Role</span>
+          <div className="auth-step-line" />
+          <div className="auth-step auth-step--done">
+            <span><i className="fas fa-check" aria-hidden="true"></i></span>
+            <strong>Role</strong>
           </div>
-          <div className="w-8 h-px bg-blue-300" />
-          <div className="flex items-center gap-1">
-            <div className="w-6 h-6 rounded-full bg-blue-500 text-white text-xs flex items-center justify-center font-bold">3</div>
-            <span className="text-xs font-semibold text-blue-600">Details</span>
+          <div className="auth-step-line" />
+          <div className="auth-step auth-step--active">
+            <span>3</span>
+            <strong>Details</strong>
           </div>
         </div>
 
-        {/* Role header */}
-        <div className="text-center mb-6">
-          <span className="text-4xl">{icon}</span>
-          <h1 className="text-xl font-bold text-gray-800 mt-2">{title}</h1>
-          <p className="text-gray-500 text-sm mt-1">{subtitle}</p>
+        <div className="auth-details-heading">
+          <span className="auth-details-icon">
+            <i className={`fas ${iconClass}`} aria-hidden="true"></i>
+          </span>
+          <h1>{title}</h1>
+          <p>{subtitle}</p>
         </div>
 
-        {children}
+        <div className="auth-details-body">
+          {children}
+        </div>
 
-        <button onClick={() => navigate('/signup/role')}
-          className="w-full mt-3 py-2.5 border border-gray-200 text-gray-500 text-sm rounded-lg hover:bg-gray-50 transition-colors">
-          ← Change role
+        <button type="button" onClick={() => navigate('/signup/role')} className="auth-change-role-btn">
+          <i className="fas fa-arrow-left" aria-hidden="true"></i>
+          Change role
         </button>
-      </div>
-    </div>
+      </section>
+    </main>
   )
 }

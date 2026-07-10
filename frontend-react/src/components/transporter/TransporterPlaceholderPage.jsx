@@ -44,23 +44,31 @@ export default function TransporterPlaceholderPage({
   source = '',
   title,
   description = 'Placeholder React page created from the transporter HTML file inventory.',
+  withLayout = true,
 }) {
   const meta = resolveMeta(source)
   const pageTitle = title || meta.title
+  const content = (
+    <section className="t-page-card">
+      <div className="t-page-eyebrow">{meta.folder}</div>
+      <h1 className="t-page-title">{pageTitle}</h1>
+      <p className="t-page-description">{description}</p>
+      {source && (
+        <div className="t-page-meta">
+          <span>Source HTML</span>
+          <code>{source}</code>
+        </div>
+      )}
+    </section>
+  )
+
+  if (!withLayout) {
+    return content
+  }
 
   return (
     <TransporterLayout>
-      <section className="t-page-card">
-        <div className="t-page-eyebrow">{meta.folder}</div>
-        <h1 className="t-page-title">{pageTitle}</h1>
-        <p className="t-page-description">{description}</p>
-        {source && (
-          <div className="t-page-meta">
-            <span>Source HTML</span>
-            <code>{source}</code>
-          </div>
-        )}
-      </section>
+      {content}
     </TransporterLayout>
   )
 }

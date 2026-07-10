@@ -118,6 +118,8 @@ def serialize_post(row, trucks=None, bid_count=0):
         "cargo_type": row.get("cargo_type"),
         "service_area": split_service_area(row.get("service_area")),
         "service_area_text": row.get("service_area") or "",
+        "pickup_location": row.get("pickup_location") or "",
+        "dropoff_location": row.get("dropoff_location") or "",
         "status": row.get("status"),
         "trucks": trucks or [],
         "bid_count": int(bid_count or row.get("bid_count") or 0),

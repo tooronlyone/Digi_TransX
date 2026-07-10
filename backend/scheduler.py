@@ -118,21 +118,6 @@ def run_apply_penalties():
         logger.error(f"[Scheduler] apply_penalties error: {exc}")
 
 
-def run_expire_negotiations():
-    """Auto-finalize cancellation negotiations that have passed their 48-hour deadline."""
-    try:
-        from shared.db import open_db
-        from orders.helpers import check_expired_negotiations
-
-        with open_db() as db:
-            check_expired_negotiations(db)
-            db.commit()
-
-        logger.info("[Scheduler] run_expire_negotiations: completed")
-    except Exception as exc:
-        logger.error(f"[Scheduler] run_expire_negotiations error: {exc}")
-
-
 def start_scheduler():
     """Initialize and start the background scheduler. Call once at app startup."""
     scheduler = BackgroundScheduler(daemon=True)
@@ -155,15 +140,6 @@ def start_scheduler():
         misfire_grace_time=300,
     )
 
-    # Every hour - auto-finalize expired cancellation negotiations (48-hour window passed)
-    scheduler.add_job(
-        run_expire_negotiations,
-        trigger=IntervalTrigger(hours=1),
-        id="expire_negotiations_hourly",
-        replace_existing=True,
-        misfire_grace_time=300,
-    )
-
     scheduler.start()
-    logger.info("[Scheduler] Started — process_payments daily 00:05, apply_penalties every 30 min, expire_negotiations every 1 hour")
+    logger.info("[Scheduler] Started - process_payments daily 00:05, apply_penalties every 30 min")
     return scheduler

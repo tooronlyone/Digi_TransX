@@ -10,7 +10,7 @@ import {
   formatDateTime,
   formatMoney,
 } from '../../pages/client/clientUtils'
-import '../../styles/wallet.css'
+import '../../styles/components/wallet-workspace.css'
 
 const EMPTY_FORM = {
   amount: '',

@@ -1,4 +1,5 @@
 from pathlib import Path
+from contextlib import contextmanager
 import sqlite3
 
 
@@ -74,90 +75,23 @@ CREATE TABLE IF NOT EXISTS wallet_transactions (
     FOREIGN KEY(user_id) REFERENCES users(id)
 );
 """
-ORDERS_TABLE_DEFINITION = """
-CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    client_user_id INTEGER NOT NULL,
-    pickup_city TEXT NOT NULL,
-    pickup_area TEXT,
-    dropoff_city TEXT NOT NULL,
-    dropoff_area TEXT,
-    pickup_date TEXT NOT NULL,
-    pickup_time TEXT NOT NULL,
-    goods_type TEXT NOT NULL,
-    goods_weight_tons REAL NOT NULL,
-    goods_volume_cbm REAL,
-    required_truck_type TEXT NOT NULL,
-    estimated_budget REAL,
-    notes TEXT,
-    status TEXT NOT NULL DEFAULT 'open',
-    accepted_bid_id INTEGER,
-    trip_started_at TEXT,
-    trip_stage TEXT DEFAULT 'not_started',
-    accepted_at TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY(client_user_id) REFERENCES users(id)
-);
-"""
-ORDER_BIDS_TABLE_DEFINITION = """
-CREATE TABLE IF NOT EXISTS order_bids (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER NOT NULL,
-    transporter_user_id INTEGER NOT NULL,
-    truck_id INTEGER NOT NULL,
-    bid_price REAL NOT NULL,
-    message TEXT,
-    status TEXT NOT NULL DEFAULT 'pending',
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    FOREIGN KEY(order_id) REFERENCES orders(id),
-    FOREIGN KEY(transporter_user_id) REFERENCES users(id),
-    FOREIGN KEY(truck_id) REFERENCES trucks(id)
-);
-"""
-ORDER_CANCELLATIONS_TABLE_DEFINITION = """
-CREATE TABLE IF NOT EXISTS order_cancellations (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER NOT NULL,
-    cancelled_by TEXT NOT NULL,
-    cancelled_by_user_id INTEGER NOT NULL,
-    other_party_user_id INTEGER NOT NULL,
-    trip_stage_at_cancellation TEXT NOT NULL,
-    penalty_type TEXT NOT NULL,
-    penalty_percent REAL,
-    penalty_amount REAL,
-    company_share_percent REAL,
-    company_share_amount REAL,
-    recipient_share_amount REAL,
-    status TEXT NOT NULL DEFAULT 'pending',
-    negotiation_deadline TEXT,
-    finalized_at TEXT,
-    created_at TEXT NOT NULL,
-    updated_at TEXT NOT NULL,
-    proposed_percent REAL,
-    proposed_by_user_id INTEGER,
-    proposed_at TEXT,
-    FOREIGN KEY(order_id) REFERENCES orders(id)
-);
-"""
 CHAT_THREADS_TABLE_DEFINITION = """
 CREATE TABLE IF NOT EXISTS chat_threads (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER NOT NULL,
     client_user_id INTEGER NOT NULL,
     transporter_user_id INTEGER NOT NULL,
-    bid_id INTEGER,
+    agreement_post_id INTEGER,
+    agreement_bid_id INTEGER,
     is_group_chat INTEGER DEFAULT 0,
     admin_user_id INTEGER,
     dispute_trip_id INTEGER,
     last_message_at TEXT,
     created_at TEXT NOT NULL,
-    UNIQUE(order_id, transporter_user_id),
-    FOREIGN KEY(order_id) REFERENCES orders(id),
+    UNIQUE(agreement_post_id, transporter_user_id),
     FOREIGN KEY(client_user_id) REFERENCES users(id),
     FOREIGN KEY(transporter_user_id) REFERENCES users(id),
-    FOREIGN KEY(bid_id) REFERENCES order_bids(id)
+    FOREIGN KEY(agreement_post_id) REFERENCES agreement_posts(id),
+    FOREIGN KEY(agreement_bid_id) REFERENCES agreement_bids(id)
 );
 """
 CHAT_MESSAGES_TABLE_DEFINITION = """
@@ -182,6 +116,8 @@ CREATE TABLE IF NOT EXISTS agreement_posts (
     title TEXT NOT NULL,
     cargo_type TEXT NOT NULL,
     service_area TEXT NOT NULL,
+    pickup_location TEXT,
+    dropoff_location TEXT,
     status TEXT NOT NULL DEFAULT 'open',
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL,
@@ -330,13 +266,178 @@ CREATE TABLE IF NOT EXISTS wallet_withdrawal_requests (
     FOREIGN KEY(user_id) REFERENCES users(id)
 );
 """
+ORDERS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS orders (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    client_user_id INTEGER NOT NULL,
+    pickup_city TEXT NOT NULL,
+    pickup_area TEXT NOT NULL,
+    dropoff_city TEXT NOT NULL,
+    dropoff_area TEXT NOT NULL,
+    pickup_date TEXT NOT NULL,
+    pickup_time TEXT NOT NULL,
+    goods_type TEXT NOT NULL,
+    goods_weight_tons REAL NOT NULL,
+    goods_volume_cbm REAL,
+    estimated_budget REAL,
+    notes TEXT,
+    status TEXT NOT NULL DEFAULT 'open',
+    accepted_bid_id INTEGER,
+    payment_amount REAL,
+    payment_status TEXT DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(client_user_id) REFERENCES users(id)
+);
+"""
+ORDER_REQUIRED_TRUCKS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS order_required_trucks (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    truck_type TEXT NOT NULL,
+    quantity INTEGER NOT NULL DEFAULT 1,
+    FOREIGN KEY(order_id) REFERENCES orders(id)
+);
+"""
+ORDER_BIDS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS order_bids (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    transporter_user_id INTEGER NOT NULL,
+    truck_id INTEGER NOT NULL,
+    bid_price REAL NOT NULL,
+    message TEXT,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(order_id) REFERENCES orders(id),
+    FOREIGN KEY(transporter_user_id) REFERENCES users(id),
+    FOREIGN KEY(truck_id) REFERENCES trucks(id)
+);
+"""
+ORDER_TRIPS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS order_trips (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    accepted_bid_id INTEGER NOT NULL,
+    transporter_user_id INTEGER NOT NULL,
+    truck_id INTEGER NOT NULL,
+    status TEXT NOT NULL DEFAULT 'accepted',
+    trip_started_at TEXT,
+    trip_completed_at TEXT,
+    delivery_confirmed_at TEXT,
+    pickup_location_lat REAL,
+    pickup_location_lng REAL,
+    dropoff_location_lat REAL,
+    dropoff_location_lng REAL,
+    actual_distance_km REAL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(order_id) REFERENCES orders(id),
+    FOREIGN KEY(accepted_bid_id) REFERENCES order_bids(id),
+    FOREIGN KEY(transporter_user_id) REFERENCES users(id),
+    FOREIGN KEY(truck_id) REFERENCES trucks(id)
+);
+"""
+ORDER_TRIP_VERIFICATION_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS order_trip_verification (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trip_id INTEGER NOT NULL,
+    transporter_claim_at TEXT,
+    client_first_response TEXT,
+    client_first_response_at TEXT,
+    client_second_response TEXT,
+    client_second_response_at TEXT,
+    final_verification_status TEXT,
+    admin_decision_by INTEGER,
+    admin_decision TEXT,
+    admin_decided_at TEXT,
+    admin_note TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(trip_id) REFERENCES order_trips(id),
+    FOREIGN KEY(admin_decision_by) REFERENCES users(id)
+);
+"""
+ORDER_NO_SHOW_TRACKING_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS order_no_show_tracking (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trip_id INTEGER NOT NULL,
+    notification_count INTEGER DEFAULT 0,
+    call_count INTEGER DEFAULT 0,
+    last_notification_at TEXT,
+    last_call_at TEXT,
+    order_deactivated_at TEXT,
+    status TEXT NOT NULL DEFAULT 'tracking',
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    FOREIGN KEY(trip_id) REFERENCES order_trips(id)
+);
+"""
+ORDER_CANCELLATIONS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS order_cancellations (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    cancelled_by TEXT NOT NULL,
+    reason TEXT,
+    refund_amount REAL,
+    penalty_amount REAL,
+    status TEXT NOT NULL DEFAULT 'pending',
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(order_id) REFERENCES orders(id)
+);
+"""
+ORDER_NOTIFICATIONS_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS order_notifications (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    order_id INTEGER NOT NULL,
+    trip_id INTEGER,
+    user_id INTEGER NOT NULL,
+    notification_type TEXT NOT NULL,
+    message TEXT,
+    is_read INTEGER DEFAULT 0,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(order_id) REFERENCES orders(id),
+    FOREIGN KEY(trip_id) REFERENCES order_trips(id),
+    FOREIGN KEY(user_id) REFERENCES users(id)
+);
+"""
+ORDER_INVOICES_TABLE_DEFINITION = """
+CREATE TABLE IF NOT EXISTS order_invoices (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    trip_id INTEGER NOT NULL,
+    invoice_number TEXT NOT NULL UNIQUE,
+    client_user_id INTEGER NOT NULL,
+    transporter_user_id INTEGER NOT NULL,
+    bid_price REAL NOT NULL,
+    company_fee REAL NOT NULL,
+    transporter_amount REAL NOT NULL,
+    payment_method TEXT DEFAULT 'wallet',
+    pdf_path TEXT,
+    created_at TEXT NOT NULL,
+    FOREIGN KEY(trip_id) REFERENCES order_trips(id),
+    FOREIGN KEY(client_user_id) REFERENCES users(id),
+    FOREIGN KEY(transporter_user_id) REFERENCES users(id)
+);
+"""
 
 
+@contextmanager
 def open_db():
     DATABASE_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DATABASE_PATH)
     connection.row_factory = sqlite3.Row
-    return connection
+    connection.execute("PRAGMA foreign_keys = ON")
+    connection.execute("PRAGMA busy_timeout = 5000")
+    connection.execute("PRAGMA journal_mode = DELETE")
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def ensure_column(db, table_name, column_name, definition):
@@ -441,6 +542,65 @@ def ensure_truck_catalog_type_keys(db):
     )
 
 
+def remove_legacy_order_schema(db):
+    db.execute("PRAGMA foreign_keys = OFF")
+    db.executescript(
+        """
+        DROP INDEX IF EXISTS idx_orders_client_status_created;
+        DROP INDEX IF EXISTS idx_orders_required_truck_status;
+        DROP INDEX IF EXISTS idx_order_bids_order_status_created;
+        DROP INDEX IF EXISTS idx_order_bids_transporter_created;
+        DROP INDEX IF EXISTS idx_order_cancellations_order_status;
+        DROP INDEX IF EXISTS idx_order_cancellations_deadline;
+
+        CREATE TABLE IF NOT EXISTS chat_threads_agreement_only (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            client_user_id INTEGER NOT NULL,
+            transporter_user_id INTEGER NOT NULL,
+            agreement_post_id INTEGER,
+            agreement_bid_id INTEGER,
+            is_group_chat INTEGER DEFAULT 0,
+            admin_user_id INTEGER,
+            dispute_trip_id INTEGER,
+            last_message_at TEXT,
+            created_at TEXT NOT NULL,
+            UNIQUE(agreement_post_id, transporter_user_id),
+            FOREIGN KEY(client_user_id) REFERENCES users(id),
+            FOREIGN KEY(transporter_user_id) REFERENCES users(id),
+            FOREIGN KEY(agreement_post_id) REFERENCES agreement_posts(id),
+            FOREIGN KEY(agreement_bid_id) REFERENCES agreement_bids(id)
+        );
+        """
+    )
+    chat_exists = db.execute("SELECT name FROM sqlite_master WHERE type = 'table' AND name = 'chat_threads'").fetchone()
+    if chat_exists:
+        columns = {row[1] for row in db.execute("PRAGMA table_info(chat_threads)").fetchall()}
+        select_agreement_post = "agreement_post_id" if "agreement_post_id" in columns else "NULL"
+        select_agreement_bid = "agreement_bid_id" if "agreement_bid_id" in columns else "NULL"
+        select_is_group = "COALESCE(is_group_chat, 0)" if "is_group_chat" in columns else "0"
+        select_admin = "admin_user_id" if "admin_user_id" in columns else "NULL"
+        select_dispute = "dispute_trip_id" if "dispute_trip_id" in columns else "NULL"
+        select_last_message = "last_message_at" if "last_message_at" in columns else "created_at"
+        db.execute(
+            f"""
+            INSERT OR IGNORE INTO chat_threads_agreement_only (
+                id, client_user_id, transporter_user_id, agreement_post_id, agreement_bid_id,
+                is_group_chat, admin_user_id, dispute_trip_id, last_message_at, created_at
+            )
+            SELECT
+                id, client_user_id, transporter_user_id, {select_agreement_post}, {select_agreement_bid},
+                {select_is_group}, {select_admin}, {select_dispute}, {select_last_message}, created_at
+            FROM chat_threads
+            WHERE ({select_agreement_post} IS NOT NULL) OR ({select_is_group} = 1)
+            """
+        )
+        db.execute("DROP TABLE chat_threads")
+        db.execute("ALTER TABLE chat_threads_agreement_only RENAME TO chat_threads")
+    else:
+        db.execute("DROP TABLE IF EXISTS chat_threads_agreement_only")
+    db.execute("PRAGMA foreign_keys = ON")
+
+
 def init_db():
     with open_db() as db:
         db.executescript(
@@ -542,8 +702,15 @@ def init_db():
         db.executescript(WALLET_TRANSACTIONS_TABLE_DEFINITION)
         db.executescript(WALLET_WITHDRAWAL_REQUESTS_TABLE_DEFINITION)
         db.executescript(ORDERS_TABLE_DEFINITION)
+        db.executescript(ORDER_REQUIRED_TRUCKS_TABLE_DEFINITION)
         db.executescript(ORDER_BIDS_TABLE_DEFINITION)
+        db.executescript(ORDER_TRIPS_TABLE_DEFINITION)
+        db.executescript(ORDER_TRIP_VERIFICATION_TABLE_DEFINITION)
+        db.executescript(ORDER_NO_SHOW_TRACKING_TABLE_DEFINITION)
         db.executescript(ORDER_CANCELLATIONS_TABLE_DEFINITION)
+        db.executescript(ORDER_NOTIFICATIONS_TABLE_DEFINITION)
+        db.executescript(ORDER_INVOICES_TABLE_DEFINITION)
+        remove_legacy_order_schema(db)
         db.executescript(CHAT_THREADS_TABLE_DEFINITION)
         db.executescript(CHAT_MESSAGES_TABLE_DEFINITION)
         db.executescript(AGREEMENT_POSTS_TABLE_DEFINITION)
@@ -555,15 +722,10 @@ def init_db():
         db.executescript(AGREEMENT_TRIPS_TABLE_DEFINITION)
         db.executescript(AGREEMENT_MONTHLY_PAYMENTS_TABLE_DEFINITION)
         db.executescript(AGREEMENT_PAYMENT_PENALTIES_TABLE_DEFINITION)
+        db.commit()
         ensure_column(db, "wallets", "completed_trips_count", "INTEGER NOT NULL DEFAULT 0")
         ensure_column(db, "users", "is_blocked", "INTEGER DEFAULT 0")
         ensure_column(db, "users", "block_reason", "TEXT")
-        ensure_column(db, "orders", "trip_started_at", "TEXT")
-        ensure_column(db, "orders", "trip_stage", "TEXT DEFAULT 'not_started'")
-        ensure_column(db, "orders", "accepted_at", "TEXT")
-        ensure_column(db, "order_cancellations", "proposed_percent", "REAL")
-        ensure_column(db, "order_cancellations", "proposed_by_user_id", "INTEGER")
-        ensure_column(db, "order_cancellations", "proposed_at", "TEXT")
         ensure_column(db, "trucks", "operating_provinces", "TEXT")
         ensure_column(db, "trucks", "per_km_rate", "REAL")
         ensure_column(db, "trucks", "waiting_charge_per_hour", "REAL")
@@ -576,7 +738,8 @@ def init_db():
         ensure_column(db, "trucks", "rc_book_photo_path", "TEXT")
         ensure_column(db, "trucks", "status_reason_code", "TEXT")
         ensure_column(db, "trucks", "status_reason", "TEXT")
-        ensure_column(db, "chat_threads", "bid_id", "INTEGER")
+        ensure_column(db, "agreement_posts", "pickup_location", "TEXT")
+        ensure_column(db, "agreement_posts", "dropoff_location", "TEXT")
         ensure_column(db, "chat_threads", "agreement_post_id", "INTEGER")
         ensure_column(db, "chat_threads", "agreement_bid_id", "INTEGER")
         ensure_column(db, "chat_threads", "is_group_chat", "INTEGER DEFAULT 0")
@@ -609,12 +772,6 @@ def init_db():
         db.execute("CREATE INDEX IF NOT EXISTS idx_wallet_transactions_user_created ON wallet_transactions(user_id, created_at DESC)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_wallet_transactions_wallet_created ON wallet_transactions(wallet_id, created_at DESC)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_wallet_withdrawal_requests_user_status ON wallet_withdrawal_requests(user_id, status, requested_at DESC)")
-        db.execute("CREATE INDEX IF NOT EXISTS idx_orders_client_status_created ON orders(client_user_id, status, created_at DESC)")
-        db.execute("CREATE INDEX IF NOT EXISTS idx_orders_required_truck_status ON orders(required_truck_type, status, created_at DESC)")
-        db.execute("CREATE INDEX IF NOT EXISTS idx_order_bids_order_status_created ON order_bids(order_id, status, created_at DESC)")
-        db.execute("CREATE INDEX IF NOT EXISTS idx_order_bids_transporter_created ON order_bids(transporter_user_id, created_at DESC)")
-        db.execute("CREATE INDEX IF NOT EXISTS idx_order_cancellations_order_status ON order_cancellations(order_id, status)")
-        db.execute("CREATE INDEX IF NOT EXISTS idx_order_cancellations_deadline ON order_cancellations(status, negotiation_deadline)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_chat_threads_client_last ON chat_threads(client_user_id, last_message_at DESC)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_chat_threads_transporter_last ON chat_threads(transporter_user_id, last_message_at DESC)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_chat_messages_thread_created ON chat_messages(thread_id, id ASC)")
@@ -625,4 +782,13 @@ def init_db():
         db.execute("CREATE INDEX IF NOT EXISTS idx_agreement_trucks_agreement_transporter ON agreement_trucks(agreement_id, transporter_user_id)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_agreement_trips_agreement_truck ON agreement_trips(agreement_id, truck_id, status)")
         db.execute("CREATE INDEX IF NOT EXISTS idx_agreement_payments_due_status ON agreement_monthly_payments(status, payment_due_date)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_orders_client_status ON orders(client_user_id, status, created_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_orders_status_created ON orders(status, created_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_order_bids_order_status ON order_bids(order_id, status, created_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_order_bids_transporter_created ON order_bids(transporter_user_id, created_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_order_trips_order_status ON order_trips(order_id, status)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_order_trips_transporter ON order_trips(transporter_user_id, status, created_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_order_trip_verification_trip ON order_trip_verification(trip_id)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_order_notifications_user_created ON order_notifications(user_id, created_at DESC)")
+        db.execute("CREATE INDEX IF NOT EXISTS idx_order_notifications_trip ON order_notifications(trip_id, created_at DESC)")
         db.commit()

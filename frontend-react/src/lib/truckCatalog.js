@@ -1,8 +1,5 @@
 export const FALLBACK_TRUCK_TYPES = [
   { type_key: 'mini_pickup', display_name: 'Mini pickup' },
-  { type_key: 'one_ton_pickup', display_name: 'One-ton pickup' },
-  { type_key: 'cargo_van_panel_van', display_name: 'Cargo van / panel van' },
-  { type_key: 'mini_truck_high_deck_mini_truck', display_name: 'Mini truck / high-deck mini truck' },
   { type_key: 'light_truck_2_3_5_ton', display_name: 'Light truck 2-3.5 ton' },
   { type_key: 'light_truck_3_5_5_ton', display_name: 'Light truck 3.5-5 ton' },
   { type_key: 'medium_rigid_truck_5_9_ton', display_name: 'Medium rigid truck 5-9 ton' },
@@ -25,9 +22,10 @@ export const FALLBACK_TRUCK_TYPES = [
 export async function loadTruckCatalog() {
   try {
     const response = await fetch('/api/catalog/truck-types', { credentials: 'same-origin' })
-    const json = await response.json().catch(() => ({}))
-    const truckTypes = json.truck_types || []
-    return truckTypes.length ? truckTypes : FALLBACK_TRUCK_TYPES
+    if (!response.ok) throw new Error('catalog unavailable')
+    const data = await response.json()
+    const items = data.truck_types || data.items || []
+    return items.length ? items : FALLBACK_TRUCK_TYPES
   } catch {
     return FALLBACK_TRUCK_TYPES
   }

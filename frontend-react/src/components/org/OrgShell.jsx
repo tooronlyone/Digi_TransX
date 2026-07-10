@@ -1,4 +1,3 @@
-import '../../styles/org-portal.css'
 
 export function OrgBanner({ banner }) {
   if (!banner?.message) return null

@@ -1,9 +1,10 @@
 import ChatWindow from '../../components/chat/ChatWindow'
+import '../../styles/pages/transporter-messages.css'
 
 export default function Messages() {
   return (
-    <div style={{ margin: '-24px', overflow: 'hidden' }}>
-      <ChatWindow role="transporter" heightClass="h-[calc(100vh-70px)]" />
+    <div className="transporter-messages-page">
+      <ChatWindow role="transporter" heightClass="transporter-messages-height" />
     </div>
   )
 }

@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
+import '../../styles/pages/my-trucks.css'
 
 function statusBadge(status) {
   const map = {
@@ -42,7 +43,7 @@ export default function MyTruck() {
   const filtered = useMemo(() => {
     if (truckFilter === 'all') return trucks
     if (truckFilter === 'active') {
-      return trucks.filter(t => t.status === 'available' || t.status === 'on_job')
+      return trucks.filter(t => t.status === 'active' || t.status === 'available' || t.status === 'on_job')
     }
     if (truckFilter === 'maintenance') {
       return trucks.filter(t => t.status === 'maintenance')
@@ -119,7 +120,7 @@ export default function MyTruck() {
                   <span><i className="fas fa-route"></i>{truck.location || '—'}</span>
                   <div>
                     <Link to={`/transporter/trucks/edit/${truck.id}`} className="mytrucks-ghost-btn">Edit</Link>
-                    {truck.status === 'active' ? (
+                    {truck.status === 'active' || truck.status === 'available' || truck.status === 'on_job' ? (
                       <Link to={`/transporter/trucks/${truck.id}`} className="mytrucks-action-small">
                         Track
                       </Link>

@@ -1,6 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
-import '../../styles/ai-assistant.css'
 import {
   AI_API_BASE,
   AI_CHAT_ROUTE,
@@ -26,7 +25,7 @@ export default function GlobalAiAssistant() {
   const routePath = `${location.pathname}${location.search}${location.hash}`
   const [userRole, setUserRole] = useState(() => detectUserRole())
   const [memory, setMemory] = useState(() => loadAssistantMemory(location.pathname, detectUserRole()))
-  const [preferences, setPreferences] = useState(() => loadAssistantPreferences())
+  const [preferences, setPreferences] = useState(() => ({ ...loadAssistantPreferences(), mode: 'minimized' }))
   const [capabilities, setCapabilities] = useState(DEFAULT_AI_CAPABILITIES)
   const [preview, setPreview] = useState('')
   const [questionInput, setQuestionInput] = useState('')
@@ -453,6 +452,14 @@ export default function GlobalAiAssistant() {
             </select>
             <button type="button" className="ai-assistant-btn ai-assistant-btn-ghost" onClick={cycleVisibilityMode}>
               Mode
+            </button>
+            <button
+              type="button"
+              className="ai-assistant-close"
+              aria-label="Minimize AI Assistant"
+              onClick={() => setPreferences((current) => ({ ...current, mode: 'minimized' }))}
+            >
+              <i className="fas fa-xmark" aria-hidden="true"></i>
             </button>
           </div>
         </div>

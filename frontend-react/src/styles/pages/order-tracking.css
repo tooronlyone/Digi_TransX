@@ -1,0 +1,370 @@
+/* Order Tracking Page */
+.order-tracking-page {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  max-width: 1200px;
+  margin: 0 auto;
+}
+
+.order-tracking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 1.5rem;
+  padding: 1.5rem;
+  background: white;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.order-tracking-header h1 {
+  font-size: 1.875rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0;
+}
+
+.order-tracking-header p {
+  font-size: 0.875rem;
+  color: #64748b;
+  margin: 0.5rem 0 0;
+}
+
+.order-tracking-back-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.625rem 1rem;
+  background: #e2e8f0;
+  color: #475569;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  text-decoration: none;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.order-tracking-back-btn:hover {
+  background: #cbd5e1;
+  color: #1e293b;
+}
+
+.order-tracking-loading,
+.order-tracking-error {
+  padding: 2rem;
+  text-align: center;
+  background: white;
+  border-radius: 0.75rem;
+  border: 1px solid #e2e8f0;
+  color: #64748b;
+}
+
+.order-tracking-error {
+  background: #fee2e2;
+  color: #991b1b;
+  border-color: #fecaca;
+}
+
+.order-tracking-notice {
+  padding: 1rem;
+  background: #dbeafe;
+  color: #0c4a6e;
+  border-left: 4px solid #0284c7;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.order-tracking-error-box {
+  padding: 1rem;
+  background: #fee2e2;
+  color: #991b1b;
+  border-left: 4px solid #dc2626;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+}
+
+.order-tracking-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(400px, 1fr));
+  gap: 1.5rem;
+}
+
+.order-tracking-card {
+  background: white;
+  border-radius: 0.75rem;
+  padding: 1.5rem;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+  border: 1px solid #e2e8f0;
+}
+
+.order-tracking-card-title {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #0f172a;
+  margin: 0 0 1rem;
+  padding-bottom: 0.75rem;
+  border-bottom: 2px solid #e2e8f0;
+}
+
+.order-tracking-details {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.detail-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 0.75rem 0;
+  border-bottom: 1px solid #f1f5f9;
+}
+
+.detail-row:last-child {
+  border-bottom: none;
+}
+
+.detail-label {
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #64748b;
+}
+
+.detail-value {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #0f172a;
+}
+
+.detail-value.amount {
+  font-size: 1.125rem;
+  font-weight: 700;
+  color: #2563eb;
+}
+
+.detail-value.status-open {
+  color: #f59e0b;
+  font-weight: 700;
+}
+
+.detail-value.status-accepted {
+  color: #3b82f6;
+  font-weight: 700;
+}
+
+.detail-value.status-in_progress {
+  color: #10b981;
+  font-weight: 700;
+}
+
+.detail-value.status-completed {
+  color: #059669;
+  font-weight: 700;
+}
+
+/* Timeline */
+.order-tracking-timeline {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+  margin-bottom: 1.5rem;
+  padding: 1rem 0;
+}
+
+.timeline-item {
+  display: flex;
+  gap: 1rem;
+  position: relative;
+  padding-left: 2rem;
+}
+
+.timeline-item:not(:last-child)::after {
+  content: '';
+  position: absolute;
+  left: 0.375rem;
+  top: 2.5rem;
+  width: 2px;
+  height: calc(100% + 1.5rem);
+  background: #e2e8f0;
+}
+
+.timeline-item.completed::after {
+  background: #10b981;
+}
+
+.timeline-dot {
+  position: absolute;
+  left: 0;
+  top: 0.25rem;
+  width: 0.75rem;
+  height: 0.75rem;
+  border-radius: 50%;
+  background: #cbd5e1;
+  border: 2px solid white;
+}
+
+.timeline-item.completed .timeline-dot {
+  background: #10b981;
+}
+
+.timeline-label {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: #0f172a;
+}
+
+.timeline-time {
+  font-size: 0.8rem;
+  color: #64748b;
+  margin-top: 0.25rem;
+}
+
+/* Buttons */
+.order-tracking-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+  padding: 0.75rem 1.5rem;
+  border: none;
+  border-radius: 0.5rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  width: 100%;
+  justify-content: center;
+  margin-top: 1rem;
+}
+
+.order-tracking-btn--primary {
+  background: #2563eb;
+  color: white;
+}
+
+.order-tracking-btn--primary:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+.order-tracking-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+/* States */
+.order-tracking-waiting {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: 0.5rem;
+  color: #1e40af;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.order-tracking-waiting i {
+  font-size: 2rem;
+}
+
+.order-tracking-waiting p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.order-tracking-success {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: #ecfdf5;
+  border: 1px solid #a7f3d0;
+  border-radius: 0.5rem;
+  color: #065f46;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.order-tracking-success i {
+  font-size: 2rem;
+  color: #10b981;
+}
+
+.order-tracking-success p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+.order-tracking-dispute {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1.5rem;
+  background: #fef3c7;
+  border: 1px solid #fcd34d;
+  border-radius: 0.5rem;
+  color: #78350f;
+  margin-top: 1rem;
+  text-align: center;
+}
+
+.order-tracking-dispute i {
+  font-size: 2rem;
+  color: #f59e0b;
+}
+
+.order-tracking-dispute p {
+  margin: 0;
+  font-size: 0.875rem;
+}
+
+/* Notes Section */
+.order-tracking-notes {
+  padding: 1rem;
+  background: #f8fafc;
+  border-left: 4px solid #64748b;
+  border-radius: 0.25rem;
+  font-size: 0.875rem;
+  line-height: 1.5;
+  color: #475569;
+  margin: 0;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .order-tracking-page {
+    padding: 1rem;
+  }
+
+  .order-tracking-header {
+    flex-direction: column;
+  }
+
+  .order-tracking-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .order-tracking-card {
+    padding: 1rem;
+  }
+
+  .detail-row {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
+  .detail-value {
+    margin-top: 0.25rem;
+  }
+}

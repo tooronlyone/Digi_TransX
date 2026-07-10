@@ -30,13 +30,13 @@ export default function AvailableBids() {
       ])
       const ordersJson = await ordersRes.json().catch(() => ({}))
       const trucksJson = await trucksRes.json().catch(() => ({}))
-      if (!ordersRes.ok || ordersJson.success === false) throw new Error(ordersJson.message || 'Unable to load bids.')
+      if (!ordersRes.ok || ordersJson.success === false) throw new Error(ordersJson.message || 'Unable to load available orders.')
       if (!trucksRes.ok || trucksJson.success === false) throw new Error(trucksJson.message || 'Unable to load trucks.')
       setOrders(ordersJson.orders || [])
       setTrucks(trucksJson.trucks || [])
       setCatalog(catalogRes)
     } catch (loadError) {
-      setError(loadError.message || 'Unable to load available bids.')
+      setError(loadError.message || 'Unable to load available orders.')
     } finally {
       setLoading(false)
     }
@@ -53,10 +53,11 @@ export default function AvailableBids() {
 
   const matchingActiveTrucks = useMemo(() => {
     if (!selectedOrder) return []
+    const requiredTypes = selectedOrder.required_truck_types?.map(t => t.truck_type) || []
     return trucks.filter(
       (truck) =>
         truck.status === 'active' &&
-        truck.catalog_type_key === selectedOrder.required_truck_type,
+        requiredTypes.includes(truck.catalog_type_key),
     )
   }, [selectedOrder, trucks])
 
@@ -127,12 +128,15 @@ export default function AvailableBids() {
         {!loading && !error && orders.length > 0 && (
           <div className="grid gap-4 xl:grid-cols-2">
             {orders.map((order) => {
-              const truckTypeName = catalog.find((item) => item.type_key === order.required_truck_type)?.display_name || order.required_truck_type_name
+              const truckTypeNames = order.required_truck_types?.map(t => {
+                const catalogItem = catalog.find((item) => item.type_key === t.truck_type)
+                return catalogItem?.display_name || t.truck_type
+              }).join(', ') || 'Unknown'
               return (
                 <article key={order.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-lg font-bold text-slate-900">{order.pickup_city} to {order.dropoff_city}</h2>
+                      <h2 className="text-lg font-bold text-slate-900">{order.pickup_city} → {order.dropoff_city}</h2>
                       <p className="mt-1 text-sm text-slate-500">{order.pickup_date} at {order.pickup_time}</p>
                     </div>
                     <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">{order.bid_count} bids</span>
@@ -140,10 +144,11 @@ export default function AvailableBids() {
                   <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
                     <div><span className="font-semibold text-slate-800">Goods:</span> {order.goods_type}</div>
                     <div><span className="font-semibold text-slate-800">Weight:</span> {order.goods_weight_tons} tons</div>
-                    <div><span className="font-semibold text-slate-800">Truck:</span> {truckTypeName}</div>
+                    <div><span className="font-semibold text-slate-800">Truck:</span> {truckTypeNames}</div>
                     <div><span className="font-semibold text-slate-800">Budget:</span> {order.estimated_budget ? formatMoney(order.estimated_budget) : 'Not shared'}</div>
                   </div>
                   <button type="button" onClick={() => openBidForm(order)} className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                    <i className="fas fa-gavel mr-2" aria-hidden="true"></i>
                     Place Bid
                   </button>
                 </article>

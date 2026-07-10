@@ -148,7 +148,7 @@ def create_truck():
                     parse_optional_float(form.get("payload_max_kg")) if form.get("payload_max_kg") is not None else (catalog_type.get("payload_max_kg") if catalog_type else None),
                     parse_optional_float(form.get("volume_min_cbm")) if form.get("volume_min_cbm") is not None else (catalog_type.get("volume_min_cbm") if catalog_type else None),
                     parse_optional_float(form.get("volume_max_cbm")) if form.get("volume_max_cbm") is not None else (catalog_type.get("volume_max_cbm") if catalog_type else None),
-                    parse_optional_text(form.get("body_style")) or (catalog_type.get("typical_body_style") if catalog_type else None),
+                    parse_optional_text(form.get("body_style")) if form.get("body_style") is not None else (catalog_type.get("typical_body_style") if catalog_type else None),
                     catalog_specs_raw,
                     parse_optional_text(form.get("driverName")),
                     parse_optional_cnic(form.get("driverCnic")),

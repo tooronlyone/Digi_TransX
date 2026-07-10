@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import AuthCard from '../../components/common/AuthCard'
 import InputField from '../../components/common/InputField'
 import Notification from '../../components/common/Notification'
+import '../../styles/pages/auth.css'
 
 function getPasswordStrength(password) {
   let score = 0
@@ -100,7 +101,7 @@ export default function Signup() {
           error={errors.phone}
         />
 
-        <div className="mb-5">
+        <div className="auth-form-field mb-5">
           <label htmlFor="password" className="block mb-2 font-semibold text-gray-700 text-sm">Password</label>
           <input
             id="password"
@@ -108,28 +109,28 @@ export default function Signup() {
             placeholder="Create a strong password"
             value={form.password}
             onChange={setField('password')}
-            className={`w-full px-4 py-3 border-2 rounded-lg text-base transition-all outline-none
+            className={`auth-form-input w-full px-4 py-3 border-2 rounded-lg text-base transition-all outline-none
               focus:border-blue-400 focus:ring-2 focus:ring-blue-100
               ${errors.password ? 'border-red-400' : 'border-gray-200'}`}
           />
           {form.password && (
-            <div className="mt-2">
-              <div className="flex gap-1 h-1.5">
+            <div className="auth-strength mt-2">
+              <div className="auth-strength__bars flex gap-1 h-1.5">
                 {[1, 2, 3, 4].map(index => (
                   <div
                     key={index}
-                    className={`flex-1 rounded-full transition-all ${index <= strength ? strengthColors[strength] : 'bg-gray-200'}`}
+                    className={`auth-strength__bar auth-strength__bar--${index <= strength ? strengthLabels[strength].toLowerCase() : 'empty'} flex-1 rounded-full transition-all ${index <= strength ? strengthColors[strength] : 'bg-gray-200'}`}
                   />
                 ))}
               </div>
-              <p className="text-xs mt-1 text-gray-500">{strengthLabels[strength]}</p>
+              <p className="auth-help text-xs mt-1 text-gray-500">{strengthLabels[strength]}</p>
             </div>
           )}
-          {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password}</p>}
-          <p className="text-gray-400 text-xs mt-1">At least 8 characters with letters and numbers</p>
+          {errors.password && <p className="auth-error text-red-500 text-xs mt-1">{errors.password}</p>}
+          <p className="auth-help text-gray-400 text-xs mt-1">At least 8 characters with letters and numbers</p>
         </div>
 
-        <div className="mb-6">
+        <div className="auth-form-field mb-6">
           <label htmlFor="cnic" className="block mb-2 font-semibold text-gray-700 text-sm">CNIC Number</label>
           <input
             id="cnic"
@@ -138,22 +139,22 @@ export default function Signup() {
             value={form.cnic}
             onChange={setField('cnic')}
             maxLength={13}
-            className={`w-full px-4 py-3 border-2 rounded-lg text-base transition-all outline-none
+            className={`auth-form-input w-full px-4 py-3 border-2 rounded-lg text-base transition-all outline-none
               focus:border-blue-400 focus:ring-2 focus:ring-blue-100
               ${errors.cnic ? 'border-red-400' : 'border-gray-200'}`}
           />
-          {errors.cnic && <p className="text-red-500 text-xs mt-1">{errors.cnic}</p>}
-          <p className="text-gray-400 text-xs mt-1">Enter 13 digits without dashes.</p>
+          {errors.cnic && <p className="auth-error text-red-500 text-xs mt-1">{errors.cnic}</p>}
+          <p className="auth-help text-gray-400 text-xs mt-1">Enter 13 digits without dashes.</p>
         </div>
 
         <button
           type="submit"
-          className="w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
+          className="auth-submit w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors"
         >
           Continue
         </button>
 
-        <div className="text-center mt-5 pt-5 border-t border-gray-100">
+        <div className="auth-card-footer text-center mt-5 pt-5 border-t border-gray-100">
           <p className="text-sm text-gray-600">
             Already have an account?{' '}
             <Link to="/login" className="text-blue-500 font-semibold hover:underline">Login here</Link>

@@ -1,6 +1,36 @@
 import { useEffect, useMemo, useState } from 'react'
 import { loadTruckCatalog } from '../../lib/truckCatalog'
-import { PrimaryButton, SecondaryButton, StateMessage, StatusBadge, apiGet, apiSend, formatMoney } from '../client/clientUtils'
+import { PrimaryButton, SecondaryButton, StateMessage, apiGet, apiSend, formatMoney } from '../client/clientUtils'
+import '../../styles/pages/agreement-bids.css'
+
+function statusPill(status) {
+  const value = String(status || 'open').replace(/_/g, ' ')
+  return <span className={`agreementbids-status agreementbids-status--${String(status || 'open').toLowerCase()}`}>{value}</span>
+}
+
+function formatPostTime(value) {
+  if (!value) return 'Time not set'
+  const normalized = String(value).includes('T') ? value : String(value).replace(' ', 'T')
+  const date = new Date(normalized)
+  if (Number.isNaN(date.getTime())) return String(value)
+  return date.toLocaleString('en-PK', {
+    day: '2-digit',
+    month: 'short',
+    year: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+function routeParts(post) {
+  const pickup = post.pickup_location || post.pickupLocation || post.pickup || post.pickup_city || post.pickupCity || ''
+  const dropoff = post.dropoff_location || post.dropoffLocation || post.dropoff || post.drop_location || post.drop_city || post.dropCity || ''
+  return {
+    pickup,
+    dropoff,
+    hasRoute: Boolean(pickup && dropoff),
+  }
+}
 
 export default function AgreementBids() {
   const [posts, setPosts] = useState([])
@@ -45,6 +75,15 @@ export default function AgreementBids() {
     return catalog.find((item) => item.type_key === typeKey)?.display_name || typeKey
   }
 
+  function postTruckTypes(post) {
+    const names = (post.trucks || []).map((truck) => truck.truck_type_name || typeName(truck.truck_type)).filter(Boolean)
+    return [...new Set(names)].join(', ') || 'Truck type not specified'
+  }
+
+  function postMeta(post) {
+    return [post.cargo_type, post.service_area_text].filter(Boolean).join(' | ')
+  }
+
   function openBid(post) {
     setSelectedPostId(post.id)
     setMessage('')
@@ -82,73 +121,97 @@ export default function AgreementBids() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-        <h1 className="text-2xl font-bold text-slate-900">Agreement Bids</h1>
-        <p className="mt-1 text-sm text-slate-500">Open long-term posts matching your active GPS-enabled trucks.</p>
+    <div className="agreementbids-page">
+      <div className="agreementbids-page-title">
+        <div>
+          <h1>Agreement Bids</h1>
+          <p>Open long-term posts matching your active GPS-enabled trucks.</p>
+        </div>
       </div>
       {loading && <StateMessage type="loading">Loading agreement bids...</StateMessage>}
       {error && <StateMessage type="error">{error}</StateMessage>}
       {notice && <StateMessage type="success">{notice}</StateMessage>}
-      {!loading && !error && posts.length === 0 && <StateMessage type="empty">No matching agreement bids right now.</StateMessage>}
+      {!loading && !error && posts.length === 0 && (
+        <div className="agreementbids-empty-state">
+          <i className="fas fa-file-signature" aria-hidden="true"></i>
+          <p>No matching agreement bids right now.</p>
+        </div>
+      )}
 
-      <div className="grid gap-4 xl:grid-cols-2">
+      <div className="agreementbids-grid">
         {posts.map((post) => (
-          <article key={post.id} className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-            <div className="flex items-start justify-between gap-3">
+          <article key={post.id} className="agreementbids-card">
+            {(() => {
+              const route = routeParts(post)
+              return (
+                <>
+            <div className="agreementbids-card-header">
               <div>
-                <h2 className="text-lg font-bold text-slate-900">{post.title}</h2>
-                <p className="mt-1 text-sm text-slate-500">{post.cargo_type} | {post.service_area_text}</p>
+                <h2>{post.title}</h2>
+                <p>{postMeta(post)}</p>
               </div>
-              <StatusBadge status={post.status} />
+              {statusPill(post.status)}
             </div>
-            <div className="mt-4 grid gap-2 text-sm text-slate-600">
-              {(post.trucks || []).map((truck) => (
-                <div key={truck.id}>{typeName(truck.truck_type)} | {truck.capacity_tons} tons | Qty {truck.quantity}</div>
-              ))}
+            <div className="agreementbids-truck-type">
+              <i className="fas fa-truck" aria-hidden="true"></i>
+              <span>{postTruckTypes(post)}</span>
             </div>
-            <PrimaryButton type="button" className="mt-4" onClick={() => openBid(post)}>
+            {route.hasRoute && (
+              <div className="agreementbids-route">
+                <span className="agreementbids-route-point">{route.pickup}</span>
+                <i className="fas fa-arrow-right-long" aria-hidden="true"></i>
+                <span className="agreementbids-route-point">{route.dropoff}</span>
+              </div>
+            )}
+            <div className="agreementbids-time">
+              <i className="fas fa-clock" aria-hidden="true"></i>
+              <span>{formatPostTime(post.created_at || post.updated_at)}</span>
+            </div>
+            <PrimaryButton type="button" className="agreementbids-place-btn" onClick={() => openBid(post)}>
               <i className="fas fa-gavel" aria-hidden="true"></i>
               Place Bid
             </PrimaryButton>
+                </>
+              )
+            })()}
           </article>
         ))}
       </div>
 
       {selectedPost && (
-        <div className="rounded-lg border border-slate-200 bg-white p-5 shadow-sm">
-          <div className="flex items-start justify-between gap-3">
+        <div className="agreementbids-form-panel">
+          <div className="agreementbids-form-header">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Bid for {selectedPost.title}</h2>
-              <p className="mt-1 text-sm text-slate-500">Select GPS-enabled trucks and set monthly rates.</p>
+              <h2>Bid for {selectedPost.title}</h2>
+              <p>Select GPS-enabled trucks and set monthly rates.</p>
             </div>
             <SecondaryButton type="button" onClick={() => setSelectedPostId(null)}>Close</SecondaryButton>
           </div>
-          <form className="mt-5 grid gap-4" onSubmit={submitBid}>
+          <form className="agreementbids-form" onSubmit={submitBid}>
             {rows.map((row, index) => (
-              <div key={index} className="grid gap-3 rounded-lg border border-slate-200 bg-slate-50 p-4 md:grid-cols-3">
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  Truck
-                  <select className="rounded-lg border border-slate-300 px-3 py-2.5" value={row.truck_id} onChange={(event) => updateRow(index, 'truck_id', event.target.value)} required>
+              <div key={index} className="agreementbids-row">
+                <label className="agreementbids-field">
+                  <span>Truck</span>
+                  <select value={row.truck_id} onChange={(event) => updateRow(index, 'truck_id', event.target.value)} required>
                     <option value="">Select truck</option>
                     {eligibleTrucks.map((truck) => <option key={truck.id} value={truck.id}>{truck.truck_number} - {truck.truck_type}</option>)}
                   </select>
                 </label>
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  Per KM rate
-                  <input className="rounded-lg border border-slate-300 px-3 py-2.5" type="number" min="0.01" step="0.01" value={row.per_km_rate} onChange={(event) => updateRow(index, 'per_km_rate', event.target.value)} required />
+                <label className="agreementbids-field">
+                  <span>Per KM rate</span>
+                  <input type="number" min="0.01" step="0.01" value={row.per_km_rate} onChange={(event) => updateRow(index, 'per_km_rate', event.target.value)} required />
                 </label>
-                <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  Monthly minimum
-                  <input className="rounded-lg border border-slate-300 px-3 py-2.5" type="number" min="0.01" step="0.01" value={row.minimum_monthly_guarantee} onChange={(event) => updateRow(index, 'minimum_monthly_guarantee', event.target.value)} required />
+                <label className="agreementbids-field">
+                  <span>Monthly minimum</span>
+                  <input type="number" min="0.01" step="0.01" value={row.minimum_monthly_guarantee} onChange={(event) => updateRow(index, 'minimum_monthly_guarantee', event.target.value)} required />
                 </label>
               </div>
             ))}
-            <label className="grid gap-2 text-sm font-medium text-slate-700">
-              Message
-              <textarea className="min-h-24 rounded-lg border border-slate-300 px-3 py-2.5" value={message} onChange={(event) => setMessage(event.target.value)} />
+            <label className="agreementbids-field agreementbids-field--message">
+              <span>Message</span>
+              <textarea value={message} onChange={(event) => setMessage(event.target.value)} />
             </label>
-            <div className="flex flex-wrap gap-3">
+            <div className="agreementbids-form-actions">
               <SecondaryButton type="button" onClick={() => setRows((current) => [...current, { truck_id: '', per_km_rate: '', minimum_monthly_guarantee: '' }])}>
                 <i className="fas fa-plus" aria-hidden="true"></i>
                 Add truck
@@ -157,7 +220,7 @@ export default function AgreementBids() {
                 <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`} aria-hidden="true"></i>
                 Submit bid
               </PrimaryButton>
-              {eligibleTrucks.length === 0 && <span className="self-center text-sm text-amber-700">No eligible GPS-enabled truck for this post.</span>}
+              {eligibleTrucks.length === 0 && <span className="agreementbids-warning">No eligible GPS-enabled truck for this post.</span>}
             </div>
           </form>
         </div>

@@ -3,7 +3,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import Notification from '../../components/common/Notification'
 import { useAuthSession } from '../../hooks/useAuth'
-import './Login.css'
+import '../../styles/pages/auth.css'
 
 export default function Login() {
   const { cacheUser, clearCache, resolveRedirect, navigate } = useAuthSession()

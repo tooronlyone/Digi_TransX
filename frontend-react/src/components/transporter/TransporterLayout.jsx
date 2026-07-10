@@ -3,8 +3,6 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getTransporterAllowedPaths, isTransporterPathAllowed } from './accessControl'
 import { NAV_ITEMS } from './navItems'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
-import '../../styles/transporter.css'
-import '../../styles/extra.css'
 
 export default function TransporterLayout({ children }) {
   const location = useLocation()
@@ -78,8 +76,10 @@ export default function TransporterLayout({ children }) {
     return best
   }, '')
 
+  const isMessagesPage = location.pathname === '/transporter/messages'
+
   return (
-    <div className="transporter-page">
+    <div className={`transporter-page${isMessagesPage ? ' transporter-page--messages' : ''}`}>
       {/* Navbar */}
       <nav className="navbar">
         <div className="navbar-left">
@@ -140,10 +140,10 @@ export default function TransporterLayout({ children }) {
       </nav>
 
       {/* Main Content */}
-      <div className="main-content">
+      <div className={`main-content${isMessagesPage ? ' main-content--messages' : ''}`}>
         {children}
 
-        {location.pathname !== '/transporter/messages' && <div className="footer">
+        {!isMessagesPage && <div className="footer">
           <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>
           <div className="footer-links">
             <Link to="/transporter/about">About Us</Link>

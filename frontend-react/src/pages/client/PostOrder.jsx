@@ -32,7 +32,7 @@ const INITIAL_FORM = {
   goods_type: '',
   goods_weight_tons: '',
   goods_volume_cbm: '',
-  required_truck_type: '',
+  required_truck_types: [],
   estimated_budget: '',
   notes: '',
 }
@@ -62,8 +62,17 @@ export default function PostOrder() {
   }, [])
 
   function updateField(event) {
-    const { name, value } = event.target
-    setForm((current) => ({ ...current, [name]: value }))
+    const { name, value, type, checked } = event.target
+    if (name === 'required_truck_types') {
+      setForm((current) => ({
+        ...current,
+        required_truck_types: checked
+          ? [...current.required_truck_types, value]
+          : current.required_truck_types.filter((t) => t !== value),
+      }))
+    } else {
+      setForm((current) => ({ ...current, [name]: value }))
+    }
   }
 
   async function handleSubmit(event) {
@@ -157,15 +166,25 @@ export default function PostOrder() {
               Goods volume (cbm)
               <input className="rounded-lg border border-slate-300 px-3 py-2.5" type="number" min="0" step="0.1" name="goods_volume_cbm" value={form.goods_volume_cbm} onChange={updateField} />
             </label>
-            <label className="grid gap-2 text-sm font-medium text-slate-700">
-              Required truck type
-              <select className="rounded-lg border border-slate-300 px-3 py-2.5" name="required_truck_type" value={form.required_truck_type} onChange={updateField} required>
-                <option value="">Select truck type</option>
+            <div className="grid gap-2 text-sm font-medium text-slate-700 md:col-span-2">
+              <span>Required truck types (select at least one)</span>
+              <div className="grid gap-3 sm:grid-cols-2 md:grid-cols-3">
                 {truckTypes.map((type) => (
-                  <option key={type.type_key} value={type.type_key}>{type.display_name}</option>
+                  <label key={type.type_key} className="flex items-center gap-2 rounded-lg border border-slate-200 p-3 hover:bg-slate-50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      name="required_truck_types"
+                      value={type.type_key}
+                      checked={form.required_truck_types.includes(type.type_key)}
+                      onChange={updateField}
+                      className="rounded border-slate-300"
+                    />
+                    <span className="font-normal">{type.display_name}</span>
+                  </label>
                 ))}
-              </select>
-            </label>
+              </div>
+              {form.required_truck_types.length === 0 && <span className="text-xs text-red-600">At least one truck type is required</span>}
+            </div>
             <label className="grid gap-2 text-sm font-medium text-slate-700 md:col-span-2">
               Estimated budget
               <input className="rounded-lg border border-slate-300 px-3 py-2.5" type="number" min="0" step="0.01" name="estimated_budget" value={form.estimated_budget} onChange={updateField} />

@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { formatDateTime, getCsrfToken, apiGet, apiSend } from '../../pages/client/clientUtils'
+import '../../styles/components/chat-window.css'
 
 const POLL_INTERVAL_MS = 4000
 
@@ -253,16 +254,16 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
   const scrollPaneClass = '[scrollbar-width:thin] [scrollbar-color:#D1D5DB_transparent] [&::-webkit-scrollbar]:w-1 [&::-webkit-scrollbar-track]:bg-transparent [&::-webkit-scrollbar-thumb]:rounded-full [&::-webkit-scrollbar-thumb]:bg-gray-300'
 
   return (
-    <div className={`grid ${heightClass} min-h-0 overflow-hidden rounded-2xl bg-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] lg:grid-cols-[34%_66%]`}>
-      <section className="flex min-h-0 flex-col border-gray-100 lg:border-r">
-        <div className="sticky top-0 z-10 flex-shrink-0 space-y-4 border-b border-gray-100 bg-white p-5">
-          <div className="flex items-center justify-between gap-3">
-            <h1 className="text-2xl font-bold text-[#111827]">Chats</h1>
-            <span className="rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
+    <div className={`chat-window grid ${heightClass} min-h-0 overflow-hidden rounded-2xl bg-white shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)] lg:grid-cols-[34%_66%]`}>
+      <section className="chat-sidebar flex min-h-0 flex-col border-gray-100 lg:border-r">
+        <div className="chat-sidebar-header sticky top-0 z-10 flex-shrink-0 space-y-4 border-b border-gray-100 bg-white p-5">
+          <div className="chat-title-row flex items-center justify-between gap-3">
+            <h1 className="chat-title text-2xl font-bold text-[#111827]">Chats</h1>
+            <span className="chat-count-pill rounded-full bg-indigo-100 px-3 py-1 text-xs font-semibold text-indigo-700">
               {totalUnread || threads.length}
             </span>
           </div>
-          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-[#E5E7EB] bg-gray-50 px-3 text-[#6B7280]">
+          <label className="chat-search flex min-h-11 items-center gap-3 rounded-lg border border-[#E5E7EB] bg-gray-50 px-3 text-[#6B7280]">
             <i className="fas fa-search text-sm" aria-hidden="true"></i>
             <input
               type="search"
@@ -274,15 +275,15 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
           </label>
         </div>
 
-        <div className={`min-h-0 flex-1 overflow-y-auto ${scrollPaneClass}`}>
-          {loadingThreads && <div className="m-5 rounded-lg bg-[#F3F4F6] px-4 py-5 text-sm text-[#6B7280]">Loading chats...</div>}
+        <div className={`chat-thread-list min-h-0 flex-1 overflow-y-auto ${scrollPaneClass}`}>
+          {loadingThreads && <div className="chat-state-card m-5 rounded-lg bg-[#F3F4F6] px-4 py-5 text-sm text-[#6B7280]">Loading chats...</div>}
           {!loadingThreads && threads.length === 0 && (
-            <div className="m-5 rounded-lg border border-dashed border-[#E5E7EB] bg-gray-50 px-4 py-8 text-center text-sm text-[#6B7280]">
+            <div className="chat-state-card m-5 rounded-lg border border-dashed border-[#E5E7EB] bg-gray-50 px-4 py-8 text-center text-sm text-[#6B7280]">
               No chat threads yet. A thread is created automatically when a bid is placed.
             </div>
           )}
           {!loadingThreads && threads.length > 0 && visibleThreads.length === 0 && (
-            <div className="m-5 rounded-lg bg-gray-50 px-4 py-8 text-center text-sm text-[#6B7280]">
+            <div className="chat-state-card m-5 rounded-lg bg-gray-50 px-4 py-8 text-center text-sm text-[#6B7280]">
               No chats match your search.
             </div>
           )}
@@ -294,30 +295,30 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
                 key={thread.id}
                 type="button"
                 onClick={() => setActiveThreadId(thread.id)}
-                className={`flex w-full items-start gap-3 border-b border-gray-100 px-5 py-4 text-left transition ${
-                  active ? 'bg-indigo-50/70' : 'bg-white hover:bg-gray-50'
+                className={`chat-thread-item flex w-full items-start gap-3 border-b border-gray-100 px-5 py-4 text-left transition ${
+                  active ? 'chat-thread-item--active bg-indigo-50/70' : 'bg-white hover:bg-gray-50'
                 }`}
               >
-                <span className="grid h-11 w-11 shrink-0 place-items-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
+                <span className="chat-avatar grid h-11 w-11 shrink-0 place-items-center rounded-full bg-indigo-100 text-sm font-bold text-indigo-700">
                   {partyInitial(thread.other_party_name)}
                 </span>
-                <span className="min-w-0 flex-1">
+                <span className="chat-thread-content min-w-0 flex-1">
                   <span className="flex items-start justify-between gap-3">
                     <span className="min-w-0">
-                      <span className="block truncate text-sm font-semibold text-[#111827]">
+                      <span className="chat-thread-name block truncate text-sm font-semibold text-[#111827]">
                         {thread.other_party_name}
-                        <span className="ml-2 font-medium text-[#6B7280]">#{thread.order.id}</span>
+                        <span className="chat-order-id ml-2 font-medium text-[#6B7280]">#{thread.order.id}</span>
                       </span>
-                      <span className="mt-1 block truncate text-sm text-[#6B7280]">{thread.order.route_label}</span>
+                      <span className="chat-route mt-1 block truncate text-sm text-[#6B7280]">{thread.order.route_label}</span>
                     </span>
-                    <span className={`shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${orderStatusTone(status)}`}>
+                    <span className={`chat-order-status shrink-0 rounded-full px-2.5 py-1 text-[11px] font-semibold ${orderStatusTone(status)}`}>
                       {status}
                     </span>
                   </span>
                   <span className="mt-2 flex items-center justify-between gap-3">
-                    <span className="truncate text-xs text-[#9CA3AF]">{thread.last_message_preview || 'No messages yet'}</span>
+                    <span className="chat-preview truncate text-xs text-[#9CA3AF]">{thread.last_message_preview || 'No messages yet'}</span>
                     {thread.unread_count > 0 && (
-                      <span className="rounded-full bg-[#10B981] px-2 py-0.5 text-[11px] font-bold text-white">
+                      <span className="chat-unread rounded-full bg-[#10B981] px-2 py-0.5 text-[11px] font-bold text-white">
                         {thread.unread_count}
                       </span>
                     )}
@@ -329,9 +330,9 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
         </div>
       </section>
 
-      <section className="flex min-h-0 flex-col bg-white">
+      <section className="chat-main flex min-h-0 flex-col bg-white">
         {!activeThread && (
-          <div className="grid min-h-0 flex-1 place-items-center px-6 py-10 text-center">
+          <div className="chat-empty grid min-h-0 flex-1 place-items-center px-6 py-10 text-center">
             <div>
               <i className="far fa-comments text-6xl text-gray-300" aria-hidden="true"></i>
               <p className="mt-5 text-lg font-semibold text-gray-600">No messages yet.</p>
@@ -342,11 +343,11 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
 
         {activeThread && (
           <>
-            <div className="sticky top-0 z-10 flex-shrink-0 border-b border-gray-100 bg-white px-5 py-4">
+            <div className="chat-main-header sticky top-0 z-10 flex-shrink-0 border-b border-gray-100 bg-white px-5 py-4">
               <div className="flex flex-wrap items-center justify-between gap-3">
                 <div>
-                  <h2 className="text-lg font-bold text-[#111827]">{activeThread.other_party_name}</h2>
-                  <p className="mt-1 text-sm text-[#6B7280]">
+                  <h2 className="chat-main-title text-lg font-bold text-[#111827]">{activeThread.other_party_name}</h2>
+                  <p className="chat-main-subtitle mt-1 text-sm text-[#6B7280]">
                     Order #{activeThread.order.id} - {activeThread.order.route_label} - {activeThread.order.status}
                   </p>
                 </div>
@@ -356,7 +357,7 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
                     loadMessages(activeThread.id)
                     loadThreads(activeThread.id, { silent: true })
                   }}
-                  className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#6B7280] transition hover:bg-gray-50 hover:text-[#4F46E5]"
+                  className="chat-refresh-btn inline-flex h-10 w-10 items-center justify-center rounded-lg border border-[#E5E7EB] bg-white text-[#6B7280] transition hover:bg-gray-50 hover:text-[#4F46E5]"
                   title="Refresh"
                 >
                   <i className="fas fa-rotate-right text-sm" aria-hidden="true"></i>
@@ -364,12 +365,12 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
               </div>
             </div>
 
-            <div className={`min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#F9FAFB] px-5 py-5 ${scrollPaneClass}`}>
+            <div className={`chat-messages min-h-0 flex-1 space-y-4 overflow-y-auto bg-[#F9FAFB] px-5 py-5 ${scrollPaneClass}`}>
               {loadingMessages && <div className="text-sm text-[#6B7280]">Loading conversation...</div>}
-              {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
-              {notice && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div>}
+              {error && <div className="chat-alert chat-alert--error rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+              {notice && <div className="chat-alert chat-alert--success rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{notice}</div>}
               {!loadingMessages && messages.length === 0 && (
-                <div className="grid min-h-full place-items-center text-center">
+                <div className="chat-empty grid min-h-full place-items-center text-center">
                   <div>
                     <i className="far fa-comments text-7xl text-gray-300" aria-hidden="true"></i>
                     <p className="mt-5 text-lg font-semibold text-gray-600">No messages yet.</p>
@@ -378,17 +379,17 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
                 </div>
               )}
               {messages.map((message) => (
-                <div key={message.id} className={`flex ${message.is_own ? 'justify-end' : 'justify-start'}`}>
+                <div key={message.id} className={`chat-message-row flex ${message.is_own ? 'chat-message-row--own justify-end' : 'justify-start'}`}>
                   <div
-                    className={`max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
+                    className={`chat-bubble max-w-[85%] rounded-2xl px-4 py-3 shadow-sm ${
                       message.message_type === 'system'
-                        ? 'bg-amber-50 text-amber-900'
+                        ? 'chat-bubble--system bg-amber-50 text-amber-900'
                         : message.is_own
-                          ? 'bg-[#4F46E5] text-white'
-                          : 'bg-white text-[#111827]'
+                          ? 'chat-bubble--own bg-[#4F46E5] text-white'
+                          : 'chat-bubble--other bg-white text-[#111827]'
                     }`}
                   >
-                    <div className="mb-1 text-xs font-semibold opacity-80">
+                    <div className="chat-bubble-sender mb-1 text-xs font-semibold opacity-80">
                       {message.message_type === 'system' ? 'System' : message.sender_name}
                     </div>
 
@@ -430,7 +431,7 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
                       </div>
                     )}
 
-                    <div className={`mt-2 text-[11px] ${message.is_own && message.message_type !== 'system' ? 'text-indigo-100' : 'text-slate-400'}`}>
+                    <div className={`chat-bubble-time mt-2 text-[11px] ${message.is_own && message.message_type !== 'system' ? 'text-indigo-100' : 'text-slate-400'}`}>
                       {formatDateTime(message.created_at)}
                     </div>
                   </div>
@@ -438,25 +439,25 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
               ))}
             </div>
 
-            <div className="flex-shrink-0 border-t border-gray-100 bg-white px-5 py-4">
+            <div className="chat-composer-wrap flex-shrink-0 border-t border-gray-100 bg-white px-5 py-4">
               <input ref={fileInputRef} type="file" accept=".jpg,.jpeg,.png,.mp4,.mov" className="hidden" onChange={uploadMediaFile} />
               {approvedRequest && (
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={uploading}
-                  className="mb-3 inline-flex min-h-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="chat-media-send mb-3 inline-flex min-h-10 items-center justify-center rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2 text-sm font-semibold text-emerald-700 transition hover:bg-emerald-100 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <i className={`fas ${uploading ? 'fa-spinner fa-spin' : 'fa-image'} mr-2`} aria-hidden="true"></i>
                   Send Photo/Video
                 </button>
               )}
-              <form className="flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-2 sm:flex-row sm:items-center" onSubmit={sendTextMessage}>
+              <form className="chat-composer flex flex-col gap-3 rounded-xl border border-[#E5E7EB] bg-[#F9FAFB] p-2 sm:flex-row sm:items-center" onSubmit={sendTextMessage}>
                 <button
                   type="button"
                   onClick={sendMediaRequest}
                   disabled={actingOnMessage === 'request'}
-                  className="inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-[#111827] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="chat-request-btn inline-flex min-h-10 items-center justify-center rounded-lg border border-gray-300 bg-white px-3 py-2 text-sm font-semibold text-[#111827] transition hover:bg-gray-50 disabled:cursor-not-allowed disabled:opacity-60"
                   title="Request Photo/Video"
                 >
                   <i className={`fas ${actingOnMessage === 'request' ? 'fa-spinner fa-spin' : 'fa-camera'} mr-2 text-[#6B7280]`} aria-hidden="true"></i>
@@ -467,12 +468,12 @@ export default function ChatWindow({ role = 'client', onUnreadChange, initialThr
                   onChange={(event) => setMessageText(event.target.value)}
                   placeholder="Type your message..."
                   maxLength={2000}
-                  className="min-h-10 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-[#111827] outline-none placeholder:text-[#6B7280]"
+                  className="chat-input min-h-10 flex-1 border-0 bg-transparent px-3 py-2 text-sm text-[#111827] outline-none placeholder:text-[#6B7280]"
                 />
                 <button
                   type="submit"
                   disabled={sending || !messageText.trim()}
-                  className="inline-flex min-h-10 items-center justify-center rounded-lg bg-[#4F46E5] px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
+                  className="chat-send-btn inline-flex min-h-10 items-center justify-center rounded-lg bg-[#4F46E5] px-4 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:cursor-not-allowed disabled:opacity-60"
                 >
                   <i className={`fas ${sending ? 'fa-spinner fa-spin' : 'fa-paper-plane'} mr-2`} aria-hidden="true"></i>
                   Send

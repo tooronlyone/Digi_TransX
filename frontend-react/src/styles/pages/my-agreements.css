@@ -1,0 +1,235 @@
+/* ============================================
+   MY AGREEMENTS PAGE
+   ============================================ */
+
+.myagreements-page {
+  width: 100%;
+}
+
+.myagreements-page-title {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  margin-bottom: 30px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.myagreements-page-title h1 {
+  margin: 0 0 10px;
+  color: var(--accent-secondary);
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+.myagreements-page-title p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.myagreements-primary-btn {
+  height: 42px;
+  border-radius: 13px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  padding: 0 18px;
+  background: var(--accent-primary);
+  color: white;
+  font-size: 14px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.22);
+}
+
+.myagreements-primary-btn:hover {
+  color: white;
+  background: var(--accent-primary-dark);
+  transform: translateY(-2px);
+}
+
+.myagreements-empty-state {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  background: var(--surface-white);
+  border: 1px dashed var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+  text-align: center;
+}
+
+.myagreements-empty-state i {
+  color: var(--accent-primary);
+  font-size: 34px;
+}
+
+.myagreements-empty-state p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: 15px;
+}
+
+.myagreements-empty-state a {
+  color: var(--accent-primary);
+  font-weight: 600;
+}
+
+.myagreements-grid {
+  display: grid;
+  gap: 18px;
+}
+
+.myagreements-card {
+  background: var(--surface-white);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-subtle);
+  padding: 20px;
+}
+
+.myagreements-card-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.myagreements-card-header h2 {
+  margin: 0;
+  color: var(--accent-secondary);
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.myagreements-card-header p {
+  margin: 5px 0 0;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+.myagreements-summary {
+  margin-top: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.12);
+  border-radius: 12px;
+  background: rgba(37, 99, 235, 0.08);
+  padding: 10px 12px;
+  color: var(--accent-primary);
+  font-size: 13px;
+}
+
+.myagreements-truck-list {
+  display: grid;
+  gap: 12px;
+  margin-top: 14px;
+}
+
+.myagreements-truck-card {
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--hover-bg);
+  padding: 14px;
+}
+
+.myagreements-trip-alert {
+  margin-bottom: 10px;
+  border: 1px solid rgba(239, 68, 68, 0.18);
+  border-radius: 10px;
+  background: rgba(239, 68, 68, 0.08);
+  padding: 8px 10px;
+  color: #b91c1c;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.myagreements-map-wrap {
+  margin: 10px 0;
+}
+
+.myagreements-truck-row {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.myagreements-truck-info {
+  color: var(--text-secondary);
+  font-size: 13px;
+}
+
+.myagreements-truck-info > div:first-child {
+  margin-bottom: 4px;
+  color: var(--accent-secondary);
+  font-weight: 600;
+}
+
+.myagreements-trip-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.myagreements-trip-input {
+  height: 38px;
+  min-width: 220px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  background: white;
+  padding: 0 12px;
+  color: var(--text-primary);
+  font-size: 13px;
+}
+
+.myagreements-trip-input:focus {
+  border-color: var(--accent-primary);
+  outline: none;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.myagreements-action-btn {
+  min-height: 38px !important;
+  border-radius: 10px !important;
+  font-size: 13px !important;
+}
+
+@media (max-width: 900px) {
+  .myagreements-page-title,
+  .myagreements-truck-row {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .myagreements-primary-btn {
+    align-self: flex-end;
+  }
+
+  .myagreements-trip-actions {
+    width: 100%;
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .myagreements-trip-input {
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+@media (max-width: 576px) {
+  .myagreements-page-title h1 {
+    font-size: 24px;
+  }
+
+  .myagreements-primary-btn {
+    align-self: stretch;
+  }
+}

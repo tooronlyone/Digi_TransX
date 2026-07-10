@@ -10,7 +10,7 @@ const EMPTY_TRUCK = { truck_type: '', capacity_tons: '', quantity: '1' }
 export default function PostAgreement() {
   const navigate = useNavigate()
   const [catalog, setCatalog] = useState([])
-  const [form, setForm] = useState({ title: '', cargo_type: '', service_area: [], trucks: [{ ...EMPTY_TRUCK }] })
+  const [form, setForm] = useState({ title: '', cargo_type: '', pickup_location: '', dropoff_location: '', service_area: [], trucks: [{ ...EMPTY_TRUCK }] })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
@@ -74,6 +74,17 @@ export default function PostAgreement() {
                 <option value="">Select cargo</option>
                 {CARGO_TYPES.map((item) => <option key={item} value={item}>{item}</option>)}
               </select>
+            </label>
+          </div>
+
+          <div className="grid gap-4 md:grid-cols-2">
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Pickup location
+              <input className="rounded-lg border border-slate-300 px-3 py-2.5" name="pickup_location" value={form.pickup_location} onChange={updateField} required />
+            </label>
+            <label className="grid gap-2 text-sm font-medium text-slate-700">
+              Dropoff location
+              <input className="rounded-lg border border-slate-300 px-3 py-2.5" name="dropoff_location" value={form.dropoff_location} onChange={updateField} required />
             </label>
           </div>
 

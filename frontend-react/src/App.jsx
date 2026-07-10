@@ -32,9 +32,10 @@ import TruckConfiguration from './pages/transporter/truck_configuration'
 import TrackTruck from './pages/transporter/track_truck'
 // import ServiceHistory from './pages/future/service_history'
 import AvailableBids from './pages/transporter/AvailableBids'
+import MyBids from './pages/transporter/MyBids'
+import OrderTracking from './pages/transporter/OrderTracking'
 import TransporterAgreementBids from './pages/transporter/AgreementBids'
 import TransporterMyAgreements from './pages/transporter/MyAgreements'
-import MyBids from './pages/transporter/MyBids'
 import Earnings from './pages/transporter/earning'
 import TransporterWallet from './pages/transporter/wallet'
 import AccountHistory from './pages/transporter/ac_history'
@@ -74,6 +75,7 @@ import OrgPartnerActivity from './pages/org/partner/Activity'
 import ClientDashboard from './pages/client/ClientDashboard'
 import PostOrder from './pages/client/PostOrder'
 import MyOrders from './pages/client/MyOrders'
+import ClientOrderDetail from './pages/client/ClientOrderDetail'
 import Agreements from './pages/client/Agreements'
 import PostAgreement from './pages/client/PostAgreement'
 import ClientAgreementBids from './pages/client/AgreementBids'
@@ -172,6 +174,7 @@ function ClientPortal() {
           <Route path="dashboard" element={<ClientDashboard />} />
           <Route path="post-order" element={<PostOrder />} />
           <Route path="orders" element={<MyOrders />} />
+          <Route path="order/:orderId" element={<ClientOrderDetail />} />
           <Route path="agreements" element={<Agreements />} />
           <Route path="post-agreement" element={<PostAgreement />} />
           <Route path="agreement-bids/:postId" element={<ClientAgreementBids />} />
@@ -207,10 +210,12 @@ function TransporterPortal() {
 
           <Route path="available-bids" element={<AvailableBids />} />
           <Route path="jobs" element={<Navigate to="/transporter/available-bids" replace />} />
+          <Route path="my-bids" element={<MyBids />} />
+          <Route path="order/:orderId" element={<OrderTracking />} />
+          <Route path="bids" element={<MyBids />} />
           <Route path="agreement-bids" element={<TransporterAgreementBids />} />
           <Route path="agreement-jobs" element={<Navigate to="/transporter/agreement-bids" replace />} />
           <Route path="my-agreements" element={<TransporterMyAgreements />} />
-          <Route path="bids" element={<MyBids />} />
           <Route path="messages" element={<TransporterMessages />} />
 
           <Route path="account-history" element={<AccountHistory />} />
@@ -235,6 +240,7 @@ function TransporterPortal() {
               <TransporterPlaceholderPage
                 title="Coming Soon"
                 description="This transporter section is still being prepared."
+                withLayout={false}
               />
             }
           />
@@ -327,6 +333,7 @@ export default function App() {
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/*" element={<AdminPortal />} />
 
+            <Route path="/transporter-dashboard" element={<Navigate to="/transporter/dashboard" replace />} />
             <Route path="/transporter/*" element={<TransporterPortal />} />
             <Route path="/client/*" element={<ClientPortal />} />
             <Route path="/org/*" element={<OrgPortal />} />

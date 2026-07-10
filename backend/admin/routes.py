@@ -229,7 +229,6 @@ def user_detail(user_id):
             return json_response({"success": False, "message": "User not found."}, 404)
         wallet = rowdict(db.execute("SELECT balance, locked_balance FROM wallets WHERE user_id = ?", (user_id,)).fetchone()) or {"balance": 0, "locked_balance": 0}
         trucks = db.execute("SELECT * FROM trucks WHERE owner_user_id = ? ORDER BY created_at DESC", (user_id,)).fetchall()
-        order_count = db.execute("SELECT COUNT(*) AS total FROM orders WHERE client_user_id = ?", (user_id,)).fetchone()["total"]
         agreement_count = db.execute(
             """
             SELECT COUNT(DISTINCT a.id) AS total
@@ -239,7 +238,7 @@ def user_detail(user_id):
             """,
             (user_id, user_id),
         ).fetchone()["total"]
-    return json_response({"success": True, "user": serialize_admin_user(user), "wallet": {"balance": round_money(wallet["balance"]), "locked_balance": round_money(wallet["locked_balance"])}, "truck_count": len(trucks), "trucks": [serialize_truck(row) for row in trucks], "order_count": order_count, "agreement_count": agreement_count})
+    return json_response({"success": True, "user": serialize_admin_user(user), "wallet": {"balance": round_money(wallet["balance"]), "locked_balance": round_money(wallet["locked_balance"])}, "truck_count": len(trucks), "trucks": [serialize_truck(row) for row in trucks], "agreement_count": agreement_count})
 
 
 @admin_blueprint.put("/users/<int:user_id>/block")
@@ -526,11 +525,11 @@ def create_group_chat(trip_id):
         db.execute(
             """
             INSERT INTO chat_threads (
-                order_id, client_user_id, transporter_user_id, bid_id, is_group_chat,
+                client_user_id, transporter_user_id, is_group_chat,
                 admin_user_id, dispute_trip_id, last_message_at, created_at
-            ) VALUES (?, ?, ?, NULL, 1, ?, ?, ?, ?)
+            ) VALUES (?, ?, 1, ?, ?, ?, ?)
             """,
-            (-(trip_id + 1000000), trip["client_user_id"], trip["transporter_user_id"], request.current_user["id"], trip_id, stamp, stamp),
+            (trip["client_user_id"], trip["transporter_user_id"], request.current_user["id"], trip_id, stamp, stamp),
         )
         thread_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
         insert_chat_message(db, thread_id, request.current_user["id"], "system", content=f"Admin created this group chat to resolve the dispute for Trip #{trip_id} - {trip.get('pickup_description') or ''} - {round_money(trip.get('distance_km'))} km")
