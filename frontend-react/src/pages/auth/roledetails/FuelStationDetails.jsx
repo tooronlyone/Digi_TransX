@@ -52,7 +52,7 @@ export default function FuelStationDetails() {
       <Notification type={notification.type} message={notification.message}
         onClose={() => setNotification({ type: '', message: '' })} />
 
-      <form onSubmit={handleSubmit}>
+      <form className="auth-details-form" onSubmit={handleSubmit}>
         <InputField label="Station Name" id="station_name" type="text"
           placeholder="e.g. Al-Rehman Fuel Station" value={form.station_name}
           onChange={set('station_name')} error={errors.station_name} />
@@ -65,12 +65,12 @@ export default function FuelStationDetails() {
           placeholder="License number (optional)" value={form.license_no}
           onChange={set('license_no')} error={errors.license_no} />
 
-        <div className="mb-6">
-          <label className="block mb-2 font-semibold text-gray-700 text-sm">
-            Number of Pumps <span className="font-normal text-gray-400">(Optional)</span>
+        <div className="auth-form-field">
+          <label >
+            Number of Pumps <span >(Optional)</span>
           </label>
           <select value={form.pumps_count} onChange={set('pumps_count')}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 text-gray-700">
+            className="auth-form-input auth-form-select">
             <option value="">Select...</option>
             <option value="1-2">1–2 pumps</option>
             <option value="3-5">3–5 pumps</option>
@@ -79,8 +79,8 @@ export default function FuelStationDetails() {
         </div>
 
         <button type="submit" disabled={loading}
-          className="w-full py-3 bg-amber-500 hover:bg-amber-600 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">
-          {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          className="auth-submit">
+          {loading && <span className="auth-shell__spinner" aria-hidden="true" />}
           {loading ? 'Creating account...' : 'Create Account'}
         </button>
       </form>

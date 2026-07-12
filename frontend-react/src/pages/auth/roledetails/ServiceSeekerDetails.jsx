@@ -50,17 +50,17 @@ export default function ServiceSeekerDetails() {
       <Notification type={notification.type} message={notification.message}
         onClose={() => setNotification({ type: '', message: '' })} />
 
-      <form onSubmit={handleSubmit}>
+      <form className="auth-details-form" onSubmit={handleSubmit}>
         <InputField label="City / Location" id="city" type="text"
           placeholder="e.g. Lahore, Karachi, Faisalabad" value={form.city}
           onChange={set('city')} error={errors.city} />
 
-        <div className="mb-5">
-          <label className="block mb-2 font-semibold text-gray-700 text-sm">
-            Business Type <span className="font-normal text-gray-400">(Optional)</span>
+        <div className="auth-form-field">
+          <label >
+            Business Type <span >(Optional)</span>
           </label>
           <select value={form.business_type} onChange={set('business_type')}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 text-gray-700">
+            className="auth-form-input auth-form-select">
             <option value="">Select type...</option>
             <option value="manufacturer">Manufacturer</option>
             <option value="wholesaler">Wholesaler / Trader</option>
@@ -75,8 +75,8 @@ export default function ServiceSeekerDetails() {
           onChange={set('company_name')} error={errors.company_name} />
 
         <button type="submit" disabled={loading}
-          className="w-full py-3 bg-emerald-500 hover:bg-emerald-600 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">
-          {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          className="auth-submit">
+          {loading && <span className="auth-shell__spinner" aria-hidden="true" />}
           {loading ? 'Creating account...' : 'Create Account'}
         </button>
       </form>

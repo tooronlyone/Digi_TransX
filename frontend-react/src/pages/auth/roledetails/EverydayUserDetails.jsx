@@ -49,17 +49,17 @@ export default function EverydayUserDetails() {
       <Notification type={notification.type} message={notification.message}
         onClose={() => setNotification({ type: '', message: '' })} />
 
-      <form onSubmit={handleSubmit}>
+      <form className="auth-details-form" onSubmit={handleSubmit}>
         <InputField label="Your City" id="city" type="text"
           placeholder="e.g. Lahore, Multan, Peshawar" value={form.city}
           onChange={set('city')} error={errors.city} />
 
-        <div className="mb-6">
-          <label className="block mb-2 font-semibold text-gray-700 text-sm">
-            How often do you need transport? <span className="font-normal text-gray-400">(Optional)</span>
+        <div className="auth-form-field">
+          <label >
+            How often do you need transport? <span >(Optional)</span>
           </label>
           <select value={form.transport_need} onChange={set('transport_need')}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 text-gray-700">
+            className="auth-form-input auth-form-select">
             <option value="">Select...</option>
             <option value="rarely">Rarely (a few times a year)</option>
             <option value="monthly">Monthly</option>
@@ -67,13 +67,13 @@ export default function EverydayUserDetails() {
           </select>
         </div>
 
-        <div className="p-4 bg-violet-50 border border-violet-200 rounded-lg mb-5 text-sm text-violet-700">
+        <div className="auth-detail-note">
           ✅ You'll get a simple, clean interface — no complex features.
         </div>
 
         <button type="submit" disabled={loading}
-          className="w-full py-3 bg-violet-500 hover:bg-violet-600 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">
-          {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          className="auth-submit">
+          {loading && <span className="auth-shell__spinner" aria-hidden="true" />}
           {loading ? 'Creating account...' : 'Create Account'}
         </button>
       </form>

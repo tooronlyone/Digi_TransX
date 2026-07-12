@@ -2,6 +2,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
+import '../../styles/pages/truck-configuration.css'
 
 const EMPTY_FORM = {
   truck_number: '', truck_type: '', max_capacity: '', chassis_number: '',
@@ -14,7 +15,7 @@ const EMPTY_FORM = {
   status: 'inactive', status_reason_code: '', status_reason: '',
 }
 
-const REQUIRED = ['truck_number', 'truck_type', 'max_capacity', 'chassis_number', 'operating_provinces']
+const REQUIRED = ['truck_number', 'body_style', 'payload_min_kg', 'payload_max_kg', 'chassis_number', 'operating_provinces']
 
 const PROVINCES = [
   'Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan',
@@ -28,6 +29,8 @@ const STATUS_OPTIONS = [
   { value: 'maintenance', label: 'Maintenance' },
   { value: 'blocked', label: 'Blocked' },
 ]
+
+const BODY_STYLE_OPTIONS = ['Open Body', 'Box Body', 'Trailer', 'Tanker', 'Refrigerated', 'Dumper', 'Livestock', 'Car Carrier', 'Other']
 
 const STATUS_REASONS = [
   { value: 'assigned_job', label: 'On job / assigned to job' },
@@ -43,23 +46,23 @@ const STATUS_REASONS = [
 ]
 
 const FALLBACK_TRUCK_TYPES = [
-  { type_key: 'mini_pickup', display_name: 'Mini pickup', common_uses: ['Last-mile retail supply', 'Cartons'], payload_min_kg: 500, payload_max_kg: 700, volume_min_cbm: 2, volume_max_cbm: 3, typical_body_style: 'Low-side deck', class_segment: 'Small urban cargo' },
-  { type_key: 'light_truck_2_3_5_ton', display_name: 'Light truck 2-3.5 ton', common_uses: ['Branch replenishment', 'Consumer goods'], payload_min_kg: 2000, payload_max_kg: 3500, volume_min_cbm: 10, volume_max_cbm: 18, typical_body_style: 'Open bed / dry box', class_segment: 'Light rigid truck' },
-  { type_key: 'light_truck_3_5_5_ton', display_name: 'Light truck 3.5-5 ton', common_uses: ['Retail distribution', 'Packaging'], payload_min_kg: 3500, payload_max_kg: 5000, volume_min_cbm: 15, volume_max_cbm: 24, typical_body_style: 'Open bed / dry box', class_segment: 'Light rigid truck' },
-  { type_key: 'medium_rigid_truck_5_9_ton', display_name: 'Medium rigid truck 5-9 ton', common_uses: ['General cargo', 'Textile'], payload_min_kg: 5000, payload_max_kg: 9000, volume_min_cbm: 20, volume_max_cbm: 36, typical_body_style: 'Rigid cargo body', class_segment: 'Medium rigid truck' },
-  { type_key: 'heavy_rigid_truck_9_15_ton', display_name: 'Heavy rigid truck 9-15 ton', common_uses: ['Long-route cargo', 'Industrial goods'], payload_min_kg: 9000, payload_max_kg: 15000, volume_min_cbm: 30, volume_max_cbm: 55, typical_body_style: 'Rigid cargo body', class_segment: 'Heavy rigid truck' },
-  { type_key: 'heavy_rigid_truck_15_25_ton', display_name: 'Heavy rigid truck 15-25 ton', common_uses: ['Heavy cargo', 'Bulk industrial loads'], payload_min_kg: 15000, payload_max_kg: 25000, volume_min_cbm: 40, volume_max_cbm: 70, typical_body_style: 'Rigid cargo body', class_segment: 'Heavy rigid truck' },
-  { type_key: 'flatbed_trailer_open_semi_trailer', display_name: 'Flatbed trailer / open semi-trailer', common_uses: ['Steel', 'Machinery'], payload_min_kg: 20000, payload_max_kg: 45000, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Open flatbed', class_segment: 'Trailer-based heavy transport' },
-  { type_key: 'container_carrier_skeletal_trailer', display_name: 'Container carrier / skeletal trailer', common_uses: ['Container transport'], payload_min_kg: 20000, payload_max_kg: 30000, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Skeletal semi-trailer', class_segment: 'Trailer-based heavy transport' },
-  { type_key: 'low_bed_low_loader_trailer', display_name: 'Low-bed / low-loader trailer', common_uses: ['Heavy machinery', 'Oversized loads'], payload_min_kg: 25000, payload_max_kg: 60000, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Low-bed trailer', class_segment: 'Trailer-based heavy transport' },
-  { type_key: 'fuel_oil_tanker', display_name: 'Fuel / oil tanker', common_uses: ['Petrol', 'Diesel', 'Furnace oil'], payload_min_kg: 8000, payload_max_kg: 35000, volume_min_cbm: 10, volume_max_cbm: 45, typical_body_style: 'Tanker', class_segment: 'Tanker vehicle' },
-  { type_key: 'milk_tanker', display_name: 'Milk tanker', common_uses: ['Raw milk', 'Dairy liquids'], payload_min_kg: 5000, payload_max_kg: 28000, volume_min_cbm: 6, volume_max_cbm: 30, typical_body_style: 'Food-grade tanker', class_segment: 'Tanker vehicle' },
-  { type_key: 'chemical_tanker', display_name: 'Chemical tanker', common_uses: ['Industrial chemicals'], payload_min_kg: 8000, payload_max_kg: 32000, volume_min_cbm: 10, volume_max_cbm: 40, typical_body_style: 'Chemical tanker', class_segment: 'Tanker vehicle' },
-  { type_key: 'refrigerated_rigid_truck', display_name: 'Refrigerated rigid truck', common_uses: ['Frozen food', 'Pharma', 'Fresh produce'], payload_min_kg: 1000, payload_max_kg: 12000, volume_min_cbm: 6, volume_max_cbm: 40, typical_body_style: 'Insulated reefer body', class_segment: 'Cold-chain vehicle' },
-  { type_key: 'reefer_trailer_reefer_container_carrier', display_name: 'Reefer trailer / reefer container carrier', common_uses: ['Frozen exports', 'Cold-chain bulk'], payload_min_kg: 12000, payload_max_kg: 28000, volume_min_cbm: 40, volume_max_cbm: 75, typical_body_style: 'Reefer trailer', class_segment: 'Cold-chain vehicle' },
-  { type_key: 'insulated_or_dry_box_truck', display_name: 'Insulated or dry box truck', common_uses: ['Sensitive packaged goods', 'Dry groceries'], payload_min_kg: 1000, payload_max_kg: 12000, volume_min_cbm: 8, volume_max_cbm: 45, typical_body_style: 'Closed box body', class_segment: 'Enclosed cargo' },
-  { type_key: 'dump_truck_tipper', display_name: 'Dump truck / tipper', common_uses: ['Sand', 'Gravel', 'Construction materials'], payload_min_kg: 5000, payload_max_kg: 25000, volume_min_cbm: 4, volume_max_cbm: 16, typical_body_style: 'Tipper body', class_segment: 'Construction and bulk haulage' },
-  { type_key: 'bulk_cement_tanker_powder_bulker', display_name: 'Bulk cement tanker / powder bulker', common_uses: ['Bulk cement', 'Fly ash'], payload_min_kg: 15000, payload_max_kg: 35000, volume_min_cbm: 18, volume_max_cbm: 45, typical_body_style: 'Pneumatic dry bulk tanker', class_segment: 'Construction and bulk haulage' },
+  { type_key: 'mini_pickup', display_name: 'Mini pickup', common_uses: ['Last-mile retail supply', 'Cartons'], payload_min_kg: 0.5, payload_max_kg: 0.7, volume_min_cbm: 2, volume_max_cbm: 3, typical_body_style: 'Low-side deck', class_segment: 'Small urban cargo' },
+  { type_key: 'light_truck_2_3_5_ton', display_name: 'Light truck 2-3.5 ton', common_uses: ['Branch replenishment', 'Consumer goods'], payload_min_kg: 2, payload_max_kg: 3.5, volume_min_cbm: 10, volume_max_cbm: 18, typical_body_style: 'Open bed / dry box', class_segment: 'Light rigid truck' },
+  { type_key: 'light_truck_3_5_5_ton', display_name: 'Light truck 3.5-5 ton', common_uses: ['Retail distribution', 'Packaging'], payload_min_kg: 3.5, payload_max_kg: 5, volume_min_cbm: 15, volume_max_cbm: 24, typical_body_style: 'Open bed / dry box', class_segment: 'Light rigid truck' },
+  { type_key: 'medium_rigid_truck_5_9_ton', display_name: 'Medium rigid truck 5-9 ton', common_uses: ['General cargo', 'Textile'], payload_min_kg: 5, payload_max_kg: 9, volume_min_cbm: 20, volume_max_cbm: 36, typical_body_style: 'Rigid cargo body', class_segment: 'Medium rigid truck' },
+  { type_key: 'heavy_rigid_truck_9_15_ton', display_name: 'Heavy rigid truck 9-15 ton', common_uses: ['Long-route cargo', 'Industrial goods'], payload_min_kg: 9, payload_max_kg: 15, volume_min_cbm: 30, volume_max_cbm: 55, typical_body_style: 'Rigid cargo body', class_segment: 'Heavy rigid truck' },
+  { type_key: 'heavy_rigid_truck_15_25_ton', display_name: 'Heavy rigid truck 15-25 ton', common_uses: ['Heavy cargo', 'Bulk industrial loads'], payload_min_kg: 15, payload_max_kg: 25, volume_min_cbm: 40, volume_max_cbm: 70, typical_body_style: 'Rigid cargo body', class_segment: 'Heavy rigid truck' },
+  { type_key: 'flatbed_trailer_open_semi_trailer', display_name: 'Flatbed trailer / open semi-trailer', common_uses: ['Steel', 'Machinery'], payload_min_kg: 20, payload_max_kg: 45, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Open flatbed', class_segment: 'Trailer-based heavy transport' },
+  { type_key: 'container_carrier_skeletal_trailer', display_name: 'Container carrier / skeletal trailer', common_uses: ['Container transport'], payload_min_kg: 20, payload_max_kg: 30, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Skeletal semi-trailer', class_segment: 'Trailer-based heavy transport' },
+  { type_key: 'low_bed_low_loader_trailer', display_name: 'Low-bed / low-loader trailer', common_uses: ['Heavy machinery', 'Oversized loads'], payload_min_kg: 25, payload_max_kg: 60, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Low-bed trailer', class_segment: 'Trailer-based heavy transport' },
+  { type_key: 'fuel_oil_tanker', display_name: 'Fuel / oil tanker', common_uses: ['Petrol', 'Diesel', 'Furnace oil'], payload_min_kg: 8, payload_max_kg: 35, volume_min_cbm: 10, volume_max_cbm: 45, typical_body_style: 'Tanker', class_segment: 'Tanker vehicle' },
+  { type_key: 'milk_tanker', display_name: 'Milk tanker', common_uses: ['Raw milk', 'Dairy liquids'], payload_min_kg: 5, payload_max_kg: 28, volume_min_cbm: 6, volume_max_cbm: 30, typical_body_style: 'Food-grade tanker', class_segment: 'Tanker vehicle' },
+  { type_key: 'chemical_tanker', display_name: 'Chemical tanker', common_uses: ['Industrial chemicals'], payload_min_kg: 8, payload_max_kg: 32, volume_min_cbm: 10, volume_max_cbm: 40, typical_body_style: 'Chemical tanker', class_segment: 'Tanker vehicle' },
+  { type_key: 'refrigerated_rigid_truck', display_name: 'Refrigerated rigid truck', common_uses: ['Frozen food', 'Pharma', 'Fresh produce'], payload_min_kg: 1, payload_max_kg: 12, volume_min_cbm: 6, volume_max_cbm: 40, typical_body_style: 'Insulated reefer body', class_segment: 'Cold-chain vehicle' },
+  { type_key: 'reefer_trailer_reefer_container_carrier', display_name: 'Reefer trailer / reefer container carrier', common_uses: ['Frozen exports', 'Cold-chain bulk'], payload_min_kg: 12, payload_max_kg: 28, volume_min_cbm: 40, volume_max_cbm: 75, typical_body_style: 'Reefer trailer', class_segment: 'Cold-chain vehicle' },
+  { type_key: 'insulated_or_dry_box_truck', display_name: 'Insulated or dry box truck', common_uses: ['Sensitive packaged goods', 'Dry groceries'], payload_min_kg: 1, payload_max_kg: 12, volume_min_cbm: 8, volume_max_cbm: 45, typical_body_style: 'Closed box body', class_segment: 'Enclosed cargo' },
+  { type_key: 'dump_truck_tipper', display_name: 'Dump truck / tipper', common_uses: ['Sand', 'Gravel', 'Construction materials'], payload_min_kg: 5, payload_max_kg: 25, volume_min_cbm: 4, volume_max_cbm: 16, typical_body_style: 'Tipper body', class_segment: 'Construction and bulk haulage' },
+  { type_key: 'bulk_cement_tanker_powder_bulker', display_name: 'Bulk cement tanker / powder bulker', common_uses: ['Bulk cement', 'Fly ash'], payload_min_kg: 15, payload_max_kg: 35, volume_min_cbm: 18, volume_max_cbm: 45, typical_body_style: 'Pneumatic dry bulk tanker', class_segment: 'Construction and bulk haulage' },
   { type_key: 'livestock_carrier', display_name: 'Livestock carrier', common_uses: ['Livestock', 'Poultry'], payload_min_kg: 0, payload_max_kg: 0, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Ventilated body', class_segment: 'Specialized cargo' },
 ]
 
@@ -158,6 +161,8 @@ export default function TruckConfiguration() {
     const { name, value, type, checked } = e.target
     if (type === 'checkbox') {
       setForm(f => ({ ...f, [name]: checked }))
+    } else if (name === 'payload_max_kg') {
+      setForm(f => ({ ...f, payload_max_kg: value, max_capacity: value }))
     } else {
       setForm(f => ({ ...f, [name]: value }))
     }
@@ -169,7 +174,7 @@ export default function TruckConfiguration() {
       ...f,
       catalog_type_key: typeKey,
       truck_type: catalog?.display_name || f.truck_type,
-      max_capacity: catalog?.payload_max_kg ? String(Number(catalog.payload_max_kg) / 1000) : f.max_capacity,
+      max_capacity: catalog?.payload_max_kg ? String(catalog.payload_max_kg) : f.max_capacity,
       body_style: catalog?.typical_body_style || f.body_style,
       payload_min_kg: catalog?.payload_min_kg || f.payload_min_kg,
       payload_max_kg: catalog?.payload_max_kg || f.payload_max_kg,
@@ -291,8 +296,8 @@ export default function TruckConfiguration() {
   const statusIsActive = form.status === 'active'
 
   return (
-    <div className="min-h-[calc(100vh-70px)] bg-[#F9FAFB]">
-      <div className="space-y-6">
+    <div className="truck-config-page">
+      <div className="truck-config-shell">
         <Link to="/transporter/trucks" className="inline-flex items-center gap-2 text-sm font-semibold text-[#6B7280] hover:text-[#4F46E5]">
           <i className="fas fa-arrow-left" aria-hidden="true"></i>
           Back To My Trucks
@@ -314,7 +319,7 @@ export default function TruckConfiguration() {
           </div>
         ) : (
           <>
-            <div className="grid gap-6 md:grid-cols-2">
+            <div className="truck-config-summary-grid">
               <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
                 <div className="flex items-center gap-4">
                   <span className="grid h-11 w-11 place-items-center rounded-xl bg-green-50 text-[#10B981]">
@@ -353,7 +358,7 @@ export default function TruckConfiguration() {
               </div>
             )}
 
-            <form className="space-y-6" onSubmit={handleSubmit} noValidate>
+            <form className="truck-config-form" onSubmit={handleSubmit} noValidate>
               <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
                 <h2 className="text-lg font-bold text-[#111827]">Truck Status</h2>
                 <p className="mt-1 text-sm text-[#6B7280]">Change truck status. Active requires all required fields to be filled.</p>
@@ -408,45 +413,34 @@ export default function TruckConfiguration() {
                     <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="truck_number" value={form.truck_number} onChange={setField} placeholder="Example: LE-1234" required />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Type</span>
-                    <select className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" name="catalog_type_key" value={form.catalog_type_key} onChange={e => applyCatalogType(e.target.value)} required>
-                      <option value="">Select truck type</option>
-                      {truckTypes.map(t => <option key={t.type_key} value={t.type_key}>{t.display_name}</option>)}
-                    </select>
-                    <input type="hidden" name="truck_type" value={form.truck_type} />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Capacity (tons)</span>
-                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="number" name="max_capacity" value={form.max_capacity} onChange={setField} min="0.1" step="0.1" required />
-                  </label>
-                  <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Chassis Number</span>
                     <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="chassis_number" value={form.chassis_number} onChange={setField} placeholder="Enter chassis number" pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{11,17}" required />
                     <span className="mt-2 block text-xs italic text-gray-400">11-17 characters, letters and numbers only (I, O, Q not allowed)</span>
                   </label>
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Body Style</span>
-                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="body_style" value={form.body_style} onChange={setField} placeholder="Catalog body style" />
+                    <select className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" name="body_style" value={form.body_style} onChange={setField} required>
+                      <option value="">Select body style</option>
+                      {BODY_STYLE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                    </select>
+                    <input type="hidden" name="truck_type" value={form.truck_type || form.body_style || 'Truck'} />
                   </label>
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Payload Range (kg)</span>
-                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" value={`${form.payload_min_kg || 0} - ${form.payload_max_kg || 0}`} readOnly />
-                    <span className="mt-2 block text-xs italic text-gray-400">Loaded from Pakistan vehicle catalog.</span>
-                  </label>
+                  <div className="truck-config-weight-field">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Weight Capacity</span>
+                    <div className="truck-config-weight-row">
+                      <div className="truck-config-weight-input">
+                        <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="number" name="payload_min_kg" value={form.payload_min_kg} onChange={setField} min="0" step="0.1" placeholder="Min" required />
+                        <span>ton</span>
+                      </div>
+                      <div className="truck-config-weight-input">
+                        <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="number" name="payload_max_kg" value={form.payload_max_kg} onChange={setField} min="0" step="0.1" placeholder="Max" required />
+                        <span>ton</span>
+                      </div>
+                    </div>
+                    <input type="hidden" name="max_capacity" value={form.payload_max_kg || form.max_capacity} />
+                  </div>
                 </div>
               </section>
-
-              <div className="rounded-lg border-l-4 border-blue-500 bg-[#EFF6FF] p-4">
-                <div className="flex items-center gap-2 font-bold text-[#1E40AF]">
-                  <i className="fas fa-circle-info" aria-hidden="true"></i>
-                  Catalog Fields
-                </div>
-                <p className="mt-2 text-sm text-gray-600">
-                  {catalogFields.length > 0
-                    ? catalogFields.map(field => field.field_label).join(', ')
-                    : 'Truck type, Class segment, Typical body style, Payload min (kg), Payload max (kg), Volume min (cbm), Volume max (cbm)'}
-                </p>
-              </div>
 
               <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
                 <h2 className="text-lg font-bold text-[#111827]">Operating Provinces</h2>
@@ -523,7 +517,7 @@ export default function TruckConfiguration() {
                 </div>
               </section>
 
-              <div className="flex justify-end gap-4">
+              <div className="truck-config-actions">
                 <button type="button" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60" onClick={loadConfig} disabled={loading}>
                   <i className="fas fa-sync-alt" aria-hidden="true"></i>
                   Reload
@@ -535,24 +529,7 @@ export default function TruckConfiguration() {
               </div>
             </form>
 
-            <footer className="pb-4 pt-2 text-center text-sm text-gray-400">
-              <p>Copyright 2026 Digi_TransX Transport Services. All rights reserved.</p>
-              <div className="mt-2 flex flex-wrap justify-center gap-x-2 gap-y-1">
-                {[
-                  ['About Us', '/transporter/about'],
-                  ['Contact', '/transporter/contact'],
-                  ['Terms & Conditions', '/transporter/terms'],
-                  ['Privacy Policy', '/transporter/privacy'],
-                  ['Help Center', '/transporter/help'],
-                  ['Partner With Us', '/transporter/partner'],
-                ].map(([label, to], index, array) => (
-                  <span key={label}>
-                    <Link to={to} className="text-gray-400 hover:text-[#4F46E5]">{label}</Link>
-                    {index < array.length - 1 && <span className="ml-2">|</span>}
-                  </span>
-                ))}
-              </div>
-            </footer>
+
           </>
         )}
 

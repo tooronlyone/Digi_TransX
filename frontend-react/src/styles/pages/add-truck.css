@@ -196,6 +196,26 @@
   color: #047857;
 }
 
+
+.page-add-truck .weight-capacity-group {
+  max-width: 420px;
+}
+
+.page-add-truck .weight-capacity-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.page-add-truck .weight-capacity-field {
+  min-width: 0;
+}
+
+
+.page-add-truck .weight-capacity-field input {
+  height: 42px;
+}
+
 .page-add-truck .btn-block {
   width: 100%;
   min-height: 50px;
@@ -272,4 +292,88 @@
     flex-basis: 42px;
     font-size: 18px;
   }
+}
+
+.page-add-truck .body-detail-field {
+  animation: addTruckFieldIn 0.18s ease-out;
+}
+
+.page-add-truck .body-detail-panel {
+  padding: 14px;
+  border: 1px solid rgba(37, 99, 235, 0.14);
+  border-radius: 14px;
+  background: rgba(37, 99, 235, 0.04);
+  animation: addTruckFieldIn 0.18s ease-out;
+}
+
+.page-add-truck .choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.page-add-truck .choice-grid--radio {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+}
+
+.page-add-truck .choice-pill {
+  display: flex !important;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  margin: 0 !important;
+  padding: 10px 12px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  background: var(--surface-white);
+  color: var(--accent-secondary) !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+  cursor: pointer;
+}
+
+.page-add-truck .choice-pill input {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 16px;
+  padding: 0;
+  margin: 0;
+  accent-color: var(--accent-primary);
+}
+
+@keyframes addTruckFieldIn {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 768px) {
+  .page-add-truck .choice-grid,
+  .page-add-truck .choice-grid--radio {
+    grid-template-columns: 1fr;
+  }
+}
+
+.page-add-truck .weight-capacity-field {
+  position: relative;
+}
+
+.page-add-truck .weight-capacity-field input {
+  padding-right: 48px;
+}
+
+.page-add-truck .weight-capacity-unit {
+  position: absolute;
+  right: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
 }

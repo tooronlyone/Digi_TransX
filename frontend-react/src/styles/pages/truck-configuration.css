@@ -1,0 +1,477 @@
+/* ============================================
+   TRUCK CONFIGURATION PAGE
+   ============================================ */
+
+.truck-config-page {
+  width: 100%;
+  max-width: 1180px;
+  color: var(--accent-secondary);
+}
+
+.truck-config-shell,
+.truck-config-form {
+  display: grid;
+  gap: 18px;
+}
+
+.truck-config-page a {
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.truck-config-page a:hover {
+  color: var(--accent-primary);
+}
+
+.truck-config-page h1 {
+  margin: 0;
+  color: var(--accent-secondary);
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+}
+
+.truck-config-page h2 {
+  margin: 0;
+  color: var(--accent-secondary);
+  font-size: 18px;
+  font-weight: 800;
+}
+
+.truck-config-page p {
+  margin: 6px 0 0;
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.truck-config-page section,
+.truck-config-page .grid.min-h-80 {
+  background: var(--surface-white) !important;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: var(--radius-lg) !important;
+  box-shadow: var(--shadow-subtle) !important;
+  padding: 22px !important;
+}
+
+.truck-config-summary-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.truck-config-summary-grid section > div,
+.truck-config-page section > .flex {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+
+.truck-config-page section span[class*="rounded-xl"]:has(i) {
+  width: 46px;
+  height: 46px;
+  flex: 0 0 46px;
+  display: grid;
+  place-items: center;
+  border-radius: 14px;
+  background: rgba(37, 99, 235, 0.1) !important;
+  color: var(--accent-primary) !important;
+  font-size: 18px;
+}
+
+.truck-config-page span[class*="rounded-full"] {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: fit-content;
+  border-radius: 999px;
+  padding: 6px 12px;
+  background: rgba(37, 99, 235, 0.1) !important;
+  color: var(--accent-primary) !important;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.truck-config-page .h-2 {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e8eef7 !important;
+}
+
+.truck-config-page .h-full {
+  height: 100%;
+  border-radius: 999px;
+  background: var(--accent-primary) !important;
+}
+
+.truck-config-page .border-l-4 {
+  border-left: 4px solid var(--accent-primary) !important;
+  background: rgba(37, 99, 235, 0.07) !important;
+  color: #1e40af !important;
+}
+
+.truck-config-page form section > div[class*="grid"],
+.truck-config-page .mt-5.grid,
+.truck-config-page .grid.gap-5,
+.truck-config-page .grid.gap-3,
+.truck-config-page .grid.gap-4 {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+  margin-top: 18px;
+}
+
+.truck-config-page .md\:grid-cols-3,
+.truck-config-page .lg\:grid-cols-3 {
+  grid-template-columns: repeat(3, minmax(0, 1fr)) !important;
+}
+
+.truck-config-page label {
+  min-width: 0;
+  display: block;
+}
+
+.truck-config-page label > span:first-child {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+  letter-spacing: 0;
+  text-transform: none !important;
+}
+
+.truck-config-page input:not([type="checkbox"]):not([type="file"]),
+.truck-config-page select {
+  width: 100%;
+  height: 46px;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 13px !important;
+  background: #f8fafc !important;
+  color: var(--accent-secondary) !important;
+  padding: 0 14px !important;
+  font: 600 14px/1.2 var(--font-primary);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast), background var(--transition-fast);
+}
+
+.truck-config-page select {
+  appearance: auto;
+  cursor: pointer;
+}
+
+.truck-config-page input:not([type="checkbox"]):not([type="file"]):focus,
+.truck-config-page select:focus {
+  border-color: var(--accent-primary) !important;
+  background: var(--surface-white) !important;
+  box-shadow: 0 0 0 4px rgba(37, 99, 235, 0.12) !important;
+}
+
+.truck-config-page input[readonly] {
+  color: var(--text-secondary) !important;
+  cursor: not-allowed;
+}
+
+.truck-config-page label:has(input[type="checkbox"]) {
+  min-height: 48px;
+  display: flex !important;
+  align-items: center;
+  gap: 12px;
+  border: 1px solid var(--border-subtle) !important;
+  border-radius: 13px;
+  background: var(--surface-white) !important;
+  padding: 12px 14px !important;
+  color: var(--accent-secondary);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.truck-config-page input[type="checkbox"] {
+  width: 17px;
+  height: 17px;
+  flex: 0 0 auto;
+  accent-color: var(--accent-primary);
+}
+
+.truck-config-page label:has(input[type="file"]) {
+  min-height: 150px;
+  display: flex !important;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  border: 2px dashed #cbd5e1 !important;
+  border-radius: 16px;
+  background: #f8fafc !important;
+  padding: 22px !important;
+  text-align: center;
+  cursor: pointer;
+}
+
+.truck-config-page label:has(input[type="file"]):hover {
+  border-color: var(--accent-primary) !important;
+  background: rgba(37, 99, 235, 0.05) !important;
+}
+
+.truck-config-page input[type="file"],
+.truck-config-page .hidden {
+  display: none !important;
+}
+
+.truck-config-page button {
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px solid transparent;
+  border-radius: 13px;
+  background: var(--accent-primary);
+  color: white;
+  padding: 0 18px;
+  font-size: 14px;
+  font-weight: 700;
+  cursor: pointer;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.2);
+}
+
+.truck-config-page button:hover:not(:disabled) {
+  background: var(--accent-primary-dark);
+  transform: translateY(-1px);
+}
+
+.truck-config-page button:disabled {
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.truck-config-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.truck-config-actions button[type="button"] {
+  border-color: var(--border-subtle);
+  background: var(--surface-white);
+  color: var(--text-secondary);
+  box-shadow: none;
+}
+
+.truck-config-actions button[type="button"]:hover:not(:disabled) {
+  background: var(--hover-bg);
+  color: var(--accent-primary);
+}
+
+
+
+
+.truck-config-page .fixed {
+  position: fixed;
+  right: 24px;
+  bottom: 24px;
+  z-index: 1400;
+}
+
+.truck-config-page .fixed > div {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  border: 1px solid var(--border-subtle);
+  border-radius: 14px;
+  background: var(--surface-white) !important;
+  color: var(--accent-secondary) !important;
+  padding: 12px 14px;
+  box-shadow: var(--shadow-elevated);
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.transporter-page:has(.sidebar:hover) .truck-config-page {
+  max-width: 1110px;
+}
+
+.transporter-page:has(.sidebar:hover) .truck-config-page section,
+.transporter-page:has(.sidebar:hover) .truck-config-page .grid.min-h-80 {
+  padding: 20px !important;
+}
+
+@media (max-width: 900px) {
+  .truck-config-summary-grid,
+  .truck-config-page form section > div[class*="grid"],
+  .truck-config-page .mt-5.grid,
+  .truck-config-page .grid.gap-5,
+  .truck-config-page .grid.gap-3,
+  .truck-config-page .grid.gap-4,
+  .truck-config-page .md\:grid-cols-3,
+  .truck-config-page .lg\:grid-cols-3 {
+    grid-template-columns: 1fr !important;
+  }
+
+  .truck-config-page h1 {
+    font-size: 24px;
+  }
+}
+
+@media (max-width: 520px) {
+  .truck-config-page section,
+  .truck-config-page .grid.min-h-80 {
+    padding: 16px !important;
+  }
+
+  .truck-config-actions {
+    flex-direction: column;
+  }
+
+  .truck-config-actions button {
+    width: 100%;
+  }
+}
+
+
+/* Narrow overrides after removing Tailwind utility-card collisions */
+.truck-config-page .border-l-4 {
+  border-radius: 14px !important;
+  padding: 16px 18px !important;
+  box-shadow: var(--shadow-subtle) !important;
+}
+
+.truck-config-page button.rounded-lg,
+.truck-config-page .truck-config-actions button {
+  border-radius: 13px !important;
+  padding: 0 18px !important;
+}
+
+.truck-config-page button[type="submit"] {
+  background: var(--accent-primary) !important;
+  color: #fff !important;
+  border-color: transparent !important;
+}
+
+.truck-config-page button[type="submit"]:hover:not(:disabled) {
+  background: var(--accent-primary-dark) !important;
+}
+
+.truck-config-page section button[type="button"] {
+  background: var(--accent-primary) !important;
+  color: #fff !important;
+}
+
+.truck-config-page section button[type="button"]:hover:not(:disabled) {
+  background: var(--accent-primary-dark) !important;
+}
+
+.truck-config-page section button[type="button"] {
+  margin-top: 16px;
+}
+
+.truck-config-page section:has(input[name="refrigeration_supported"]) label:has(input[type="checkbox"]) {
+  justify-content: space-between !important;
+  min-height: 58px;
+  padding: 14px 18px !important;
+}
+
+.truck-config-page section:has(input[name="refrigeration_supported"]) label:has(input[type="checkbox"]) span {
+  margin: 0 !important;
+  color: var(--accent-secondary) !important;
+  font-size: 14px !important;
+  font-weight: 750 !important;
+  line-height: 1.2 !important;
+}
+
+.truck-config-page section:has(input[name="refrigeration_supported"]) input[type="checkbox"] {
+  width: 38px;
+  height: 22px;
+  flex: 0 0 38px;
+  appearance: none;
+  border: 1px solid #cbd5e1;
+  border-radius: 999px;
+  background: #e2e8f0;
+  position: relative;
+  cursor: pointer;
+  transition: background var(--transition-fast), border-color var(--transition-fast);
+}
+
+.truck-config-page section:has(input[name="refrigeration_supported"]) input[type="checkbox"]::after {
+  content: '';
+  position: absolute;
+  top: 2px;
+  left: 2px;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: #fff;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.18);
+  transition: transform var(--transition-fast);
+}
+
+.truck-config-page section:has(input[name="refrigeration_supported"]) input[type="checkbox"]:checked {
+  border-color: var(--accent-primary);
+  background: var(--accent-primary);
+}
+
+.truck-config-page section:has(input[name="refrigeration_supported"]) input[type="checkbox"]:checked::after {
+  transform: translateX(16px);
+}
+
+.truck-config-page select {
+  appearance: none !important;
+  padding-right: 46px !important;
+  background-image:
+    linear-gradient(45deg, transparent 50%, var(--accent-secondary) 50%),
+    linear-gradient(135deg, var(--accent-secondary) 50%, transparent 50%) !important;
+  background-position:
+    calc(100% - 25px) calc(50% - 3px),
+    calc(100% - 19px) calc(50% - 3px) !important;
+  background-size: 6px 6px, 6px 6px !important;
+  background-repeat: no-repeat !important;
+}
+
+.truck-config-weight-field {
+  min-width: 0;
+}
+
+.truck-config-weight-field > span:first-child {
+  display: block;
+  margin-bottom: 8px;
+  color: var(--accent-secondary) !important;
+  font-size: 12px !important;
+  font-weight: 800 !important;
+}
+
+.truck-config-weight-row {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.truck-config-weight-input {
+  position: relative;
+  min-width: 0;
+}
+
+.truck-config-weight-input input {
+  height: 46px !important;
+  padding-right: 48px !important;
+}
+
+.truck-config-weight-input span {
+  position: absolute;
+  right: 14px;
+  top: calc(50% + 4px);
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  font-size: 13px;
+  font-weight: 700;
+  pointer-events: none;
+}
+
+@media (max-width: 560px) {
+  .truck-config-weight-row {
+    grid-template-columns: 1fr;
+  }
+}

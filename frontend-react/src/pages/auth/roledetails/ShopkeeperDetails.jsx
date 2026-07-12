@@ -51,7 +51,7 @@ export default function ShopkeeperDetails() {
       <Notification type={notification.type} message={notification.message}
         onClose={() => setNotification({ type: '', message: '' })} />
 
-      <form onSubmit={handleSubmit}>
+      <form className="auth-details-form" onSubmit={handleSubmit}>
         <InputField label="Shop / Business Name" id="shop_name" type="text"
           placeholder="e.g. Bilal General Store, Ahmed Electronics" value={form.shop_name}
           onChange={set('shop_name')} error={errors.shop_name} />
@@ -60,12 +60,12 @@ export default function ShopkeeperDetails() {
           placeholder="e.g. Lahore, Karachi, Islamabad" value={form.city}
           onChange={set('city')} error={errors.city} />
 
-        <div className="mb-5">
-          <label className="block mb-2 font-semibold text-gray-700 text-sm">
-            Business Type <span className="font-normal text-gray-400">(Optional)</span>
+        <div className="auth-form-field">
+          <label >
+            Business Type <span >(Optional)</span>
           </label>
           <select value={form.business_type} onChange={set('business_type')}
-            className="w-full px-4 py-3 border-2 border-gray-200 rounded-lg text-base outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-100 text-gray-700">
+            className="auth-form-input auth-form-select">
             <option value="">Select type...</option>
             <option value="retail">Retail Shop</option>
             <option value="wholesale">Wholesale / Distributor</option>
@@ -79,8 +79,8 @@ export default function ShopkeeperDetails() {
         </div>
 
         <button type="submit" disabled={loading}
-          className="w-full py-3 bg-orange-500 hover:bg-orange-600 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2">
-          {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          className="auth-submit">
+          {loading && <span className="auth-shell__spinner" aria-hidden="true" />}
           {loading ? 'Creating account...' : 'Create Account'}
         </button>
       </form>

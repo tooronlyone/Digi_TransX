@@ -11,6 +11,8 @@ CREATE TABLE IF NOT EXISTS trucks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     owner_user_id INTEGER NOT NULL,
     truck_number TEXT NOT NULL UNIQUE COLLATE NOCASE,
+    truck_company TEXT,
+    truck_model TEXT,
     truck_type TEXT NOT NULL,
     catalog_type_key TEXT,
     chassis_number TEXT NOT NULL UNIQUE COLLATE NOCASE,
@@ -510,7 +512,7 @@ def ensure_trucks_status_default(db):
         ALTER TABLE trucks RENAME TO trucks_legacy_status_default;
         {TRUCKS_TABLE_DEFINITION.replace("CREATE TABLE IF NOT EXISTS trucks", "CREATE TABLE trucks")}
         INSERT INTO trucks (
-            id, owner_user_id, truck_number, truck_type, catalog_type_key, chassis_number,
+            id, owner_user_id, truck_number, truck_company, truck_model, truck_type, catalog_type_key, chassis_number,
             capacity_tons, main_use, payload_min_kg, payload_max_kg, volume_min_cbm, volume_max_cbm,
             body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id, status,
             created_at, updated_at, operating_provinces, per_km_rate, waiting_charge_per_hour,
@@ -518,7 +520,7 @@ def ensure_trucks_status_default(db):
             truck_photo_path, insurance_photo_path, rc_book_photo_path, status_reason_code, status_reason
         )
         SELECT
-            id, owner_user_id, truck_number, truck_type, catalog_type_key, chassis_number,
+            id, owner_user_id, truck_number, truck_company, truck_model, truck_type, catalog_type_key, chassis_number,
             capacity_tons, main_use, payload_min_kg, payload_max_kg, volume_min_cbm, volume_max_cbm,
             body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id, status,
             created_at, updated_at, operating_provinces, per_km_rate, waiting_charge_per_hour,
@@ -599,6 +601,33 @@ def remove_legacy_order_schema(db):
     else:
         db.execute("DROP TABLE IF EXISTS chat_threads_agreement_only")
     db.execute("PRAGMA foreign_keys = ON")
+
+
+def normalize_truck_payload_to_tons(db):
+    """Legacy payload_min_kg/payload_max_kg columns now store tons.
+
+    Older catalog-driven rows may contain kilogram-scale values like 500/700.
+    Keep user-entered ton values such as 40/80 untouched, and only convert
+    obvious kilogram-scale rows.
+    """
+    try:
+        db.execute(
+            """
+            UPDATE trucks
+            SET
+                capacity_tons = CASE
+                    WHEN payload_max_kg > 100 AND (capacity_tons IS NULL OR capacity_tons < 1)
+                    THEN payload_max_kg / 1000.0
+                    ELSE capacity_tons
+                END,
+                payload_min_kg = CASE WHEN payload_min_kg > 100 THEN payload_min_kg / 1000.0 ELSE payload_min_kg END,
+                payload_max_kg = CASE WHEN payload_max_kg > 100 THEN payload_max_kg / 1000.0 ELSE payload_max_kg END
+            WHERE payload_min_kg > 100 OR payload_max_kg > 100
+            """
+        )
+        db.commit()
+    except Exception:
+        db.rollback()
 
 
 def init_db():
@@ -730,6 +759,8 @@ def init_db():
         ensure_column(db, "trucks", "per_km_rate", "REAL")
         ensure_column(db, "trucks", "waiting_charge_per_hour", "REAL")
         ensure_column(db, "trucks", "loading_charge", "REAL")
+        ensure_column(db, "trucks", "truck_company", "TEXT")
+        ensure_column(db, "trucks", "truck_model", "TEXT")
         ensure_column(db, "trucks", "refrigeration_supported", "INTEGER DEFAULT 0")
         ensure_column(db, "trucks", "hazardous_supported", "INTEGER DEFAULT 0")
         ensure_column(db, "trucks", "fragile_supported", "INTEGER DEFAULT 0")

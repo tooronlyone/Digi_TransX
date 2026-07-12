@@ -76,38 +76,45 @@ def create_truck():
 
     form = request.form
     truck_number = (form.get("truckNumber") or "").strip()
-    truck_type = (form.get("truckType") or form.get("truck_type") or "").strip()
+    truck_company = parse_optional_text(form.get("truckCompany") or form.get("truck_company"))
+    truck_model = parse_optional_text(form.get("truckModel") or form.get("truck_model"))
+    truck_type = (form.get("truckType") or form.get("truck_type") or "Truck").strip()
     chassis_number = normalize_chassis_number(form.get("chassisNumber"))
-    capacity_raw = (form.get("capacity") or "").strip()
-    main_use = (form.get("mainUse") or "").strip()
+    capacity_raw = (form.get("capacity") or form.get("payload_max_kg") or "0").strip()
+    main_use = (form.get("mainUse") or truck_type).strip()
 
     if not truck_number:
         return json_response({"success": False, "message": "Truck number is required."}, 400)
-    if not truck_type:
-        return json_response({"success": False, "message": "Truck type is required."}, 400)
     if not chassis_number:
         return json_response({"success": False, "message": "Chassis number is required."}, 400)
-    if not main_use:
-        return json_response({"success": False, "message": "Main use is required."}, 400)
 
     try:
         capacity = float(capacity_raw)
+        payload_min_tons = parse_optional_float(form.get("payload_min_kg"))
+        payload_max_tons = parse_optional_float(form.get("payload_max_kg"))
     except (TypeError, ValueError):
-        return json_response({"success": False, "message": "Capacity must be a valid number."}, 400)
+        return json_response({"success": False, "message": "Weight capacity must be a valid ton value."}, 400)
 
-    if capacity <= 0:
-        return json_response({"success": False, "message": "Capacity must be greater than 0."}, 400)
+    if capacity < 0:
+        return json_response({"success": False, "message": "Weight capacity cannot be negative."}, 400)
+    if payload_min_tons is None or payload_max_tons is None:
+        return json_response({"success": False, "message": "Weight capacity min and max are required in tons."}, 400)
+    if payload_min_tons < 0 or payload_max_tons <= 0:
+        return json_response({"success": False, "message": "Weight capacity must be greater than 0 tons."}, 400)
+    if payload_min_tons > payload_max_tons:
+        return json_response({"success": False, "message": "Weight capacity min cannot be greater than max."}, 400)
+    capacity = payload_max_tons
     if not is_valid_chassis_number(chassis_number):
         return json_response({"success": False, "message": CHASSIS_NUMBER_MESSAGE}, 400)
 
-    catalog_type_key = parse_optional_text(form.get("catalog_type_key")) or truck_type
-    catalog_type = get_catalog_type(catalog_type_key) if catalog_type_key else None
+    catalog_type_key = parse_optional_text(form.get("catalog_type_key"))
+    body_style = parse_optional_text(form.get("body_style"))
     catalog_specs_raw = parse_optional_text(form.get("catalog_specs_json"))
     if catalog_specs_raw:
-      try:
-        json.loads(catalog_specs_raw)
-      except json.JSONDecodeError:
-        return json_response({"success": False, "message": "Catalog specs format is invalid."}, 400)
+        try:
+            json.loads(catalog_specs_raw)
+        except json.JSONDecodeError:
+            return json_response({"success": False, "message": "Body type details format is invalid."}, 400)
 
     stamp = timestamp_bundle()
     with open_db() as db:
@@ -129,9 +136,8 @@ def create_truck():
             db.execute(
                 """
                 INSERT INTO trucks (
-                    owner_user_id, truck_number, truck_type, catalog_type_key,
-                    chassis_number, capacity_tons, main_use,
-                    payload_min_kg, payload_max_kg, volume_min_cbm, volume_max_cbm,
+                    owner_user_id, truck_number, truck_company, truck_model, truck_type, catalog_type_key,
+                    chassis_number, capacity_tons, main_use, payload_min_kg, payload_max_kg,
                     body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id,
                     status, created_at, updated_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inactive', ?, ?)
@@ -139,16 +145,16 @@ def create_truck():
                 (
                     request.current_user["id"],
                     truck_number,
+                    truck_company,
+                    truck_model,
                     truck_type,
                     catalog_type_key,
                     chassis_number,
                     capacity,
                     main_use,
-                    parse_optional_float(form.get("payload_min_kg")) if form.get("payload_min_kg") is not None else (catalog_type.get("payload_min_kg") if catalog_type else None),
-                    parse_optional_float(form.get("payload_max_kg")) if form.get("payload_max_kg") is not None else (catalog_type.get("payload_max_kg") if catalog_type else None),
-                    parse_optional_float(form.get("volume_min_cbm")) if form.get("volume_min_cbm") is not None else (catalog_type.get("volume_min_cbm") if catalog_type else None),
-                    parse_optional_float(form.get("volume_max_cbm")) if form.get("volume_max_cbm") is not None else (catalog_type.get("volume_max_cbm") if catalog_type else None),
-                    parse_optional_text(form.get("body_style")) if form.get("body_style") is not None else (catalog_type.get("typical_body_style") if catalog_type else None),
+                    payload_min_tons,
+                    payload_max_tons,
+                    body_style,
                     catalog_specs_raw,
                     parse_optional_text(form.get("driverName")),
                     parse_optional_cnic(form.get("driverCnic")),
@@ -321,7 +327,14 @@ def update_truck_configuration(truck_id):
     form = request.form
     truck_number = (form.get("truck_number") or "").strip()
     truck_type = (form.get("truck_type") or "").strip()
-    catalog_type_key = parse_optional_text(form.get("catalog_type_key")) or parse_optional_text(truck_type)
+    catalog_type_key = parse_optional_text(form.get("catalog_type_key"))
+    body_style = parse_optional_text(form.get("body_style"))
+    catalog_specs_raw = parse_optional_text(form.get("catalog_specs_json"))
+    if catalog_specs_raw:
+        try:
+            json.loads(catalog_specs_raw)
+        except json.JSONDecodeError:
+            return json_response({"success": False, "message": "Body type details format is invalid."}, 400) or parse_optional_text(truck_type)
     max_capacity_raw = (form.get("max_capacity") or "").strip()
     chassis_number = normalize_chassis_number(form.get("chassis_number"))
     operating_provinces_raw = (form.get("operating_provinces") or "").strip()
@@ -339,11 +352,18 @@ def update_truck_configuration(truck_id):
 
     try:
         max_capacity = float(max_capacity_raw)
+        payload_min_tons = parse_optional_float(form.get("payload_min_kg"))
+        payload_max_tons = parse_optional_float(form.get("payload_max_kg"))
     except (TypeError, ValueError):
-        return json_response({"success": False, "message": "Capacity must be a valid number."}, 400)
+        return json_response({"success": False, "message": "Weight capacity must be a valid ton value."}, 400)
 
-    if max_capacity <= 0:
-        return json_response({"success": False, "message": "Truck capacity must be greater than 0."}, 400)
+    if payload_min_tons is None or payload_max_tons is None:
+        return json_response({"success": False, "message": "Weight capacity min and max are required in tons."}, 400)
+    if payload_min_tons < 0 or payload_max_tons <= 0:
+        return json_response({"success": False, "message": "Weight capacity must be greater than 0 tons."}, 400)
+    if payload_min_tons > payload_max_tons:
+        return json_response({"success": False, "message": "Weight capacity min cannot be greater than max."}, 400)
+    max_capacity = payload_max_tons
     if not is_valid_chassis_number(chassis_number):
         return json_response({"success": False, "message": CHASSIS_NUMBER_MESSAGE}, 400)
 
@@ -385,8 +405,8 @@ def update_truck_configuration(truck_id):
                 max_capacity,
                 operating_provinces,
                 parse_optional_text(form.get("body_style")),
-                parse_optional_float(form.get("payload_min_kg")),
-                parse_optional_float(form.get("payload_max_kg")),
+                payload_min_tons,
+                payload_max_tons,
                 parse_optional_float(form.get("volume_min_cbm")),
                 parse_optional_float(form.get("volume_max_cbm")),
                 parse_optional_text(form.get("catalog_specs_json")),
