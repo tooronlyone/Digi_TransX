@@ -122,6 +122,7 @@ def signup():
                 (data.get("about") or "").strip() or None,
                 stamp["iso"],
                 stamp["iso"],
+                email,
             ),
         )
         row = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
