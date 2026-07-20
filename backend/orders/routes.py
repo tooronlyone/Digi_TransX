@@ -134,7 +134,7 @@ def create_order():
     goods_category = goods_form = None
     goods_commodity = None
     required_trucks = []
-    is_refrigerated = is_hazardous = is_food_grade = 0
+    is_refrigerated = is_hazardous = is_food_grade = False
 
     if commodity:
         goods_category = commodity["category"]
@@ -142,9 +142,9 @@ def create_order():
         goods_commodity = commodity_key
         required_trucks = goods_required_trucks(commodity_key)
         flags = commodity_flags(commodity_key)
-        is_refrigerated = 1 if flags.get("refrigerated") else 0
-        is_hazardous = 1 if flags.get("hazardous") else 0
-        is_food_grade = 1 if flags.get("food_grade") else 0
+        is_refrigerated = bool(flags.get("refrigerated"))
+        is_hazardous = bool(flags.get("hazardous"))
+        is_food_grade = bool(flags.get("food_grade"))
 
         reqs = goods_required_fields(commodity_key)
         if FIELD_DIMENSIONS in reqs and not (length_cm > 0 and width_cm > 0 and height_cm > 0):
@@ -164,7 +164,7 @@ def create_order():
     with open_db() as db:
         db.execute(
             """
-            INSERT INTO orders (
+            INSERT INTO shipments (
                 client_user_id, pickup_city, pickup_area, dropoff_city, dropoff_area,
                 pickup_date, pickup_time, goods_type, goods_weight_tons, goods_volume_cbm,
                 estimated_budget, notes, status,
@@ -243,7 +243,7 @@ def available_orders():
             for r in db.execute(
                 "SELECT catalog_type_key, truck_type, capacity_tons, payload_max_tons, volume_max_cbm, "
                 "bed_length_ft, bed_width_ft, bed_height_ft "
-                "FROM trucks WHERE owner_user_id = ? AND status = 'active'",
+                "FROM vehicles WHERE owner_user_id = ? AND status = 'active'",
                 (request.current_user["id"],),
             ).fetchall()
         ]
@@ -251,8 +251,8 @@ def available_orders():
         order_rows = db.execute(
             """
             SELECT o.*, COUNT(DISTINCT ob.id) AS bid_count
-            FROM orders o
-            LEFT JOIN order_bids ob ON ob.order_id = o.id AND ob.status != 'withdrawn'
+            FROM shipments o
+            LEFT JOIN shipment_bids ob ON ob.order_id = o.id AND ob.status != 'withdrawn'
             WHERE o.status = 'open'
             GROUP BY o.id
             ORDER BY o.created_at DESC
@@ -306,7 +306,7 @@ def create_bid(order_id):
 
         # Verify truck ownership
         truck = db.execute(
-            "SELECT * FROM trucks WHERE id = ? AND owner_user_id = ? AND status = 'active'",
+            "SELECT * FROM vehicles WHERE id = ? AND owner_user_id = ? AND status = 'active'",
             (truck_id, request.current_user["id"]),
         ).fetchone()
         if not truck:
@@ -321,7 +321,7 @@ def create_bid(order_id):
 
         # Check for duplicate bids
         existing_bid = db.execute(
-            "SELECT id FROM order_bids WHERE order_id = ? AND transporter_user_id = ? AND status IN ('pending', 'accepted')",
+            "SELECT id FROM shipment_bids WHERE order_id = ? AND transporter_user_id = ? AND status IN ('pending', 'accepted')",
             (order_id, request.current_user["id"]),
         ).fetchone()
         if existing_bid:
@@ -330,7 +330,7 @@ def create_bid(order_id):
         stamp = timestamp_bundle()["display"]
         db.execute(
             """
-            INSERT INTO order_bids (
+            INSERT INTO shipment_bids (
                 order_id, transporter_user_id, truck_id, bid_price, message, status, created_at, updated_at
             ) VALUES (?, ?, ?, ?, ?, 'pending', ?, ?)
             """,
@@ -345,7 +345,7 @@ def create_bid(order_id):
             ),
         )
         bid_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
-        bid = db.execute("SELECT * FROM order_bids WHERE id = ?", (bid_id,)).fetchone()
+        bid = db.execute("SELECT * FROM shipment_bids WHERE id = ?", (bid_id,)).fetchone()
         db.commit()
 
     return json_response({
@@ -396,7 +396,7 @@ def accept_bid(order_id, bid_id):
         if order["status"] != "open":
             return json_response({"success": False, "message": "Order is not open for bids."}, 400)
 
-        bid = db.execute("SELECT * FROM order_bids WHERE id = ? AND order_id = ?", (bid_id, order_id)).fetchone()
+        bid = db.execute("SELECT * FROM shipment_bids WHERE id = ? AND order_id = ?", (bid_id, order_id)).fetchone()
         if not bid:
             return json_response({"success": False, "message": "Bid not found."}, 404)
 
@@ -407,26 +407,26 @@ def accept_bid(order_id, bid_id):
 
         # Update order status
         db.execute(
-            "UPDATE orders SET status = 'accepted', accepted_bid_id = ?, payment_amount = ?, updated_at = ? WHERE id = ?",
+            "UPDATE shipments SET status = 'accepted', accepted_bid_id = ?, payment_amount = ?, updated_at = ? WHERE id = ?",
             (bid_id, round_money(bid["bid_price"]), stamp, order_id),
         )
 
         # Update bid status
         db.execute(
-            "UPDATE order_bids SET status = 'accepted', updated_at = ? WHERE id = ?",
+            "UPDATE shipment_bids SET status = 'accepted', updated_at = ? WHERE id = ?",
             (stamp, bid_id),
         )
 
         # Reject other bids
         db.execute(
-            "UPDATE order_bids SET status = 'rejected', updated_at = ? WHERE order_id = ? AND id != ?",
+            "UPDATE shipment_bids SET status = 'rejected', updated_at = ? WHERE order_id = ? AND id != ?",
             (stamp, order_id, bid_id),
         )
 
         # Create trip
         db.execute(
             """
-            INSERT INTO order_trips (
+            INSERT INTO shipment_trips (
                 order_id, accepted_bid_id, transporter_user_id, truck_id, status, created_at, updated_at
             ) VALUES (?, ?, ?, ?, 'accepted', ?, ?)
             """,
@@ -436,13 +436,13 @@ def accept_bid(order_id, bid_id):
 
         # Create no-show tracking
         db.execute(
-            "INSERT INTO order_no_show_tracking (trip_id, status, created_at, updated_at) VALUES (?, 'tracking', ?, ?)",
+            "INSERT INTO shipment_no_show_tracking (trip_id, status, created_at, updated_at) VALUES (?, 'tracking', ?, ?)",
             (trip_id, stamp, stamp),
         )
 
         db.commit()
 
-        trip = db.execute("SELECT * FROM order_trips WHERE id = ?", (trip_id,)).fetchone()
+        trip = db.execute("SELECT * FROM shipment_trips WHERE id = ?", (trip_id,)).fetchone()
         updated_order = fetch_order(db, order_id)
 
     return json_response({
@@ -469,7 +469,7 @@ def process_trip_payment(order_id, trip_id):
         if order["client_user_id"] != request.current_user["id"]:
             return json_response({"success": False, "message": "Access denied."}, 403)
 
-        trip = db.execute("SELECT * FROM order_trips WHERE id = ? AND order_id = ?", (trip_id, order_id)).fetchone()
+        trip = db.execute("SELECT * FROM shipment_trips WHERE id = ? AND order_id = ?", (trip_id, order_id)).fetchone()
         if not trip:
             return json_response({"success": False, "message": "Trip not found."}, 404)
 
@@ -506,16 +506,16 @@ def process_trip_payment(order_id, trip_id):
 
         # Update trip and order status
         db.execute(
-            "UPDATE order_trips SET status = 'in_progress', trip_started_at = ?, updated_at = ? WHERE id = ?",
+            "UPDATE shipment_trips SET status = 'in_progress', trip_started_at = ?, updated_at = ? WHERE id = ?",
             (stamp, stamp, trip_id),
         )
         db.execute(
-            "UPDATE orders SET payment_status = 'paid', updated_at = ? WHERE id = ?",
+            "UPDATE shipments SET payment_status = 'paid', updated_at = ? WHERE id = ?",
             (stamp, order_id),
         )
 
         db.commit()
-        trip = db.execute("SELECT * FROM order_trips WHERE id = ?", (trip_id,)).fetchone()
+        trip = db.execute("SELECT * FROM shipment_trips WHERE id = ?", (trip_id,)).fetchone()
 
     return json_response({
         "success": True,
@@ -533,7 +533,7 @@ def mark_trip_completed(order_id, trip_id):
         return err
 
     with open_db() as db:
-        trip = db.execute("SELECT * FROM order_trips WHERE id = ? AND order_id = ?", (trip_id, order_id)).fetchone()
+        trip = db.execute("SELECT * FROM shipment_trips WHERE id = ? AND order_id = ?", (trip_id, order_id)).fetchone()
         if not trip:
             return json_response({"success": False, "message": "Trip not found."}, 404)
 
@@ -547,14 +547,14 @@ def mark_trip_completed(order_id, trip_id):
 
         # Update trip status
         db.execute(
-            "UPDATE order_trips SET status = 'delivery_claimed', trip_completed_at = ?, updated_at = ? WHERE id = ?",
+            "UPDATE shipment_trips SET status = 'delivery_claimed', trip_completed_at = ?, updated_at = ? WHERE id = ?",
             (stamp, stamp, trip_id),
         )
 
         # Create verification record
         db.execute(
             """
-            INSERT INTO order_trip_verification (
+            INSERT INTO shipment_trip_verification (
                 trip_id, transporter_claim_at, created_at, updated_at
             ) VALUES (?, ?, ?, ?)
             """,
@@ -562,7 +562,7 @@ def mark_trip_completed(order_id, trip_id):
         )
 
         db.commit()
-        trip = db.execute("SELECT * FROM order_trips WHERE id = ?", (trip_id,)).fetchone()
+        trip = db.execute("SELECT * FROM shipment_trips WHERE id = ?", (trip_id,)).fetchone()
 
     return json_response({
         "success": True,
@@ -593,7 +593,7 @@ def verify_delivery(order_id, trip_id):
         if order["client_user_id"] != request.current_user["id"]:
             return json_response({"success": False, "message": "Access denied."}, 403)
 
-        trip = db.execute("SELECT * FROM order_trips WHERE id = ? AND order_id = ?", (trip_id, order_id)).fetchone()
+        trip = db.execute("SELECT * FROM shipment_trips WHERE id = ? AND order_id = ?", (trip_id, order_id)).fetchone()
         if not trip:
             return json_response({"success": False, "message": "Trip not found."}, 404)
 
@@ -604,7 +604,7 @@ def verify_delivery(order_id, trip_id):
 
         # Get verification record
         verification = db.execute(
-            "SELECT * FROM order_trip_verification WHERE trip_id = ?",
+            "SELECT * FROM shipment_trip_verification WHERE trip_id = ?",
             (trip_id,),
         ).fetchone()
 
@@ -633,20 +633,20 @@ def verify_delivery(order_id, trip_id):
 
             # Update trip
             db.execute(
-                "UPDATE order_trips SET status = 'completed', delivery_confirmed_at = ?, updated_at = ? WHERE id = ?",
+                "UPDATE shipment_trips SET status = 'completed', delivery_confirmed_at = ?, updated_at = ? WHERE id = ?",
                 (stamp, stamp, trip_id),
             )
 
             # Update verification
             db.execute(
-                "UPDATE order_trip_verification SET client_first_response = 'yes', client_first_response_at = ?, final_verification_status = 'confirmed', updated_at = ? WHERE trip_id = ?",
+                "UPDATE shipment_trip_verification SET client_first_response = 'yes', client_first_response_at = ?, final_verification_status = 'confirmed', updated_at = ? WHERE trip_id = ?",
                 (stamp, stamp, trip_id),
             )
 
             # Create invoice
             db.execute(
                 """
-                INSERT INTO order_invoices (
+                INSERT INTO payments (
                     trip_id, invoice_number, client_user_id, transporter_user_id,
                     bid_price, company_fee, transporter_amount, created_at
                 ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
@@ -673,11 +673,11 @@ def verify_delivery(order_id, trip_id):
             if verification["client_first_response"] is None:
                 # First NO - set 10 min reminder
                 db.execute(
-                    "UPDATE order_trip_verification SET client_first_response = 'no', client_first_response_at = ?, updated_at = ? WHERE trip_id = ?",
+                    "UPDATE shipment_trip_verification SET client_first_response = 'no', client_first_response_at = ?, updated_at = ? WHERE trip_id = ?",
                     (stamp, stamp, trip_id),
                 )
                 db.execute(
-                    "UPDATE order_trips SET status = 'first_response_pending', updated_at = ? WHERE id = ?",
+                    "UPDATE shipment_trips SET status = 'first_response_pending', updated_at = ? WHERE id = ?",
                     (stamp, trip_id),
                 )
                 db.commit()
@@ -688,11 +688,11 @@ def verify_delivery(order_id, trip_id):
             else:
                 # Second NO or timeout - admin review
                 db.execute(
-                    "UPDATE order_trip_verification SET client_second_response = 'no', client_second_response_at = ?, final_verification_status = 'pending_admin', updated_at = ? WHERE trip_id = ?",
+                    "UPDATE shipment_trip_verification SET client_second_response = 'no', client_second_response_at = ?, final_verification_status = 'pending_admin', updated_at = ? WHERE trip_id = ?",
                     (stamp, stamp, trip_id),
                 )
                 db.execute(
-                    "UPDATE order_trips SET status = 'dispute_pending', updated_at = ? WHERE id = ?",
+                    "UPDATE shipment_trips SET status = 'dispute_pending', updated_at = ? WHERE id = ?",
                     (stamp, trip_id),
                 )
                 db.commit()
@@ -708,7 +708,7 @@ def get_my_orders():
     """Client views their orders."""
     with open_db() as db:
         orders = db.execute(
-            "SELECT * FROM orders WHERE client_user_id = ? ORDER BY created_at DESC",
+            "SELECT * FROM shipments WHERE client_user_id = ? ORDER BY created_at DESC",
             (request.current_user["id"],),
         ).fetchall()
 
@@ -716,7 +716,7 @@ def get_my_orders():
         for order in orders:
             order_dict = dict(order)
             bid_count = db.execute(
-                "SELECT COUNT(*) as count FROM order_bids WHERE order_id = ? AND status != 'withdrawn'",
+                "SELECT COUNT(*) as count FROM shipment_bids WHERE order_id = ? AND status != 'withdrawn'",
                 (order_dict["id"],),
             ).fetchone()["count"]
             result.append(serialize_order(order_dict, bid_count))
@@ -732,8 +732,8 @@ def get_my_bids():
         bids = db.execute(
             """
             SELECT ob.*, o.pickup_city, o.dropoff_city, o.pickup_date, o.goods_type, o.estimated_budget
-            FROM order_bids ob
-            JOIN orders o ON o.id = ob.order_id
+            FROM shipment_bids ob
+            JOIN shipments o ON o.id = ob.order_id
             WHERE ob.transporter_user_id = ?
             ORDER BY ob.created_at DESC
             """,

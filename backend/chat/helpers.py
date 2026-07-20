@@ -66,13 +66,15 @@ def validate_media_file(file_storage):
 
 
 def make_chat_upload_relative_path(thread_id, file_storage):
+    """Upload chat media to Supabase Storage. Returns the stored filename."""
+    from shared.storage import upload_file_storage
+
     safe_name, _ = validate_media_file(file_storage)
-    CHAT_UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     stem = Path(safe_name).stem or "media"
     extension = Path(safe_name).suffix.lower()
     compact_stem = re.sub(r"[^a-zA-Z0-9_-]+", "-", stem).strip("-") or "media"
     filename = f"{thread_id}_{int(time.time())}_{uuid4().hex[:8]}_{compact_stem}{extension}"
-    file_storage.save(CHAT_UPLOADS_DIR / filename)
+    upload_file_storage(f"uploads/chat/{filename}", file_storage)
     return filename
 
 

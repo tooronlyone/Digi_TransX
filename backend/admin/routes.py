@@ -65,7 +65,7 @@ def serialize_admin_user(row):
         "email": item.get("email") or "",
         "phone": item.get("phone") or "",
         "cnic": item.get("cnic") or "",
-        "role": item.get("role") or "",
+        "role": item.get("legacy_role") or item.get("role") or "",
         "city": item.get("city") or "",
         "created_at": item.get("created_at") or "",
         "is_blocked": bool(item.get("is_blocked")),
@@ -113,18 +113,27 @@ def available_admin_cnic(db):
 
 
 def create_admin_user(db, name, email, password):
+    """Create a platform admin in Supabase Auth + profile row (via DB trigger)."""
+    from shared.supabase_client import supabase_create_user
+
     first_name, last_name = split_name(name)
-    stamp = timestamp_bundle()["display"]
+    stamp = timestamp_bundle()["iso"]
+    cnic = available_admin_cnic(db)
+    supabase_create_user(
+        email,
+        password,
+        {"full_name": name, "phone": "", "cnic": cnic, "role": "admin", "legacy_role": "platform_admin"},
+    )
     db.execute(
         """
-        INSERT INTO users (
-            full_name, first_name, last_name, email, phone, cnic, password_hash, role,
-            city, mpin_hash, mpin_enabled, settings_json, created_at, updated_at, last_login_at
-        ) VALUES (?, ?, ?, ?, '', ?, ?, 'platform_admin', '', NULL, 0, '{}', ?, ?, ?)
+        UPDATE users
+        SET full_name = ?, first_name = ?, last_name = ?, cnic = ?, legacy_role = 'platform_admin',
+            role = 'admin', city = '', updated_at = ?
+        WHERE email = ?
         """,
-        (name, first_name, last_name, email, available_admin_cnic(db), generate_password_hash(password), stamp, stamp, stamp),
+        (name, first_name, last_name, cnic, stamp, email),
     )
-    return db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    return db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()["id"]
 
 
 @admin_blueprint.get("/dashboard")
@@ -147,7 +156,7 @@ def dashboard():
             JOIN agreements a ON a.id = atr.agreement_id
             JOIN users client ON client.id = a.client_user_id
             JOIN users transporter ON transporter.id = atr.transporter_user_id
-            JOIN trucks t ON t.id = atr.truck_id
+            JOIN vehicles t ON t.id = atr.truck_id
             WHERE atr.status = 'disputed'
             ORDER BY atr.created_at DESC
             LIMIT 5
@@ -160,7 +169,7 @@ def dashboard():
                    {user_display_sql('transporter')} AS transporter_name
             FROM agreement_monthly_payments amp
             JOIN agreement_trucks at ON at.id = amp.agreement_truck_id
-            JOIN trucks t ON t.id = at.truck_id
+            JOIN vehicles t ON t.id = at.truck_id
             JOIN users client ON client.id = amp.client_user_id
             JOIN users transporter ON transporter.id = amp.transporter_user_id
             WHERE amp.status = 'failed'
@@ -180,10 +189,10 @@ def list_users():
     role = (request.args.get("role") or "").strip()
     search = (request.args.get("search") or "").strip()
     if role:
-        clauses.append("role = ?")
+        clauses.append("COALESCE(legacy_role, role::text) = ?")
         params.append(role)
     if search:
-        clauses.append("(full_name LIKE ? OR email LIKE ? OR cnic LIKE ?)")
+        clauses.append("(full_name ILIKE ? OR email ILIKE ? OR cnic ILIKE ?)")
         like = f"%{search}%"
         params.extend([like, like, like])
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
@@ -231,7 +240,7 @@ def user_detail(user_id):
         if not user:
             return json_response({"success": False, "message": "User not found."}, 404)
         wallet = rowdict(db.execute("SELECT balance, locked_balance FROM wallets WHERE user_id = ?", (user_id,)).fetchone()) or {"balance": 0, "locked_balance": 0}
-        trucks = db.execute("SELECT * FROM trucks WHERE owner_user_id = ? ORDER BY created_at DESC", (user_id,)).fetchall()
+        trucks = db.execute("SELECT * FROM vehicles WHERE owner_user_id = ? ORDER BY created_at DESC", (user_id,)).fetchall()
         agreement_count = db.execute(
             """
             SELECT COUNT(DISTINCT a.id) AS total
@@ -251,7 +260,7 @@ def block_user(user_id):
     if err:
         return err
     data = request.get_json(silent=True) or {}
-    blocked = 1 if data.get("blocked") else 0
+    blocked = bool(data.get("blocked"))
     reason = (data.get("reason") or "").strip()
     with open_db() as db:
         db.execute("UPDATE users SET is_blocked = ?, block_reason = ?, updated_at = ? WHERE id = ?", (blocked, reason if blocked else None, timestamp_bundle()["display"], user_id))
@@ -275,14 +284,14 @@ def list_trucks():
             params.append(value)
     search = (request.args.get("search") or "").strip()
     if search:
-        clauses.append("(t.truck_number LIKE ? OR t.chassis_number LIKE ?)")
+        clauses.append("(t.truck_number ILIKE ? OR t.chassis_number ILIKE ?)")
         params.extend([f"%{search}%", f"%{search}%"])
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     with open_db() as db:
         rows = db.execute(
             f"""
             SELECT t.*, {user_display_sql('u')} AS owner_name, u.email AS owner_email
-            FROM trucks t
+            FROM vehicles t
             JOIN users u ON u.id = t.owner_user_id
             {where}
             ORDER BY t.created_at DESC
@@ -290,7 +299,7 @@ def list_trucks():
             """,
             (*params, page_size, offset),
         ).fetchall()
-        total = db.execute(f"SELECT COUNT(*) AS total FROM trucks t JOIN users u ON u.id = t.owner_user_id {where}", tuple(params)).fetchone()["total"]
+        total = db.execute(f"SELECT COUNT(*) AS total FROM vehicles t JOIN users u ON u.id = t.owner_user_id {where}", tuple(params)).fetchone()["total"]
     return json_response({"success": True, "trucks": [serialize_truck(row) for row in rows], "page": page, "page_size": page_size, "total": total})
 
 
@@ -301,7 +310,7 @@ def truck_detail(truck_id):
         row = db.execute(
             f"""
             SELECT t.*, {user_display_sql('u')} AS owner_name, u.email AS owner_email
-            FROM trucks t
+            FROM vehicles t
             JOIN users u ON u.id = t.owner_user_id
             WHERE t.id = ?
             """,
@@ -397,7 +406,7 @@ def agreements():
             LEFT JOIN agreement_trucks at ON at.agreement_id = a.id
             LEFT JOIN agreement_monthly_payments amp ON amp.agreement_id = a.id
             {where}
-            GROUP BY a.id
+            GROUP BY a.id, u.id
             ORDER BY a.created_at DESC
             LIMIT ? OFFSET ?
             """,
@@ -415,8 +424,8 @@ def agreement_detail(agreement_id):
         if not agreement:
             return json_response({"success": False, "message": "Agreement not found."}, 404)
         trucks = fetch_agreement_trucks(db, agreement_id)
-        payments = db.execute("SELECT amp.*, t.truck_number FROM agreement_monthly_payments amp JOIN agreement_trucks at ON at.id = amp.agreement_truck_id JOIN trucks t ON t.id = at.truck_id WHERE amp.agreement_id = ? ORDER BY amp.payment_due_date ASC", (agreement_id,)).fetchall()
-        trips = db.execute("SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN trucks t ON t.id = atr.truck_id WHERE atr.agreement_id = ? ORDER BY atr.created_at DESC", (agreement_id,)).fetchall()
+        payments = db.execute("SELECT amp.*, t.truck_number FROM agreement_monthly_payments amp JOIN agreement_trucks at ON at.id = amp.agreement_truck_id JOIN vehicles t ON t.id = at.truck_id WHERE amp.agreement_id = ? ORDER BY amp.payment_due_date ASC", (agreement_id,)).fetchall()
+        trips = db.execute("SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.agreement_id = ? ORDER BY atr.created_at DESC", (agreement_id,)).fetchall()
     return json_response({"success": True, "agreement": serialize_agreement(agreement, [serialize_agreement_truck(row) for row in trucks]), "payments": [serialize_payment(dict(row)) for row in payments], "trips": [serialize_trip(dict(row)) for row in trips]})
 
 
@@ -433,7 +442,7 @@ def disputes():
             JOIN agreements a ON a.id = atr.agreement_id
             JOIN users client ON client.id = a.client_user_id
             JOIN users transporter ON transporter.id = atr.transporter_user_id
-            JOIN trucks t ON t.id = atr.truck_id
+            JOIN vehicles t ON t.id = atr.truck_id
             WHERE atr.status = 'disputed'
             ORDER BY atr.created_at DESC
             """
@@ -507,7 +516,7 @@ def resolve_dispute(trip_id):
             values,
         )
         db.commit()
-        updated = db.execute("SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN trucks t ON t.id = atr.truck_id WHERE atr.id = ?", (trip_id,)).fetchone()
+        updated = db.execute("SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = ?", (trip_id,)).fetchone()
     return json_response({"success": True, "trip": serialize_trip(dict(updated))})
 
 
@@ -521,7 +530,7 @@ def create_group_chat(trip_id):
         trip = rowdict(db.execute("SELECT atr.*, a.client_user_id FROM agreement_trips atr JOIN agreements a ON a.id = atr.agreement_id WHERE atr.id = ?", (trip_id,)).fetchone())
         if not trip:
             return json_response({"success": False, "message": "Trip not found."}, 404)
-        existing = db.execute("SELECT id FROM chat_threads WHERE is_group_chat = 1 AND dispute_trip_id = ?", (trip_id,)).fetchone()
+        existing = db.execute("SELECT id FROM chat_threads WHERE is_group_chat = true AND dispute_trip_id = ?", (trip_id,)).fetchone()
         if existing:
             return json_response({"success": True, "thread_id": existing["id"]})
         stamp = timestamp_bundle()["iso"]
@@ -530,7 +539,7 @@ def create_group_chat(trip_id):
             INSERT INTO chat_threads (
                 client_user_id, transporter_user_id, is_group_chat,
                 admin_user_id, dispute_trip_id, last_message_at, created_at
-            ) VALUES (?, ?, 1, ?, ?, ?, ?)
+            ) VALUES (?, ?, true, ?, ?, ?, ?)
             """,
             (trip["client_user_id"], trip["transporter_user_id"], request.current_user["id"], trip_id, stamp, stamp),
         )
@@ -544,7 +553,7 @@ def create_group_chat(trip_id):
 @admin_required
 def get_group_chat(trip_id):
     with open_db() as db:
-        row = db.execute("SELECT * FROM chat_threads WHERE is_group_chat = 1 AND dispute_trip_id = ? ORDER BY id DESC LIMIT 1", (trip_id,)).fetchone()
+        row = db.execute("SELECT * FROM chat_threads WHERE is_group_chat = true AND dispute_trip_id = ? ORDER BY id DESC LIMIT 1", (trip_id,)).fetchone()
     return json_response({"success": True, "thread": dict(row) if row else None})
 
 
@@ -571,7 +580,7 @@ def payments():
                    {user_display_sql('transporter')} AS transporter_name
             FROM agreement_monthly_payments amp
             JOIN agreement_trucks at ON at.id = amp.agreement_truck_id
-            JOIN trucks t ON t.id = at.truck_id
+            JOIN vehicles t ON t.id = at.truck_id
             JOIN users client ON client.id = amp.client_user_id
             JOIN users transporter ON transporter.id = amp.transporter_user_id
             {where}

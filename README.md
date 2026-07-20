@@ -139,10 +139,10 @@ Confirms delivery       →     Verification (2-step,
 |---|---|
 | **Frontend** | React 19, Vite 8, React Router 7, Tailwind CSS 3, Recharts (charts), Leaflet (maps), Font Awesome |
 | **Backend** | Python Flask (modular blueprints), background scheduler for monthly billing |
-| **Database** | SQLite (`Database/digitransx_auth.db`) — migration to **Supabase PostgreSQL** in progress |
-| **GPS Tracking** | Traccar server integration |
-| **Auth** | Session-based with password hashing, OTP reset, MPIN — moving to Supabase Auth |
-| **Files** | Local uploads (truck docs, chat media, invoice PDFs) — moving to Supabase Storage |
+| **Database** | **Supabase PostgreSQL** (psycopg2 connection pool, Row Level Security) |
+| **GPS Tracking** | GPS provider integration (Traccar-style, stub until provider credentials) |
+| **Auth** | **Supabase Auth** (email/password) + Flask sessions, OTP reset flow, MPIN quick-unlock |
+| **Files** | **Supabase Storage** — private `shipment-documents` bucket (truck docs, chat media) |
 
 The production build serves the React app **from Flask** (single deployment): `frontend-react/dist` is served by `backend/app.py`.
 
@@ -153,7 +153,10 @@ Digi_TransX/
 ├── backend/
 │   ├── app.py                  # Flask entry point — registers all blueprints, serves React build
 │   ├── scheduler.py            # Background jobs (monthly agreement billing, penalties)
-│   ├── shared/db.py            # Database schema & connection (all table definitions)
+│   ├── requirements.txt        # Python dependencies
+│   ├── shared/db.py            # PostgreSQL access layer (psycopg2 pool -> Supabase)
+│   ├── shared/supabase_client.py # Supabase Auth clients (service role + anon)
+│   ├── shared/storage.py       # Supabase Storage helpers (shipment-documents bucket)
 │   ├── auth/                   # Signup, login, OTP reset, MPIN, trusted devices
 │   ├── admin/                  # Admin panel APIs (users, trucks, withdrawals, disputes)
 │   ├── orders/                 # Spot orders, bids, trips, verification, invoices
@@ -165,7 +168,9 @@ Digi_TransX/
 │   ├── tracking/               # Traccar GPS integration
 │   ├── profile/                # User profile management
 │   ├── settings/               # User settings
-│   └── scripts/create_admin.py # Bootstrap a platform admin account
+│   └── scripts/
+│       ├── create_admin.py     # Bootstrap a platform admin account (Supabase Auth)
+│       └── migrate_sqlite_to_supabase.py  # One-time data migration from SQLite
 ├── frontend-react/
 │   └── src/pages/
 │       ├── auth/               # Login, signup, role selection, role-detail steps, unlock
@@ -176,9 +181,10 @@ Digi_TransX/
 │       ├── org/                # Organization portal (admin / partner / departments)
 │       └── shared/             # Shared components (AI chat, etc.)
 ├── Database/
-│   └── digitransx_auth.db      # SQLite database (current)
+│   └── digitransx_auth.db      # Legacy SQLite database (kept until data migration is verified)
+├── .env.example                # Environment template (Supabase keys, SMTP, Flask)
 └── supabase/
-    └── schema.sql              # Supabase PostgreSQL schema (migration phase 1)
+    └── schema.sql              # Supabase PostgreSQL schema (tables, triggers, RLS, storage)
 ```
 
 ## Backend Modules (API)
@@ -199,37 +205,64 @@ All APIs are JSON over HTTP, organized as Flask blueprints:
 
 ## Database
 
-Current: **SQLite** at `Database/digitransx_auth.db`, schema defined in [backend/shared/db.py](backend/shared/db.py) (~30 tables).
+**Supabase PostgreSQL** — full schema in [supabase/schema.sql](supabase/schema.sql) (~35 tables, with Row Level Security, triggers, and the Storage bucket). The backend connects through a psycopg2 connection pool ([backend/shared/db.py](backend/shared/db.py)).
 
 Main table groups:
 
-- **Identity**: `users`, `login_activity`, `password_reset_otps`, `reset_tokens`, `trusted_devices`, `user_action_logs`
-- **Fleet**: `trucks` (40+ columns: specs, pricing, documents, status, GPS)
-- **Marketplace**: `orders`, `order_bids`, `order_trips`, `order_trip_verification`, `order_no_show_tracking`, `order_cancellations`, `order_notifications`, `order_invoices`
+- **Identity**: `users` (linked to Supabase Auth), `customers`, `login_activity`, `password_reset_otps`, `reset_tokens`, `trusted_devices`, `user_action_logs`
+- **Fleet**: `vehicles` (40+ columns: specs, pricing, documents, status, GPS), `drivers`
+- **Marketplace**: `shipments`, `shipment_bids`, `shipment_trips`, `shipment_trip_verification`, `shipment_no_show_tracking`, `shipment_cancellations`, `shipment_notifications`, `shipment_status_history` (automatic audit trail), `payments`
 - **Agreements**: `agreement_posts`, `agreement_post_trucks`, `agreement_bids`, `agreement_bid_trucks`, `agreements`, `agreement_trucks`, `agreement_trips`, `agreement_monthly_payments`, `agreement_payment_penalties`
 - **Money**: `wallets`, `wallet_transactions`, `wallet_withdrawal_requests`
 - **Communication**: `chat_threads`, `chat_messages`
+- **Files**: `documents` (metadata for the private `shipment-documents` Storage bucket)
+
+**Row Level Security roles:** admin (full access) · dispatcher (shipments/drivers/vehicles) · customer (own shipments only) · transporter (own fleet, bids, assigned trips). The Flask backend itself uses the service role.
+
+Legacy SQLite file `Database/digitransx_auth.db` is kept until the data migration is verified, then it can be archived.
 
 ## Running the Project
 
 ### Prerequisites
 - Python 3.10+
 - Node.js 18+
+- A Supabase project (free tier works)
 
-### Backend (Flask)
+### 1. Supabase setup (one time)
+
+1. Create a project at [supabase.com](https://supabase.com) and enable **Email** auth
+   (Authentication → Providers → Email; disable "Confirm email" since the backend creates confirmed users).
+2. Open the SQL Editor and run the whole of [supabase/schema.sql](supabase/schema.sql) —
+   it creates all tables, triggers, Row Level Security policies, and the `shipment-documents` Storage bucket.
+3. Copy `.env.example` to `.env` in the project root and fill in `SUPABASE_URL`,
+   `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`, and `SUPABASE_DB_URL`.
+
+### 2. Backend (Flask)
 
 ```bash
 cd backend
-pip install flask
+pip install -r requirements.txt
 python app.py
-# Runs at http://127.0.0.1:5000  (creates/updates the SQLite DB automatically)
+# Runs at http://127.0.0.1:5000
 ```
 
 Create an admin account:
 
 ```bash
-python backend/scripts/create_admin.py
+python backend/scripts/create_admin.py --email admin@example.com --password YourPassword123
 ```
+
+### 3. Data migration from the old SQLite database (one time)
+
+```bash
+python backend/scripts/migrate_sqlite_to_supabase.py --dry-run   # preview counts
+python backend/scripts/migrate_sqlite_to_supabase.py             # full migration
+```
+
+Copies all rows (keeping ids), creates Supabase Auth accounts for existing users,
+derives the `drivers`/`customers` tables, and uploads local files to Storage.
+**Existing users must use "Forgot password" once** — password hashes cannot be
+transferred into Supabase Auth.
 
 ### Frontend (React, development)
 
@@ -250,29 +283,33 @@ npm run build
 
 ## Configuration (Environment Variables)
 
-| Variable | Default | Purpose |
-|---|---|---|
-| `FLASK_SECRET_KEY` | dev value | Session signing key — **must change in production** |
-| `FLASK_HOST` | `127.0.0.1` | Bind address |
-| `FLASK_PORT` | `5000` | Port |
-| `FLASK_DEBUG` | `true` | Debug mode |
-| `FLASK_ENV` | — | Set `production` to enable secure cookies |
+All configuration lives in `.env` (project root) — see [.env.example](.env.example) for the full template.
 
-(Supabase variables will be added in the migration — see below.)
+| Variable | Purpose |
+|---|---|
+| `SUPABASE_URL` | Supabase project URL |
+| `SUPABASE_ANON_KEY` | Public API key (used only to verify passwords at login) |
+| `SUPABASE_SERVICE_ROLE_KEY` | Server-side key — Auth admin operations + Storage (keep secret!) |
+| `SUPABASE_DB_URL` | Postgres connection string used by the backend pool |
+| `SUPABASE_STORAGE_BUCKET` | Storage bucket name (default `shipment-documents`) |
+| `APP_TIMEZONE` | Timezone for app timestamps (default `Asia/Karachi`) |
+| `FLASK_SECRET_KEY` | Session signing key — **must change in production** |
+| `FLASK_HOST` / `FLASK_PORT` / `FLASK_DEBUG` / `FLASK_ENV` | Flask server settings |
+| `DIGITRANSX_SMTP_*` | SMTP settings for OTP / password-reset emails |
 
-## Supabase Migration (In Progress)
+## Supabase Migration (Complete ✅)
 
-The platform is migrating from SQLite to **Supabase PostgreSQL**:
+The platform now runs fully on **Supabase** — no SQLite anywhere in the app:
 
-- ✅ **Phase 1 — Schema**: [supabase/schema.sql](supabase/schema.sql) — full PostgreSQL schema with:
-  - Core tables: `users`, `customers`, `drivers`, `vehicles`, `shipments`, `shipment_status_history`, `documents`, `payments` (+ all supporting tables)
-  - Supabase **Auth** (email/password) linked to app users
-  - **Row Level Security**: admin (full), dispatcher (shipments/drivers/vehicles), customer (own shipments only), transporter (own fleet/bids/trips)
-  - Private **Storage bucket** `shipment-documents` for all files
-  - Automatic shipment status history via triggers
-- ⏳ **Phase 2 — Backend**: Supabase client configuration, `.env` setup, and CRUD API updates (pending approval)
+- ✅ **Schema**: [supabase/schema.sql](supabase/schema.sql) — all tables, indexes, triggers (automatic `shipment_status_history`, auto profile creation on signup), Row Level Security for admin / dispatcher / customer / transporter, and the private `shipment-documents` Storage bucket
+- ✅ **Database layer**: [backend/shared/db.py](backend/shared/db.py) — psycopg2 connection pool to Supabase PostgreSQL
+- ✅ **Auth**: signup / login / password reset / password change go through **Supabase Auth** ([backend/shared/supabase_client.py](backend/shared/supabase_client.py)); MPIN quick-unlock and the email OTP flow are unchanged
+- ✅ **Storage**: truck documents and chat media upload to the Storage bucket ([backend/shared/storage.py](backend/shared/storage.py)); file URLs (`/uploads/...`) are unchanged for the frontend
+- ✅ **Data migration**: [backend/scripts/migrate_sqlite_to_supabase.py](backend/scripts/migrate_sqlite_to_supabase.py) copies every legacy row, creates Auth accounts, and uploads files
 
-Business logic and UI remain unchanged by the migration.
+Business logic and UI are unchanged. Two operational notes:
+1. Existing users' passwords cannot be copied into Supabase Auth — after data migration each existing user resets their password once via "Forgot password".
+2. `Database/digitransx_auth.db` stays in the repo until migration + testing are verified.
 
 ## Future Features
 

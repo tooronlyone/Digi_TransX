@@ -2,7 +2,10 @@ from flask import Blueprint, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from shared.db import open_db
+from shared.supabase_client import supabase_create_user, supabase_update_password, supabase_verify_password
 from .helpers import (
+    _with_legacy_role,
+    map_legacy_role,
     DEVICE_COOKIE_NAME,
     LOGIN_COOLDOWN_MINUTES,
     MPIN_REGEX,
@@ -67,23 +70,44 @@ def signup():
         cnic_exists = db.execute("SELECT id FROM users WHERE cnic = ?", (cnic,)).fetchone()
         if cnic_exists:
             return json_response({"success": False, "field": "cnic", "message": "CNIC is already registered."}, 409)
+
+    # Create the account in Supabase Auth. The database trigger inserts the
+    # public.users profile row automatically from this metadata.
+    try:
+        supabase_create_user(
+            email,
+            data.get("password") or "",
+            {
+                "full_name": full_name,
+                "phone": phone,
+                "cnic": cnic,
+                "role": map_legacy_role(role),
+                "legacy_role": role,
+            },
+        )
+    except Exception as exc:
+        message = str(exc)
+        if "already" in message.lower():
+            return json_response({"success": False, "field": "email", "message": "Email is already registered."}, 409)
+        return json_response({"success": False, "message": f"Could not create account: {message}"}, 500)
+
+    with open_db() as db:
         db.execute(
             """
-            INSERT INTO users (
-                full_name, first_name, last_name, email, phone, cnic, password_hash, role,
-                company_name, business_type, city, fleet_size, transport_need,
-                station_name, pumps_count, license_no, shop_name, address, about,
-                mpin_hash, mpin_enabled, settings_json, created_at, updated_at, last_login_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NULL, 0, '{}', ?, ?, ?)
+            UPDATE users
+            SET full_name = ?, first_name = ?, last_name = ?, phone = ?, cnic = ?,
+                legacy_role = ?, company_name = ?, business_type = ?, city = ?,
+                fleet_size = ?, transport_need = ?, station_name = ?, pumps_count = ?,
+                license_no = ?, shop_name = ?, address = ?, about = ?,
+                updated_at = ?, last_login_at = ?
+            WHERE email = ?
             """,
             (
                 full_name,
                 first_name,
                 last_name,
-                email,
                 phone,
                 cnic,
-                generate_password_hash(data.get("password") or ""),
                 role,
                 (data.get("company_name") or "").strip() or None,
                 (data.get("business_type") or "").strip() or None,
@@ -96,12 +120,12 @@ def signup():
                 (data.get("shop_name") or "").strip() or None,
                 (data.get("address") or "").strip() or None,
                 (data.get("about") or "").strip() or None,
-                stamp["display"],
-                stamp["display"],
-                stamp["display"],
+                stamp["iso"],
+                stamp["iso"],
             ),
         )
-        user_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        row = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        user_id = row["id"] if row else None
         db.commit()
     user = get_user_by_id(user_id)
     record_login_activity(user_id, email, "signup", "success", "")
@@ -124,7 +148,7 @@ def login():
     if user.get("is_blocked"):
         record_login_activity(user["id"], lookup_value, login_method, "failed", "Account blocked.")
         return json_response({"success": False, "field": "loginId", "message": "This account is blocked."}, 403)
-    if not check_password_hash(user["password_hash"], password):
+    if not supabase_verify_password(user["email"], password):
         record_login_activity(user["id"], lookup_value, login_method, "failed", "Invalid password.")
         return json_response({"success": False, "field": "password", "message": "Incorrect password."}, 401)
     stamp = timestamp_bundle()
@@ -232,7 +256,16 @@ def reset_password():
         return json_response({"success": False, "message": error_message}, 400)
     stamp = timestamp_bundle()
     with open_db() as db:
-        db.execute("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?", (generate_password_hash(new_password), stamp["display"], token_record["user_id"]))
+        row = db.execute("SELECT auth_id FROM users WHERE id = ?", (token_record["user_id"],)).fetchone()
+        if not row or not row["auth_id"]:
+            return json_response({"success": False, "message": "Account is not linked to the auth system. Please contact support."}, 500)
+        auth_id = row["auth_id"]
+    try:
+        supabase_update_password(auth_id, new_password)
+    except Exception as exc:
+        return json_response({"success": False, "message": f"Could not update password: {exc}"}, 500)
+    with open_db() as db:
+        db.execute("UPDATE users SET updated_at = ? WHERE id = ?", (stamp["iso"], token_record["user_id"]))
         db.execute("UPDATE reset_tokens SET used = 1 WHERE id = ?", (token_record["id"],))
         db.execute("UPDATE password_reset_otps SET verified = 1 WHERE user_id = ? AND purpose = 'password_reset'", (token_record["user_id"],))
         db.commit()
@@ -251,7 +284,7 @@ def fast_login_options():
         ).fetchone()
     if not row:
         return json_response({"success": True, "available": False})
-    user = dict(row)
+    user = _with_legacy_role(dict(row))
     return json_response({"success": True, "available": bool(user.get("mpin_enabled") and user.get("mpin_hash")), "masked_email": mask_email(user.get("email", "")), "user_role": user.get("role", "")})
 
 
@@ -271,7 +304,7 @@ def fast_login_mpin():
         ).fetchone()
     if not row:
         return json_response({"success": False, "message": "Trusted device not found. Please login with password first."}, 404)
-    user = dict(row)
+    user = _with_legacy_role(dict(row))
     if not user.get("mpin_enabled") or not user.get("mpin_hash"):
         return json_response({"success": False, "message": "Fast login is not enabled for this account."}, 400)
     if not check_password_hash(user["mpin_hash"], mpin):
@@ -298,7 +331,7 @@ def setup_fast_login():
         return json_response({"success": False, "field": "mpin", "message": "MPIN must be exactly 4 digits."}, 400)
     stamp = timestamp_bundle()
     with open_db() as db:
-        db.execute("UPDATE users SET mpin_hash = ?, mpin_enabled = 1, updated_at = ? WHERE id = ?", (generate_password_hash(mpin), stamp["display"], request.current_user["id"]))
+        db.execute("UPDATE users SET mpin_hash = ?, mpin_enabled = true, updated_at = ? WHERE id = ?", (generate_password_hash(mpin), stamp["display"], request.current_user["id"]))
         db.commit()
     user = get_user_by_id(request.current_user["id"])
     return json_response({"success": True, "message": "MPIN enabled successfully.", "user": serialize_user(user), "csrf_token": session.get("csrf_token", "")})
@@ -312,7 +345,7 @@ def disable_fast_login():
         return err
     stamp = timestamp_bundle()
     with open_db() as db:
-        db.execute("UPDATE users SET mpin_hash = NULL, mpin_enabled = 0, updated_at = ? WHERE id = ?", (stamp["display"], request.current_user["id"]))
+        db.execute("UPDATE users SET mpin_hash = NULL, mpin_enabled = false, updated_at = ? WHERE id = ?", (stamp["display"], request.current_user["id"]))
         db.commit()
     user = get_user_by_id(request.current_user["id"])
     return json_response({"success": True, "message": "MPIN disabled successfully.", "user": serialize_user(user), "csrf_token": session.get("csrf_token", "")})

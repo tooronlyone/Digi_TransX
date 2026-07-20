@@ -198,7 +198,7 @@ def build_configuration_payload(row):
 
 
 def parse_bool_flag(value):
-    return 1 if str(value or "").strip() in {"1", "true", "True", "yes", "on"} else 0
+    return str(value or "").strip() in {"1", "true", "True", "yes", "on"}
 
 
 def get_status_reason_label(reason_code):
@@ -206,11 +206,11 @@ def get_status_reason_label(reason_code):
 
 
 def make_upload_relative_path(truck_id, file_storage):
-    UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
+    """Upload a truck document to Supabase Storage. Returns the storage path."""
     from werkzeug.utils import secure_filename
+
+    from shared.storage import upload_file_storage
 
     original = secure_filename(file_storage.filename or "")
     filename = f"{truck_id}_{int(time.time())}_{original or 'upload.bin'}"
-    destination = UPLOADS_DIR / filename
-    file_storage.save(destination)
-    return f"uploads/trucks/{filename}"
+    return upload_file_storage(f"uploads/trucks/{filename}", file_storage)

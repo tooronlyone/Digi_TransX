@@ -1,4 +1,4 @@
-from flask import Blueprint, request, send_from_directory
+from flask import Blueprint, Response, request
 
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
@@ -54,7 +54,7 @@ def get_thread_with_parties(db, thread_id, user_id):
                 FROM chat_messages
                 WHERE thread_id = ct.id
                   AND sender_user_id <> ?
-                  AND is_read = 0
+                  AND is_read = false
             ) AS unread_count
         FROM chat_threads ct
         LEFT JOIN agreement_posts ap ON ap.id = ct.agreement_post_id
@@ -101,7 +101,7 @@ def insert_chat_message(db, thread_id, sender_user_id, message_type, content="",
         """
         INSERT INTO chat_messages (
             thread_id, sender_user_id, message_type, content, media_path, media_request_status, is_read, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, 0, ?)
+        ) VALUES (?, ?, ?, ?, ?, ?, false, ?)
         """,
         (thread_id, sender_user_id, message_type, content or None, media_path, media_request_status, stamp),
     )
@@ -154,7 +154,12 @@ def get_pending_media_request_for_sender(db, thread_id, sender_user_id):
 
 @chat_blueprint.get("/uploads/chat/<path:filename>")
 def serve_chat_upload(filename):
-    return send_from_directory(CHAT_UPLOADS_DIR, filename)
+    from shared.storage import download_bytes, guess_content_type
+
+    data = download_bytes(f"uploads/chat/{filename}")
+    if data is None:
+        return json_response({"success": False, "message": "File not found."}, 404)
+    return Response(data, mimetype=guess_content_type(filename))
 
 
 @chat_blueprint.get("/api/chat/threads")
@@ -191,16 +196,16 @@ def list_threads():
                     FROM chat_messages
                     WHERE thread_id = ct.id
                       AND sender_user_id <> ?
-                      AND is_read = 0
+                      AND is_read = false
                 ) AS unread_count
             FROM chat_threads ct
             LEFT JOIN agreement_posts ap ON ap.id = ct.agreement_post_id
             LEFT JOIN users admin ON admin.id = ct.admin_user_id
             JOIN users client ON client.id = ct.client_user_id
             JOIN users transporter ON transporter.id = ct.transporter_user_id
-            WHERE ct.client_user_id = ? OR ct.transporter_user_id = ? OR (ct.is_group_chat = 1 AND ct.admin_user_id = ?)
+            WHERE ct.client_user_id = ? OR ct.transporter_user_id = ? OR (ct.is_group_chat = true AND ct.admin_user_id = ?)
             ORDER BY
-                CASE WHEN ct.last_message_at IS NULL OR trim(ct.last_message_at) = '' THEN 1 ELSE 0 END,
+                CASE WHEN ct.last_message_at IS NULL THEN 1 ELSE 0 END,
                 ct.last_message_at DESC,
                 ct.id DESC
             """,
@@ -254,7 +259,7 @@ def list_messages(thread_id):
                     WHERE cm.thread_id = ?
                     ORDER BY cm.id DESC
                     LIMIT 50
-                )
+                ) AS recent_messages
                 ORDER BY id ASC
                 """,
                 (thread_id,),
@@ -266,7 +271,7 @@ def list_messages(thread_id):
             FROM chat_messages
             WHERE thread_id = ?
               AND sender_user_id <> ?
-              AND is_read = 0
+              AND is_read = false
             """,
             (thread_id, user_id),
         ).fetchall()
@@ -274,10 +279,10 @@ def list_messages(thread_id):
             db.execute(
                 """
                 UPDATE chat_messages
-                SET is_read = 1
+                SET is_read = true
                 WHERE thread_id = ?
                   AND sender_user_id <> ?
-                  AND is_read = 0
+                  AND is_read = false
                 """,
                 (thread_id, user_id),
             )

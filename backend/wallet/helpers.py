@@ -91,7 +91,7 @@ def get_or_create_wallet_for_user(db, user):
         """
         INSERT INTO wallets (
             user_id, role, balance, locked_balance, minimum_required, is_minimum_met, completed_trips_count, created_at, updated_at
-        ) VALUES (?, ?, 0, 0, ?, 0, 0, ?, ?)
+        ) VALUES (?, ?, 0, 0, ?, false, 0, ?, ?)
         """,
         (user["id"], wallet_role, minimum_required, stamp, stamp),
     )

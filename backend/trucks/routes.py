@@ -1,11 +1,10 @@
 import json
 import re
-import sqlite3
 
-from flask import Blueprint, request, send_from_directory
+from flask import Blueprint, Response, request
 
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
-from shared.db import open_db
+from shared.db import IntegrityError, open_db
 from tracking.traccar import register_device
 from .helpers import (
     STATUS_OPTIONS,
@@ -37,7 +36,7 @@ CHASSIS_NUMBER_MESSAGE = (
 
 def get_owned_truck_or_error(truck_id, owner_user_id):
     with open_db() as db:
-        row = db.execute("SELECT * FROM trucks WHERE id = ?", (truck_id,)).fetchone()
+        row = db.execute("SELECT * FROM vehicles WHERE id = ?", (truck_id,)).fetchone()
     if not row:
         return None, json_response({"success": False, "message": "Truck not found."}, 404)
     truck = dict(row)
@@ -79,7 +78,12 @@ def truck_type_fields(type_key):
 
 @trucks_blueprint.get("/uploads/trucks/<path:filename>")
 def serve_truck_upload(filename):
-    return send_from_directory(UPLOADS_DIR, filename)
+    from shared.storage import download_bytes, guess_content_type
+
+    data = download_bytes(f"uploads/trucks/{filename}")
+    if data is None:
+        return json_response({"success": False, "message": "File not found."}, 404)
+    return Response(data, mimetype=guess_content_type(filename))
 
 
 @trucks_blueprint.post("/api/trucks")
@@ -143,14 +147,14 @@ def create_truck():
     stamp = timestamp_bundle()
     with open_db() as db:
         existing_truck_number = db.execute(
-            "SELECT id FROM trucks WHERE trim(truck_number) = ? COLLATE NOCASE LIMIT 1",
+            "SELECT id FROM vehicles WHERE lower(trim(truck_number)) = lower(trim(?)) LIMIT 1",
             (truck_number,),
         ).fetchone()
         if existing_truck_number:
             return json_response({"success": False, "message": "This truck number is already registered in the system."}, 409)
 
         existing_chassis_number = db.execute(
-            "SELECT id FROM trucks WHERE trim(chassis_number) = ? COLLATE NOCASE LIMIT 1",
+            "SELECT id FROM vehicles WHERE lower(trim(chassis_number)) = lower(trim(?)) LIMIT 1",
             (chassis_number,),
         ).fetchone()
         if existing_chassis_number:
@@ -159,7 +163,7 @@ def create_truck():
         try:
             db.execute(
                 """
-                INSERT INTO trucks (
+                INSERT INTO vehicles (
                     owner_user_id, truck_number, truck_company, truck_model, truck_type, catalog_type_key,
                     chassis_number, capacity_tons, main_use, payload_min_tons, payload_max_tons,
                     bed_length_ft, bed_width_ft, bed_height_ft,
@@ -199,22 +203,23 @@ def create_truck():
                     gps_device_id = register_device(imei.strip(), truck_number)
                     if gps_device_id is not None:
                         db.execute(
-                            "UPDATE trucks SET traccar_device_id = ? WHERE id = ?",
+                            "UPDATE vehicles SET traccar_device_id = ? WHERE id = ?",
                             (str(gps_device_id), truck_id),
                         )
                         db.commit()
             except Exception:
                 pass
-        except sqlite3.IntegrityError:
+        except IntegrityError:
+            db.rollback()
             duplicate_truck_number = db.execute(
-                "SELECT id FROM trucks WHERE trim(truck_number) = ? COLLATE NOCASE LIMIT 1",
+                "SELECT id FROM vehicles WHERE lower(trim(truck_number)) = lower(trim(?)) LIMIT 1",
                 (truck_number,),
             ).fetchone()
             if duplicate_truck_number:
                 return json_response({"success": False, "message": "This truck number is already registered in the system."}, 409)
 
             duplicate_chassis_number = db.execute(
-                "SELECT id FROM trucks WHERE trim(chassis_number) = ? COLLATE NOCASE LIMIT 1",
+                "SELECT id FROM vehicles WHERE lower(trim(chassis_number)) = lower(trim(?)) LIMIT 1",
                 (chassis_number,),
             ).fetchone()
             if duplicate_chassis_number:
@@ -230,7 +235,7 @@ def list_trucks():
     with open_db() as db:
         rows = db.execute(
             """
-            SELECT * FROM trucks
+            SELECT * FROM vehicles
             WHERE owner_user_id = ?
             ORDER BY id DESC
             """,
@@ -252,7 +257,7 @@ def truck_stats():
                 SUM(CASE WHEN status = 'on_job' THEN 1 ELSE 0 END) AS on_job,
                 SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance,
                 SUM(CASE WHEN status IN ('inactive', 'blocked') THEN 1 ELSE 0 END) AS inactive
-            FROM trucks
+            FROM vehicles
             WHERE owner_user_id = ?
             """,
             (request.current_user["id"],),
@@ -416,12 +421,16 @@ def update_truck_configuration(truck_id):
     truck_photo_path = truck.get("truck_photo_path")
     insurance_photo_path = truck.get("insurance_photo_path")
     rc_book_photo_path = truck.get("rc_book_photo_path")
+    new_documents = []
     if request.files.get("truck_photo") and request.files["truck_photo"].filename:
         truck_photo_path = make_upload_relative_path(truck_id, request.files["truck_photo"])
+        new_documents.append((truck_photo_path, "vehicle_photo", request.files["truck_photo"]))
     if request.files.get("insurance_photo") and request.files["insurance_photo"].filename:
         insurance_photo_path = make_upload_relative_path(truck_id, request.files["insurance_photo"])
+        new_documents.append((insurance_photo_path, "insurance", request.files["insurance_photo"]))
     if request.files.get("rc_book_photo") and request.files["rc_book_photo"].filename:
         rc_book_photo_path = make_upload_relative_path(truck_id, request.files["rc_book_photo"])
+        new_documents.append((rc_book_photo_path, "rc_book", request.files["rc_book_photo"]))
 
     status_reason_code = truck.get("status_reason_code") or ""
     status_reason = truck.get("status_reason") or ""
@@ -429,7 +438,7 @@ def update_truck_configuration(truck_id):
     with open_db() as db:
         db.execute(
             """
-            UPDATE trucks
+            UPDATE vehicles
             SET truck_number = ?, truck_company = ?, truck_model = ?, truck_type = ?, catalog_type_key = ?, chassis_number = ?,
                 capacity_tons = ?, operating_provinces = ?, body_style = ?, payload_min_tons = ?, payload_max_tons = ?,
                 bed_length_ft = ?, bed_width_ft = ?, bed_height_ft = ?,
@@ -474,6 +483,18 @@ def update_truck_configuration(truck_id):
                 request.current_user["id"],
             ),
         )
+        from shared.storage import record_document
+
+        for storage_path, doc_type, file_storage in new_documents:
+            record_document(
+                db,
+                request.current_user["id"],
+                storage_path,
+                doc_type,
+                vehicle_id=truck_id,
+                file_name=file_storage.filename,
+                mime_type=file_storage.mimetype,
+            )
         db.commit()
         try:
             imei = parse_optional_text(form.get("tracking_id"))
@@ -481,13 +502,13 @@ def update_truck_configuration(truck_id):
                 gps_device_id = register_device(imei.strip(), truck_number)
                 if gps_device_id is not None:
                     db.execute(
-                        "UPDATE trucks SET traccar_device_id = ? WHERE id = ?",
+                        "UPDATE vehicles SET traccar_device_id = ? WHERE id = ?",
                         (str(gps_device_id), truck_id),
                     )
                     db.commit()
         except Exception:
             pass
-        updated = db.execute("SELECT * FROM trucks WHERE id = ? AND owner_user_id = ?", (truck_id, request.current_user["id"])).fetchone()
+        updated = db.execute("SELECT * FROM vehicles WHERE id = ? AND owner_user_id = ?", (truck_id, request.current_user["id"])).fetchone()
 
     return json_response({"success": True, "truck": build_configuration_payload(dict(updated))})
 
@@ -532,13 +553,13 @@ def update_truck_status(truck_id):
     with open_db() as db:
         db.execute(
             """
-            UPDATE trucks
+            UPDATE vehicles
             SET status = ?, status_reason_code = ?, status_reason = ?, updated_at = ?
             WHERE id = ? AND owner_user_id = ?
             """,
             (status, status_reason_code, status_reason, stamp["display"], truck_id, request.current_user["id"]),
         )
         db.commit()
-        updated = db.execute("SELECT * FROM trucks WHERE id = ? AND owner_user_id = ?", (truck_id, request.current_user["id"])).fetchone()
+        updated = db.execute("SELECT * FROM vehicles WHERE id = ? AND owner_user_id = ?", (truck_id, request.current_user["id"])).fetchone()
 
     return json_response({"success": True, "truck": build_configuration_payload(dict(updated))})

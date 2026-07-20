@@ -102,14 +102,14 @@ def serialize_trip(trip_dict):
 
 def fetch_order(db, order_id):
     """Fetch order by ID."""
-    row = db.execute("SELECT * FROM orders WHERE id = ?", (order_id,)).fetchone()
+    row = db.execute("SELECT * FROM shipments WHERE id = ?", (order_id,)).fetchone()
     return dict(row) if row else None
 
 
 def fetch_bids_for_order(db, order_id):
     """Fetch all bids for an order."""
     rows = db.execute(
-        "SELECT * FROM order_bids WHERE order_id = ? ORDER BY created_at ASC",
+        "SELECT * FROM shipment_bids WHERE order_id = ? ORDER BY created_at ASC",
         (order_id,)
     ).fetchall()
     return [dict(r) for r in rows]

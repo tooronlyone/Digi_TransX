@@ -65,8 +65,8 @@ def request_password_change_otp():
     current_password = data.get("current_password") or ""
     if not current_password:
         return json_response({"success": False, "message": "Current password is required."}, 400)
-    from werkzeug.security import check_password_hash
-    if not check_password_hash(request.current_user.get("password_hash", ""), current_password):
+    from shared.supabase_client import supabase_verify_password
+    if not supabase_verify_password(request.current_user.get("email", ""), current_password):
         return json_response({"success": False, "message": "Current password is incorrect."}, 400)
     latest = latest_otp_record(request.current_user["id"], "password_change")
     if latest and latest.get("cooldown_until_iso"):
@@ -108,8 +108,16 @@ def change_password():
     if error_message:
         return json_response({"success": False, "message": error_message}, 400)
     stamp = timestamp_bundle()
+    auth_id = request.current_user.get("auth_id")
+    if not auth_id:
+        return json_response({"success": False, "message": "Account is not linked to the auth system. Please contact support."}, 500)
+    from shared.supabase_client import supabase_update_password
+    try:
+        supabase_update_password(auth_id, new_password)
+    except Exception as exc:
+        return json_response({"success": False, "message": f"Could not update password: {exc}"}, 500)
     with open_db() as db:
-        db.execute("UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?", (generate_password_hash(new_password), stamp["display"], request.current_user["id"]))
+        db.execute("UPDATE users SET updated_at = ? WHERE id = ?", (stamp["iso"], request.current_user["id"]))
         db.commit()
     return json_response({"success": True, "message": "Password changed successfully."})
 

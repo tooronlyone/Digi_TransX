@@ -16,7 +16,7 @@ from chat import chat_blueprint
 from orders import orders_blueprint
 from profile import profile_blueprint
 from settings import settings_blueprint
-from shared.db import FRONTEND_DIST, init_db
+from shared.db import FRONTEND_DIST, check_connection
 from tracking import tracking_blueprint
 from trucks import trucks_blueprint
 from wallet import wallet_blueprint
@@ -39,7 +39,8 @@ app.register_blueprint(tracking_blueprint)
 app.register_blueprint(trucks_blueprint)
 app.register_blueprint(wallet_blueprint)
 
-init_db()
+# Schema lives in Supabase (supabase/schema.sql) — just verify connectivity.
+check_connection()
 from scheduler import start_scheduler
 start_scheduler()
 

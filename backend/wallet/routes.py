@@ -169,7 +169,7 @@ def topup_wallet():
         current = db.execute("SELECT * FROM wallets WHERE user_id = ?", (request.current_user["id"],)).fetchone()
         wallet = dict(current) if current else wallet
         new_balance = round_money(wallet["balance"] + net_amount)
-        is_minimum_met = 1 if wallet["is_minimum_met"] or new_balance + 1e-9 >= wallet["minimum_required"] else 0
+        is_minimum_met = bool(wallet["is_minimum_met"] or new_balance + 1e-9 >= wallet["minimum_required"])
         current_locked_balance = round_money(wallet["locked_balance"])
         should_restore_minimum_lock = (
             wallet["role"] == "transporter"

@@ -1,15 +1,16 @@
+"""Create or update a Digi_TransX platform admin (Supabase Auth + profile)."""
+
 import argparse
 import sys
 from pathlib import Path
-
-from werkzeug.security import generate_password_hash
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 from auth.helpers import normalize_email, split_name, timestamp_bundle
-from shared.db import init_db, open_db
+from shared.db import open_db
+from shared.supabase_client import supabase_create_user, supabase_update_password
 
 
 def available_admin_cnic(db, current_user_id=None):
@@ -38,44 +39,59 @@ def main():
     if len(args.password) < 8:
         raise SystemExit("Password must be at least 8 characters.")
 
-    init_db()
-    stamp = timestamp_bundle()["display"]
+    stamp = timestamp_bundle()["iso"]
     with open_db() as db:
         existing = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
         if existing:
+            if existing["auth_id"]:
+                supabase_update_password(existing["auth_id"], args.password)
+            else:
+                supabase_create_user(
+                    email,
+                    args.password,
+                    {
+                        "full_name": existing.get("full_name") or args.name,
+                        "phone": existing.get("phone") or "",
+                        "cnic": existing.get("cnic") or "",
+                        "role": "admin",
+                        "legacy_role": "platform_admin",
+                    },
+                )
             db.execute(
                 """
                 UPDATE users
-                SET password_hash = ?, role = 'platform_admin', cnic = ?, updated_at = ?
+                SET role = 'admin', legacy_role = 'platform_admin', cnic = ?, updated_at = ?
                 WHERE id = ?
                 """,
-                (generate_password_hash(args.password), available_admin_cnic(db, existing["id"]), stamp, existing["id"]),
+                (available_admin_cnic(db, existing["id"]), stamp, existing["id"]),
             )
             action = "updated"
             user_id = existing["id"]
         else:
             first_name, last_name = split_name(args.name)
+            cnic = available_admin_cnic(db)
+            supabase_create_user(
+                email,
+                args.password,
+                {
+                    "full_name": args.name.strip() or "Platform Admin",
+                    "phone": "",
+                    "cnic": cnic,
+                    "role": "admin",
+                    "legacy_role": "platform_admin",
+                },
+            )
             db.execute(
                 """
-                INSERT INTO users (
-                    full_name, first_name, last_name, email, phone, cnic, password_hash, role,
-                    city, mpin_hash, mpin_enabled, settings_json, created_at, updated_at, last_login_at
-                ) VALUES (?, ?, ?, ?, '', ?, ?, 'platform_admin', '', NULL, 0, '{}', ?, ?, ?)
+                UPDATE users
+                SET full_name = ?, first_name = ?, last_name = ?, role = 'admin',
+                    legacy_role = 'platform_admin', city = '', updated_at = ?
+                WHERE email = ?
                 """,
-                (
-                    args.name.strip() or "Platform Admin",
-                    first_name,
-                    last_name,
-                    email,
-                    available_admin_cnic(db),
-                    generate_password_hash(args.password),
-                    stamp,
-                    stamp,
-                    stamp,
-                ),
+                (args.name.strip() or "Platform Admin", first_name, last_name, stamp, email),
             )
             action = "created"
-            user_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+            user_id = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()["id"]
         db.commit()
 
     print(f"Platform admin {action}: id={user_id}, email={email}, role=platform_admin")
@@ -83,4 +99,3 @@ def main():
 
 if __name__ == "__main__":
     main()
-

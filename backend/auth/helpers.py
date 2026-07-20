@@ -166,12 +166,36 @@ def get_session_snapshot():
     return {"last_active_at": session.get("last_active_at", "")}
 
 
+LEGACY_TO_APP_ROLE = {
+    "platform_admin": "admin",
+    "client": "customer",
+    "service_seeker": "customer",
+    "everyday_user": "customer",
+    "transporter": "transporter",
+    "logistics_provider": "transporter",
+    "fuel_station_manager": "fuel_station_manager",
+    "shopkeeper": "shopkeeper",
+    "dispatcher": "dispatcher",
+}
+
+
+def map_legacy_role(legacy_role):
+    return LEGACY_TO_APP_ROLE.get((legacy_role or "").strip().lower(), "customer")
+
+
+def _with_legacy_role(user):
+    """App logic keeps using the legacy role strings (users.legacy_role)."""
+    if user and user.get("legacy_role"):
+        user["role"] = user["legacy_role"]
+    return user
+
+
 def get_user_by_id(user_id):
     if not user_id:
         return None
     with open_db() as db:
         row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        return dict(row) if row else None
+        return _with_legacy_role(dict(row)) if row else None
 
 
 def get_user_by_login(login_id):
@@ -179,7 +203,7 @@ def get_user_by_login(login_id):
     column = "cnic" if login_kind == "cnic" else "email"
     with open_db() as db:
         row = db.execute(f"SELECT * FROM users WHERE {column} = ?", (value,)).fetchone()
-        return (dict(row) if row else None), login_kind, value
+        return (_with_legacy_role(dict(row)) if row else None), login_kind, value
 
 
 def serialize_user(user):
@@ -240,8 +264,8 @@ def record_login_activity(user_id, login_identifier, login_method, status, failu
             """
             INSERT INTO login_activity (
                 user_id, login_identifier, login_method, status, failure_reason,
-                ip_address, user_agent, created_at, created_at_iso
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ip_address, user_agent, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 user_id,
@@ -251,7 +275,6 @@ def record_login_activity(user_id, login_identifier, login_method, status, failu
                 failure_reason,
                 meta["ip_address"],
                 meta["user_agent"],
-                stamp["display"],
                 stamp["iso"],
             ),
         )

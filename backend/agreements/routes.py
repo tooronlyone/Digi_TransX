@@ -64,7 +64,7 @@ def fetch_agreement(db, agreement_id):
         JOIN users u ON u.id = a.client_user_id
         LEFT JOIN agreement_trucks at ON at.agreement_id = a.id
         WHERE a.id = ?
-        GROUP BY a.id
+        GROUP BY a.id, u.id
         """,
         (agreement_id,),
     ).fetchone()
@@ -82,7 +82,7 @@ def fetch_agreement_trucks(db, agreement_id):
             t.truck_photo_path,
             COALESCE(NULLIF(trim(u.full_name), ''), trim(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), u.email, 'Transporter') AS transporter_name
         FROM agreement_trucks at
-        JOIN trucks t ON t.id = at.truck_id
+        JOIN vehicles t ON t.id = at.truck_id
         JOIN users u ON u.id = at.transporter_user_id
         WHERE at.agreement_id = ?
         ORDER BY at.id ASC
@@ -224,7 +224,7 @@ def available_posts():
         truck_type_rows = db.execute(
             f"""
             SELECT DISTINCT catalog_type_key
-            FROM trucks
+            FROM vehicles
             WHERE owner_user_id = ? AND {active_gps_truck_where()}
               AND catalog_type_key IS NOT NULL AND trim(catalog_type_key) <> ''
             """,
@@ -303,7 +303,7 @@ def create_bid(post_id):
         truck_ids = [item["truck_id"] for item in parsed]
         rows = db.execute(
             f"""
-            SELECT * FROM trucks
+            SELECT * FROM vehicles
             WHERE id IN ({','.join('?' for _ in truck_ids)})
               AND owner_user_id = ? AND {active_gps_truck_where()}
             """,
@@ -340,7 +340,7 @@ def create_bid(post_id):
             """
             SELECT abt.*, t.truck_number, t.truck_type, t.catalog_type_key, t.capacity_tons, t.truck_photo_path
             FROM agreement_bid_trucks abt
-            JOIN trucks t ON t.id = abt.truck_id
+            JOIN vehicles t ON t.id = abt.truck_id
             WHERE abt.bid_id = ?
             ORDER BY abt.id ASC
             """,
@@ -379,7 +379,7 @@ def list_bids(post_id):
             JOIN users u ON u.id = ab.transporter_user_id
             LEFT JOIN agreement_bid_trucks abt ON abt.bid_id = ab.id
             WHERE ab.post_id = ?
-            GROUP BY ab.id
+            GROUP BY ab.id, u.id
             """,
             (post_id,),
         ).fetchall()
@@ -390,7 +390,7 @@ def list_bids(post_id):
                 f"""
                 SELECT abt.*, t.truck_number, t.truck_type, t.catalog_type_key, t.capacity_tons, t.truck_photo_path
                 FROM agreement_bid_trucks abt
-                JOIN trucks t ON t.id = abt.truck_id
+                JOIN vehicles t ON t.id = abt.truck_id
                 WHERE abt.bid_id IN ({','.join('?' for _ in bid_ids)})
                 ORDER BY abt.id ASC
                 """,
@@ -580,7 +580,7 @@ def start_trip(agreement_id):
             """
             SELECT at.*, t.truck_number
             FROM agreement_trucks at
-            JOIN trucks t ON t.id = at.truck_id
+            JOIN vehicles t ON t.id = at.truck_id
             WHERE at.agreement_id = ? AND at.truck_id = ? AND at.transporter_user_id = ? AND at.status = 'active'
             """,
             (agreement_id, truck_id, request.current_user["id"]),
@@ -608,7 +608,7 @@ def start_trip(agreement_id):
         insert_system_note_for_agreement(db, agreement_id, request.current_user["id"], f"Truck {agreement_truck['truck_number']} started trip: {pickup_description}")
         db.commit()
         trip = db.execute(
-            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN trucks t ON t.id = atr.truck_id WHERE atr.id = ?",
+            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = ?",
             (trip_id,),
         ).fetchone()
     return json_response({"success": True, "trip": serialize_trip(dict(trip))})
@@ -636,7 +636,7 @@ def end_trip(agreement_id, trip_id):
             SELECT atr.*, at.per_km_rate, t.truck_number
             FROM agreement_trips atr
             JOIN agreement_trucks at ON at.id = atr.agreement_truck_id
-            JOIN trucks t ON t.id = atr.truck_id
+            JOIN vehicles t ON t.id = atr.truck_id
             WHERE atr.id = ? AND atr.agreement_id = ? AND atr.transporter_user_id = ?
             """,
             (trip_id, agreement_id, request.current_user["id"]),
@@ -648,7 +648,7 @@ def end_trip(agreement_id, trip_id):
         distance_km = None
         distance_source = "haversine"
 
-        truck_row = db.execute("SELECT traccar_device_id FROM trucks WHERE id = ?", (trip["truck_id"],)).fetchone()
+        truck_row = db.execute("SELECT traccar_device_id FROM vehicles WHERE id = ?", (trip["truck_id"],)).fetchone()
         traccar_device_id = truck_row["traccar_device_id"] if truck_row else None
         if traccar_device_id:
             try:
@@ -707,7 +707,7 @@ def end_trip(agreement_id, trip_id):
         insert_system_note_for_agreement(db, agreement_id, request.current_user["id"], f"Truck {trip['truck_number']} completed trip: {distance_km:.2f} km")
         db.commit()
         updated = db.execute(
-            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN trucks t ON t.id = atr.truck_id WHERE atr.id = ?",
+            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = ?",
             (trip_id,),
         ).fetchone()
     return json_response({"success": True, "trip": serialize_trip(dict(updated)), "distance_km": distance_km, "distance_source": distance_source})
@@ -724,7 +724,7 @@ def trip_live_location(trip_id):
             """
             SELECT atr.*, t.traccar_device_id
             FROM agreement_trips atr
-            JOIN trucks t ON t.id = atr.truck_id
+            JOIN vehicles t ON t.id = atr.truck_id
             WHERE atr.id = ?
             """,
             (trip_id,),
@@ -793,7 +793,7 @@ def dispute_trip(trip_id):
         )
         db.commit()
         updated = db.execute(
-            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN trucks t ON t.id = atr.truck_id WHERE atr.id = ?",
+            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = ?",
             (trip_id,),
         ).fetchone()
     return json_response({"success": True, "trip": serialize_trip(dict(updated))})
@@ -812,7 +812,7 @@ def list_trips(agreement_id):
         query = """
             SELECT atr.*, t.truck_number
             FROM agreement_trips atr
-            JOIN trucks t ON t.id = atr.truck_id
+            JOIN vehicles t ON t.id = atr.truck_id
             WHERE atr.agreement_id = ?
         """
         truck_id = request.args.get("truck_id")
@@ -843,7 +843,7 @@ def my_agreements():
                 LEFT JOIN agreement_trucks at ON at.agreement_id = a.id
                 LEFT JOIN agreement_monthly_payments amp ON amp.agreement_id = a.id
                 WHERE a.client_user_id = ?
-                GROUP BY a.id
+                GROUP BY a.id, u.id
                 ORDER BY a.id DESC
                 """,
                 (current_month, current_month, user_id),
@@ -859,7 +859,7 @@ def my_agreements():
                 JOIN users u ON u.id = a.client_user_id
                 JOIN agreement_trucks at ON at.agreement_id = a.id AND at.transporter_user_id = ?
                 LEFT JOIN agreement_monthly_payments amp ON amp.agreement_truck_id = at.id
-                GROUP BY a.id
+                GROUP BY a.id, u.id
                 ORDER BY a.id DESC
                 """,
                 (current_month, current_month, user_id),
@@ -872,7 +872,7 @@ def my_agreements():
                 SELECT at.*, t.truck_number, t.truck_type, t.catalog_type_key, t.truck_photo_path,
                        COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'Transporter') AS transporter_name
                 FROM agreement_trucks at
-                JOIN trucks t ON t.id = at.truck_id
+                JOIN vehicles t ON t.id = at.truck_id
                 JOIN users u ON u.id = at.transporter_user_id
                 WHERE at.agreement_id IN ({','.join('?' for _ in agreement_ids)})
                 ORDER BY at.id ASC
@@ -897,7 +897,7 @@ def list_payments(agreement_id):
             SELECT amp.*, t.truck_number
             FROM agreement_monthly_payments amp
             JOIN agreement_trucks at ON at.id = amp.agreement_truck_id
-            JOIN trucks t ON t.id = at.truck_id
+            JOIN vehicles t ON t.id = at.truck_id
             WHERE amp.agreement_id = ?
             ORDER BY amp.payment_due_date ASC, amp.id ASC
             """,
