@@ -207,11 +207,13 @@ def get_user_by_login(login_id):
 
 
 def serialize_user(user):
+    # first/last name are no longer stored — derived from full_name for the UI.
+    derived_first, derived_last = split_name(user.get("full_name", ""))
     return {
         "id": user["id"],
         "full_name": user.get("full_name", ""),
-        "first_name": user.get("first_name", ""),
-        "last_name": user.get("last_name", ""),
+        "first_name": derived_first,
+        "last_name": derived_last,
         "email": user.get("email", ""),
         "phone": user.get("phone", ""),
         "cnic": user.get("cnic", ""),

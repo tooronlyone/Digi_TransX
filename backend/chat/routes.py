@@ -31,9 +31,9 @@ def get_thread_with_parties(db, thread_id, user_id):
             ap.title AS agreement_title,
             ap.service_area AS agreement_service_area,
             ap.status AS agreement_status,
-            COALESCE(NULLIF(trim(client.full_name), ''), trim(COALESCE(client.first_name, '') || ' ' || COALESCE(client.last_name, '')), client.email, 'Client') AS client_name,
-            COALESCE(NULLIF(trim(transporter.full_name), ''), trim(COALESCE(transporter.first_name, '') || ' ' || COALESCE(transporter.last_name, '')), transporter.email, 'Transporter') AS transporter_name,
-            COALESCE(NULLIF(trim(admin.full_name), ''), trim(COALESCE(admin.first_name, '') || ' ' || COALESCE(admin.last_name, '')), admin.email, 'Admin') AS admin_name,
+            COALESCE(NULLIF(trim(client.full_name), ''), client.email, 'Client') AS client_name,
+            COALESCE(NULLIF(trim(transporter.full_name), ''), transporter.email, 'Transporter') AS transporter_name,
+            COALESCE(NULLIF(trim(admin.full_name), ''), admin.email, 'Admin') AS admin_name,
             (
                 SELECT COALESCE(
                     CASE
@@ -86,7 +86,7 @@ def get_thread_or_error(db, thread_id, user_id):
 def get_sender_name(db, user_id):
     row = db.execute(
         """
-        SELECT COALESCE(NULLIF(trim(full_name), ''), trim(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')), email, 'User') AS name
+        SELECT COALESCE(NULLIF(trim(full_name), ''), email, 'User') AS name
         FROM users
         WHERE id = ?
         """,
@@ -111,7 +111,7 @@ def insert_chat_message(db, thread_id, sender_user_id, message_type, content="",
         """
         SELECT
             cm.*,
-            COALESCE(NULLIF(trim(u.full_name), ''), trim(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), u.email, 'User') AS sender_name
+            COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'User') AS sender_name
         FROM chat_messages cm
         JOIN users u ON u.id = cm.sender_user_id
         WHERE cm.id = ?
@@ -174,8 +174,8 @@ def list_threads():
                 ap.title AS agreement_title,
                 ap.service_area AS agreement_service_area,
                 ap.status AS agreement_status,
-                COALESCE(NULLIF(trim(client.full_name), ''), trim(COALESCE(client.first_name, '') || ' ' || COALESCE(client.last_name, '')), client.email, 'Client') AS client_name,
-                COALESCE(NULLIF(trim(transporter.full_name), ''), trim(COALESCE(transporter.first_name, '') || ' ' || COALESCE(transporter.last_name, '')), transporter.email, 'Transporter') AS transporter_name,
+                COALESCE(NULLIF(trim(client.full_name), ''), client.email, 'Client') AS client_name,
+                COALESCE(NULLIF(trim(transporter.full_name), ''), transporter.email, 'Transporter') AS transporter_name,
                 (
                     SELECT COALESCE(
                         CASE
@@ -238,7 +238,7 @@ def list_messages(thread_id):
                 """
                 SELECT
                     cm.*,
-                    COALESCE(NULLIF(trim(u.full_name), ''), trim(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), u.email, 'User') AS sender_name
+                    COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'User') AS sender_name
                 FROM chat_messages cm
                 JOIN users u ON u.id = cm.sender_user_id
                 WHERE cm.thread_id = ? AND cm.id > ?
@@ -253,7 +253,7 @@ def list_messages(thread_id):
                 FROM (
                     SELECT
                         cm.*,
-                        COALESCE(NULLIF(trim(u.full_name), ''), trim(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), u.email, 'User') AS sender_name
+                        COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'User') AS sender_name
                     FROM chat_messages cm
                     JOIN users u ON u.id = cm.sender_user_id
                     WHERE cm.thread_id = ?

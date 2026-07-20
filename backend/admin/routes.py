@@ -53,7 +53,7 @@ def rowdict(row):
 
 
 def user_display_sql(alias="u"):
-    return f"COALESCE(NULLIF(trim({alias}.full_name), ''), trim(COALESCE({alias}.first_name, '') || ' ' || COALESCE({alias}.last_name, '')), {alias}.email, 'User')"
+    return f"COALESCE(NULLIF(trim({alias}.full_name), ''), {alias}.email, 'User')"
 
 
 def serialize_admin_user(row):
@@ -116,7 +116,6 @@ def create_admin_user(db, name, email, password):
     """Create a platform admin in Supabase Auth + profile row (via DB trigger)."""
     from shared.supabase_client import supabase_create_user
 
-    first_name, last_name = split_name(name)
     stamp = timestamp_bundle()["iso"]
     cnic = available_admin_cnic(db)
     supabase_create_user(
@@ -127,11 +126,11 @@ def create_admin_user(db, name, email, password):
     db.execute(
         """
         UPDATE users
-        SET full_name = ?, first_name = ?, last_name = ?, cnic = ?, legacy_role = 'platform_admin',
+        SET full_name = ?, cnic = ?, legacy_role = 'platform_admin',
             role = 'admin', city = '', updated_at = ?
         WHERE email = ?
         """,
-        (name, first_name, last_name, cnic, stamp, email),
+        (name, cnic, stamp, email),
     )
     return db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()["id"]
 

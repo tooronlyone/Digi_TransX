@@ -146,8 +146,6 @@ class Migrator:
             return {
                 "id": u["id"],
                 "full_name": u.get("full_name") or "",
-                "first_name": u.get("first_name"),
-                "last_name": u.get("last_name"),
                 "email": (u.get("email") or "").strip().lower(),
                 "phone": u.get("phone") or "",
                 "cnic": u.get("cnic") or f"PENDING-{u['id']}",

@@ -58,7 +58,7 @@ def fetch_agreement(db, agreement_id):
         """
         SELECT
             a.*,
-            COALESCE(NULLIF(trim(u.full_name), ''), trim(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), u.email, 'Client') AS client_name,
+            COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'Client') AS client_name,
             COUNT(DISTINCT at.id) AS truck_count
         FROM agreements a
         JOIN users u ON u.id = a.client_user_id
@@ -80,7 +80,7 @@ def fetch_agreement_trucks(db, agreement_id):
             t.truck_type,
             t.catalog_type_key,
             t.truck_photo_path,
-            COALESCE(NULLIF(trim(u.full_name), ''), trim(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), u.email, 'Transporter') AS transporter_name
+            COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'Transporter') AS transporter_name
         FROM agreement_trucks at
         JOIN vehicles t ON t.id = at.truck_id
         JOIN users u ON u.id = at.transporter_user_id
@@ -372,7 +372,7 @@ def list_bids(post_id):
             """
             SELECT
                 ab.*,
-                COALESCE(NULLIF(trim(u.full_name), ''), trim(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), u.email, 'Transporter') AS transporter_name,
+                COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'Transporter') AS transporter_name,
                 NULL AS transporter_rating,
                 AVG(abt.per_km_rate) AS average_per_km_rate
             FROM agreement_bids ab

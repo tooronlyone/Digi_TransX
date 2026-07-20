@@ -37,7 +37,6 @@ def profile_update():
         return err
     data = request.get_json(silent=True) or {}
     full_name = (data.get("first_name") or request.current_user.get("full_name") or "").strip()
-    first_name, last_name = split_name(full_name)
     phone = normalize_phone(data.get("phone") or request.current_user.get("phone"))
     city = (data.get("city") or request.current_user.get("city") or "").strip()
     about = (data.get("about") or request.current_user.get("about") or "").strip()
@@ -46,10 +45,10 @@ def profile_update():
         db.execute(
             """
             UPDATE users
-            SET full_name = ?, first_name = ?, last_name = ?, phone = ?, city = ?, about = ?, updated_at = ?
+            SET full_name = ?, phone = ?, city = ?, about = ?, updated_at = ?
             WHERE id = ?
             """,
-            (full_name, first_name, last_name, phone, city, about, stamp["display"], request.current_user["id"]),
+            (full_name, phone, city, about, stamp["display"], request.current_user["id"]),
         )
         db.commit()
     return json_response({"success": True, "user": serialize_user(get_user_by_id(request.current_user["id"]))})

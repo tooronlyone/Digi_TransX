@@ -57,7 +57,6 @@ def signup():
         field = next(iter(errors))
         return json_response({"success": False, "field": field, "message": errors[field]}, 400)
     full_name = (data.get("name") or "").strip()
-    first_name, last_name = split_name(full_name)
     email = normalize_email(data.get("email"))
     phone = normalize_phone(data.get("phone"))
     cnic = normalize_cnic(data.get("cnic"))
@@ -95,7 +94,7 @@ def signup():
         db.execute(
             """
             UPDATE users
-            SET full_name = ?, first_name = ?, last_name = ?, phone = ?, cnic = ?,
+            SET full_name = ?, phone = ?, cnic = ?,
                 legacy_role = ?, company_name = ?, business_type = ?, city = ?,
                 fleet_size = ?, transport_need = ?, station_name = ?, pumps_count = ?,
                 license_no = ?, shop_name = ?, address = ?, about = ?,
@@ -104,8 +103,6 @@ def signup():
             """,
             (
                 full_name,
-                first_name,
-                last_name,
                 phone,
                 cnic,
                 role,

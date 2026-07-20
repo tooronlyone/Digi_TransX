@@ -68,7 +68,6 @@ def main():
             action = "updated"
             user_id = existing["id"]
         else:
-            first_name, last_name = split_name(args.name)
             cnic = available_admin_cnic(db)
             supabase_create_user(
                 email,
@@ -84,11 +83,11 @@ def main():
             db.execute(
                 """
                 UPDATE users
-                SET full_name = ?, first_name = ?, last_name = ?, role = 'admin',
+                SET full_name = ?, role = 'admin',
                     legacy_role = 'platform_admin', city = '', updated_at = ?
                 WHERE email = ?
                 """,
-                (args.name.strip() or "Platform Admin", first_name, last_name, stamp, email),
+                (args.name.strip() or "Platform Admin", stamp, email),
             )
             action = "created"
             user_id = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()["id"]
