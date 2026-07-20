@@ -2,6 +2,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
+import { hasTruckPhoto, truckPhotoBackgroundStyle } from '../../lib/truckPhotos'
 import '../../styles/pages/my-trucks.css'
 
 function statusBadge(status) {
@@ -99,7 +100,7 @@ export default function MyTruck() {
         ) : (
           <div className="mytrucks-grid">
             {filtered.map(truck => (
-              <article key={truck.id} className="mytrucks-card">
+              <article`r`n                key={truck.id}`r`n                className={`mytrucks-card${hasTruckPhoto(truck) ? ' mytrucks-card--has-photo' : ''}`}`r`n                style={truckPhotoBackgroundStyle(truck)}`r`n              >
                 <div className="mytrucks-card-top">
                   <div>
                     <strong>{truck.truck_number || truck.registration_number || emptyValue}</strong>

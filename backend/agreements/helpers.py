@@ -3,7 +3,12 @@ from math import asin, cos, radians, sin, sqrt
 
 from auth.helpers import json_response, timestamp_bundle
 from trucks.helpers import get_catalog_type
-from wallet.helpers import round_money
+from wallet.helpers import (
+    adjust_wallet_balance,
+    available_balance,
+    get_or_create_wallet_for_user,
+    round_money,
+)
 
 
 CLIENT_AGREEMENT_ROLES = {"service_seeker", "everyday_user", "client"}
@@ -157,6 +162,7 @@ def serialize_bid(row, trucks=None):
 
 
 def serialize_bid_truck(row):
+    truck_photo_path = row.get("truck_photo_path") or ""
     return {
         "id": row.get("id"),
         "bid_id": row.get("bid_id"),
@@ -164,6 +170,8 @@ def serialize_bid_truck(row):
         "truck_number": row.get("truck_number") or "",
         "truck_type": row.get("catalog_type_key") or row.get("truck_type") or "",
         "truck_type_name": truck_type_name(row.get("catalog_type_key") or row.get("truck_type")),
+        "truck_photo_path": truck_photo_path,
+        "photo": f"/{truck_photo_path}" if truck_photo_path else "",
         "capacity_tons": row.get("capacity_tons"),
         "per_km_rate": round_money(row.get("per_km_rate")),
         "minimum_monthly_guarantee": round_money(row.get("minimum_monthly_guarantee")),
@@ -194,6 +202,7 @@ def serialize_agreement(row, trucks=None):
 
 
 def serialize_agreement_truck(row):
+    truck_photo_path = row.get("truck_photo_path") or ""
     return {
         "id": row.get("id"),
         "agreement_id": row.get("agreement_id"),
@@ -203,6 +212,8 @@ def serialize_agreement_truck(row):
         "truck_number": row.get("truck_number") or "",
         "truck_type": row.get("catalog_type_key") or row.get("truck_type") or "",
         "truck_type_name": truck_type_name(row.get("catalog_type_key") or row.get("truck_type")),
+        "truck_photo_path": truck_photo_path,
+        "photo": f"/{truck_photo_path}" if truck_photo_path else "",
         "per_km_rate": round_money(row.get("per_km_rate")),
         "minimum_monthly_guarantee": round_money(row.get("minimum_monthly_guarantee")),
         "status": row.get("status"),
@@ -260,3 +271,136 @@ def serialize_payment(row):
 def month_key(value=None):
     current = value or datetime.now()
     return current.strftime("%Y-%m")
+
+
+# ---------------------------------------------------------------------------
+# Agreement monthly-payment processing
+# ---------------------------------------------------------------------------
+# Single source of truth for settling agreement payments and applying late
+# penalties. Called by the admin routes, the client/agreement routes, and the
+# background scheduler so the logic lives in exactly one place.
+
+def process_payment_row(db, payment):
+    """Settle one monthly payment: debit client, credit transporter.
+
+    Returns True on success. On insufficient client balance the payment is
+    marked 'failed' and False is returned. Does NOT commit.
+    """
+    client_wallet, client_error = get_or_create_wallet_for_user(db, {"id": payment["client_user_id"], "role": "client"})
+    if client_error:
+        return False
+    if available_balance(client_wallet) + 1e-9 < round_money(payment["final_amount"]):
+        db.execute("UPDATE agreement_monthly_payments SET status = 'failed' WHERE id = ?", (payment["id"],))
+        return False
+
+    transporter_wallet, transporter_error = get_or_create_wallet_for_user(
+        db,
+        {"id": payment["transporter_user_id"], "role": "transporter"},
+    )
+    if transporter_error:
+        return False
+    debit_error = adjust_wallet_balance(
+        db,
+        client_wallet,
+        payment["client_user_id"],
+        -round_money(payment["final_amount"]),
+        "agreement_payment_paid",
+        description=f"Agreement #{payment['agreement_id']} monthly payment {payment['month_year']}",
+        reference_id=str(payment["id"]),
+    )
+    if debit_error:
+        return False
+    credit_error = adjust_wallet_balance(
+        db,
+        transporter_wallet,
+        payment["transporter_user_id"],
+        round_money(payment["transporter_amount"]),
+        "agreement_income",
+        description=f"Agreement #{payment['agreement_id']} monthly income {payment['month_year']}",
+        reference_id=str(payment["id"]),
+    )
+    if credit_error:
+        return False
+    stamp = timestamp_bundle()["iso"]
+    db.execute(
+        "UPDATE agreement_monthly_payments SET status = 'paid', paid_at = ? WHERE id = ?",
+        (stamp, payment["id"]),
+    )
+    return True
+
+
+def run_process_payments(db):
+    """Process every pending payment due today or earlier. Commits.
+
+    Returns {"processed": int, "failed": int}.
+    """
+    today = date.today().isoformat()
+    processed = 0
+    failed = 0
+    rows = db.execute(
+        "SELECT * FROM agreement_monthly_payments "
+        "WHERE status = 'pending' AND payment_due_date <= ? ORDER BY id ASC",
+        (today,),
+    ).fetchall()
+    for row in rows:
+        if process_payment_row(db, dict(row)):
+            processed += 1
+        else:
+            failed += 1
+    db.commit()
+    return {"processed": processed, "failed": failed}
+
+
+def run_apply_penalties(db):
+    """Apply the late penalty to every overdue failed payment, then retry it. Commits.
+
+    Returns {"penalties_applied": int}.
+    """
+    today = date.today().isoformat()
+    penalties_applied = 0
+    rows = db.execute(
+        "SELECT * FROM agreement_monthly_payments "
+        "WHERE status = 'failed' AND payment_due_date <= ? ORDER BY id ASC",
+        (today,),
+    ).fetchall()
+    for row in rows:
+        payment = dict(row)
+        client_wallet, wallet_error = get_or_create_wallet_for_user(
+            db, {"id": payment["client_user_id"], "role": "client"}
+        )
+        if wallet_error:
+            continue
+        penalty_error = adjust_wallet_balance(
+            db,
+            client_wallet,
+            payment["client_user_id"],
+            -PENALTY_AMOUNT,
+            "agreement_late_penalty",
+            description=f"Agreement #{payment['agreement_id']} late payment penalty",
+            reference_id=str(payment["id"]),
+        )
+        if penalty_error:
+            continue
+        current_count = db.execute(
+            "SELECT COUNT(*) AS total FROM agreement_payment_penalties WHERE monthly_payment_id = ?",
+            (payment["id"],),
+        ).fetchone()["total"]
+        stamp = timestamp_bundle()["iso"]
+        db.execute(
+            "INSERT INTO agreement_payment_penalties ("
+            "monthly_payment_id, client_user_id, penalty_amount, penalty_number, applied_at"
+            ") VALUES (?, ?, ?, ?, ?)",
+            (payment["id"], payment["client_user_id"], PENALTY_AMOUNT, int(current_count or 0) + 1, stamp),
+        )
+        db.execute(
+            "UPDATE agreement_monthly_payments SET penalty_amount = penalty_amount + ? WHERE id = ?",
+            (PENALTY_AMOUNT, payment["id"]),
+        )
+        penalties_applied += 1
+        refreshed = db.execute(
+            "SELECT * FROM agreement_monthly_payments WHERE id = ?", (payment["id"],)
+        ).fetchone()
+        if refreshed:
+            process_payment_row(db, dict(refreshed))
+    db.commit()
+    return {"penalties_applied": penalties_applied}

@@ -18,10 +18,13 @@ CREATE TABLE IF NOT EXISTS trucks (
     chassis_number TEXT NOT NULL UNIQUE COLLATE NOCASE,
     capacity_tons REAL NOT NULL,
     main_use TEXT NOT NULL,
-    payload_min_kg REAL,
-    payload_max_kg REAL,
+    payload_min_tons REAL,
+    payload_max_tons REAL,
     volume_min_cbm REAL,
     volume_max_cbm REAL,
+    bed_length_ft REAL,
+    bed_width_ft REAL,
+    bed_height_ft REAL,
     body_style TEXT,
     catalog_specs_json TEXT,
     driver_name TEXT,
@@ -292,15 +295,6 @@ CREATE TABLE IF NOT EXISTS orders (
     FOREIGN KEY(client_user_id) REFERENCES users(id)
 );
 """
-ORDER_REQUIRED_TRUCKS_TABLE_DEFINITION = """
-CREATE TABLE IF NOT EXISTS order_required_trucks (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    order_id INTEGER NOT NULL,
-    truck_type TEXT NOT NULL,
-    quantity INTEGER NOT NULL DEFAULT 1,
-    FOREIGN KEY(order_id) REFERENCES orders(id)
-);
-"""
 ORDER_BIDS_TABLE_DEFINITION = """
 CREATE TABLE IF NOT EXISTS order_bids (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -513,7 +507,7 @@ def ensure_trucks_status_default(db):
         {TRUCKS_TABLE_DEFINITION.replace("CREATE TABLE IF NOT EXISTS trucks", "CREATE TABLE trucks")}
         INSERT INTO trucks (
             id, owner_user_id, truck_number, truck_company, truck_model, truck_type, catalog_type_key, chassis_number,
-            capacity_tons, main_use, payload_min_kg, payload_max_kg, volume_min_cbm, volume_max_cbm,
+            capacity_tons, main_use, payload_min_tons, payload_max_tons, volume_min_cbm, volume_max_cbm,
             body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id, status,
             created_at, updated_at, operating_provinces, per_km_rate, waiting_charge_per_hour,
             loading_charge, refrigeration_supported, hazardous_supported, fragile_supported,
@@ -521,7 +515,7 @@ def ensure_trucks_status_default(db):
         )
         SELECT
             id, owner_user_id, truck_number, truck_company, truck_model, truck_type, catalog_type_key, chassis_number,
-            capacity_tons, main_use, payload_min_kg, payload_max_kg, volume_min_cbm, volume_max_cbm,
+            capacity_tons, main_use, payload_min_tons, payload_max_tons, volume_min_cbm, volume_max_cbm,
             body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id, status,
             created_at, updated_at, operating_provinces, per_km_rate, waiting_charge_per_hour,
             loading_charge, refrigeration_supported, hazardous_supported, fragile_supported,
@@ -550,6 +544,7 @@ def remove_legacy_order_schema(db):
         """
         DROP INDEX IF EXISTS idx_orders_client_status_created;
         DROP INDEX IF EXISTS idx_orders_required_truck_status;
+        DROP TABLE IF EXISTS order_required_trucks;
         DROP INDEX IF EXISTS idx_order_bids_order_status_created;
         DROP INDEX IF EXISTS idx_order_bids_transporter_created;
         DROP INDEX IF EXISTS idx_order_cancellations_order_status;
@@ -604,11 +599,10 @@ def remove_legacy_order_schema(db):
 
 
 def normalize_truck_payload_to_tons(db):
-    """Legacy payload_min_kg/payload_max_kg columns now store tons.
+    """Truck payload columns store tons only.
 
-    Older catalog-driven rows may contain kilogram-scale values like 500/700.
-    Keep user-entered ton values such as 40/80 untouched, and only convert
-    obvious kilogram-scale rows.
+    If an older backup is opened by mistake, convert obvious legacy large values
+    down to ton scale while keeping user-entered ton values such as 40/80.
     """
     try:
         db.execute(
@@ -616,13 +610,13 @@ def normalize_truck_payload_to_tons(db):
             UPDATE trucks
             SET
                 capacity_tons = CASE
-                    WHEN payload_max_kg > 100 AND (capacity_tons IS NULL OR capacity_tons < 1)
-                    THEN payload_max_kg / 1000.0
+                    WHEN payload_max_tons > 100 AND (capacity_tons IS NULL OR capacity_tons < 1)
+                    THEN payload_max_tons / 1000.0
                     ELSE capacity_tons
                 END,
-                payload_min_kg = CASE WHEN payload_min_kg > 100 THEN payload_min_kg / 1000.0 ELSE payload_min_kg END,
-                payload_max_kg = CASE WHEN payload_max_kg > 100 THEN payload_max_kg / 1000.0 ELSE payload_max_kg END
-            WHERE payload_min_kg > 100 OR payload_max_kg > 100
+                payload_min_tons = CASE WHEN payload_min_tons > 100 THEN payload_min_tons / 1000.0 ELSE payload_min_tons END,
+                payload_max_tons = CASE WHEN payload_max_tons > 100 THEN payload_max_tons / 1000.0 ELSE payload_max_tons END
+            WHERE payload_min_tons > 100 OR payload_max_tons > 100
             """
         )
         db.commit()
@@ -731,7 +725,6 @@ def init_db():
         db.executescript(WALLET_TRANSACTIONS_TABLE_DEFINITION)
         db.executescript(WALLET_WITHDRAWAL_REQUESTS_TABLE_DEFINITION)
         db.executescript(ORDERS_TABLE_DEFINITION)
-        db.executescript(ORDER_REQUIRED_TRUCKS_TABLE_DEFINITION)
         db.executescript(ORDER_BIDS_TABLE_DEFINITION)
         db.executescript(ORDER_TRIPS_TABLE_DEFINITION)
         db.executescript(ORDER_TRIP_VERIFICATION_TABLE_DEFINITION)
@@ -796,8 +789,34 @@ def init_db():
         ensure_column(db, "users", "payout_card_holder", "TEXT")
         ensure_column(db, "users", "payout_card_expiry", "TEXT")
         ensure_column(db, "users", "payout_card_bank", "TEXT")
+        # ---- Orders: structured goods taxonomy (State -> Commodity) ----
+        ensure_column(db, "orders", "goods_category", "TEXT")
+        ensure_column(db, "orders", "goods_form", "TEXT")
+        ensure_column(db, "orders", "goods_commodity", "TEXT")
+        ensure_column(db, "orders", "length_cm", "REAL")
+        ensure_column(db, "orders", "width_cm", "REAL")
+        ensure_column(db, "orders", "height_cm", "REAL")
+        ensure_column(db, "orders", "volume_liters", "REAL")
+        ensure_column(db, "orders", "quantity", "INTEGER")
+        ensure_column(db, "orders", "animal_count", "INTEGER")
+        ensure_column(db, "orders", "temperature_c", "REAL")
+        ensure_column(db, "orders", "required_truck_types", "TEXT")
+        ensure_column(db, "orders", "is_refrigerated", "INTEGER DEFAULT 0")
+        ensure_column(db, "orders", "is_hazardous", "INTEGER DEFAULT 0")
+        ensure_column(db, "orders", "is_food_grade", "INTEGER DEFAULT 0")
+        # ---- Detailed pickup / dropoff location + coordinates ----
+        ensure_column(db, "orders", "pickup_location", "TEXT")
+        ensure_column(db, "orders", "pickup_lat", "REAL")
+        ensure_column(db, "orders", "pickup_lng", "REAL")
+        ensure_column(db, "orders", "dropoff_location", "TEXT")
+        ensure_column(db, "orders", "dropoff_lat", "REAL")
+        ensure_column(db, "orders", "dropoff_lng", "REAL")
         ensure_trucks_status_default(db)
         ensure_truck_catalog_type_keys(db)
+        # Truck cargo-bed dimensions (feet) for length/width/height matching.
+        ensure_column(db, "trucks", "bed_length_ft", "REAL")
+        ensure_column(db, "trucks", "bed_width_ft", "REAL")
+        ensure_column(db, "trucks", "bed_height_ft", "REAL")
         ensure_unique_normalized_index(db, "trucks", "truck_number", "idx_trucks_truck_number_unique_normalized")
         ensure_unique_normalized_index(db, "trucks", "chassis_number", "idx_trucks_chassis_number_unique_normalized")
         db.execute("CREATE INDEX IF NOT EXISTS idx_wallet_transactions_user_created ON wallet_transactions(user_id, created_at DESC)")

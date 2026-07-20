@@ -166,12 +166,33 @@ export default function AddTruck() {
                 <label className="required">Weight Capacity</label>
                 <div className="weight-capacity-row">
                   <div className="weight-capacity-field">
-                    <input type="number" name="payload_min_kg" required min="0" step="0.1" placeholder="Min" />
+                    <input type="number" name="payload_min_tons" required min="0" step="0.1" placeholder="Min" />
                     <span className="weight-capacity-unit">ton</span>
                   </div>
                   <div className="weight-capacity-field">
-                    <input type="number" name="payload_max_kg" required min="0" step="0.1" placeholder="Max" />
+                    <input type="number" name="payload_max_tons" required min="0" step="0.1" placeholder="Max" />
                     <span className="weight-capacity-unit">ton</span>
+                  </div>
+                </div>
+              </div>
+
+              <div className="form-group weight-capacity-group">
+                <label>Cargo Bed Size (feet)</label>
+                <p style={{ margin: '2px 0 6px', fontSize: '12px', color: '#9CA3AF' }}>
+                  For long/wide loads like steel bars (sariya), girders or pipes. Leave blank if open/unlimited.
+                </p>
+                <div className="weight-capacity-row">
+                  <div className="weight-capacity-field">
+                    <input type="number" name="bed_length_ft" min="0" step="0.5" placeholder="Length" />
+                    <span className="weight-capacity-unit">ft</span>
+                  </div>
+                  <div className="weight-capacity-field">
+                    <input type="number" name="bed_width_ft" min="0" step="0.5" placeholder="Width" />
+                    <span className="weight-capacity-unit">ft</span>
+                  </div>
+                  <div className="weight-capacity-field">
+                    <input type="number" name="bed_height_ft" min="0" step="0.5" placeholder="Height" />
+                    <span className="weight-capacity-unit">ft</span>
                   </div>
                 </div>
               </div>

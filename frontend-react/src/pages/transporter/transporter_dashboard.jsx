@@ -2,6 +2,7 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
+import { hasTruckPhoto, truckPhotoBackgroundStyle } from '../../lib/truckPhotos'
 import '../../styles/global.css'
 import '../../styles/pages/transporter-dashboard.css'
 
@@ -173,7 +174,7 @@ export default function TransporterDashboard() {
         ) : (
           <div className="dashboard-truck-grid">
             {recentTrucks.map(truck => (
-              <article key={truck.id} className="dashboard-truck-card">
+              <article`r`n                key={truck.id}`r`n                className={`dashboard-truck-card${hasTruckPhoto(truck) ? ' dashboard-truck-card--has-photo' : ''}`}`r`n                style={truckPhotoBackgroundStyle(truck)}`r`n              >
                 <div className="dashboard-truck-card__top">
                   <div>
                     <strong>{truck.truck_number || truck.registration_number || emptyValue}</strong>

@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 
-from auth.helpers import get_settings_dict, json_response, login_required, require_csrf, update_user_settings
+from auth.helpers import get_settings_dict, json_response, login_required, csrf_error, update_user_settings
 from shared.db import open_db
 
 
@@ -16,8 +16,9 @@ def settings_get():
 @settings_blueprint.put("")
 @login_required
 def settings_update():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     settings_dict = get_settings_dict(request.current_user)
     settings_dict["preferences"].update(
@@ -38,8 +39,9 @@ def settings_update():
 @settings_blueprint.put("/notifications")
 @login_required
 def settings_notifications():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     settings_dict = get_settings_dict(request.current_user)
     settings_dict["notifications"].update(

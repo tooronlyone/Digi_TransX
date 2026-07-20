@@ -4,7 +4,7 @@ import sqlite3
 
 from flask import Blueprint, request, send_from_directory
 
-from auth.helpers import json_response, login_required, require_csrf, timestamp_bundle
+from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
 from tracking.traccar import register_device
 from .helpers import (
@@ -18,6 +18,7 @@ from .helpers import (
     get_catalog_type,
     get_status_reason_label,
     make_upload_relative_path,
+    normalize_truck_model,
     parse_bool_flag,
     parse_optional_cnic,
     parse_optional_float,
@@ -53,6 +54,19 @@ def is_valid_chassis_number(value):
     return bool(CHASSIS_NUMBER_REGEX.fullmatch(value or ""))
 
 
+def normalize_catalog_specs_json(value, fallback=None):
+    cleaned = parse_optional_text(value)
+    if not cleaned:
+        return None
+    if cleaned == "[object Object]":
+        return fallback
+    try:
+        json.loads(cleaned)
+    except json.JSONDecodeError as exc:
+        raise ValueError from exc
+    return cleaned
+
+
 @trucks_blueprint.get("/api/catalog/truck-types")
 def truck_types_catalog():
     return json_response({"success": True, "truck_types": TRUCK_TYPES})
@@ -71,16 +85,17 @@ def serve_truck_upload(filename):
 @trucks_blueprint.post("/api/trucks")
 @login_required
 def create_truck():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     form = request.form
     truck_number = (form.get("truckNumber") or "").strip()
     truck_company = parse_optional_text(form.get("truckCompany") or form.get("truck_company"))
-    truck_model = parse_optional_text(form.get("truckModel") or form.get("truck_model"))
+    truck_model = normalize_truck_model(truck_company, form.get("truckModel") or form.get("truck_model"))
     truck_type = (form.get("truckType") or form.get("truck_type") or "Truck").strip()
     chassis_number = normalize_chassis_number(form.get("chassisNumber"))
-    capacity_raw = (form.get("capacity") or form.get("payload_max_kg") or "0").strip()
+    capacity_raw = (form.get("capacity") or form.get("payload_max_tons") or "0").strip()
     main_use = (form.get("mainUse") or truck_type).strip()
 
     if not truck_number:
@@ -90,8 +105,8 @@ def create_truck():
 
     try:
         capacity = float(capacity_raw)
-        payload_min_tons = parse_optional_float(form.get("payload_min_kg"))
-        payload_max_tons = parse_optional_float(form.get("payload_max_kg"))
+        payload_min_tons = parse_optional_float(form.get("payload_min_tons"))
+        payload_max_tons = parse_optional_float(form.get("payload_max_tons"))
     except (TypeError, ValueError):
         return json_response({"success": False, "message": "Weight capacity must be a valid ton value."}, 400)
 
@@ -109,12 +124,21 @@ def create_truck():
 
     catalog_type_key = parse_optional_text(form.get("catalog_type_key"))
     body_style = parse_optional_text(form.get("body_style"))
-    catalog_specs_raw = parse_optional_text(form.get("catalog_specs_json"))
-    if catalog_specs_raw:
-        try:
-            json.loads(catalog_specs_raw)
-        except json.JSONDecodeError:
-            return json_response({"success": False, "message": "Body type details format is invalid."}, 400)
+    try:
+        catalog_specs_raw = normalize_catalog_specs_json(form.get("catalog_specs_json"))
+    except ValueError:
+        return json_response({"success": False, "message": "Body type details format is invalid."}, 400)
+
+    # Cargo-bed dimensions in feet (used to match long/wide/tall goods).
+    try:
+        bed_length_ft = parse_optional_float(form.get("bed_length_ft"))
+        bed_width_ft = parse_optional_float(form.get("bed_width_ft"))
+        bed_height_ft = parse_optional_float(form.get("bed_height_ft"))
+    except (TypeError, ValueError):
+        return json_response({"success": False, "message": "Cargo bed dimensions must be valid numbers (in feet)."}, 400)
+    for dim in (bed_length_ft, bed_width_ft, bed_height_ft):
+        if dim is not None and dim < 0:
+            return json_response({"success": False, "message": "Cargo bed dimensions cannot be negative."}, 400)
 
     stamp = timestamp_bundle()
     with open_db() as db:
@@ -137,10 +161,11 @@ def create_truck():
                 """
                 INSERT INTO trucks (
                     owner_user_id, truck_number, truck_company, truck_model, truck_type, catalog_type_key,
-                    chassis_number, capacity_tons, main_use, payload_min_kg, payload_max_kg,
+                    chassis_number, capacity_tons, main_use, payload_min_tons, payload_max_tons,
+                    bed_length_ft, bed_width_ft, bed_height_ft,
                     body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id,
                     status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inactive', ?, ?)
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inactive', ?, ?)
                 """,
                 (
                     request.current_user["id"],
@@ -154,6 +179,9 @@ def create_truck():
                     main_use,
                     payload_min_tons,
                     payload_max_tons,
+                    bed_length_ft,
+                    bed_width_ft,
+                    bed_height_ft,
                     body_style,
                     catalog_specs_raw,
                     parse_optional_text(form.get("driverName")),
@@ -318,29 +346,43 @@ def get_truck_configuration(truck_id):
 @trucks_blueprint.put("/api/trucks/<int:truck_id>/configuration")
 @login_required
 def update_truck_configuration(truck_id):
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     truck, error = get_owned_truck_or_error(truck_id, request.current_user["id"])
     if error:
         return error
 
     form = request.form
     truck_number = (form.get("truck_number") or "").strip()
+    truck_company = parse_optional_text(form.get("truck_company"))
+    truck_model = normalize_truck_model(truck_company, form.get("truck_model"))
     truck_type = (form.get("truck_type") or "").strip()
     catalog_type_key = parse_optional_text(form.get("catalog_type_key"))
     body_style = parse_optional_text(form.get("body_style"))
-    catalog_specs_raw = parse_optional_text(form.get("catalog_specs_json"))
-    if catalog_specs_raw:
-        try:
-            json.loads(catalog_specs_raw)
-        except json.JSONDecodeError:
-            return json_response({"success": False, "message": "Body type details format is invalid."}, 400) or parse_optional_text(truck_type)
+    try:
+        catalog_specs_raw = normalize_catalog_specs_json(form.get("catalog_specs_json"), fallback=truck.get("catalog_specs_json"))
+    except ValueError:
+        return json_response({"success": False, "message": "Body type details format is invalid."}, 400)
+    try:
+        bed_length_ft = parse_optional_float(form.get("bed_length_ft"))
+        bed_width_ft = parse_optional_float(form.get("bed_width_ft"))
+        bed_height_ft = parse_optional_float(form.get("bed_height_ft"))
+    except (TypeError, ValueError):
+        return json_response({"success": False, "message": "Cargo bed dimensions must be valid numbers (in feet)."}, 400)
+    for dim in (bed_length_ft, bed_width_ft, bed_height_ft):
+        if dim is not None and dim < 0:
+            return json_response({"success": False, "message": "Cargo bed dimensions cannot be negative."}, 400)
     max_capacity_raw = (form.get("max_capacity") or "").strip()
     chassis_number = normalize_chassis_number(form.get("chassis_number"))
     operating_provinces_raw = (form.get("operating_provinces") or "").strip()
 
     if not truck_number:
         return json_response({"success": False, "message": "Truck number is required."}, 400)
+    if not truck_company:
+        return json_response({"success": False, "message": "Truck company is required."}, 400)
+    if not truck_model:
+        return json_response({"success": False, "message": "Truck model is required."}, 400)
     if not truck_type and not catalog_type_key:
         return json_response({"success": False, "message": "Truck type is required."}, 400)
     if not max_capacity_raw:
@@ -352,8 +394,8 @@ def update_truck_configuration(truck_id):
 
     try:
         max_capacity = float(max_capacity_raw)
-        payload_min_tons = parse_optional_float(form.get("payload_min_kg"))
-        payload_max_tons = parse_optional_float(form.get("payload_max_kg"))
+        payload_min_tons = parse_optional_float(form.get("payload_min_tons"))
+        payload_max_tons = parse_optional_float(form.get("payload_max_tons"))
     except (TypeError, ValueError):
         return json_response({"success": False, "message": "Weight capacity must be a valid ton value."}, 400)
 
@@ -388,8 +430,9 @@ def update_truck_configuration(truck_id):
         db.execute(
             """
             UPDATE trucks
-            SET truck_number = ?, truck_type = ?, catalog_type_key = ?, chassis_number = ?,
-                capacity_tons = ?, operating_provinces = ?, body_style = ?, payload_min_kg = ?, payload_max_kg = ?,
+            SET truck_number = ?, truck_company = ?, truck_model = ?, truck_type = ?, catalog_type_key = ?, chassis_number = ?,
+                capacity_tons = ?, operating_provinces = ?, body_style = ?, payload_min_tons = ?, payload_max_tons = ?,
+                bed_length_ft = ?, bed_width_ft = ?, bed_height_ft = ?,
                 volume_min_cbm = ?, volume_max_cbm = ?, catalog_specs_json = ?, tracking_id = ?, driver_name = ?,
                 driver_cnic = ?,
                 refrigeration_supported = ?, hazardous_supported = ?, fragile_supported = ?,
@@ -399,6 +442,8 @@ def update_truck_configuration(truck_id):
             """,
             (
                 truck_number,
+                truck_company,
+                truck_model,
                 truck_type or (get_catalog_type(catalog_type_key) or {}).get("display_name") or truck.get("truck_type"),
                 catalog_type_key,
                 chassis_number,
@@ -407,9 +452,12 @@ def update_truck_configuration(truck_id):
                 parse_optional_text(form.get("body_style")),
                 payload_min_tons,
                 payload_max_tons,
+                bed_length_ft,
+                bed_width_ft,
+                bed_height_ft,
                 parse_optional_float(form.get("volume_min_cbm")),
                 parse_optional_float(form.get("volume_max_cbm")),
-                parse_optional_text(form.get("catalog_specs_json")),
+                catalog_specs_raw,
                 parse_optional_text(form.get("tracking_id")),
                 parse_optional_text(form.get("driver_name")),
                 parse_optional_cnic(form.get("driver_cnic")),
@@ -447,8 +495,9 @@ def update_truck_configuration(truck_id):
 @trucks_blueprint.put("/api/trucks/<int:truck_id>/status")
 @login_required
 def update_truck_status(truck_id):
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     truck, error = get_owned_truck_or_error(truck_id, request.current_user["id"])
     if error:
         return error
@@ -461,6 +510,8 @@ def update_truck_status(truck_id):
 
     required_for_active = [
         truck.get("truck_number"),
+        truck.get("truck_company"),
+        truck.get("truck_model"),
         truck.get("truck_type"),
         truck.get("capacity_tons"),
         truck.get("chassis_number"),

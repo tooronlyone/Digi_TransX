@@ -1,6 +1,6 @@
 from flask import Blueprint, request, send_from_directory
 
-from auth.helpers import json_response, login_required, require_csrf, timestamp_bundle
+from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
 from .helpers import (
     CHAT_UPLOADS_DIR,
@@ -296,8 +296,9 @@ def list_messages(thread_id):
 @chat_blueprint.post("/api/chat/threads/<int:thread_id>/messages")
 @login_required
 def send_message(thread_id):
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     try:
@@ -321,8 +322,9 @@ def send_message(thread_id):
 @chat_blueprint.post("/api/chat/threads/<int:thread_id>/messages/<int:message_id>/respond-media-request")
 @login_required
 def respond_media_request(thread_id, message_id):
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     action = ((request.get_json(silent=True) or {}).get("action") or "").strip().lower()
     if action not in {"approve", "deny"}:
@@ -374,8 +376,9 @@ def respond_media_request(thread_id, message_id):
 @chat_blueprint.post("/api/chat/threads/<int:thread_id>/messages/media")
 @login_required
 def send_media_message(thread_id):
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     user_id = request.current_user["id"]
     file_storage = request.files.get("media")

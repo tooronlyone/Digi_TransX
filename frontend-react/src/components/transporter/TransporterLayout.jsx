@@ -4,6 +4,21 @@ import { getTransporterAllowedPaths, isTransporterPathAllowed } from './accessCo
 import { NAV_ITEMS } from './navItems'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
 
+function getTransporterDisplayName(u = {}) {
+  const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
+  return (u.company_name || u.full_name || full || u.username || u.email || 'Transporter').trim()
+}
+
+function getTransporterInitials(name) {
+  return (name || 'Transporter')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || 'TR'
+}
+
 export default function TransporterLayout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
@@ -16,18 +31,41 @@ export default function TransporterLayout({ children }) {
   const [unreadTotal, setUnreadTotal] = useState(0)
 
   useEffect(() => {
+    function applyUser(rawUser) {
+      const u = rawUser || {}
+      setUser({
+        name: getTransporterDisplayName(u),
+        role: u.organization_role_label || u.role || 'Transporter',
+        organization_allowed_paths: getTransporterAllowedPaths(u),
+        defaultRoute: u.organization_default_route || '/transporter/dashboard',
+      })
+    }
+
     const stored = sessionStorage.getItem('user')
     if (stored) {
-      try {
-        const u = JSON.parse(stored)
-        setUser({
-          name: u.first_name || u.username || u.email || 'Transporter',
-          role: u.organization_role_label || u.role || 'Transporter',
-          organization_allowed_paths: getTransporterAllowedPaths(u),
-          defaultRoute: u.organization_default_route || '/transporter/dashboard',
-        })
-      } catch (_) {}
+      try { applyUser(JSON.parse(stored)) } catch (_) {}
     }
+
+    apiGet('/api/profile')
+      .then((json) => {
+        if (!json?.user) return
+        sessionStorage.setItem('user', JSON.stringify(json.user))
+        applyUser(json.user)
+      })
+      .catch(() => undefined)
+
+    function handleUserUpdate(event) {
+      if (event.detail) {
+        applyUser(event.detail)
+        return
+      }
+      const latest = sessionStorage.getItem('user')
+      if (!latest) return
+      try { applyUser(JSON.parse(latest)) } catch (_) {}
+    }
+
+    window.addEventListener('dtx:user-updated', handleUserUpdate)
+    return () => window.removeEventListener('dtx:user-updated', handleUserUpdate)
   }, [])
 
   useEffect(() => {
@@ -59,7 +97,7 @@ export default function TransporterLayout({ children }) {
     navigate('/login')
   }
 
-  const initials = user.name.slice(0, 2).toUpperCase()
+  const initials = getTransporterInitials(user.name)
   const visibleNavItems = NAV_ITEMS
     .filter((item) => item.path !== '/transporter/trucks/add')
     .map((item) => (

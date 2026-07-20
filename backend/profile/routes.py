@@ -10,7 +10,7 @@ from auth.helpers import (
     latest_otp_record,
     login_required,
     normalize_phone,
-    require_csrf,
+    csrf_error,
     send_email,
     serialize_user,
     split_name,
@@ -32,8 +32,9 @@ def profile_get():
 @profile_blueprint.put("")
 @login_required
 def profile_update():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     full_name = (data.get("first_name") or request.current_user.get("full_name") or "").strip()
     first_name, last_name = split_name(full_name)
@@ -57,8 +58,9 @@ def profile_update():
 @profile_blueprint.post("/password/request-otp")
 @login_required
 def request_password_change_otp():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     current_password = data.get("current_password") or ""
     if not current_password:
@@ -92,8 +94,9 @@ def request_password_change_otp():
 @profile_blueprint.put("/password")
 @login_required
 def change_password():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     new_password = data.get("new_password") or ""
     otp_code = (data.get("otp_code") or "").strip()

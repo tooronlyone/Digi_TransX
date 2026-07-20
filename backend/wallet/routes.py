@@ -1,6 +1,6 @@
 from flask import Blueprint, request
 
-from auth.helpers import json_response, login_required, require_csrf, timestamp_bundle
+from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
 from .helpers import (
     SUPPORTED_TOPUP_CARD_FIELDS,
@@ -130,8 +130,9 @@ def earnings_summary():
 @wallet_blueprint.post("/api/wallet/topup")
 @login_required
 def topup_wallet():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     wallet, error = get_or_create_wallet(request.current_user)
@@ -292,8 +293,9 @@ def wallet_transactions():
 @wallet_blueprint.post("/api/wallet/lock")
 @login_required
 def lock_wallet_balance():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     wallet, error = get_or_create_wallet(request.current_user)
@@ -332,8 +334,9 @@ def lock_wallet_balance():
 @wallet_blueprint.post("/api/wallet/unlock")
 @login_required
 def unlock_wallet_balance():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     wallet, error = get_or_create_wallet(request.current_user)
@@ -375,8 +378,9 @@ def create_locked_withdrawal_request():
     role_error = ensure_transporter_role()
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     wallet, error = get_or_create_wallet(request.current_user)
@@ -502,8 +506,9 @@ def upgrade_withdrawal_limit():
     role_error = ensure_transporter_role()
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     from datetime import datetime, timedelta
     from wallet.withdrawal_limits import TIERS, PERMANENT_LOCK
@@ -612,8 +617,9 @@ def save_payout_card():
     role_error = ensure_transporter_role()
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     card_number = str(data.get("card_number") or "").strip().replace(" ", "")
     card_holder = str(data.get("card_holder") or "").strip()

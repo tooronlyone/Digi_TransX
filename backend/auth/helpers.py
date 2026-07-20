@@ -151,6 +151,17 @@ def require_csrf():
     return bool(expected and received and secrets.compare_digest(expected, received))
 
 
+def csrf_error():
+    """Return a 403 response if the CSRF token is missing/invalid, else None.
+
+    Shared guard used by every state-changing route so the check exists in one
+    place. Usage:  err = csrf_error();  if err: return err
+    """
+    if not require_csrf():
+        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    return None
+
+
 def get_session_snapshot():
     return {"last_active_at": session.get("last_active_at", "")}
 

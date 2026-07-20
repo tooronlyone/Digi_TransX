@@ -2,7 +2,7 @@ from datetime import date, datetime
 
 from flask import Blueprint, request
 
-from auth.helpers import json_response, login_required, require_csrf, timestamp_bundle
+from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from chat.routes import insert_chat_message
 from shared.db import open_db
 from tracking.traccar import calculate_route_distance_km, get_positions_between
@@ -31,6 +31,9 @@ from .helpers import (
     serialize_required_truck,
     serialize_trip,
     service_area_to_text,
+    process_payment_row,
+    run_process_payments,
+    run_apply_penalties,
 )
 
 
@@ -76,6 +79,7 @@ def fetch_agreement_trucks(db, agreement_id):
             t.truck_number,
             t.truck_type,
             t.catalog_type_key,
+            t.truck_photo_path,
             COALESCE(NULLIF(trim(u.full_name), ''), trim(COALESCE(u.first_name, '') || ' ' || COALESCE(u.last_name, '')), u.email, 'Transporter') AS transporter_name
         FROM agreement_trucks at
         JOIN trucks t ON t.id = at.truck_id
@@ -147,58 +151,15 @@ def recalculate_payment_fields(total_km, per_km_rate, minimum_guarantee):
     return total_earned, final_amount, company_fee, transporter_amount
 
 
-def process_payment_row(db, payment):
-    client_wallet, client_error = get_or_create_wallet_for_user(db, {"id": payment["client_user_id"], "role": "client"})
-    if client_error:
-        return False
-    if available_balance(client_wallet) + 1e-9 < round_money(payment["final_amount"]):
-        db.execute("UPDATE agreement_monthly_payments SET status = 'failed' WHERE id = ?", (payment["id"],))
-        return False
-
-    transporter_wallet, transporter_error = get_or_create_wallet_for_user(
-        db,
-        {"id": payment["transporter_user_id"], "role": "transporter"},
-    )
-    if transporter_error:
-        return False
-    debit_error = adjust_wallet_balance(
-        db,
-        client_wallet,
-        payment["client_user_id"],
-        -round_money(payment["final_amount"]),
-        "agreement_payment_paid",
-        description=f"Agreement #{payment['agreement_id']} monthly payment {payment['month_year']}",
-        reference_id=str(payment["id"]),
-    )
-    if debit_error:
-        return False
-    credit_error = adjust_wallet_balance(
-        db,
-        transporter_wallet,
-        payment["transporter_user_id"],
-        round_money(payment["transporter_amount"]),
-        "agreement_income",
-        description=f"Agreement #{payment['agreement_id']} monthly income {payment['month_year']}",
-        reference_id=str(payment["id"]),
-    )
-    if credit_error:
-        return False
-    stamp = timestamp_bundle()["iso"]
-    db.execute(
-        "UPDATE agreement_monthly_payments SET status = 'paid', paid_at = ? WHERE id = ?",
-        (stamp, payment["id"]),
-    )
-    return True
-
-
 @agreements_blueprint.post("/api/agreements/posts")
 @login_required
 def create_post():
     role_error = require_client_role(request.current_user)
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     try:
@@ -303,8 +264,9 @@ def create_bid(post_id):
     role_error = require_transporter_role(request.current_user)
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     truck_items = data.get("trucks") or []
@@ -376,7 +338,7 @@ def create_bid(post_id):
         created = db.execute("SELECT * FROM agreement_bids WHERE id = ?", (bid_id,)).fetchone()
         truck_rows = db.execute(
             """
-            SELECT abt.*, t.truck_number, t.truck_type, t.catalog_type_key, t.capacity_tons
+            SELECT abt.*, t.truck_number, t.truck_type, t.catalog_type_key, t.capacity_tons, t.truck_photo_path
             FROM agreement_bid_trucks abt
             JOIN trucks t ON t.id = abt.truck_id
             WHERE abt.bid_id = ?
@@ -426,7 +388,7 @@ def list_bids(post_id):
         if bid_ids:
             truck_rows = db.execute(
                 f"""
-                SELECT abt.*, t.truck_number, t.truck_type, t.catalog_type_key, t.capacity_tons
+                SELECT abt.*, t.truck_number, t.truck_type, t.catalog_type_key, t.capacity_tons, t.truck_photo_path
                 FROM agreement_bid_trucks abt
                 JOIN trucks t ON t.id = abt.truck_id
                 WHERE abt.bid_id IN ({','.join('?' for _ in bid_ids)})
@@ -455,8 +417,9 @@ def invite_bid(post_id, bid_id):
     role_error = require_client_role(request.current_user)
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     with open_db() as db:
         post = fetch_post(db, post_id)
         if not post:
@@ -482,8 +445,9 @@ def finalize_agreement():
     role_error = require_client_role(request.current_user)
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     try:
@@ -596,8 +560,9 @@ def start_trip(agreement_id):
     role_error = require_transporter_role(request.current_user)
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     try:
         truck_id = parse_positive_int(data.get("truck_id"), "Truck")
@@ -655,8 +620,9 @@ def end_trip(agreement_id, trip_id):
     role_error = require_transporter_role(request.current_user)
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     try:
         gps_end_lat = float(data.get("gps_end_lat"))
@@ -800,8 +766,9 @@ def dispute_trip(trip_id):
     role_error = require_client_role(request.current_user)
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     with open_db() as db:
         trip = db.execute(
@@ -902,7 +869,7 @@ def my_agreements():
         if agreement_ids:
             for truck in db.execute(
                 f"""
-                SELECT at.*, t.truck_number, t.truck_type, t.catalog_type_key,
+                SELECT at.*, t.truck_number, t.truck_type, t.catalog_type_key, t.truck_photo_path,
                        COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'Transporter') AS transporter_name
                 FROM agreement_trucks at
                 JOIN trucks t ON t.id = at.truck_id
@@ -959,26 +926,9 @@ def process_payments():
     role_error = require_admin_role(request.current_user)
     if role_error:
         return role_error
-    today = date.today().isoformat()
-    processed = 0
-    failed = 0
     with open_db() as db:
-        rows = db.execute(
-            """
-            SELECT * FROM agreement_monthly_payments
-            WHERE status = 'pending' AND payment_due_date <= ?
-            ORDER BY id ASC
-            """,
-            (today,),
-        ).fetchall()
-        for row in rows:
-            ok = process_payment_row(db, dict(row))
-            if ok:
-                processed += 1
-            else:
-                failed += 1
-        db.commit()
-    return json_response({"success": True, "processed": processed, "failed": failed})
+        result = run_process_payments(db)
+    return json_response({"success": True, **result})
 
 
 @agreements_blueprint.post("/api/agreements/apply-penalties")
@@ -988,53 +938,6 @@ def apply_penalties():
     role_error = require_admin_role(request.current_user)
     if role_error:
         return role_error
-    today = date.today().isoformat()
-    penalties_applied = 0
     with open_db() as db:
-        rows = db.execute(
-            """
-            SELECT * FROM agreement_monthly_payments
-            WHERE status = 'failed' AND payment_due_date <= ?
-            ORDER BY id ASC
-            """,
-            (today,),
-        ).fetchall()
-        for row in rows:
-            payment = dict(row)
-            client_wallet, wallet_error = get_or_create_wallet_for_user(db, {"id": payment["client_user_id"], "role": "client"})
-            if wallet_error:
-                continue
-            penalty_error = adjust_wallet_balance(
-                db,
-                client_wallet,
-                payment["client_user_id"],
-                -PENALTY_AMOUNT,
-                "agreement_late_penalty",
-                description=f"Agreement #{payment['agreement_id']} late payment penalty",
-                reference_id=str(payment["id"]),
-            )
-            if penalty_error:
-                continue
-            current_count = db.execute(
-                "SELECT COUNT(*) AS total FROM agreement_payment_penalties WHERE monthly_payment_id = ?",
-                (payment["id"],),
-            ).fetchone()["total"]
-            stamp = timestamp_bundle()["iso"]
-            db.execute(
-                """
-                INSERT INTO agreement_payment_penalties (
-                    monthly_payment_id, client_user_id, penalty_amount, penalty_number, applied_at
-                ) VALUES (?, ?, ?, ?, ?)
-                """,
-                (payment["id"], payment["client_user_id"], PENALTY_AMOUNT, int(current_count or 0) + 1, stamp),
-            )
-            db.execute(
-                "UPDATE agreement_monthly_payments SET penalty_amount = penalty_amount + ? WHERE id = ?",
-                (PENALTY_AMOUNT, payment["id"]),
-            )
-            penalties_applied += 1
-            refreshed = db.execute("SELECT * FROM agreement_monthly_payments WHERE id = ?", (payment["id"],)).fetchone()
-            if refreshed:
-                process_payment_row(db, dict(refreshed))
-        db.commit()
-    return json_response({"success": True, "penalties_applied": penalties_applied})
+        result = run_apply_penalties(db)
+    return json_response({"success": True, **result})

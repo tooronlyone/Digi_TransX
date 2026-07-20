@@ -14,6 +14,8 @@
 .auth-shell {
   display: grid;
   grid-template-columns: minmax(0, 1.05fr) minmax(430px, 0.95fr);
+  height: 100dvh;
+  overflow: hidden;
 }
 
 .auth-shell__hero {
@@ -21,8 +23,10 @@
   overflow: hidden;
   display: flex;
   align-items: center;
-  min-height: 100vh;
-  padding: 56px;
+  height: 100dvh;
+  min-height: 0;
+  box-sizing: border-box;
+  padding: 44px 56px;
   background:
     linear-gradient(135deg, rgba(15, 23, 42, 0.9), rgba(30, 64, 175, 0.86)),
     linear-gradient(135deg, #0f172a, #2563eb);
@@ -91,7 +95,7 @@
 }
 
 .auth-shell__story h2 {
-  margin: 28px 0 16px;
+  margin: 22px 0 14px;
   max-width: 560px;
   font-size: clamp(38px, 5vw, 64px);
   line-height: 1.02;
@@ -111,7 +115,7 @@
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 14px;
-  margin-top: 40px;
+  margin-top: 34px;
 }
 
 .auth-shell__stats div {
@@ -141,7 +145,7 @@
   display: flex !important;
   align-items: center !important;
   justify-content: center !important;
-  padding: 28px !important;
+  padding: 18px 28px !important;
 }
 
 .auth-shell__card,
@@ -151,7 +155,7 @@
   border-radius: 22px !important;
   background: rgba(255, 255, 255, 0.96) !important;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12) !important;
-  padding: 30px !important;
+  padding: 26px 30px !important;
 }
 
 .auth-card {
@@ -378,7 +382,7 @@
 .auth-card-footer {
   margin: 6px 0 0 !important;
   border-top: 1px solid #edf2f7 !important;
-  padding-top: 18px !important;
+  padding-top: 14px !important;
   color: #64748b !important;
   text-align: center !important;
   font-size: 13px !important;
@@ -889,7 +893,7 @@
 /* Role details page polish */
 .auth-details-card {
   width: min(100%, 620px) !important;
-  padding: 28px !important;
+  padding: 18px 28px !important;
 }
 
 .auth-details-logo {
@@ -999,5 +1003,12 @@
   .auth-details-body .auth-form-input,
   .auth-details-body .auth-form-select {
     height: 46px !important;
+  }
+}
+@media (max-width: 900px) {
+  .auth-shell {
+    height: auto;
+    min-height: 100vh;
+    overflow: visible;
   }
 }

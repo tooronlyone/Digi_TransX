@@ -89,15 +89,43 @@ export default function MyOrders() {
       )}
 
       {!loading && !error && orders.length > 0 && (
-        <div className="space-y-4">
+        <div className="space-y-5">
           {orders.map((order) => (
-            <SectionCard key={order.id} className="hover:shadow-md transition-shadow">
-              <div className="flex items-start justify-between gap-4 mb-4">
-                <div>
-                  <h2 className="text-lg font-bold text-slate-900">#{order.id} - {order.pickup_city} → {order.dropoff_city}</h2>
-                  <p className="text-sm text-slate-600 mt-1">{order.pickup_date} at {order.pickup_time}</p>
+            <SectionCard key={order.id} className="transition-shadow hover:shadow-lg">
+              {/* Header: order id + route (truncated) on the left, badges on the right */}
+              <div className="flex items-start justify-between gap-4">
+                <div className="min-w-0 flex-1">
+                  <div className="mb-2 flex items-center gap-2">
+                    <span className="inline-flex items-center rounded-md bg-blue-50 px-2 py-0.5 text-xs font-bold text-blue-700">
+                      Order #{order.id}
+                    </span>
+                    <span className="text-xs text-slate-500">
+                      <i className="far fa-clock mr-1" aria-hidden="true"></i>
+                      {order.pickup_date} · {order.pickup_time}
+                    </span>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-50 text-[10px] text-green-600">
+                        <i className="fas fa-circle-dot" aria-hidden="true"></i>
+                      </span>
+                      <span className="truncate text-sm font-semibold text-slate-900" title={order.pickup_city}>
+                        {order.pickup_city}
+                      </span>
+                    </div>
+                    <div className="flex items-center gap-2 min-w-0">
+                      <span className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-red-50 text-[10px] text-red-600">
+                        <i className="fas fa-location-dot" aria-hidden="true"></i>
+                      </span>
+                      <span className="truncate text-sm font-semibold text-slate-900" title={order.dropoff_city}>
+                        {order.dropoff_city}
+                      </span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex gap-2">
+
+                <div className="flex shrink-0 flex-col items-end gap-2">
                   <span className={statusBadgeClass(order.status)}>
                     {order.status.replace(/_/g, ' ').toUpperCase()}
                   </span>
@@ -107,51 +135,50 @@ export default function MyOrders() {
                 </div>
               </div>
 
-              <div className="grid gap-4 md:grid-cols-3 mb-4 pt-4 border-t border-slate-200">
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase">Goods</p>
-                  <p className="text-sm font-semibold text-slate-900">{order.goods_type}</p>
-                  <p className="text-xs text-slate-600">{order.goods_weight_tons} tons</p>
+              <div className="mt-4 grid grid-cols-3 gap-4 rounded-xl bg-slate-50 p-4">
+                <div className="min-w-0">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Goods</p>
+                  <p className="mt-1 truncate text-sm font-semibold text-slate-900" title={order.goods_type}>{order.goods_type}</p>
+                  <p className="text-xs text-slate-500">{order.goods_weight_tons} tons</p>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase">Bids Received</p>
-                  <p className="text-2xl font-bold text-blue-600">{order.bid_count}</p>
+                <div className="min-w-0 border-l border-slate-200 pl-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Bids</p>
+                  <p className="mt-1 text-2xl font-bold leading-none text-blue-600">{order.bid_count}</p>
+                  <p className="text-xs text-slate-500">received</p>
                 </div>
-                <div>
-                  <p className="text-xs font-medium text-slate-500 uppercase">Budget</p>
-                  <p className="text-lg font-bold text-slate-900">
+                <div className="min-w-0 border-l border-slate-200 pl-4">
+                  <p className="text-[11px] font-semibold uppercase tracking-wide text-slate-500">Budget</p>
+                  <p className="mt-1 text-sm font-bold text-slate-900">
                     {order.estimated_budget ? formatMoney(order.estimated_budget) : 'Not specified'}
                   </p>
                 </div>
               </div>
 
               {order.accepted_bid_id && (
-                <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                  <p className="text-sm font-semibold text-blue-900">
-                    <i className="fas fa-check-circle mr-2 text-green-600"></i>
-                    Bid Accepted - {formatMoney(order.payment_amount)}
+                <div className="mt-4 flex items-center gap-2 rounded-lg border border-green-200 bg-green-50 px-3 py-2">
+                  <i className="fas fa-circle-check text-green-600" aria-hidden="true"></i>
+                  <p className="text-sm font-semibold text-green-800">
+                    Bid accepted — {formatMoney(order.payment_amount)}
                   </p>
                 </div>
               )}
 
-              <div className="flex flex-wrap gap-2">
+              <div className="mt-4 flex flex-wrap gap-2">
                 <Link
                   to={`/client/order/${order.id}`}
-                  className="inline-flex min-h-9 items-center justify-center rounded-lg bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
+                  className="inline-flex min-h-9 items-center justify-center rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
                 >
                   <i className="fas fa-eye mr-1.5" aria-hidden="true"></i>
                   View Order
                 </Link>
                 {order.status === 'open' && (
-                  <>
-                    <button
-                      className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-300 px-3 py-1.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
-                      onClick={() => window.location.href = `/client/post-order?copy=${order.id}`}
-                    >
-                      <i className="fas fa-copy mr-1.5" aria-hidden="true"></i>
-                      Duplicate
-                    </button>
-                  </>
+                  <button
+                    className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-300 px-4 py-1.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
+                    onClick={() => window.location.href = `/client/post-order?copy=${order.id}`}
+                  >
+                    <i className="fas fa-copy mr-1.5" aria-hidden="true"></i>
+                    Duplicate
+                  </button>
                 )}
               </div>
             </SectionCard>

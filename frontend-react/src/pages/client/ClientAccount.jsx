@@ -30,8 +30,8 @@ export default function ClientAccount() {
     setLoading(true)
     setError('')
     try {
-      const json = await apiGet('/api/client/profile')
-      const loaded = json.profile || json.data?.profile || {}
+      const json = await apiGet('/api/profile')
+      const loaded = json.user || json.profile || json.data?.profile || {}
       setProfile({
         first_name: loaded.first_name || '',
         last_name: loaded.last_name || '',
@@ -62,7 +62,7 @@ export default function ClientAccount() {
     setMessage('')
     try {
       const billingAddress = profile.billing_address || ''
-      const json = await apiSend('/api/client/profile', {
+      const json = await apiSend('/api/profile', {
         first_name: profile.first_name || null,
         last_name: profile.last_name || null,
         phone: profile.phone || null,
@@ -71,7 +71,7 @@ export default function ClientAccount() {
         billing_address: billingAddress || null,
         address: billingAddress || null,
       }, 'PUT')
-      const loaded = json.profile || json.data?.profile || {}
+      const loaded = json.user || json.profile || json.data?.profile || {}
       setProfile((current) => ({
         ...current,
         first_name: loaded.first_name || '',

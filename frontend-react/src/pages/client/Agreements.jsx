@@ -22,7 +22,7 @@ export default function Agreements() {
     setLoading(true)
     setError('')
     try {
-      const json = await apiGet('/api/orders/mine')
+      const json = await apiGet('/api/orders/my-orders')
       const orders = json.orders || []
       setAgreements(orders.filter((order) => activeAgreementStatuses.has(String(order.status || '').toLowerCase())))
     } catch (err) {

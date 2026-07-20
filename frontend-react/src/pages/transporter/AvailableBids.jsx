@@ -1,6 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
 import { getCsrfToken } from '../client/clientUtils'
-import { loadTruckCatalog } from '../../lib/truckCatalog'
 
 function formatMoney(value) {
   const amount = Number(value || 0)
@@ -11,7 +10,6 @@ function formatMoney(value) {
 export default function AvailableBids() {
   const [orders, setOrders] = useState([])
   const [trucks, setTrucks] = useState([])
-  const [catalog, setCatalog] = useState([])
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [form, setForm] = useState({ truck_id: '', bid_price: '', message: '' })
   const [loading, setLoading] = useState(true)
@@ -23,10 +21,9 @@ export default function AvailableBids() {
     setLoading(true)
     setError('')
     try {
-      const [ordersRes, trucksRes, catalogRes] = await Promise.all([
+      const [ordersRes, trucksRes] = await Promise.all([
         fetch('/api/orders/available', { credentials: 'same-origin' }),
         fetch('/api/trucks', { credentials: 'same-origin' }),
-        loadTruckCatalog(),
       ])
       const ordersJson = await ordersRes.json().catch(() => ({}))
       const trucksJson = await trucksRes.json().catch(() => ({}))
@@ -34,7 +31,6 @@ export default function AvailableBids() {
       if (!trucksRes.ok || trucksJson.success === false) throw new Error(trucksJson.message || 'Unable to load trucks.')
       setOrders(ordersJson.orders || [])
       setTrucks(trucksJson.trucks || [])
-      setCatalog(catalogRes)
     } catch (loadError) {
       setError(loadError.message || 'Unable to load available orders.')
     } finally {
@@ -51,14 +47,9 @@ export default function AvailableBids() {
     [orders, selectedOrderId],
   )
 
-  const matchingActiveTrucks = useMemo(() => {
+  const activeTrucks = useMemo(() => {
     if (!selectedOrder) return []
-    const requiredTypes = selectedOrder.required_truck_types?.map(t => t.truck_type) || []
-    return trucks.filter(
-      (truck) =>
-        truck.status === 'active' &&
-        requiredTypes.includes(truck.catalog_type_key),
-    )
+    return trucks.filter((truck) => truck.status === 'active')
   }, [selectedOrder, trucks])
 
   function openBidForm(order) {
@@ -112,7 +103,7 @@ export default function AvailableBids() {
       <div className="space-y-6">
         <div className="rounded-2xl bg-white p-6 shadow-sm">
           <h1 className="text-2xl font-bold text-slate-900">Available Bids</h1>
-          <p className="mt-2 text-sm text-slate-500">Only open orders that match one of your active truck types are shown here.</p>
+          <p className="mt-2 text-sm text-slate-500">Open orders available for transporter bids are shown here.</p>
         </div>
 
         {loading && <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading bids...</div>}
@@ -121,22 +112,18 @@ export default function AvailableBids() {
 
         {!loading && !error && orders.length === 0 && (
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
-            No matching open bids right now. Activate more trucks or check back soon.
+            No open bids right now. Check back soon.
           </div>
         )}
 
         {!loading && !error && orders.length > 0 && (
           <div className="grid gap-4 xl:grid-cols-2">
             {orders.map((order) => {
-              const truckTypeNames = order.required_truck_types?.map(t => {
-                const catalogItem = catalog.find((item) => item.type_key === t.truck_type)
-                return catalogItem?.display_name || t.truck_type
-              }).join(', ') || 'Unknown'
               return (
                 <article key={order.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
                   <div className="flex items-start justify-between gap-3">
                     <div>
-                      <h2 className="text-lg font-bold text-slate-900">{order.pickup_city} → {order.dropoff_city}</h2>
+                      <h2 className="text-lg font-bold text-slate-900">{order.pickup_city}{' -> '}{order.dropoff_city}</h2>
                       <p className="mt-1 text-sm text-slate-500">{order.pickup_date} at {order.pickup_time}</p>
                     </div>
                     <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">{order.bid_count} bids</span>
@@ -144,7 +131,7 @@ export default function AvailableBids() {
                   <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
                     <div><span className="font-semibold text-slate-800">Goods:</span> {order.goods_type}</div>
                     <div><span className="font-semibold text-slate-800">Weight:</span> {order.goods_weight_tons} tons</div>
-                    <div><span className="font-semibold text-slate-800">Truck:</span> {truckTypeNames}</div>
+                    <div><span className="font-semibold text-slate-800">Volume:</span> {order.goods_volume_cbm ? `${order.goods_volume_cbm} cbm` : 'Not shared'}</div>
                     <div><span className="font-semibold text-slate-800">Budget:</span> {order.estimated_budget ? formatMoney(order.estimated_budget) : 'Not shared'}</div>
                   </div>
                   <button type="button" onClick={() => openBidForm(order)} className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
@@ -173,8 +160,8 @@ export default function AvailableBids() {
               <label className="grid gap-2 text-sm font-medium text-slate-700">
                 Truck
                 <select className="rounded-lg border border-slate-300 px-3 py-2.5" name="truck_id" value={form.truck_id} onChange={updateForm} required>
-                  <option value="">Select active matching truck</option>
-                  {matchingActiveTrucks.map((truck) => (
+                  <option value="">Select active truck</option>
+                  {activeTrucks.map((truck) => (
                     <option key={truck.id} value={truck.id}>{truck.truck_number} - {truck.truck_type}</option>
                   ))}
                 </select>
@@ -188,12 +175,12 @@ export default function AvailableBids() {
                 <textarea className="min-h-24 rounded-lg border border-slate-300 px-3 py-2.5" name="message" value={form.message} onChange={updateForm} placeholder="Share timing, service notes, or capacity details." />
               </label>
               <div className="md:col-span-2">
-                <button type="submit" disabled={submitting || matchingActiveTrucks.length === 0} className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+                <button type="submit" disabled={submitting || activeTrucks.length === 0} className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
                   <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-gavel'} mr-2`} aria-hidden="true"></i>
                   {submitting ? 'Submitting bid...' : 'Submit bid'}
                 </button>
-                {matchingActiveTrucks.length === 0 && (
-                  <p className="mt-2 text-sm text-amber-700">You do not currently have an active truck matching this order type.</p>
+                {activeTrucks.length === 0 && (
+                  <p className="mt-2 text-sm text-amber-700">You do not currently have an active truck available.</p>
                 )}
               </div>
             </form>

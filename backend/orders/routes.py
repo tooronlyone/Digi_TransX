@@ -1,8 +1,19 @@
+import json
 from flask import Blueprint, request
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, time
 
-from auth.helpers import json_response, login_required, require_csrf, timestamp_bundle
+from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
+from .goods_taxonomy import (
+    get_commodity,
+    required_fields as goods_required_fields,
+    required_truck_types as goods_required_trucks,
+    commodity_flags,
+    FIELD_DIMENSIONS,
+    FIELD_VOLUME_LITERS,
+    FIELD_WEIGHT,
+    FIELD_ANIMAL_COUNT,
+)
 from wallet.helpers import get_or_create_wallet, round_money, available_balance, adjust_wallet_balance
 from agreements.helpers import require_client_role, require_transporter_role
 from .helpers import (
@@ -14,6 +25,8 @@ from .helpers import (
     fetch_order,
     fetch_bids_for_order,
     calculate_no_show_penalty,
+    truck_order_mismatch,
+    parse_truck_types,
 )
 
 orders_blueprint = Blueprint("orders", __name__)
@@ -26,8 +39,9 @@ def create_order():
     role_error = require_client_role(request.current_user)
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
 
@@ -36,26 +50,115 @@ def create_order():
     if wallet_error:
         return wallet_error
 
-    # Validate order data
+    # ---- Single detailed location -> keep legacy city columns populated ----
+    pickup_location = (data.get("pickup_location") or data.get("pickup_city") or "").strip()
+    dropoff_location = (data.get("dropoff_location") or data.get("dropoff_city") or "").strip()
+    data["pickup_city"] = pickup_location
+    data["dropoff_city"] = dropoff_location
+
+    def _coord(key):
+        try:
+            v = data.get(key)
+            return float(v) if v not in (None, "") else None
+        except (TypeError, ValueError):
+            return None
+
+    pickup_lat = _coord("pickup_lat")
+    pickup_lng = _coord("pickup_lng")
+    dropoff_lat = _coord("dropoff_lat")
+    dropoff_lng = _coord("dropoff_lng")
+
+    # ---- Goods taxonomy: derive category / commodity / required trucks ----
+    commodity_key = (data.get("goods_commodity") or "").strip()
+    commodity = get_commodity(commodity_key)
+    if commodity:
+        # goods_type kept for backward compatibility / display
+        data["goods_type"] = commodity["label"]
+
+    # Validate common order data (pickup fields, goods_type, weight presence)
     validation_error = validate_order_creation(data)
     if validation_error:
         return validation_error
 
+    # Client must give the transporter at least this long to prepare the truck.
+    PICKUP_LEAD_MINUTES = 20
     try:
         pickup_date = datetime.fromisoformat(data.get("pickup_date")).date()
-        if pickup_date < datetime.now().date():
-            return json_response({"success": False, "message": "Pickup date must be in the future."}, 400)
     except (ValueError, TypeError):
         return json_response({"success": False, "message": "Invalid pickup date format."}, 400)
 
+    pickup_time_raw = (data.get("pickup_time") or "").strip()
     try:
-        goods_weight_tons = float(data.get("goods_weight_tons", 0))
-        goods_volume_cbm = float(data.get("goods_volume_cbm") or 0)
-        estimated_budget = float(data.get("estimated_budget") or 0)
-        if goods_weight_tons <= 0:
-            raise ValueError("Weight must be greater than 0")
+        # Accept HH:MM or HH:MM:SS
+        t_parts = [int(p) for p in pickup_time_raw.split(":")[:2]]
+        pickup_dt = datetime.combine(pickup_date, time(t_parts[0], t_parts[1]))
+    except (ValueError, TypeError, IndexError):
+        return json_response({"success": False, "message": "Invalid pickup time format."}, 400)
+
+    earliest = datetime.now() + timedelta(minutes=PICKUP_LEAD_MINUTES)
+    if pickup_dt < earliest:
+        return json_response(
+            {"success": False,
+             "message": f"Pickup must be at least {PICKUP_LEAD_MINUTES} minutes from now so the transporter can prepare."},
+            400,
+        )
+
+    def _num(key):
+        try:
+            return float(data.get(key) or 0)
+        except (TypeError, ValueError):
+            return 0.0
+
+    def _int(key):
+        try:
+            return int(float(data.get(key) or 0))
+        except (TypeError, ValueError):
+            return 0
+
+    goods_weight_tons = _num("goods_weight_tons")
+    goods_volume_cbm = _num("goods_volume_cbm")
+    estimated_budget = _num("estimated_budget")
+    length_cm = _num("length_cm")
+    width_cm = _num("width_cm")
+    height_cm = _num("height_cm")
+    volume_liters = _num("volume_liters")
+    quantity = _int("quantity")
+    animal_count = _int("animal_count")
+    temperature_c = data.get("temperature_c")
+    try:
+        temperature_c = float(temperature_c) if temperature_c not in (None, "") else None
     except (TypeError, ValueError):
-        return json_response({"success": False, "message": "Invalid goods weight or budget."}, 400)
+        temperature_c = None
+
+    # Defaults (legacy orders with no commodity keep old, unrestricted behaviour)
+    goods_category = goods_form = None
+    goods_commodity = None
+    required_trucks = []
+    is_refrigerated = is_hazardous = is_food_grade = 0
+
+    if commodity:
+        goods_category = commodity["category"]
+        goods_form = commodity.get("form")
+        goods_commodity = commodity_key
+        required_trucks = goods_required_trucks(commodity_key)
+        flags = commodity_flags(commodity_key)
+        is_refrigerated = 1 if flags.get("refrigerated") else 0
+        is_hazardous = 1 if flags.get("hazardous") else 0
+        is_food_grade = 1 if flags.get("food_grade") else 0
+
+        reqs = goods_required_fields(commodity_key)
+        if FIELD_DIMENSIONS in reqs and not (length_cm > 0 and width_cm > 0 and height_cm > 0):
+            return json_response({"success": False, "message": "Length, width and height are required for packaged solid goods."}, 400)
+        if FIELD_VOLUME_LITERS in reqs and not volume_liters > 0:
+            return json_response({"success": False, "message": "Volume (liters) is required for liquid goods."}, 400)
+        if FIELD_WEIGHT in reqs and not goods_weight_tons > 0:
+            return json_response({"success": False, "message": "Goods weight (tons) is required."}, 400)
+        if FIELD_ANIMAL_COUNT in reqs and not animal_count > 0:
+            return json_response({"success": False, "message": "Number of animals is required for livestock."}, 400)
+    else:
+        # Legacy path: weight must be provided
+        if goods_weight_tons <= 0:
+            return json_response({"success": False, "message": "Goods weight (tons) is required."}, 400)
 
     stamp = timestamp_bundle()["display"]
     with open_db() as db:
@@ -64,15 +167,23 @@ def create_order():
             INSERT INTO orders (
                 client_user_id, pickup_city, pickup_area, dropoff_city, dropoff_area,
                 pickup_date, pickup_time, goods_type, goods_weight_tons, goods_volume_cbm,
-                estimated_budget, notes, status, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open', ?, ?)
+                estimated_budget, notes, status,
+                goods_category, goods_form, goods_commodity,
+                length_cm, width_cm, height_cm, volume_liters, quantity, animal_count,
+                temperature_c, required_truck_types,
+                is_refrigerated, is_hazardous, is_food_grade,
+                pickup_location, pickup_lat, pickup_lng,
+                dropoff_location, dropoff_lat, dropoff_lng,
+                created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'open',
+                      ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
             """,
             (
                 request.current_user["id"],
-                data.get("pickup_city", "").strip(),
-                data.get("pickup_area", "").strip(),
-                data.get("dropoff_city", "").strip(),
-                data.get("dropoff_area", "").strip(),
+                pickup_location,
+                (data.get("pickup_area") or "").strip(),
+                dropoff_location,
+                (data.get("dropoff_area") or "").strip(),
                 pickup_date.isoformat(),
                 data.get("pickup_time", "").strip(),
                 data.get("goods_type", "").strip(),
@@ -80,87 +191,85 @@ def create_order():
                 goods_volume_cbm if goods_volume_cbm > 0 else None,
                 estimated_budget if estimated_budget > 0 else None,
                 data.get("notes", "").strip() or None,
+                goods_category,
+                goods_form,
+                goods_commodity,
+                length_cm if length_cm > 0 else None,
+                width_cm if width_cm > 0 else None,
+                height_cm if height_cm > 0 else None,
+                volume_liters if volume_liters > 0 else None,
+                quantity if quantity > 0 else None,
+                animal_count if animal_count > 0 else None,
+                temperature_c,
+                json.dumps(required_trucks) if required_trucks else None,
+                is_refrigerated,
+                is_hazardous,
+                is_food_grade,
+                pickup_location,
+                pickup_lat,
+                pickup_lng,
+                dropoff_location,
+                dropoff_lat,
+                dropoff_lng,
                 stamp,
                 stamp,
             ),
         )
         order_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
 
-        # Add required truck types
-        truck_types = data.get("required_truck_types") or []
-        if not truck_types:
-            db.rollback()
-            return json_response({"success": False, "message": "At least one truck type is required."}, 400)
-
-        for truck_type in truck_types:
-            db.execute(
-                "INSERT INTO order_required_trucks (order_id, truck_type, quantity) VALUES (?, ?, 1)",
-                (order_id, truck_type.strip()),
-            )
-
         db.commit()
         order = fetch_order(db, order_id)
-        truck_reqs = db.execute(
-            "SELECT * FROM order_required_trucks WHERE order_id = ?",
-            (order_id,)
-        ).fetchall()
 
     return json_response({
         "success": True,
         "message": "Order posted successfully. Transporters can now bid.",
-        "order": serialize_order(order, [dict(t) for t in truck_reqs]),
+        "order": serialize_order(order),
     })
 
 
 @orders_blueprint.get("/api/orders/available")
 @login_required
 def available_orders():
-    """Transporter sees available orders matching their active trucks."""
+    """Transporter sees open orders available for bidding."""
     role_error = require_transporter_role(request.current_user)
     if role_error:
         return role_error
 
     with open_db() as db:
-        # Get transporter's active truck types
-        truck_rows = db.execute(
-            """
-            SELECT DISTINCT catalog_type_key
-            FROM trucks
-            WHERE owner_user_id = ? AND status = 'active' AND catalog_type_key IS NOT NULL
-            """,
-            (request.current_user["id"],),
-        ).fetchall()
+        # Active trucks this transporter owns, with the specs needed to match
+        # both the goods' truck TYPE and its weight/volume CAPACITY.
+        my_trucks = [
+            dict(r)
+            for r in db.execute(
+                "SELECT catalog_type_key, truck_type, capacity_tons, payload_max_tons, volume_max_cbm, "
+                "bed_length_ft, bed_width_ft, bed_height_ft "
+                "FROM trucks WHERE owner_user_id = ? AND status = 'active'",
+                (request.current_user["id"],),
+            ).fetchall()
+        ]
 
-        truck_types = [row["catalog_type_key"] for row in truck_rows]
-        if not truck_types:
-            return json_response({"success": True, "orders": []})
-
-        # Get open orders matching truck types
-        placeholders = ",".join("?" for _ in truck_types)
         order_rows = db.execute(
-            f"""
+            """
             SELECT o.*, COUNT(DISTINCT ob.id) AS bid_count
             FROM orders o
             LEFT JOIN order_bids ob ON ob.order_id = o.id AND ob.status != 'withdrawn'
             WHERE o.status = 'open'
-              AND EXISTS (
-                SELECT 1 FROM order_required_trucks ort
-                WHERE ort.order_id = o.id AND ort.truck_type IN ({placeholders})
-              )
             GROUP BY o.id
             ORDER BY o.created_at DESC
-            """,
-            tuple(truck_types),
+            """
         ).fetchall()
 
         orders = []
         for row in order_rows:
             row_dict = dict(row)
-            truck_reqs = db.execute(
-                "SELECT * FROM order_required_trucks WHERE order_id = ?",
-                (row_dict["id"],),
-            ).fetchall()
-            orders.append(serialize_order(row_dict, [dict(t) for t in truck_reqs], row_dict.get("bid_count", 0)))
+            serialized = serialize_order(row_dict, row_dict.get("bid_count", 0))
+            required = serialized.get("required_truck_types") or []
+            # Smart matching: show the order only if the transporter owns at least
+            # one active truck of a suitable TYPE whose weight/volume CAPACITY can
+            # actually carry this load.
+            if not any(truck_order_mismatch(t, required, serialized) is None for t in my_trucks):
+                continue
+            orders.append(serialized)
 
     return json_response({"success": True, "orders": orders})
 
@@ -172,8 +281,9 @@ def create_bid(order_id):
     role_error = require_transporter_role(request.current_user)
     if role_error:
         return role_error
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
 
@@ -201,6 +311,13 @@ def create_bid(order_id):
         ).fetchone()
         if not truck:
             return json_response({"success": False, "message": "Truck not found or not active."}, 404)
+
+        # Smart matching: the truck must be a suitable TYPE for the goods AND have
+        # enough weight/volume CAPACITY to carry this specific load.
+        required_trucks = parse_truck_types(order.get("required_truck_types"))
+        mismatch = truck_order_mismatch(dict(truck), required_trucks, dict(order))
+        if mismatch:
+            return json_response({"success": False, "message": mismatch}, 400)
 
         # Check for duplicate bids
         existing_bid = db.execute(
@@ -251,16 +368,11 @@ def get_order_details(order_id):
         if order["client_user_id"] != request.current_user["id"]:
             return json_response({"success": False, "message": "Access denied."}, 403)
 
-        truck_reqs = db.execute(
-            "SELECT * FROM order_required_trucks WHERE order_id = ?",
-            (order_id,),
-        ).fetchall()
-
         bids = fetch_bids_for_order(db, order_id)
 
     return json_response({
         "success": True,
-        "order": serialize_order(order, [dict(t) for t in truck_reqs]),
+        "order": serialize_order(order),
         "bids": [serialize_bid(b) for b in bids],
     })
 
@@ -269,8 +381,9 @@ def get_order_details(order_id):
 @login_required
 def accept_bid(order_id, bid_id):
     """Client accepts a bid and creates a trip."""
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     with open_db() as db:
         order = fetch_order(db, order_id)
@@ -344,8 +457,9 @@ def accept_bid(order_id, bid_id):
 @login_required
 def process_trip_payment(order_id, trip_id):
     """Process payment when client confirms and payment is ready."""
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     with open_db() as db:
         order = fetch_order(db, order_id)
@@ -414,8 +528,9 @@ def process_trip_payment(order_id, trip_id):
 @login_required
 def mark_trip_completed(order_id, trip_id):
     """Transporter marks trip as completed."""
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     with open_db() as db:
         trip = db.execute("SELECT * FROM order_trips WHERE id = ? AND order_id = ?", (trip_id, order_id)).fetchone()
@@ -460,8 +575,9 @@ def mark_trip_completed(order_id, trip_id):
 @login_required
 def verify_delivery(order_id, trip_id):
     """Client verifies delivery."""
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     response = data.get("response")  # 'yes' or 'no'
@@ -599,15 +715,11 @@ def get_my_orders():
         result = []
         for order in orders:
             order_dict = dict(order)
-            truck_reqs = db.execute(
-                "SELECT * FROM order_required_trucks WHERE order_id = ?",
-                (order_dict["id"],),
-            ).fetchall()
             bid_count = db.execute(
                 "SELECT COUNT(*) as count FROM order_bids WHERE order_id = ? AND status != 'withdrawn'",
                 (order_dict["id"],),
             ).fetchone()["count"]
-            result.append(serialize_order(order_dict, [dict(t) for t in truck_reqs], bid_count))
+            result.append(serialize_order(order_dict, bid_count))
 
     return json_response({"success": True, "orders": result})
 

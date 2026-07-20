@@ -11,6 +11,7 @@ from .helpers import (
     build_auth_success_response,
     create_otp_record,
     create_reset_token,
+    csrf_error,
     ensure_csrf_token,
     find_valid_reset_token,
     generate_numeric_code,
@@ -288,8 +289,9 @@ def fast_login_mpin():
 @auth_blueprint.post("/fast-login/setup")
 @login_required
 def setup_fast_login():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     data = request.get_json(silent=True) or {}
     mpin = (data.get("mpin") or "").strip()
     if not MPIN_REGEX.fullmatch(mpin):
@@ -305,8 +307,9 @@ def setup_fast_login():
 @auth_blueprint.post("/fast-login/disable")
 @login_required
 def disable_fast_login():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    err = csrf_error()
+    if err:
+        return err
     stamp = timestamp_bundle()
     with open_db() as db:
         db.execute("UPDATE users SET mpin_hash = NULL, mpin_enabled = 0, updated_at = ? WHERE id = ?", (stamp["display"], request.current_user["id"]))

@@ -1,0 +1,644 @@
+/* ============================================
+   CLIENT (SERVICE SEEKER) SIDE STYLES
+   Shared across all client pages via ClientLayout.
+   Mirrors the transporter dashboard design language:
+   elevated cards, hover-lift, gradient icons.
+   ============================================ */
+
+/* ---------- Page Title Section ---------- */
+.dashboard-page-title {
+  margin-bottom: 36px;
+  padding-bottom: 26px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.dashboard-page-title h1 {
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: -0.5px;
+  margin-bottom: 10px;
+  background: var(--gradient-accent);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.dashboard-page-title p {
+  color: var(--text-secondary);
+  font-size: 16px;
+  line-height: 1.7;
+  max-width: 640px;
+}
+
+/* ---------- KPI Grid (Stat Cards) ---------- */
+.dashboard-kpi-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(200px, 1fr));
+  gap: 24px;
+  margin-bottom: 8px;
+}
+
+.dashboard-stat-card {
+  background-color: var(--surface-white);
+  border-radius: var(--radius-lg);
+  padding: 24px;
+  box-shadow: var(--shadow-elevated);
+  transition: all var(--transition-base);
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.dashboard-stat-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 4px;
+  height: 100%;
+  background: var(--gradient-primary);
+  opacity: 0;
+  transition: opacity var(--transition-base);
+}
+
+.dashboard-stat-card:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.08), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border-color: var(--accent-primary);
+}
+
+.dashboard-stat-card:hover::before {
+  opacity: 1;
+}
+
+.dashboard-stat-card__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.dashboard-card-title {
+  font-size: 15px;
+  color: var(--text-muted);
+  font-weight: 500;
+  margin-bottom: 8px;
+}
+
+.dashboard-card-value {
+  font-size: 30px;
+  font-weight: 800;
+  color: var(--accent-secondary);
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  line-height: 1.1;
+  word-break: break-word;
+}
+
+.dashboard-card-value i {
+  font-size: 26px;
+  color: var(--accent-primary);
+}
+
+.dashboard-money-prefix {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-muted);
+}
+
+.dashboard-card-icon {
+  flex: 0 0 auto;
+  width: 60px;
+  height: 60px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 26px;
+  color: white;
+  box-shadow: 0 6px 15px rgba(0, 0, 0, 0.18);
+}
+
+/* Distinct colours per KPI (matches design) */
+.dashboard-card-icon--wallet {
+  background: var(--gradient-primary);
+}
+
+.dashboard-card-icon--orders {
+  background: linear-gradient(135deg, #8b5cf6, #7c3aed);
+}
+
+.dashboard-card-icon--active {
+  background: linear-gradient(135deg, var(--warning), #e67e22);
+}
+
+.dashboard-card-icon--completed {
+  background: linear-gradient(135deg, var(--success), #059669);
+}
+
+/* legacy alias kept for safety */
+.dashboard-card-icon--available {
+  background: var(--gradient-primary);
+}
+
+/* ---------- Section Container ---------- */
+.dashboard-section {
+  margin-bottom: 8px;
+}
+
+.dashboard-section-title {
+  font-size: 24px;
+  color: var(--accent-secondary);
+  margin-bottom: 22px;
+  padding-bottom: 12px;
+  border-bottom: 2px solid var(--border-subtle);
+  position: relative;
+  display: inline-block;
+  font-weight: 700;
+}
+
+.dashboard-section-title::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -2px;
+  width: 80px;
+  height: 3px;
+  background: var(--gradient-primary);
+  border-radius: 2px;
+}
+
+/* ---------- Quick Actions Grid ---------- */
+.dashboard-actions-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: 18px;
+}
+
+.dashboard-action-tile {
+  background-color: var(--surface-white);
+  border-radius: var(--radius-md);
+  min-height: 140px;
+  padding: 22px 16px;
+  text-align: center;
+  box-shadow: var(--shadow-elevated);
+  transition: all var(--transition-base);
+  cursor: pointer;
+  text-decoration: none;
+  color: var(--text-primary);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  position: relative;
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+}
+
+.dashboard-action-tile:hover {
+  transform: translateY(-8px);
+  box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1), 0 10px 10px -5px rgba(0, 0, 0, 0.04);
+  border-color: var(--accent-primary);
+  color: var(--text-primary);
+}
+
+.dashboard-action-tile .dashboard-action-tile__icon {
+  width: 52px;
+  height: 52px;
+  border-radius: var(--radius-md);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(37, 99, 235, 0.1);
+  transition: all var(--transition-base);
+}
+
+.dashboard-action-tile i {
+  font-size: 24px;
+  color: var(--accent-primary);
+  transition: all var(--transition-base);
+}
+
+.dashboard-action-tile:hover .dashboard-action-tile__icon {
+  background: var(--gradient-primary);
+}
+
+.dashboard-action-tile:hover i {
+  color: #fff;
+  transform: scale(1.05);
+}
+
+.dashboard-action-tile span {
+  font-weight: 600;
+  font-size: 15px;
+  display: block;
+  color: var(--accent-secondary);
+}
+
+.dashboard-action-tile > div {
+  font-size: 12px;
+  color: var(--text-muted);
+  line-height: 1.4;
+}
+
+/* ---------- Recent Order / Request Cards ---------- */
+.client-order-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 20px;
+}
+
+.client-order-card {
+  background-color: var(--surface-white);
+  border-radius: var(--radius-md);
+  padding: 20px;
+  border: 1px solid var(--border-subtle);
+  box-shadow: var(--shadow-subtle);
+  transition: all var(--transition-base);
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.client-order-card:hover {
+  transform: translateY(-5px);
+  border-color: var(--accent-primary);
+  box-shadow: var(--shadow-elevated);
+}
+
+.client-order-card__top {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.client-order-card__route {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 17px;
+  font-weight: 700;
+  color: var(--accent-secondary);
+}
+
+.client-order-card__route i {
+  color: var(--accent-primary);
+  font-size: 13px;
+}
+
+.client-order-card__meta {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+.client-order-card__stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-subtle);
+}
+
+.client-order-card__budget-label {
+  font-size: 12px;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: .04em;
+}
+
+.client-order-card__budget-value {
+  font-size: 18px;
+  font-weight: 800;
+  color: var(--accent-secondary);
+}
+
+/* ---------- Empty & Loading States ---------- */
+.dashboard-empty-state {
+  text-align: center;
+  padding: 56px 20px;
+  background-color: var(--surface-white);
+  border-radius: var(--radius-lg);
+  border: 1px dashed var(--border-light);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+}
+
+.dashboard-empty-state i {
+  font-size: 46px;
+  color: var(--text-muted);
+}
+
+.dashboard-empty-state p {
+  color: var(--text-secondary);
+  font-size: 16px;
+  margin: 0;
+}
+
+.dashboard-empty-state a {
+  color: var(--accent-primary);
+  font-weight: 600;
+  text-decoration: underline;
+}
+
+.dashboard-loading {
+  text-align: center;
+  padding: 40px;
+  color: var(--text-muted);
+  font-size: 16px;
+}
+
+.dashboard-loading i {
+  margin-right: 12px;
+}
+
+/* ---------- Section Card wrapper (used by SectionCard) ---------- */
+.t-page-card {
+  padding: 28px;
+}
+
+.t-page-card h2 {
+  font-size: 22px;
+  color: var(--accent-secondary);
+}
+
+/* ---------- Forms (Post Order / Account etc.) ---------- */
+.client-form-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
+  gap: 20px;
+}
+
+.client-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.client-field label,
+.client-field > span {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.client-field input,
+.client-field select,
+.client-field textarea {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: var(--font-primary);
+  color: var(--text-primary);
+  background: var(--surface-white);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.client-field textarea {
+  min-height: 96px;
+  resize: vertical;
+}
+
+.client-field input:focus,
+.client-field select:focus,
+.client-field textarea:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+/* ---------- Data tables inside client pages ---------- */
+.client-table {
+  width: 100%;
+  border-collapse: collapse;
+  min-width: 640px;
+}
+
+.client-table thead th {
+  text-align: left;
+  padding: 14px 12px;
+  font-size: 13px;
+  text-transform: uppercase;
+  letter-spacing: .04em;
+  color: var(--text-muted);
+  border-bottom: 2px solid var(--border-subtle);
+  background: var(--hover-bg);
+}
+
+.client-table tbody td {
+  padding: 14px 12px;
+  border-bottom: 1px solid var(--border-subtle);
+  color: var(--text-secondary);
+  font-size: 14px;
+}
+
+.client-table tbody tr {
+  transition: background var(--transition-fast);
+}
+
+.client-table tbody tr:hover {
+  background: var(--hover-bg);
+}
+
+/* ---------- Secondary / ghost button ---------- */
+.client-btn-ghost {
+  background: var(--hover-bg);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  box-shadow: none;
+}
+
+.client-btn-ghost:hover {
+  background: var(--surface-white);
+  border-color: var(--accent-primary);
+  color: var(--accent-primary);
+  transform: translateY(-2px);
+}
+
+/* ---------- Location Picker ---------- */
+.lp-field {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.lp-label {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.lp-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.lp-input {
+  flex: 1 1 auto;
+  min-height: 44px;
+  border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm);
+  padding: 10px 14px;
+  font-size: 14px;
+  font-family: var(--font-primary);
+  color: var(--text-primary);
+  background: var(--surface-white);
+  outline: none;
+  transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
+}
+
+.lp-input:focus {
+  border-color: var(--accent-primary);
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12);
+}
+
+.lp-map-btn {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 16px;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: var(--gradient-primary);
+  color: #fff;
+  font-weight: 600;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all var(--transition-fast);
+}
+
+.lp-map-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.3);
+}
+
+.lp-map-btn:disabled {
+  opacity: 0.7;
+  cursor: default;
+  transform: none;
+}
+
+.lp-coords {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--text-muted);
+}
+
+.lp-coords i {
+  color: var(--accent-primary);
+}
+
+.lp-toggle {
+  margin-left: auto;
+  background: none;
+  border: none;
+  color: var(--accent-primary);
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+}
+
+.lp-note {
+  font-size: 12.5px;
+  color: var(--warning);
+}
+
+.lp-map {
+  height: 300px;
+  width: 100%;
+  border-radius: var(--radius-md);
+  border: 1px solid var(--border-subtle);
+  overflow: hidden;
+  z-index: 0;
+}
+
+.lp-pin {
+  background: transparent;
+  border: none;
+}
+
+/* ============================================
+   RESPONSIVE
+   ============================================ */
+@media (max-width: 1100px) {
+  .dashboard-kpi-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+@media (max-width: 992px) {
+  .dashboard-actions-grid {
+    grid-template-columns: repeat(3, 1fr);
+  }
+  .dashboard-page-title h1 {
+    font-size: 28px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dashboard-page-title h1 {
+    font-size: 24px;
+  }
+  .dashboard-page-title p {
+    font-size: 14px;
+  }
+  .dashboard-kpi-grid {
+    grid-template-columns: 1fr;
+    gap: 16px;
+  }
+  .dashboard-actions-grid {
+    grid-template-columns: repeat(2, 1fr);
+    gap: 14px;
+  }
+  .dashboard-card-value {
+    font-size: 26px;
+  }
+  .dashboard-card-icon {
+    width: 52px;
+    height: 52px;
+    font-size: 22px;
+  }
+  .client-order-grid {
+    grid-template-columns: 1fr;
+  }
+  .t-page-card {
+    padding: 20px;
+  }
+  .dashboard-section-title {
+    font-size: 20px;
+  }
+}
+
+@media (max-width: 576px) {
+  .dashboard-stat-card__header {
+    flex-direction: row;
+    align-items: center;
+  }
+  .dashboard-card-value {
+    font-size: 24px;
+  }
+  .dashboard-actions-grid {
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+  }
+  .dashboard-action-tile {
+    min-height: 120px;
+    padding: 18px 12px;
+  }
+  .dashboard-action-tile > div {
+    display: none;
+  }
+}

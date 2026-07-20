@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
+import '../../styles/pages/settings.css'
 
 export default function Settings() {
   const { get, put, post } = useApi()
@@ -100,6 +101,10 @@ export default function Settings() {
     setSaving(true)
     try {
       const res = await put('/api/profile', { first_name: account.companyName, phone: account.phone, city: account.address, about: account.about })
+      if (res.success && res.user) {
+        sessionStorage.setItem('user', JSON.stringify(res.user))
+        window.dispatchEvent(new CustomEvent('dtx:user-updated', { detail: res.user }))
+      }
       showToast(res.success ? 'Account settings saved!' : res.message || 'Failed', res.success ? 'success' : 'error')
     } catch (e) { showToast('Failed: ' + e.message, 'error') }
     finally { setSaving(false) }

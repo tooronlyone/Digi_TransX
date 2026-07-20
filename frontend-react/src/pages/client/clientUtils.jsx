@@ -138,28 +138,18 @@ export async function apiSend(url, payload = {}, method = 'POST') {
 
 export function StatusBadge({ status }) {
   const value = normalizeStatus(status)
-  let classes = 'bg-amber-50 text-amber-700 border-amber-200'
-  if (value === 'completed' || value === 'delivered') classes = 'bg-emerald-50 text-emerald-700 border-emerald-200'
-  else if (value === 'cancelled' || value === 'failed') classes = 'bg-red-50 text-red-700 border-red-200'
-  else if (['working', 'assigned', 'confirmed', 'in_progress', 'in_transit', 'approved'].includes(value)) {
-    classes = 'bg-blue-50 text-blue-700 border-blue-200'
-  }
+  let modifier = 'dashboard-status-pill--available'
+  if (value === 'cancelled' || value === 'failed') modifier = 'dashboard-status-pill--inactive'
+  else if (['working', 'assigned', 'confirmed', 'in_progress', 'in_transit', 'approved'].includes(value)) modifier = 'dashboard-status-pill--on_job'
+  else if (value && value !== 'completed' && value !== 'delivered') modifier = 'dashboard-status-pill--maintenance'
   return (
-    <span className={`inline-flex items-center rounded-full border px-2.5 py-1 text-xs font-semibold capitalize ${classes}`}>
+    <span className={`dashboard-status-pill ${modifier}`}>
       {formatStatus(status)}
     </span>
   )
 }
 
 export function StateMessage({ type = 'empty', title, children }) {
-  const styles = {
-    loading: 'border-blue-200 bg-blue-50 text-blue-700',
-    error: 'border-red-200 bg-red-50 text-red-700',
-    empty: 'border-slate-200 bg-white text-slate-600',
-    success: 'border-emerald-200 bg-emerald-50 text-emerald-700',
-    warning: 'border-amber-200 bg-amber-50 text-amber-700',
-    info: 'border-slate-200 bg-slate-50 text-slate-700',
-  }
   const icon = type === 'loading'
     ? 'fa-spinner fa-spin'
     : type === 'error'
@@ -171,12 +161,12 @@ export function StateMessage({ type = 'empty', title, children }) {
           : 'fa-circle-info'
 
   return (
-    <div className={`rounded-lg border px-4 py-3 text-sm ${styles[type] || styles.empty}`}>
-      <div className="flex items-start gap-3">
-        <i className={`fas ${icon} mt-0.5`} aria-hidden="true"></i>
+    <div className="t-page-card" style={{ padding: 18 }}>
+      <div style={{ display: 'flex', alignItems: 'flex-start', gap: 12 }}>
+        <i className={`fas ${icon}`} aria-hidden="true" style={{ color: 'var(--accent-primary)', marginTop: 4 }}></i>
         <div>
-          {title && <div className="font-semibold">{title}</div>}
-          {children && <div className={title ? 'mt-1 text-current/90' : ''}>{children}</div>}
+          {title && <div style={{ fontWeight: 700, color: 'var(--accent-secondary)' }}>{title}</div>}
+          {children && <div style={{ marginTop: title ? 4 : 0, color: type === 'error' ? 'var(--error)' : 'var(--text-secondary)' }}>{children}</div>}
         </div>
       </div>
     </div>
@@ -185,28 +175,28 @@ export function StateMessage({ type = 'empty', title, children }) {
 
 export function PageTitle({ title, subtitle, actions }) {
   return (
-    <div className="mb-6 flex flex-col gap-3 border-b border-slate-200 pb-5 sm:flex-row sm:items-end sm:justify-between">
+    <div className="dashboard-page-title" style={{ display: 'flex', justifyContent: 'space-between', gap: 16, alignItems: 'flex-end' }}>
       <div>
-        <h1 className="text-2xl font-bold text-slate-900">{title}</h1>
-        {subtitle && <p className="mt-1 text-sm text-slate-500">{subtitle}</p>}
+        <h1>{title}</h1>
+        {subtitle && <p>{subtitle}</p>}
       </div>
-      {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+      {actions && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>{actions}</div>}
     </div>
   )
 }
 
 export function SectionCard({ title, icon, actions, children, className = '' }) {
   return (
-    <section className={`rounded-lg border border-slate-200 bg-white p-5 shadow-sm ${className}`}>
+    <section className={`t-page-card ${className}`} style={{ marginBottom: 28 }}>
       {(title || actions) && (
-        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center', marginBottom: 18 }}>
           {title && (
-            <h2 className="text-base font-semibold text-slate-900">
-              {icon && <i className={`fas ${icon} mr-2 text-blue-600`} aria-hidden="true"></i>}
+            <h2 style={{ margin: 0 }}>
+              {icon && <i className={`fas ${icon}`} style={{ marginRight: 10, color: 'var(--accent-primary)' }} aria-hidden="true"></i>}
               {title}
             </h2>
           )}
-          {actions && <div className="flex flex-wrap gap-2">{actions}</div>}
+          {actions && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>{actions}</div>}
         </div>
       )}
       {children}
@@ -216,10 +206,7 @@ export function SectionCard({ title, icon, actions, children, className = '' }) 
 
 export function PrimaryButton({ children, className = '', ...props }) {
   return (
-    <button
-      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white transition hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-      {...props}
-    >
+    <button className={`dashboard-action-small ${className}`} {...props}>
       {children}
     </button>
   )
@@ -227,10 +214,7 @@ export function PrimaryButton({ children, className = '', ...props }) {
 
 export function SecondaryButton({ children, className = '', ...props }) {
   return (
-    <button
-      className={`inline-flex min-h-10 items-center justify-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-60 ${className}`}
-      {...props}
-    >
+    <button className={`dashboard-action-small ${className}`} style={{ background: 'var(--hover-bg)', color: 'var(--text-secondary)', boxShadow: 'none' }} {...props}>
       {children}
     </button>
   )

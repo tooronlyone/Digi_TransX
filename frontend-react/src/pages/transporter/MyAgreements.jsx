@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import AgreementTripMap from '../../components/AgreementTripMap'
+import { hasTruckPhoto, truckPhotoBackgroundStyle } from '../../lib/truckPhotos'
 import { PrimaryButton, SecondaryButton, StateMessage, StatusBadge, apiGet, apiSend, formatMoney, formatNumber } from '../client/clientUtils'
 import '../../styles/pages/my-agreements.css'
 
@@ -152,7 +153,7 @@ export default function MyAgreements() {
                 const key = `${agreement.id}:${truck.truck_id}`
                 const activeTrip = activeTripByTruck[key]
                 return (
-                  <div key={truck.id} className="myagreements-truck-card">
+                  <div`r`n                    key={truck.id}`r`n                    className={`myagreements-truck-card${hasTruckPhoto(truck) ? ' myagreements-truck-card--has-photo' : ''}`}`r`n                    style={truckPhotoBackgroundStyle(truck)}`r`n                  >
                     {activeTrip && (
                       <div className="myagreements-trip-alert">
                         {truck.truck_number} - TRIP IN PROGRESS: {activeTrip.pickup_description}

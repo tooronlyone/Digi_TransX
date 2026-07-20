@@ -449,6 +449,15 @@
   gap: 10px;
 }
 
+.truck-config-bed-field {
+  grid-column: 1 / -1;
+}
+.truck-config-bed-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 8px;
+}
 .truck-config-weight-input {
   position: relative;
   min-width: 0;
@@ -472,6 +481,12 @@
 
 @media (max-width: 560px) {
   .truck-config-weight-row {
+    grid-template-columns: 1fr;
+  }
+}
+
+@media (max-width: 640px) {
+  .truck-config-bed-grid {
     grid-template-columns: 1fr;
   }
 }

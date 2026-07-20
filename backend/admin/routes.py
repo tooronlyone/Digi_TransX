@@ -3,9 +3,18 @@ from datetime import date, datetime
 from flask import Blueprint, request
 from werkzeug.security import generate_password_hash
 
-from agreements.helpers import PENALTY_AMOUNT, month_key, serialize_agreement, serialize_agreement_truck, serialize_payment, serialize_trip
-from agreements.routes import fetch_agreement, fetch_agreement_trucks, process_payment_row, recalculate_payment_fields
-from auth.helpers import json_response, login_required, normalize_email, require_admin_role, require_csrf, split_name, timestamp_bundle
+from agreements.helpers import (
+    PENALTY_AMOUNT,
+    month_key,
+    run_apply_penalties,
+    run_process_payments,
+    serialize_agreement,
+    serialize_agreement_truck,
+    serialize_payment,
+    serialize_trip,
+)
+from agreements.routes import fetch_agreement, fetch_agreement_trucks, recalculate_payment_fields
+from auth.helpers import csrf_error, json_response, login_required, normalize_email, require_admin_role, split_name, timestamp_bundle
 from chat.routes import insert_chat_message
 from shared.db import open_db
 from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user, insert_wallet_transaction, round_money
@@ -24,12 +33,6 @@ def admin_required(view):
 
     wrapped.__name__ = view.__name__
     return wrapped
-
-
-def csrf_error():
-    if not require_csrf():
-        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
-    return None
 
 
 def pagination():
@@ -587,18 +590,9 @@ def process_payments():
     err = csrf_error()
     if err:
         return err
-    today = date.today().isoformat()
-    processed = 0
-    failed = 0
     with open_db() as db:
-        rows = db.execute("SELECT * FROM agreement_monthly_payments WHERE status = 'pending' AND payment_due_date <= ? ORDER BY id ASC", (today,)).fetchall()
-        for row in rows:
-            if process_payment_row(db, dict(row)):
-                processed += 1
-            else:
-                failed += 1
-        db.commit()
-    return json_response({"success": True, "processed": processed, "failed": failed})
+        result = run_process_payments(db)
+    return json_response({"success": True, **result})
 
 
 @admin_blueprint.post("/payments/apply-penalties")
@@ -607,24 +601,6 @@ def apply_penalties():
     err = csrf_error()
     if err:
         return err
-    today = date.today().isoformat()
-    penalties_applied = 0
     with open_db() as db:
-        rows = db.execute("SELECT * FROM agreement_monthly_payments WHERE status = 'failed' AND payment_due_date <= ? ORDER BY id ASC", (today,)).fetchall()
-        for row in rows:
-            payment = dict(row)
-            client_wallet, wallet_error = get_or_create_wallet_for_user(db, {"id": payment["client_user_id"], "role": "client"})
-            if wallet_error:
-                continue
-            if adjust_wallet_balance(db, client_wallet, payment["client_user_id"], -PENALTY_AMOUNT, "agreement_late_penalty", description=f"Agreement #{payment['agreement_id']} late payment penalty", reference_id=str(payment["id"])):
-                continue
-            current_count = db.execute("SELECT COUNT(*) AS total FROM agreement_payment_penalties WHERE monthly_payment_id = ?", (payment["id"],)).fetchone()["total"]
-            stamp = timestamp_bundle()["iso"]
-            db.execute("INSERT INTO agreement_payment_penalties (monthly_payment_id, client_user_id, penalty_amount, penalty_number, applied_at) VALUES (?, ?, ?, ?, ?)", (payment["id"], payment["client_user_id"], PENALTY_AMOUNT, int(current_count or 0) + 1, stamp))
-            db.execute("UPDATE agreement_monthly_payments SET penalty_amount = penalty_amount + ? WHERE id = ?", (PENALTY_AMOUNT, payment["id"]))
-            penalties_applied += 1
-            refreshed = db.execute("SELECT * FROM agreement_monthly_payments WHERE id = ?", (payment["id"],)).fetchone()
-            if refreshed:
-                process_payment_row(db, dict(refreshed))
-        db.commit()
-    return json_response({"success": True, "penalties_applied": penalties_applied})
+        result = run_apply_penalties(db)
+    return json_response({"success": True, **result})
