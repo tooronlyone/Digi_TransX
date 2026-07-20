@@ -278,7 +278,7 @@
 
 .dashboard-truck-card--has-photo::after {
   z-index: 0;
-  background: linear-gradient(135deg, rgba(255, 255, 255, 0.94), rgba(255, 255, 255, 0.76)), rgba(255, 255, 255, 0.2);
+  background: linear-gradient(135deg, rgba(255, 255, 255, 0.86), rgba(255, 255, 255, 0.62)), rgba(255, 255, 255, 0.08);
 }
 
 .dashboard-truck-card--has-photo > * {
