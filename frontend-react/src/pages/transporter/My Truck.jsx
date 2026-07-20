@@ -100,7 +100,11 @@ export default function MyTruck() {
         ) : (
           <div className="mytrucks-grid">
             {filtered.map(truck => (
-              <article`r`n                key={truck.id}`r`n                className={`mytrucks-card${hasTruckPhoto(truck) ? ' mytrucks-card--has-photo' : ''}`}`r`n                style={truckPhotoBackgroundStyle(truck)}`r`n              >
+              <article
+                key={truck.id}
+                className={`mytrucks-card${hasTruckPhoto(truck) ? ' mytrucks-card--has-photo' : ''}`}
+                style={truckPhotoBackgroundStyle(truck)}
+              >
                 <div className="mytrucks-card-top">
                   <div>
                     <strong>{truck.truck_number || truck.registration_number || emptyValue}</strong>

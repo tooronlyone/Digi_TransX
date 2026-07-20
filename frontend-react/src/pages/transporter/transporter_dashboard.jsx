@@ -174,7 +174,11 @@ export default function TransporterDashboard() {
         ) : (
           <div className="dashboard-truck-grid">
             {recentTrucks.map(truck => (
-              <article`r`n                key={truck.id}`r`n                className={`dashboard-truck-card${hasTruckPhoto(truck) ? ' dashboard-truck-card--has-photo' : ''}`}`r`n                style={truckPhotoBackgroundStyle(truck)}`r`n              >
+              <article
+                key={truck.id}
+                className={`dashboard-truck-card${hasTruckPhoto(truck) ? ' dashboard-truck-card--has-photo' : ''}`}
+                style={truckPhotoBackgroundStyle(truck)}
+              >
                 <div className="dashboard-truck-card__top">
                   <div>
                     <strong>{truck.truck_number || truck.registration_number || emptyValue}</strong>

@@ -153,7 +153,11 @@ export default function MyAgreements() {
                 const key = `${agreement.id}:${truck.truck_id}`
                 const activeTrip = activeTripByTruck[key]
                 return (
-                  <div`r`n                    key={truck.id}`r`n                    className={`myagreements-truck-card${hasTruckPhoto(truck) ? ' myagreements-truck-card--has-photo' : ''}`}`r`n                    style={truckPhotoBackgroundStyle(truck)}`r`n                  >
+                  <div
+                    key={truck.id}
+                    className={`myagreements-truck-card${hasTruckPhoto(truck) ? ' myagreements-truck-card--has-photo' : ''}`}
+                    style={truckPhotoBackgroundStyle(truck)}
+                  >
                     {activeTrip && (
                       <div className="myagreements-trip-alert">
                         {truck.truck_number} - TRIP IN PROGRESS: {activeTrip.pickup_description}

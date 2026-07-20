@@ -13,6 +13,7 @@ export default defineConfig(({ mode }) => {
           ? {}
           : {
               '/api': 'http://localhost:5000',
+              '/uploads': 'http://localhost:5000',
               '/trucks': 'http://localhost:5000',
               '/jobs': 'http://localhost:5000',
               '/ai': 'http://localhost:5000',
