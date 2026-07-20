@@ -183,10 +183,49 @@ def map_legacy_role(legacy_role):
     return LEGACY_TO_APP_ROLE.get((legacy_role or "").strip().lower(), "customer")
 
 
+CLIENT_ROLES = {"client", "service_seeker", "everyday_user"}
+TRANSPORTER_ROLES = {"transporter", "logistics_provider"}
+
+
 def _with_legacy_role(user):
     """App logic keeps using the legacy role strings (users.legacy_role)."""
     if user and user.get("legacy_role"):
         user["role"] = user["legacy_role"]
+    return user
+
+
+def _attach_role_profile(db, user):
+    """Merge the user's role-profile row (customers / transporter_profiles /
+    fuel_station_profiles / shopkeeper_profiles) into the user dict so the
+    rest of the app keeps reading the same field names as before."""
+    legacy = (user.get("legacy_role") or user.get("role") or "").strip().lower()
+    row = None
+    if legacy in CLIENT_ROLES:
+        row = db.execute(
+            "SELECT customer_type, company_name, business_type, transport_need FROM customers WHERE user_id = ?",
+            (user["id"],),
+        ).fetchone()
+    elif legacy in TRANSPORTER_ROLES:
+        row = db.execute(
+            """
+            SELECT company_name, fleet_size, withdrawal_tier, withdrawal_tier_expires_at,
+                   payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank
+            FROM transporter_profiles WHERE user_id = ?
+            """,
+            (user["id"],),
+        ).fetchone()
+    elif legacy == "fuel_station_manager":
+        row = db.execute(
+            "SELECT station_name, pumps_count, license_no FROM fuel_station_profiles WHERE user_id = ?",
+            (user["id"],),
+        ).fetchone()
+    elif legacy == "shopkeeper":
+        row = db.execute(
+            "SELECT shop_name FROM shopkeeper_profiles WHERE user_id = ?",
+            (user["id"],),
+        ).fetchone()
+    if row:
+        user.update(dict(row))
     return user
 
 
@@ -195,7 +234,9 @@ def get_user_by_id(user_id):
         return None
     with open_db() as db:
         row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
-        return _with_legacy_role(dict(row)) if row else None
+        if not row:
+            return None
+        return _attach_role_profile(db, _with_legacy_role(dict(row)))
 
 
 def get_user_by_login(login_id):
@@ -203,7 +244,8 @@ def get_user_by_login(login_id):
     column = "cnic" if login_kind == "cnic" else "email"
     with open_db() as db:
         row = db.execute(f"SELECT * FROM users WHERE {column} = ?", (value,)).fetchone()
-        return (_with_legacy_role(dict(row)) if row else None), login_kind, value
+        user = _attach_role_profile(db, _with_legacy_role(dict(row))) if row else None
+        return user, login_kind, value
 
 
 def serialize_user(user):

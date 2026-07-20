@@ -90,15 +90,15 @@ def signup():
             return json_response({"success": False, "field": "email", "message": "Email is already registered."}, 409)
         return json_response({"success": False, "message": f"Could not create account: {message}"}, 500)
 
+    def clean(key):
+        return (data.get(key) or "").strip() or None
+
     with open_db() as db:
         db.execute(
             """
             UPDATE users
-            SET full_name = ?, phone = ?, cnic = ?,
-                legacy_role = ?, company_name = ?, business_type = ?, city = ?,
-                fleet_size = ?, transport_need = ?, station_name = ?, pumps_count = ?,
-                license_no = ?, shop_name = ?, address = ?, about = ?,
-                updated_at = ?, last_login_at = ?
+            SET full_name = ?, phone = ?, cnic = ?, legacy_role = ?,
+                city = ?, address = ?, about = ?, updated_at = ?, last_login_at = ?
             WHERE email = ?
             """,
             (
@@ -106,17 +106,9 @@ def signup():
                 phone,
                 cnic,
                 role,
-                (data.get("company_name") or "").strip() or None,
-                (data.get("business_type") or "").strip() or None,
-                (data.get("city") or "").strip() or None,
-                (data.get("fleet_size") or "").strip() or None,
-                (data.get("transport_need") or "").strip() or None,
-                (data.get("station_name") or "").strip() or None,
-                (data.get("pumps_count") or "").strip() or None,
-                (data.get("license_no") or "").strip() or None,
-                (data.get("shop_name") or "").strip() or None,
-                (data.get("address") or "").strip() or None,
-                (data.get("about") or "").strip() or None,
+                clean("city"),
+                clean("address"),
+                clean("about"),
                 stamp["iso"],
                 stamp["iso"],
                 email,
@@ -124,6 +116,60 @@ def signup():
         )
         row = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
         user_id = row["id"] if row else None
+
+        # Role-specific data goes into its own profile table (clean structure,
+        # no duplication in users).
+        if role in {"service_seeker", "everyday_user", "client"}:
+            db.execute(
+                """
+                INSERT INTO customers (user_id, customer_type, company_name, business_type, transport_need)
+                VALUES (?, ?, ?, ?, ?)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    customer_type = excluded.customer_type,
+                    company_name = excluded.company_name,
+                    business_type = excluded.business_type,
+                    transport_need = excluded.transport_need
+                """,
+                (
+                    user_id,
+                    "business" if role == "service_seeker" else "individual",
+                    clean("company_name"),
+                    clean("business_type"),
+                    clean("transport_need"),
+                ),
+            )
+        elif role == "logistics_provider":
+            db.execute(
+                """
+                INSERT INTO transporter_profiles (user_id, company_name, fleet_size)
+                VALUES (?, ?, ?)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    company_name = excluded.company_name,
+                    fleet_size = excluded.fleet_size
+                """,
+                (user_id, clean("company_name"), clean("fleet_size")),
+            )
+        elif role == "fuel_station_manager":
+            db.execute(
+                """
+                INSERT INTO fuel_station_profiles (user_id, station_name, pumps_count, license_no)
+                VALUES (?, ?, ?, ?)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    station_name = excluded.station_name,
+                    pumps_count = excluded.pumps_count,
+                    license_no = excluded.license_no
+                """,
+                (user_id, clean("station_name"), clean("pumps_count"), clean("license_no")),
+            )
+        elif role == "shopkeeper":
+            db.execute(
+                """
+                INSERT INTO shopkeeper_profiles (user_id, shop_name)
+                VALUES (?, ?)
+                ON CONFLICT (user_id) DO UPDATE SET shop_name = excluded.shop_name
+                """,
+                (user_id, clean("shop_name")),
+            )
         db.commit()
     user = get_user_by_id(user_id)
     record_login_activity(user_id, email, "signup", "success", "")

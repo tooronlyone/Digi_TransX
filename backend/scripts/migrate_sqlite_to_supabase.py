@@ -151,15 +151,7 @@ class Migrator:
                 "cnic": u.get("cnic") or f"PENDING-{u['id']}",
                 "role": LEGACY_TO_APP_ROLE.get(legacy, "customer"),
                 "legacy_role": legacy or None,
-                "company_name": u.get("company_name"),
-                "business_type": u.get("business_type"),
                 "city": u.get("city"),
-                "fleet_size": u.get("fleet_size"),
-                "transport_need": u.get("transport_need"),
-                "station_name": u.get("station_name"),
-                "pumps_count": u.get("pumps_count"),
-                "license_no": u.get("license_no"),
-                "shop_name": u.get("shop_name"),
                 "address": u.get("address"),
                 "about": u.get("about"),
                 "mpin_hash": u.get("mpin_hash"),
@@ -167,18 +159,56 @@ class Migrator:
                 "settings_json": as_json(u.get("settings_json"), "{}"),
                 "is_blocked": as_bool(u.get("is_blocked")),
                 "block_reason": u.get("block_reason"),
-                "withdrawal_tier": int(u.get("withdrawal_tier") or 0),
-                "withdrawal_tier_expires_at": u.get("withdrawal_tier_expires_at"),
-                "payout_card_number": u.get("payout_card_number"),
-                "payout_card_holder": u.get("payout_card_holder"),
-                "payout_card_expiry": u.get("payout_card_expiry"),
-                "payout_card_bank": u.get("payout_card_bank"),
                 "created_at": ts_or_now(u.get("created_at")),
                 "updated_at": ts_or_now(u.get("updated_at")),
                 "last_login_at": parse_ts(u.get("last_login_at")),
             }
 
         self.copy("users", "users", t)
+        self.migrate_role_profiles()
+
+    def migrate_role_profiles(self):
+        """Role-specific columns from the legacy users table go into the
+        per-role profile tables (clean structure, no duplication)."""
+        if self.dry_run:
+            print("  (dry-run) skipping role profiles")
+            return
+        for u in self.rows("users"):
+            legacy = (u.get("role") or "").strip().lower()
+            uid = u["id"]
+            if legacy in CLIENT_ROLES:
+                self.insert("customers", {
+                    "user_id": uid,
+                    "customer_type": "business" if legacy == "service_seeker" else "individual",
+                    "company_name": u.get("company_name"),
+                    "business_type": u.get("business_type"),
+                    "transport_need": u.get("transport_need"),
+                })
+            elif legacy in ("transporter", "logistics_provider"):
+                self.insert("transporter_profiles", {
+                    "user_id": uid,
+                    "company_name": u.get("company_name"),
+                    "fleet_size": u.get("fleet_size"),
+                    "withdrawal_tier": int(u.get("withdrawal_tier") or 0),
+                    "withdrawal_tier_expires_at": u.get("withdrawal_tier_expires_at"),
+                    "payout_card_number": u.get("payout_card_number"),
+                    "payout_card_holder": u.get("payout_card_holder"),
+                    "payout_card_expiry": u.get("payout_card_expiry"),
+                    "payout_card_bank": u.get("payout_card_bank"),
+                })
+            elif legacy == "fuel_station_manager":
+                self.insert("fuel_station_profiles", {
+                    "user_id": uid,
+                    "station_name": u.get("station_name"),
+                    "pumps_count": u.get("pumps_count"),
+                    "license_no": u.get("license_no"),
+                })
+            elif legacy == "shopkeeper":
+                self.insert("shopkeeper_profiles", {
+                    "user_id": uid,
+                    "shop_name": u.get("shop_name"),
+                })
+        print("  role profiles migrated")
 
     def create_auth_accounts(self):
         """Create Supabase Auth users and link auth_id. Passwords are random —
@@ -295,19 +325,7 @@ class Migrator:
                   AND d.full_name = trim(v.driver_name)
                 """
             )
-            # customers profile rows for client-side users
-            cur.execute(
-                """
-                INSERT INTO customers (user_id, customer_type, company_name, business_type)
-                SELECT id,
-                       CASE WHEN company_name IS NOT NULL AND trim(company_name) <> '' THEN 'business' ELSE 'individual' END,
-                       company_name, business_type
-                FROM users
-                WHERE COALESCE(legacy_role, '') IN ('client', 'service_seeker', 'everyday_user')
-                ON CONFLICT (user_id) DO NOTHING
-                """
-            )
-        print("  drivers + customers derived")
+        print("  drivers derived (customers handled in role profiles step)")
 
     # ------------------------------------------------------------------
     def migrate_shipments_domain(self):
@@ -809,7 +827,8 @@ class Migrator:
         if self.dry_run:
             return
         for table in (
-            "users", "customers", "drivers", "vehicles", "shipments", "shipment_bids",
+            "users", "customers", "transporter_profiles", "fuel_station_profiles",
+            "shopkeeper_profiles", "drivers", "vehicles", "shipments", "shipment_bids",
             "shipment_trips", "shipment_trip_verification", "shipment_no_show_tracking",
             "shipment_cancellations", "shipment_notifications", "shipment_status_history",
             "documents", "payments", "wallets", "wallet_transactions",

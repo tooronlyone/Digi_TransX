@@ -394,8 +394,9 @@ def create_locked_withdrawal_request():
 
     from wallet.withdrawal_limits import validate_withdrawal, get_limits, get_active_tier
     with open_db() as db:
-        user_row = db.execute("SELECT * FROM users WHERE id = ?", (request.current_user["id"],)).fetchone()
-        user_row = dict(user_row) if user_row else {}
+        # request.current_user already carries the transporter_profiles fields
+        # (withdrawal_tier, withdrawal_tier_expires_at) merged in by get_user_by_id.
+        user_row = dict(request.current_user)
         error_msg = validate_withdrawal(db, user_row, wallet, amount)
         if error_msg:
             return json_response({"success": False, "message": error_msg}, 400)
@@ -477,9 +478,8 @@ def get_withdrawal_limits():
     if error:
         return error
 
+    user_row = dict(request.current_user)
     with open_db() as db:
-        user_row = db.execute("SELECT * FROM users WHERE id = ?", (request.current_user["id"],)).fetchone()
-        user_row = dict(user_row) if user_row else {}
         withdrawn_24h = get_24h_withdrawn(db, request.current_user["id"])
 
     active_tier = get_active_tier(user_row)
@@ -571,8 +571,14 @@ def upgrade_withdrawal_limit():
             ),
         )
         db.execute(
-            "UPDATE users SET withdrawal_tier = ?, withdrawal_tier_expires_at = ? WHERE id = ?",
-            (tier, expires_at, request.current_user["id"]),
+            """
+            INSERT INTO transporter_profiles (user_id, withdrawal_tier, withdrawal_tier_expires_at)
+            VALUES (?, ?, ?)
+            ON CONFLICT (user_id) DO UPDATE SET
+                withdrawal_tier = excluded.withdrawal_tier,
+                withdrawal_tier_expires_at = excluded.withdrawal_tier_expires_at
+            """,
+            (request.current_user["id"], tier, expires_at),
         )
         db.commit()
 
@@ -592,7 +598,7 @@ def get_payout_card():
         return role_error
     with open_db() as db:
         user = db.execute(
-            "SELECT payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank FROM users WHERE id = ?",
+            "SELECT payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank FROM transporter_profiles WHERE user_id = ?",
             (request.current_user["id"],)
         ).fetchone()
     if not user:
@@ -634,9 +640,17 @@ def save_payout_card():
     stamp = timestamp_bundle()["iso"]
     with open_db() as db:
         db.execute(
-            """UPDATE users SET payout_card_number = ?, payout_card_holder = ?,
-               payout_card_expiry = ?, payout_card_bank = ? WHERE id = ?""",
-            (card_number, card_holder, card_expiry, bank, request.current_user["id"])
+            """
+            INSERT INTO transporter_profiles (
+                user_id, payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank
+            ) VALUES (?, ?, ?, ?, ?)
+            ON CONFLICT (user_id) DO UPDATE SET
+                payout_card_number = excluded.payout_card_number,
+                payout_card_holder = excluded.payout_card_holder,
+                payout_card_expiry = excluded.payout_card_expiry,
+                payout_card_bank = excluded.payout_card_bank
+            """,
+            (request.current_user["id"], card_number, card_holder, card_expiry, bank)
         )
         db.commit()
     return json_response({"success": True, "message": "Payout card saved successfully."})
