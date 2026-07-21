@@ -36,3 +36,6 @@ desktop.ini
 # ---- Logs / temp ----
 *.log
 *.tmp
+
+# ---- Matching test fixture output (generated, local only) ----
+backend/scripts/seed_output/
