@@ -481,6 +481,53 @@ def test_saved_method_privileges_enforced(migration_db):
         conn.commit()
 
 
+ROLE_LOCK_KEY = 918273645
+
+
+def _create_cluster_roles_if_missing(conn, roles):
+    """Create each of ``roles`` only if it does not already exist, under the
+    shared cluster-role advisory lock, and return the list of roles this call
+    actually created (so callers can clean up exactly those and never touch a
+    role that pre-existed). The lock is released before returning.
+
+    Any created role is committed so the privilege test — which acquires the
+    same advisory lock re-entrantly — sees it as pre-existing and reuses it.
+    """
+    created = []
+    with conn.cursor() as cur:
+        cur.execute("select pg_advisory_lock(%s)", (ROLE_LOCK_KEY,))
+        try:
+            for role in roles:
+                cur.execute("select 1 from pg_roles where rolname = %s", (role,))
+                if not cur.fetchone():
+                    cur.execute(f"create role {role} nologin")
+                    created.append(role)
+        finally:
+            cur.execute("select pg_advisory_unlock(%s)", (ROLE_LOCK_KEY,))
+    conn.commit()
+    return created
+
+
+def _drop_cluster_roles(conn, roles):
+    """Drop exactly the given roles (which the caller created) under the shared
+    advisory lock, inside this disposable database only. Safe to call after an
+    assertion failure; leaves any role not listed entirely untouched."""
+    if not roles:
+        return
+    with conn.cursor() as cur:
+        cur.execute("reset role")
+        cur.execute("select pg_advisory_lock(%s)", (ROLE_LOCK_KEY,))
+        try:
+            for role in roles:
+                cur.execute("select 1 from pg_roles where rolname = %s", (role,))
+                if cur.fetchone():
+                    cur.execute(f"drop owned by {role} cascade")
+                    cur.execute(f"drop role {role}")
+        finally:
+            cur.execute("select pg_advisory_unlock(%s)", (ROLE_LOCK_KEY,))
+    conn.commit()
+
+
 def test_preexisting_roles_survive_migration_test_unchanged(migration_db):
     """A role that already exists before the test must still exist, with its
     original attributes, after the privilege test runs — the test must never
@@ -489,22 +536,36 @@ def test_preexisting_roles_survive_migration_test_unchanged(migration_db):
     import psycopg2
 
     sentinel = "dtx_preexisting_role"
+    # Every role this test actually creates is tracked here; cleanup touches
+    # only these. anon/authenticated are cluster-global and may have existed
+    # before the test — if so they are NOT recorded and NOT dropped.
+    created_roles = []
     try:
+        # The sentinel is unique to this test, so if it already exists we cannot
+        # run cleanly (check under the lock; unlock before skipping).
         with conn.cursor() as cur:
-            cur.execute("select 1 from pg_roles where rolname = %s", (sentinel,))
-            if cur.fetchone():
-                pytest.skip(f"Sentinel role {sentinel} already exists; cannot run cleanly.")
-            # Simulate a pre-existing cluster role (e.g. a real Supabase role),
-            # using the reserved names too so the privilege test must reuse
-            # rather than recreate them.
-            cur.execute(f"create role {sentinel} login")
-            for role in ("anon", "authenticated"):
-                cur.execute("select 1 from pg_roles where rolname = %s", (role,))
-                if not cur.fetchone():
-                    cur.execute(f"create role {role} nologin")
+            cur.execute("select pg_advisory_lock(%s)", (ROLE_LOCK_KEY,))
+            try:
+                cur.execute("select 1 from pg_roles where rolname = %s", (sentinel,))
+                sentinel_exists = cur.fetchone() is not None
+                if not sentinel_exists:
+                    cur.execute(f"create role {sentinel} login")
+            finally:
+                cur.execute("select pg_advisory_unlock(%s)", (ROLE_LOCK_KEY,))
+        if sentinel_exists:
+            conn.rollback()
+            pytest.skip(f"Sentinel role {sentinel} already exists; cannot run cleanly.")
+        created_roles.append(sentinel)
         conn.commit()
+
+        # Simulate pre-existing cluster roles using the reserved names, creating
+        # them only when missing so the privilege test must reuse rather than
+        # recreate them. Only newly created roles are recorded for cleanup.
+        created_roles += _create_cluster_roles_if_missing(conn, ("anon", "authenticated"))
     except psycopg2.Error as exc:
         conn.rollback()
+        # Roll back any partial creation before bailing out.
+        _drop_cluster_roles(conn, created_roles)
         pytest.skip(f"Cannot create sentinel roles: {exc}")
 
     try:
@@ -520,10 +581,8 @@ def test_preexisting_roles_survive_migration_test_unchanged(migration_db):
             assert cur.fetchone()[0] is True, "pre-existing role attributes were altered"
         conn.rollback()
     finally:
-        with conn.cursor() as cur:
-            for role in (sentinel, "authenticated", "anon"):
-                cur.execute("select 1 from pg_roles where rolname = %s", (role,))
-                if cur.fetchone():
-                    cur.execute(f"drop owned by {role} cascade")
-                    cur.execute(f"drop role {role}")
-        conn.commit()
+        # Remove ONLY the roles this test created (recorded in created_roles).
+        # A pre-existing anon/authenticated is absent from the list and left
+        # entirely untouched — no DROP, no ALTER, no DROP OWNED. Survives an
+        # assertion failure above.
+        _drop_cluster_roles(conn, created_roles)
