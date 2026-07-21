@@ -15,6 +15,8 @@ import threading
 
 import pytest
 
+from shared.payments import get_payment_provider
+
 VALID_CARD = {
     "card_number": "4242 4242 4242 4242",
     "card_expiry": "12/30",
@@ -535,7 +537,7 @@ def test_topup_business_credits_exact_amount_and_charges_fee(client):
     assert row["provider_reference"] and row["provider_reference"].startswith("dummych_")
 
 
-def test_topup_replay_returns_original_without_recrediting(client):
+def test_topup_replay_returns_original_without_card_data(client):
     db = client.db
     _seed_wallet(db, BUSINESS["id"], 0)
     db.commit()
@@ -544,8 +546,9 @@ def test_topup_replay_returns_original_without_recrediting(client):
         "/api/wallet/topup", json={"amount": 10000, **VALID_CARD},
         headers=_headers(idempotency_key="key-topup-replay"),
     )
+    # Replay with the SAME amount but NO card data — must still replay.
     second = client.post(
-        "/api/wallet/topup", json={"amount": 10000, **VALID_CARD},
+        "/api/wallet/topup", json={"amount": 10000},
         headers=_headers(idempotency_key="key-topup-replay"),
     )
     assert first.status_code == 200 and second.status_code == 200
@@ -558,6 +561,59 @@ def test_topup_replay_returns_original_without_recrediting(client):
     ).fetchone()["c"]
     assert count == 1
     assert float(db.execute("SELECT balance FROM wallets WHERE user_id = %s", (BUSINESS["id"],)).fetchone()["balance"]) == 10000.0
+
+
+def test_topup_same_key_different_amount_conflicts_without_mutation(client):
+    db = client.db
+    _seed_wallet(db, BUSINESS["id"], 0)
+    db.commit()
+    client.login(BUSINESS)
+    client.post(
+        "/api/wallet/topup", json={"amount": 10000, **VALID_CARD},
+        headers=_headers(idempotency_key="key-topup-conflict"),
+    )
+    # Same key, DIFFERENT amount -> 409, no second charge or mutation.
+    resp = client.post(
+        "/api/wallet/topup", json={"amount": 25000, **VALID_CARD},
+        headers=_headers(idempotency_key="key-topup-conflict"),
+    )
+    assert resp.status_code == 409
+    assert resp.get_json()["code"] == "idempotency_key_conflict"
+    count = db.execute(
+        "SELECT COUNT(*) AS c FROM wallet_transactions WHERE user_id = %s AND type = 'topup'",
+        (BUSINESS["id"],),
+    ).fetchone()["c"]
+    assert count == 1
+    assert float(db.execute("SELECT balance FROM wallets WHERE user_id = %s", (BUSINESS["id"],)).fetchone()["balance"]) == 10000.0
+
+
+def test_topup_missing_key_for_user_without_wallet_creates_nothing(client):
+    db = client.db
+    # NO wallet seeded for this user.
+    no_wallet_user = {"id": 8080, "role": "service_seeker"}
+    client.login(no_wallet_user)
+    resp = client.post(
+        "/api/wallet/topup", json={"amount": 10000, **VALID_CARD},
+        headers=_headers(),                            # no Idempotency-Key
+    )
+    assert resp.status_code == 400
+    assert resp.get_json()["code"] == "idempotency_key_required"
+    # No wallet row and no transaction were created (validation happens first).
+    assert db.execute("SELECT COUNT(*) AS c FROM wallets WHERE user_id = %s", (no_wallet_user["id"],)).fetchone()["c"] == 0
+    assert db.execute("SELECT COUNT(*) AS c FROM wallet_transactions WHERE user_id = %s", (no_wallet_user["id"],)).fetchone()["c"] == 0
+
+
+def test_topup_overlength_key_creates_no_wallet(client):
+    db = client.db
+    no_wallet_user = {"id": 8081, "role": "service_seeker"}
+    client.login(no_wallet_user)
+    resp = client.post(
+        "/api/wallet/topup", json={"amount": 10000, **VALID_CARD},
+        headers=_headers(idempotency_key="x" * 200),   # over the 128 limit
+    )
+    assert resp.status_code == 400
+    assert resp.get_json()["code"] == "idempotency_key_invalid"
+    assert db.execute("SELECT COUNT(*) AS c FROM wallets WHERE user_id = %s", (no_wallet_user["id"],)).fetchone()["c"] == 0
 
 
 def test_topup_transporter_keeps_legacy_gross_semantics(client):
@@ -638,62 +694,49 @@ def test_concurrent_checkout_creates_only_one_trip(seeded_db, pg_session_info):
     assert payments == 1
 
 
-def _run_topup(url, schema, user, amount, key, results, tag, barrier):
+def _topup_worker(url, schema, user, amount, key, results, tag, barrier):
+    """Drive the REAL production top-up service on an independent connection.
+
+    No business logic is duplicated here — this only opens a second DB
+    connection into the test schema and calls perform_wallet_topup, exactly as
+    the HTTP route does.
+    """
     import psycopg2
 
     from shared.db import Db
-    from shared.payments import (
-        calculate_card_processing_fee, get_payment_provider, round_money, validate_dummy_card,
-    )
+    from shared.payments import CheckoutError, perform_wallet_topup
 
     conn = psycopg2.connect(url)
     with conn.cursor() as cur:
         cur.execute(f'set search_path to "{schema}"')
     db = Db(conn)
-    provider = get_payment_provider()
-    card, _ = validate_dummy_card(VALID_CARD)
     try:
         barrier.wait()
-        locked = db.execute("SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (user["id"],)).fetchone()
-        wallet = dict(locked)
-        existing = db.execute(
-            "SELECT * FROM wallet_transactions WHERE user_id = %s AND type = 'topup' AND reference_id = %s",
-            (user["id"], key),
-        ).fetchone()
-        if existing:
-            conn.rollback()
-            results[tag] = "replay"
-            return
-        fee = calculate_card_processing_fee(amount)
-        gross = round_money(amount + fee)
-        provider.charge(gross, card_summary=card, idempotency_key=key)
-        new_balance = round_money(wallet["balance"] + amount)
-        db.execute("UPDATE wallets SET balance = %s WHERE user_id = %s", (new_balance, user["id"]))
-        db.execute(
-            "INSERT INTO wallet_transactions (wallet_id, user_id, type, amount, gross_amount, "
-            "gateway_fee, reference_id, provider_name, provider_reference, balance_after) "
-            "VALUES (%s, %s, 'topup', %s, %s, %s, %s, 'dummycard', 'ref', %s)",
-            (wallet["id"], user["id"], amount, gross, fee, key, new_balance),
-        )
+        result = perform_wallet_topup(db, user, amount, VALID_CARD, key)
         conn.commit()
-        results[tag] = "ok"
+        results[tag] = "replay" if result["replayed"] else "ok"
+    except CheckoutError as exc:
+        conn.rollback()
+        results[tag] = f"error:{exc.code}"
     except Exception as exc:
         conn.rollback()
-        results[tag] = f"error:{type(exc).__name__}"
+        results[tag] = f"exc:{type(exc).__name__}"
     finally:
         conn.close()
 
 
 def test_concurrent_same_key_topup_credits_once(seeded_db, pg_session_info):
+    # Two independent connections run the production service with the SAME key.
     db = seeded_db
     schema, url = pg_session_info["schema"], pg_session_info["url"]
+    get_payment_provider().reset()
     _seed_wallet(db, BUSINESS["id"], 0)
     db.commit()
 
     results = {}
     barrier = threading.Barrier(2)
     threads = [
-        threading.Thread(target=_run_topup, args=(url, schema, BUSINESS, 10000, "same-key-concurrent", results, tag, barrier))
+        threading.Thread(target=_topup_worker, args=(url, schema, BUSINESS, 10000, "same-key-concurrent", results, tag, barrier))
         for tag in ("a", "b")
     ]
     for t in threads:
@@ -701,9 +744,9 @@ def test_concurrent_same_key_topup_credits_once(seeded_db, pg_session_info):
     for t in threads:
         t.join()
 
-    # One commits; the other either replays or is rejected by the unique index.
+    # One charges+credits, the other replays — exactly one credit either way.
     assert "ok" in results.values()
-    assert all(v in ("ok", "replay") or v.startswith("error:") for v in results.values())
+    assert all(v in ("ok", "replay") for v in results.values()), results
     tx_count = db.execute(
         "SELECT COUNT(*) AS c FROM wallet_transactions WHERE user_id = %s AND type = 'topup'",
         (BUSINESS["id"],),
@@ -715,17 +758,18 @@ def test_concurrent_same_key_topup_credits_once(seeded_db, pg_session_info):
 def test_concurrent_different_keys_both_credit(seeded_db, pg_session_info):
     db = seeded_db
     schema, url = pg_session_info["schema"], pg_session_info["url"]
+    get_payment_provider().reset()
     _seed_wallet(db, BUSINESS["id"], 0)
     db.commit()
 
     results = {}
     barrier = threading.Barrier(2)
-    t1 = threading.Thread(target=_run_topup, args=(url, schema, BUSINESS, 10000, "key-diff-1", results, "a", barrier))
-    t2 = threading.Thread(target=_run_topup, args=(url, schema, BUSINESS, 25000, "key-diff-2", results, "b", barrier))
+    t1 = threading.Thread(target=_topup_worker, args=(url, schema, BUSINESS, 10000, "key-diff-1", results, "a", barrier))
+    t2 = threading.Thread(target=_topup_worker, args=(url, schema, BUSINESS, 25000, "key-diff-2", results, "b", barrier))
     t1.start(); t2.start()
     t1.join(); t2.join()
 
-    assert sorted(results.values()) == ["ok", "ok"]
+    assert sorted(results.values()) == ["ok", "ok"], results
     tx_count = db.execute(
         "SELECT COUNT(*) AS c FROM wallet_transactions WHERE user_id = %s AND type = 'topup'",
         (BUSINESS["id"],),

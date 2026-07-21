@@ -155,6 +155,29 @@ def parse_optional_bool(value, label="Value", default=False):
     raise ValueError(f"{label} must be true or false.")
 
 
+def build_provider_idempotency_key(scope, *parts):
+    """Build a fixed-length, backend-scoped provider idempotency key.
+
+    The raw client Idempotency-Key is never sent to the provider directly.
+    Instead it is combined with a logical scope and non-sensitive identifiers
+    (user id, order/bid ids) and hashed, so:
+      - the same client key used by two users maps to different provider keys
+      - the same client key used for checkout vs wallet top-up cannot collide
+    Only non-sensitive identifiers are hashed — never PAN, CVC, tokens or
+    other secrets. Returns 64 hex chars (well within provider length limits).
+    """
+    raw = ":".join([str(scope)] + [str(part) for part in parts])
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def provider_request_fingerprint(*parts):
+    """Safe fingerprint of the charge parameters (amount, scope) used by the
+    provider to detect a reused key with incompatible parameters. Contains no
+    card data."""
+    raw = ":".join(str(part) for part in parts)
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
 IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9_.:-]{8,128}$")
 
 
@@ -348,27 +371,48 @@ def validate_payout_card(card_data):
 class DummyCardProvider:
     """Placeholder processor. A real gateway later only needs to implement
     this same interface (tokenize + charge) and be returned from
-    get_payment_provider()."""
+    get_payment_provider().
+
+    Idempotency: a scoped idempotency key is bound to a safe request
+    fingerprint (never card data). The same scoped key with the same
+    fingerprint returns the same charge reference (safe retry after a
+    provider-success/DB-failure). The same scoped key with a DIFFERENT
+    fingerprint is rejected rather than silently returning the old charge —
+    the contract a real gateway must also honour server-side.
+    """
 
     name = "dummycard"
+
+    def __init__(self):
+        # scoped_key -> fingerprint seen for that key (in-process record; a
+        # real provider keeps this server-side).
+        self._seen_fingerprints = {}
+
+    def reset(self):
+        """Test hook: clear the in-process idempotency record."""
+        self._seen_fingerprints = {}
 
     def tokenize(self, card_summary):
         """Create a provider token for a validated card. The token is random —
         it encodes nothing about the card number."""
         return f"dummytok_{secrets.token_hex(12)}"
 
-    def charge(self, amount, token=None, card_summary=None, description="", idempotency_key=None):
-        """Charge a card (saved token or validated one-off card).
-
-        Idempotent per key: the same idempotency_key always yields the same
-        charge reference, so a retried checkout can never create a second
-        charge. A real gateway must honour the same contract provider-side.
-        """
+    def charge(self, amount, token=None, card_summary=None, description="",
+               idempotency_key=None, fingerprint=None):
+        """Charge a card (saved token or validated one-off card)."""
         if amount <= 0:
             return {"provider": self.name, "reference": None, "status": "skipped"}
         if token is None and card_summary is None:
             raise CheckoutError("A card is required for this charge.", 400, "card_required")
         if idempotency_key:
+            fp = fingerprint or ""
+            prior = self._seen_fingerprints.get(idempotency_key)
+            if prior is not None and prior != fp:
+                raise CheckoutError(
+                    "This idempotency key was already used with different charge parameters.",
+                    409, "provider_idempotency_conflict",
+                )
+            self._seen_fingerprints[idempotency_key] = fp
             digest = hashlib.sha256(f"{self.name}:{idempotency_key}".encode()).hexdigest()[:24]
             reference = f"dummych_{digest}"
         else:
@@ -662,12 +706,14 @@ def _checkout_result(db, order_id, payment, replayed=False):
     }
 
 
-def _resolve_card_charge(db, user, kind, quote, payload, idempotency_key=None):
+def _resolve_card_charge(db, user, kind, quote, payload, provider_key=None, fingerprint=None):
     """Decide how the card-funded portion is charged. Returns
     (charge_result, saved_method_used, card_summary_or_None).
 
     Never mutates money — only validates and performs the dummy charge.
     Raises CheckoutError when confirmation or card data is missing/invalid.
+    `provider_key` is the backend-scoped provider idempotency key (never the
+    raw client key).
     """
     provider = get_payment_provider()
     payload = payload or {}
@@ -681,7 +727,7 @@ def _resolve_card_charge(db, user, kind, quote, payload, idempotency_key=None):
             raise CheckoutError(error, 400, "invalid_card")
         charge = provider.charge(total_charge, card_summary=card_summary,
                                  description=f"One-time order shortfall {card_funded}",
-                                 idempotency_key=idempotency_key)
+                                 idempotency_key=provider_key, fingerprint=fingerprint)
         saved = None
         if kind == "business" and payload.get("save_card"):
             saved = create_saved_method(db, user["id"], card_summary,
@@ -718,7 +764,7 @@ def _resolve_card_charge(db, user, kind, quote, payload, idempotency_key=None):
         )
     charge = provider.charge(total_charge, token=method["provider_token"],
                              description=f"One-time order shortfall {card_funded}",
-                             idempotency_key=idempotency_key)
+                             idempotency_key=provider_key, fingerprint=fingerprint)
     return charge, method, None
 
 
@@ -836,11 +882,18 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
     transporter_share = transporter_share_percent_for(company_share)
 
     # 8. Dummy card funding where required (validation errors abort before any
-    # money moves).
+    # money moves). The provider gets a backend-scoped key, not the raw client
+    # key, so the same client key can never collide across users or flows.
     charge = None
     if quote["card_funded_amount"] > 0:
+        provider_key = build_provider_idempotency_key(
+            "checkout", user["id"], order_id, bid_id, idempotency_key,
+        )
+        fingerprint = provider_request_fingerprint(
+            "checkout", user["id"], order_id, bid_id, quote["total_card_charge"],
+        )
         charge, _method, _summary = _resolve_card_charge(
-            db, user, kind, quote, payload, idempotency_key=idempotency_key,
+            db, user, kind, quote, payload, provider_key=provider_key, fingerprint=fingerprint,
         )
 
     # Wallet mutations (business only): credit exactly the card-funded
@@ -1041,3 +1094,193 @@ def perform_start_trip(db, user, order_id, trip_id):
     )
     updated = dict(db.execute("SELECT * FROM shipment_trips WHERE id = %s", (trip_id,)).fetchone())
     return {"trip": updated, "already_started": False}
+
+
+# ---------------------------------------------------------------------------
+# Wallet top-up (atomic, idempotent) — single production service
+# ---------------------------------------------------------------------------
+
+def _topup_requested_amount(row, wallet_role):
+    """The originally requested amount stored on a top-up transaction, per
+    role semantics: business/client stores the credited amount, transporter
+    stores the gross charge."""
+    if wallet_role == "client":
+        return round_money(row["amount"])
+    return round_money(row["gross_amount"])
+
+
+def _serialize_topup(row, replayed):
+    return {
+        "replayed": replayed,
+        "gross_amount": round_money(row["gross_amount"]),
+        "gateway_fee": round_money(row["gateway_fee"]),
+        "net_amount": round_money(row["amount"]),
+        "new_balance": round_money(row["balance_after"]),
+        "provider_name": row.get("provider_name"),
+        "provider_reference": row.get("provider_reference"),
+    }
+
+
+def _find_topup_replay(db, user_id, wallet_role, client_key, requested_amount):
+    """Look up a prior top-up for this user + client key.
+
+    Returns a serialized replay result, None if unused, or raises 409 when the
+    key was used with a different amount (incompatible request).
+    """
+    row = db.execute(
+        "SELECT * FROM wallet_transactions WHERE user_id = %s AND type = 'topup' AND reference_id = %s",
+        (user_id, client_key),
+    ).fetchone()
+    if not row:
+        return None
+    row = dict(row)
+    if _topup_requested_amount(row, wallet_role) != round_money(requested_amount):
+        raise CheckoutError(
+            "This Idempotency-Key was already used for a top-up with a different amount.",
+            409, "idempotency_key_conflict",
+        )
+    return _serialize_topup(row, replayed=True)
+
+
+def perform_wallet_topup(db, user, amount_raw, card_data, client_key):
+    """Atomic, idempotent wallet top-up. Runs in the caller's transaction.
+
+    Ordering guarantees (no mutation before validation):
+      1. The Idempotency-Key is validated FIRST — before the wallet is
+         created or any row is touched.
+      2. The requested amount is parsed.
+      3. A prior top-up for (user, key) is looked up: a same-amount replay
+         returns the stored result WITHOUT requiring card data again; a
+         different amount raises 409 idempotency_key_conflict with no charge.
+      4. Only for a genuinely new top-up is card validation mandatory.
+      5. The wallet is created/locked, the record re-checked under the lock,
+         the provider charged with a backend-scoped key, and the credit +
+         transaction written.
+
+    Returns the structured result from _serialize_topup (+ "message").
+    """
+    from wallet.helpers import (
+        adjust_wallet_balance,
+        calculate_gateway_fee,
+        calculate_required_gross_for_net,
+        get_or_create_wallet_for_user,
+        insert_wallet_transaction,
+        normalize_wallet_role,
+    )
+
+    # 1. Idempotency key first — before any wallet creation or mutation.
+    client_key = validate_idempotency_key(client_key)
+
+    # 2. Stable requested amount + role semantics (no DB yet).
+    try:
+        amount = float(parse_money_amount(amount_raw, "Amount"))
+    except ValueError as exc:
+        raise CheckoutError(str(exc), 400, "invalid_amount")
+    wallet_role = normalize_wallet_role(user.get("role"))
+    if wallet_role is None:
+        raise CheckoutError("Wallet is not available for this account role.", 403)
+    user_id = user["id"]
+
+    # 3. Replay / conflict check (read-only; never creates a wallet). A valid
+    # same-amount replay returns here without needing card data.
+    replay = _find_topup_replay(db, user_id, wallet_role, client_key, amount)
+    if replay:
+        replay["message"] = "Wallet top-up already processed."
+        return replay
+
+    # 4. New top-up: card validation is mandatory before any charge.
+    card_summary, card_error = validate_dummy_card(card_data)
+    if card_error:
+        raise CheckoutError(card_error, 400, "invalid_card")
+
+    # 5. Create + lock the wallet, then re-check the record under the lock.
+    wallet, wallet_error = get_or_create_wallet_for_user(db, user)
+    if wallet_error is not None or wallet is None:
+        raise CheckoutError("Wallet is not available for this account role.", 403)
+    locked = db.execute("SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (user_id,)).fetchone()
+    wallet = dict(locked)
+
+    replay = _find_topup_replay(db, user_id, wallet_role, client_key, amount)
+    if replay:
+        replay["message"] = "Wallet top-up already processed."
+        return replay
+
+    # Role-specific amounts from the locked wallet row.
+    if wallet["role"] == "client":
+        # Business/client: entered amount is the desired credit; card is
+        # charged amount + processing fee.
+        gateway_fee = calculate_card_processing_fee(amount)
+        gross_amount = round_money(amount + gateway_fee)
+        net_amount = amount
+    else:
+        # Transporter: legacy gross semantics kept unchanged.
+        gross_amount = amount
+        gateway_fee, net_amount = calculate_gateway_fee(gross_amount)
+        projected_balance = round_money(wallet["balance"] + net_amount)
+        if not wallet["is_minimum_met"] and projected_balance + 1e-9 < wallet["minimum_required"]:
+            net_shortfall = round_money(wallet["minimum_required"] - wallet["balance"])
+            required_gross = calculate_required_gross_for_net(net_shortfall)
+            raise CheckoutError(
+                f"Minimum balance of Rs {wallet['minimum_required']:.2f} required. "
+                f"Please add at least Rs {required_gross:.2f} to meet the minimum.",
+                400, "minimum_balance_required",
+            )
+
+    # Charge the provider with a backend-scoped key (never the raw client key)
+    # bound to a safe fingerprint.
+    provider = get_payment_provider()
+    provider_key = build_provider_idempotency_key("wallet-topup", user_id, client_key)
+    fingerprint = provider_request_fingerprint("wallet-topup", user_id, gross_amount)
+    charge = provider.charge(
+        gross_amount, card_summary=card_summary,
+        description="Wallet top-up", idempotency_key=provider_key, fingerprint=fingerprint,
+    )
+
+    stamp = timestamp_bundle()["display"]
+    new_balance = round_money(wallet["balance"] + net_amount)
+    is_minimum_met = bool(wallet["is_minimum_met"] or new_balance + 1e-9 >= wallet["minimum_required"])
+    current_locked_balance = round_money(wallet["locked_balance"])
+    should_restore_minimum_lock = (
+        wallet["role"] == "transporter"
+        and new_balance + 1e-9 >= wallet["minimum_required"]
+        and current_locked_balance + 1e-9 < round_money(wallet["minimum_required"])
+    )
+    balance_error = adjust_wallet_balance(
+        db, wallet, user_id, net_amount, "topup",
+        description="Wallet top-up", reference_id=client_key,
+        gross_amount=gross_amount, gateway_fee=gateway_fee,
+        provider_name=charge.get("provider"), provider_reference=charge.get("reference"),
+    )
+    if balance_error is not None:
+        raise CheckoutError("Wallet top-up could not be credited.", 500, "topup_failed")
+    db.execute(
+        "UPDATE wallets SET is_minimum_met = %s, updated_at = %s WHERE id = %s AND user_id = %s",
+        (is_minimum_met, stamp, wallet["id"], user_id),
+    )
+    wallet["is_minimum_met"] = is_minimum_met
+    wallet["updated_at"] = stamp
+    if should_restore_minimum_lock:
+        target_lock = round_money(wallet["minimum_required"])
+        lock_delta = round_money(target_lock - current_locked_balance)
+        db.execute(
+            "UPDATE wallets SET locked_balance = %s, updated_at = %s WHERE id = %s AND user_id = %s",
+            (target_lock, stamp, wallet["id"], user_id),
+        )
+        wallet["locked_balance"] = target_lock
+        wallet["updated_at"] = stamp
+        insert_wallet_transaction(
+            db, wallet, user_id, "lock", lock_delta,
+            description="Transporter minimum security deposit locked",
+            reference_id="minimum_security_deposit",
+        )
+
+    return {
+        "replayed": False,
+        "message": "Wallet topped up successfully",
+        "gross_amount": round_money(gross_amount),
+        "gateway_fee": round_money(gateway_fee),
+        "net_amount": round_money(net_amount),
+        "new_balance": new_balance,
+        "provider_name": charge.get("provider"),
+        "provider_reference": charge.get("reference"),
+    }

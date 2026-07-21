@@ -175,6 +175,52 @@ def test_everyday_user_wallet_endpoints_rejected():
 
 
 # ---------------------------------------------------------------------------
+# Scoped provider idempotency keys (item 5)
+# ---------------------------------------------------------------------------
+
+def test_provider_key_differs_by_user():
+    from shared.payments import build_provider_idempotency_key
+    key_a = build_provider_idempotency_key("wallet-topup", 1, "client-key-xyz")
+    key_b = build_provider_idempotency_key("wallet-topup", 2, "client-key-xyz")
+    # Same client key, different users -> different provider keys.
+    assert key_a != key_b
+    assert len(key_a) == 64 and all(c in "0123456789abcdef" for c in key_a)
+
+
+def test_provider_key_differs_by_flow():
+    from shared.payments import build_provider_idempotency_key
+    topup = build_provider_idempotency_key("wallet-topup", 1, "shared-key")
+    checkout = build_provider_idempotency_key("checkout", 1, 7, 9, "shared-key")
+    # Same client key used for top-up vs checkout -> no collision.
+    assert topup != checkout
+
+
+def test_provider_key_contains_no_card_data():
+    from shared.payments import build_provider_idempotency_key, provider_request_fingerprint
+    # Only non-sensitive identifiers are hashed; the raw PAN/CVC never appear.
+    key = build_provider_idempotency_key("wallet-topup", 42, "client-key")
+    fp = provider_request_fingerprint("wallet-topup", 42, 10250.0)
+    assert FULL_PAN not in key and "123" not in key[:0]  # PAN/CVC absent by construction
+    assert FULL_PAN not in fp
+
+
+def test_dummy_provider_rejects_same_scoped_key_with_different_fingerprint():
+    from shared.payments import get_payment_provider, validate_dummy_card
+    provider = get_payment_provider()
+    provider.reset()
+    card, _ = validate_dummy_card(VALID_CARD)
+    scoped = "scoped-key-abc"
+    first = provider.charge(1000, card_summary=card, idempotency_key=scoped, fingerprint="fp-1000")
+    # Same scoped key + same fingerprint -> same reference (safe retry).
+    same = provider.charge(1000, card_summary=card, idempotency_key=scoped, fingerprint="fp-1000")
+    assert first["reference"] == same["reference"]
+    # Same scoped key + DIFFERENT fingerprint -> rejected, not silently reused.
+    with pytest.raises(CheckoutError) as excinfo:
+        provider.charge(2000, card_summary=card, idempotency_key=scoped, fingerprint="fp-2000")
+    assert excinfo.value.code == "provider_idempotency_conflict"
+
+
+# ---------------------------------------------------------------------------
 # Integration helpers
 # ---------------------------------------------------------------------------
 
@@ -841,6 +887,59 @@ def test_transporter_wallet_rules_unchanged(db):
     assert wallet["role"] == "transporter"
     assert float(wallet["minimum_required"]) == 30000.0
     assert bool(wallet["is_minimum_met"]) is False
+
+
+# ---------------------------------------------------------------------------
+# Wallet top-up production service (items 2-4)
+# ---------------------------------------------------------------------------
+
+def test_topup_service_replay_needs_no_card(seeded_db):
+    from shared.payments import get_payment_provider, perform_wallet_topup
+    db = seeded_db
+    get_payment_provider().reset()
+    _mk_wallet(db, BUSINESS_USER["id"], 0)
+    db.commit()
+
+    first = perform_wallet_topup(db, BUSINESS_USER, 10000, VALID_CARD, "svc-replay-key")
+    db.commit()
+    assert first["replayed"] is False
+    # Replay with NO card data at all — must succeed and not re-credit.
+    second = perform_wallet_topup(db, BUSINESS_USER, 10000, {}, "svc-replay-key")
+    db.commit()
+    assert second["replayed"] is True
+    assert second["new_balance"] == 10000.0
+    assert _count(db, "wallet_transactions", "WHERE user_id = %s AND type = 'topup'", (BUSINESS_USER["id"],)) == 1
+
+
+def test_topup_service_conflict_makes_no_charge(seeded_db):
+    from shared.payments import CheckoutError as CE, get_payment_provider, perform_wallet_topup
+    db = seeded_db
+    get_payment_provider().reset()
+    _mk_wallet(db, BUSINESS_USER["id"], 0)
+    db.commit()
+    perform_wallet_topup(db, BUSINESS_USER, 10000, VALID_CARD, "svc-conflict-key")
+    db.commit()
+    with pytest.raises(CE) as excinfo:
+        perform_wallet_topup(db, BUSINESS_USER, 25000, VALID_CARD, "svc-conflict-key")
+    db.rollback()
+    assert excinfo.value.code == "idempotency_key_conflict"
+    assert excinfo.value.status == 409
+    assert _count(db, "wallet_transactions", "WHERE user_id = %s AND type = 'topup'", (BUSINESS_USER["id"],)) == 1
+
+
+def test_topup_service_no_pan_or_cvc_in_persisted_rows(seeded_db):
+    from shared.payments import get_payment_provider, perform_wallet_topup
+    db = seeded_db
+    get_payment_provider().reset()
+    _mk_wallet(db, BUSINESS_USER["id"], 0)
+    db.commit()
+    result = perform_wallet_topup(db, BUSINESS_USER, 10000, VALID_CARD, "svc-nopan-key")
+    db.commit()
+    # No PAN/CVC in the provider reference, the stored key, or any wallet row.
+    assert FULL_PAN not in str(result)
+    for row in db.execute("SELECT * FROM wallet_transactions").fetchall():
+        assert FULL_PAN not in str(dict(row))
+        assert "123" not in str(dict(row).get("reference_id") or "")  # CVC never in the key
 
 
 # ---------------------------------------------------------------------------

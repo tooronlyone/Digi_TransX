@@ -349,21 +349,31 @@ def test_saved_method_privileges_enforced(migration_db):
     """
     conn = migration_db
 
-    # Roles must exist BEFORE the migration so its grant block applies to them.
-    # Roles are cluster-global; drop any leftovers from a previous run first.
+    # Roles are CLUSTER-GLOBAL. We must never drop, alter, or DROP OWNED a
+    # pre-existing role (it may be a real Supabase role). So: create a role
+    # only if it is missing, remember which ones we created, and on cleanup
+    # touch only those — and only inside this disposable database.
+    #
+    # An advisory lock (cluster-wide, shared across databases) serializes role
+    # setup/cleanup in case migration tests ever run concurrently.
     import psycopg2
+
+    ROLE_LOCK_KEY = 918273645
+    created_roles = []
     try:
         with conn.cursor() as cur:
-            for role in ("authenticated", "anon"):
+            cur.execute("select pg_advisory_lock(%s)", (ROLE_LOCK_KEY,))
+            for role in ("anon", "authenticated"):
                 cur.execute("select 1 from pg_roles where rolname = %s", (role,))
-                if cur.fetchone():
-                    cur.execute(f"drop owned by {role} cascade")
-                    cur.execute(f"drop role {role}")
-            cur.execute("create role anon nologin")
-            cur.execute("create role authenticated nologin")
+                if not cur.fetchone():
+                    cur.execute(f"create role {role} nologin")
+                    created_roles.append(role)
         conn.commit()
     except psycopg2.Error as exc:
         conn.rollback()
+        with conn.cursor() as cur:
+            cur.execute("select pg_advisory_unlock(%s)", (ROLE_LOCK_KEY,))
+        conn.commit()
         pytest.skip(f"Cannot create test roles for privilege assertions: {exc}")
 
     try:
@@ -409,20 +419,25 @@ def test_saved_method_privileges_enforced(migration_db):
                 conn.rollback()
                 assert got == "denied", f"authenticated must not read {secret}"
 
-            # Cannot write the base table.
-            cur.execute("set role authenticated")
-            cur.execute("set app.uid = '10'")
-            try:
-                cur.execute(
-                    "insert into public.saved_payment_methods "
-                    "(user_id, provider_token, card_brand, card_last_four, expiry_month, expiry_year) "
-                    "values (10,'tok-x','visa','9999',1,2030)"
-                )
-                wrote = "allowed"
-            except psycopg2.Error:
-                wrote = "denied"
-            conn.rollback()
-            assert wrote == "denied"
+            # Cannot INSERT / UPDATE / DELETE the base table.
+            write_statements = {
+                "insert": "insert into public.saved_payment_methods "
+                          "(user_id, provider_token, card_brand, card_last_four, expiry_month, expiry_year) "
+                          "values (10,'tok-x','visa','9999',1,2030)",
+                "update": "update public.saved_payment_methods set card_last_four = '0000' where user_id = 10",
+                "delete": "delete from public.saved_payment_methods where user_id = 10",
+            }
+            for verb, sql in write_statements.items():
+                cur.execute("rollback")
+                cur.execute("set role authenticated")
+                cur.execute("set app.uid = '10'")
+                try:
+                    cur.execute(sql)
+                    wrote = "allowed"
+                except psycopg2.Error:
+                    wrote = "denied"
+                conn.rollback()
+                assert wrote == "denied", f"authenticated must not {verb} the base table"
 
             # The safe view exposes only approved columns, own rows only.
             cur.execute("set role authenticated")
@@ -451,13 +466,63 @@ def test_saved_method_privileges_enforced(migration_db):
             conn.rollback()
         assert cross == "denied", "composite FK must reject a cross-user default method"
     finally:
+        # Remove ONLY the roles this test created. Pre-existing roles are left
+        # entirely untouched (no DROP, no ALTER, no DROP OWNED) — any test
+        # grants on them live only in this disposable database and vanish when
+        # it is dropped.
         with conn.cursor() as cur:
             cur.execute("reset role")
-            # Drop granted privileges/owned objects before dropping the roles.
-            for role in ("authenticated", "anon"):
-                cur.execute(
-                    "select 1 from pg_roles where rolname = %s", (role,)
-                )
+            for role in created_roles:
+                cur.execute("select 1 from pg_roles where rolname = %s", (role,))
+                if cur.fetchone():
+                    cur.execute(f"drop owned by {role} cascade")
+                    cur.execute(f"drop role {role}")
+            cur.execute("select pg_advisory_unlock(%s)", (ROLE_LOCK_KEY,))
+        conn.commit()
+
+
+def test_preexisting_roles_survive_migration_test_unchanged(migration_db):
+    """A role that already exists before the test must still exist, with its
+    original attributes, after the privilege test runs — the test must never
+    drop a role it did not create."""
+    conn = migration_db
+    import psycopg2
+
+    sentinel = "dtx_preexisting_role"
+    try:
+        with conn.cursor() as cur:
+            cur.execute("select 1 from pg_roles where rolname = %s", (sentinel,))
+            if cur.fetchone():
+                pytest.skip(f"Sentinel role {sentinel} already exists; cannot run cleanly.")
+            # Simulate a pre-existing cluster role (e.g. a real Supabase role),
+            # using the reserved names too so the privilege test must reuse
+            # rather than recreate them.
+            cur.execute(f"create role {sentinel} login")
+            for role in ("anon", "authenticated"):
+                cur.execute("select 1 from pg_roles where rolname = %s", (role,))
+                if not cur.fetchone():
+                    cur.execute(f"create role {role} nologin")
+        conn.commit()
+    except psycopg2.Error as exc:
+        conn.rollback()
+        pytest.skip(f"Cannot create sentinel roles: {exc}")
+
+    try:
+        # Run the full privilege test. Because anon/authenticated now
+        # pre-exist, it must reuse them and drop none of them.
+        test_saved_method_privileges_enforced(conn)
+
+        with conn.cursor() as cur:
+            for role in (sentinel, "anon", "authenticated"):
+                cur.execute("select 1 from pg_roles where rolname = %s", (role,))
+                assert cur.fetchone() is not None, f"pre-existing role {role} was wrongly dropped"
+            cur.execute("select rolcanlogin from pg_roles where rolname = %s", (sentinel,))
+            assert cur.fetchone()[0] is True, "pre-existing role attributes were altered"
+        conn.rollback()
+    finally:
+        with conn.cursor() as cur:
+            for role in (sentinel, "authenticated", "anon"):
+                cur.execute("select 1 from pg_roles where rolname = %s", (role,))
                 if cur.fetchone():
                     cur.execute(f"drop owned by {role} cascade")
                     cur.execute(f"drop role {role}")
