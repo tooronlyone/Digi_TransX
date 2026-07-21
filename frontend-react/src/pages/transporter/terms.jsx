@@ -1,5 +1,6 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
+import PlatformFeesSection from '../../components/common/PlatformFeesSection'
 
 const termHighlights = [
   {
@@ -71,8 +72,9 @@ const termSections = [
     icon: 'fas fa-wallet',
     title: 'Pricing, Payouts, and Fees',
     intro:
-      'Commercial pricing shown through your truck configurations and accepted jobs should be deliberate, supportable, and consistent with the work being offered.',
+      'Commercial pricing shown through your truck configurations and accepted jobs should be deliberate, supportable, and consistent with the work being offered. The current company fee and transporter payout share are published in the Platform Fees section at the top of this page.',
     points: [
+      'The commission split for a one-time order is locked in when the client accepts your bid; for an agreement it is locked in at finalization and applies to every monthly payment.',
       'Per-km pricing, waiting charges, loading charges, and extra commercial terms should be set before dispatch wherever possible.',
       'Completed jobs may be reviewed before payout release, especially when disputes, cancellations, or missing proof exist.',
       'Withdrawals, processing windows, and deductions depend on available balance, verification state, and platform rules in force at the time.',
@@ -178,6 +180,10 @@ export default function Terms() {
             </div>
           ))}
         </div>
+
+        {/* Backend-driven: current commission splits, version history and the
+            "I have reviewed" acknowledgement for the latest Terms version. */}
+        <PlatformFeesSection audience="transporter" />
 
         <div className="terms-layout">
           <aside className="terms-sidebar">

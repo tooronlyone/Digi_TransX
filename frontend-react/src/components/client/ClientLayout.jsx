@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
+import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import '../../styles/pages/client.css'
 
 const NAV_ITEMS = [
@@ -166,11 +167,12 @@ export default function ClientLayout({ children }) {
       {isMobile && menuOpen && sidebar}
 
       <main className="main-content">
+        <TermsUpdateNotice termsPath="/client/terms" />
         <div>{children}</div>
         <footer className="footer">
           <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>
           <div className="footer-links">
-            <span>More service seeker pages coming soon.</span>
+            <Link to="/client/terms">Terms &amp; Platform Fees</Link>
           </div>
         </footer>
       </main>

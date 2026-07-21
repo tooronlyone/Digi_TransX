@@ -17,6 +17,7 @@ from orders import orders_blueprint
 from profile import profile_blueprint
 from settings import settings_blueprint
 from shared.db import FRONTEND_DIST, check_connection
+from terms import terms_blueprint
 from tracking import tracking_blueprint
 from trucks import trucks_blueprint
 from wallet import wallet_blueprint
@@ -35,6 +36,7 @@ app.register_blueprint(chat_blueprint)
 app.register_blueprint(orders_blueprint)
 app.register_blueprint(profile_blueprint)
 app.register_blueprint(settings_blueprint)
+app.register_blueprint(terms_blueprint)
 app.register_blueprint(tracking_blueprint)
 app.register_blueprint(trucks_blueprint)
 app.register_blueprint(wallet_blueprint)

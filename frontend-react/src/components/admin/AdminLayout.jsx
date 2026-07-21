@@ -10,6 +10,7 @@ const NAV_ITEMS = [
   { path: '/admin/agreements',  label: 'Agreements',   icon: 'fa-file-contract' },
   { path: '/admin/disputes',    label: 'Disputes',     icon: 'fa-triangle-exclamation' },
   { path: '/admin/payments',    label: 'Payments',     icon: 'fa-credit-card' },
+  { path: '/admin/platform-settings', label: 'Platform Settings', icon: 'fa-sliders' },
 ]
 
 export default function AdminLayout({ children }) {

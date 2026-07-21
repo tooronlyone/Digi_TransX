@@ -14,6 +14,15 @@ from .goods_taxonomy import (
     FIELD_WEIGHT,
     FIELD_ANIMAL_COUNT,
 )
+from shared.commissions import (
+    POLICY_TYPE_ONE_TIME,
+    get_active_policy,
+    get_current_terms_version,
+    policy_company_share,
+    snapshot_company_share,
+    split_final_amount,
+    transporter_share_percent_for,
+)
 from wallet.helpers import get_or_create_wallet, round_money, available_balance, adjust_wallet_balance
 from agreements.helpers import require_client_role, require_transporter_role
 from .helpers import (
@@ -405,10 +414,32 @@ def accept_bid(order_id, bid_id):
 
         stamp = timestamp_bundle()["display"]
 
+        # Snapshot the active one-time commission: this order keeps this split
+        # for its entire lifetime, regardless of later policy changes.
+        active_policy = get_active_policy(db, POLICY_TYPE_ONE_TIME)
+        current_terms = get_current_terms_version(db)
+        company_share = policy_company_share(active_policy)
+        transporter_share = transporter_share_percent_for(company_share)
+
         # Update order status
         db.execute(
-            "UPDATE shipments SET status = 'accepted', accepted_bid_id = ?, payment_amount = ?, updated_at = ? WHERE id = ?",
-            (bid_id, round_money(bid["bid_price"]), stamp, order_id),
+            """
+            UPDATE shipments
+            SET status = 'accepted', accepted_bid_id = ?, payment_amount = ?,
+                company_share_percent_snapshot = ?, transporter_share_percent_snapshot = ?,
+                commission_policy_id = ?, terms_version_id = ?, updated_at = ?
+            WHERE id = ?
+            """,
+            (
+                bid_id,
+                round_money(bid["bid_price"]),
+                float(company_share),
+                float(transporter_share),
+                active_policy["id"] if active_policy else None,
+                current_terms["id"] if current_terms else None,
+                stamp,
+                order_id,
+            ),
         )
 
         # Update bid status
@@ -616,9 +647,12 @@ def verify_delivery(order_id, trip_id):
             trip_obj = dict(trip)
             transporter_wallet, _ = get_or_create_wallet({"id": trip_obj["transporter_user_id"], "role": "transporter"})
 
+            # Always split with the commission snapshot saved at bid acceptance
+            # (legacy orders without a snapshot fall back to the 20/80 split
+            # they were accepted under).
             payment_amount = round_money(order["payment_amount"])
-            company_fee = round_money(payment_amount * 0.20)
-            transporter_amount = round_money(payment_amount - company_fee)
+            company_share = snapshot_company_share(order)
+            company_fee, transporter_amount = split_final_amount(payment_amount, company_share)
 
             # Credit transporter
             adjust_wallet_balance(
@@ -643,13 +677,15 @@ def verify_delivery(order_id, trip_id):
                 (stamp, stamp, trip_id),
             )
 
-            # Create invoice
+            # Create invoice (records the applied split for the audit trail)
             db.execute(
                 """
                 INSERT INTO payments (
                     trip_id, invoice_number, client_user_id, transporter_user_id,
-                    bid_price, company_fee, transporter_amount, created_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                    bid_price, company_fee, transporter_amount,
+                    company_share_percent, transporter_share_percent, commission_policy_id,
+                    created_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
                 (
                     trip_id,
@@ -659,6 +695,9 @@ def verify_delivery(order_id, trip_id):
                     payment_amount,
                     company_fee,
                     transporter_amount,
+                    float(company_share),
+                    float(transporter_share_percent_for(company_share)),
+                    order.get("commission_policy_id"),
                     stamp,
                 ),
             )

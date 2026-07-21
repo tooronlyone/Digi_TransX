@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getTransporterAllowedPaths, isTransporterPathAllowed } from './accessControl'
 import { NAV_ITEMS } from './navItems'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
+import TermsUpdateNotice from '../common/TermsUpdateNotice'
 
 function getTransporterDisplayName(u = {}) {
   const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
@@ -179,6 +180,7 @@ export default function TransporterLayout({ children }) {
 
       {/* Main Content */}
       <div className={`main-content${isMessagesPage ? ' main-content--messages' : ''}`}>
+        {!isMessagesPage && <TermsUpdateNotice termsPath="/transporter/terms" />}
         {children}
 
         {!isMessagesPage && <div className="footer">

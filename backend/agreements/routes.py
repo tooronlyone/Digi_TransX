@@ -6,11 +6,17 @@ from auth.helpers import json_response, login_required, csrf_error, timestamp_bu
 from chat.routes import insert_chat_message
 from shared.db import open_db
 from tracking.traccar import calculate_route_distance_km, get_positions_between
+from shared.commissions import (
+    POLICY_TYPE_AGREEMENT,
+    get_active_policy,
+    get_current_terms_version,
+    policy_company_share,
+    recalculate_payment_fields,
+    transporter_share_percent_for,
+)
 from wallet.helpers import adjust_wallet_balance, available_balance, get_or_create_wallet_for_user, round_money
 from .helpers import (
-    COMPANY_FEE_RATE,
     PENALTY_AMOUNT,
-    TRANSPORTER_SHARE_RATE,
     add_months,
     due_date_for_month,
     haversine_km,
@@ -141,14 +147,6 @@ def insert_system_note_for_agreement(db, agreement_id, transporter_user_id, cont
     ).fetchone()
     if thread:
         insert_chat_message(db, thread["id"], agreement["client_user_id"], "system", content=content)
-
-
-def recalculate_payment_fields(total_km, per_km_rate, minimum_guarantee):
-    total_earned = round_money(total_km * per_km_rate)
-    final_amount = round_money(max(total_earned, minimum_guarantee))
-    company_fee = round_money(final_amount * COMPANY_FEE_RATE)
-    transporter_amount = round_money(final_amount * TRANSPORTER_SHARE_RATE)
-    return total_earned, final_amount, company_fee, transporter_amount
 
 
 @agreements_blueprint.post("/api/agreements/posts")
@@ -478,14 +476,29 @@ def finalize_agreement():
         if post["client_user_id"] != request.current_user["id"]:
             return json_response({"success": False, "message": "You are not allowed to finalize this post."}, 403)
         stamp = timestamp_bundle()["display"]
+        # Snapshot the active agreement commission: this agreement keeps this
+        # split for its entire lifetime, regardless of later policy changes.
+        active_policy = get_active_policy(db, POLICY_TYPE_AGREEMENT)
+        current_terms = get_current_terms_version(db)
+        company_share = policy_company_share(active_policy)
+        transporter_share = transporter_share_percent_for(company_share)
         db.execute(
             """
             INSERT INTO agreements (
                 post_id, client_user_id, duration_months, cargo_type, service_area,
-                start_date, end_date, status, contract_text, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?)
+                start_date, end_date, status, contract_text,
+                company_share_percent_snapshot, transporter_share_percent_snapshot,
+                commission_policy_id, terms_version_id, created_at, updated_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?)
             """,
-            (post_id, request.current_user["id"], duration_months, cargo_type, service_area, start_date.isoformat(), end_date.isoformat(), contract_text, stamp, stamp),
+            (
+                post_id, request.current_user["id"], duration_months, cargo_type, service_area,
+                start_date.isoformat(), end_date.isoformat(), contract_text,
+                float(company_share), float(transporter_share),
+                active_policy["id"] if active_policy else None,
+                current_terms["id"] if current_terms else None,
+                stamp, stamp,
+            ),
         )
         agreement_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
         accepted_bid_ids = set()
@@ -515,14 +528,18 @@ def finalize_agreement():
             agreement_truck_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
             for month_index in range(duration_months):
                 due_date = due_date_for_month(start_date, month_index)
-                _, final_amount, company_fee, transporter_amount = recalculate_payment_fields(0, row["per_km_rate"], row["minimum_monthly_guarantee"])
+                _, final_amount, company_fee, transporter_amount = recalculate_payment_fields(
+                    0, row["per_km_rate"], row["minimum_monthly_guarantee"], company_share,
+                )
                 db.execute(
                     """
                     INSERT INTO agreement_monthly_payments (
                         agreement_id, agreement_truck_id, transporter_user_id, client_user_id,
                         month_year, total_km, total_earned, minimum_guarantee, final_amount,
-                        company_fee, transporter_amount, penalty_amount, status, payment_due_date, paid_at, created_at
-                    ) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, 0, 'pending', ?, NULL, ?)
+                        company_fee, transporter_amount,
+                        company_share_percent, transporter_share_percent, commission_policy_id,
+                        penalty_amount, status, payment_due_date, paid_at, created_at
+                    ) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, 0, 'pending', ?, NULL, ?)
                     """,
                     (
                         agreement_id,
@@ -534,6 +551,9 @@ def finalize_agreement():
                         final_amount,
                         company_fee,
                         transporter_amount,
+                        float(company_share),
+                        float(transporter_share),
+                        active_policy["id"] if active_policy else None,
                         due_date.isoformat(),
                         stamp,
                     ),
@@ -681,9 +701,10 @@ def end_trip(agreement_id, trip_id):
         trip_month = datetime.strptime(trip["trip_date"], "%Y-%m-%d").strftime("%Y-%m")
         payment = db.execute(
             """
-            SELECT amp.*, at.per_km_rate
+            SELECT amp.*, at.per_km_rate, a.company_share_percent_snapshot
             FROM agreement_monthly_payments amp
             JOIN agreement_trucks at ON at.id = amp.agreement_truck_id
+            JOIN agreements a ON a.id = amp.agreement_id
             WHERE amp.agreement_id = ? AND amp.agreement_truck_id = ? AND amp.month_year = ?
             LIMIT 1
             """,
@@ -695,6 +716,7 @@ def end_trip(agreement_id, trip_id):
                 total_km,
                 payment["per_km_rate"],
                 payment["minimum_guarantee"],
+                payment["company_share_percent_snapshot"],
             )
             db.execute(
                 """

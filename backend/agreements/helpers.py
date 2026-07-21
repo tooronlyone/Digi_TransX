@@ -13,8 +13,8 @@ from wallet.helpers import (
 
 CLIENT_AGREEMENT_ROLES = {"service_seeker", "everyday_user", "client"}
 TRANSPORTER_AGREEMENT_ROLES = {"logistics_provider", "transporter"}
-COMPANY_FEE_RATE = 0.20
-TRANSPORTER_SHARE_RATE = 0.80
+# Commission rates are no longer hard-coded here: every agreement carries its
+# own snapshot (see shared/commissions.py) saved when it was finalized.
 PENALTY_AMOUNT = 5000.0
 
 

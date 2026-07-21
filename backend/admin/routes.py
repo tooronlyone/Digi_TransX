@@ -1,3 +1,4 @@
+import json
 from datetime import date, datetime
 
 from flask import Blueprint, request
@@ -13,9 +14,22 @@ from agreements.helpers import (
     serialize_payment,
     serialize_trip,
 )
-from agreements.routes import fetch_agreement, fetch_agreement_trucks, recalculate_payment_fields
+from agreements.routes import fetch_agreement, fetch_agreement_trucks
 from auth.helpers import csrf_error, json_response, login_required, normalize_email, require_admin_role, split_name, timestamp_bundle
 from chat.routes import insert_chat_message
+from shared.commissions import (
+    POLICY_TYPES,
+    POLICY_TYPE_LABELS,
+    get_active_policy,
+    get_current_terms_version,
+    list_policy_versions,
+    list_terms_versions,
+    parse_company_share_percent,
+    publish_commission_change,
+    recalculate_payment_fields,
+    serialize_policy,
+    serialize_terms_version,
+)
 from shared.db import open_db
 from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user, insert_wallet_transaction, round_money
 
@@ -453,9 +467,10 @@ def add_trip_km_to_payment(db, trip):
     trip_month = datetime.strptime(trip["trip_date"], "%Y-%m-%d").strftime("%Y-%m")
     payment = db.execute(
         """
-        SELECT amp.*, at.per_km_rate
+        SELECT amp.*, at.per_km_rate, a.company_share_percent_snapshot
         FROM agreement_monthly_payments amp
         JOIN agreement_trucks at ON at.id = amp.agreement_truck_id
+        JOIN agreements a ON a.id = amp.agreement_id
         WHERE amp.agreement_id = ? AND amp.agreement_truck_id = ? AND amp.month_year = ?
         LIMIT 1
         """,
@@ -463,7 +478,10 @@ def add_trip_km_to_payment(db, trip):
     ).fetchone()
     if payment and payment["status"] in {"pending", "failed"}:
         total_km = round_money(payment["total_km"] + round_money(trip["distance_km"]))
-        total_earned, final_amount, company_fee, transporter_amount = recalculate_payment_fields(total_km, payment["per_km_rate"], payment["minimum_guarantee"])
+        total_earned, final_amount, company_fee, transporter_amount = recalculate_payment_fields(
+            total_km, payment["per_km_rate"], payment["minimum_guarantee"],
+            payment["company_share_percent_snapshot"],
+        )
         db.execute(
             """
             UPDATE agreement_monthly_payments
@@ -612,3 +630,127 @@ def apply_penalties():
     with open_db() as db:
         result = run_apply_penalties(db)
     return json_response({"success": True, **result})
+
+
+# ---------------------------------------------------------------------------
+# Platform settings — versioned commission policies
+# ---------------------------------------------------------------------------
+
+@admin_blueprint.get("/platform-settings/commissions")
+@admin_required
+def commission_settings():
+    """Current active policy for each commission type + current Terms version."""
+    with open_db() as db:
+        policies = {ptype: serialize_policy(get_active_policy(db, ptype)) for ptype in POLICY_TYPES}
+        terms = get_current_terms_version(db)
+    return json_response({
+        "success": True,
+        "policies": policies,
+        "terms_version": serialize_terms_version(terms),
+    })
+
+
+@admin_blueprint.get("/platform-settings/commissions/history")
+@admin_required
+def commission_history():
+    """Immutable version history for both policy types and Terms versions."""
+    with open_db() as db:
+        policy_rows = list_policy_versions(db)
+        terms_rows = list_terms_versions(db)
+        admin_ids = {row.get("created_by_admin_user_id") for row in policy_rows}
+        admin_ids |= {row.get("published_by_admin_user_id") for row in terms_rows}
+        admin_ids.discard(None)
+        admin_names = {}
+        if admin_ids:
+            placeholders = ",".join("?" for _ in admin_ids)
+            for row in db.execute(
+                f"SELECT id, {user_display_sql('users')} AS name FROM users WHERE id IN ({placeholders})",
+                tuple(admin_ids),
+            ).fetchall():
+                admin_names[row["id"]] = row["name"]
+    policies = []
+    for row in policy_rows:
+        item = serialize_policy(row)
+        item["created_by_name"] = admin_names.get(row.get("created_by_admin_user_id"), "")
+        policies.append(item)
+    terms = []
+    for row in terms_rows:
+        item = serialize_terms_version(row)
+        item["published_by_name"] = admin_names.get(row.get("published_by_admin_user_id"), "")
+        terms.append(item)
+    return json_response({"success": True, "policies": policies, "terms_versions": terms})
+
+
+@admin_blueprint.post("/platform-settings/commissions")
+@admin_required
+def publish_commission():
+    """Publish a new commission rate for ONE policy type.
+
+    Creates a new immutable policy version and a new Terms version in the same
+    database transaction. The transporter share is always derived server-side;
+    a transporter percentage sent by the browser is ignored. The unchanged
+    policy for the other commission type is retained as-is.
+    """
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    policy_type = (data.get("policy_type") or "").strip()
+    if policy_type not in POLICY_TYPES:
+        return json_response({"success": False, "message": "policy_type must be one_time_order or agreement."}, 400)
+    change_summary = (data.get("change_summary") or "").strip()
+    if not change_summary:
+        return json_response({"success": False, "message": "A change summary explaining this update is required."}, 400)
+    try:
+        company_share = parse_company_share_percent(data.get("company_share_percent"))
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
+
+    stamp = timestamp_bundle()["iso"]
+    admin_user = request.current_user
+    with open_db() as db:
+        try:
+            result = publish_commission_change(
+                db, policy_type, company_share, change_summary, admin_user["id"], stamp,
+            )
+        except ValueError as exc:
+            db.rollback()
+            return json_response({"success": False, "message": str(exc)}, 400)
+        old_policy = result["old_policy"]
+        new_policy = result["new_policy"]
+        terms_version = result["terms_version"]
+        # Admin audit trail (in addition to the immutable version rows).
+        db.execute(
+            """
+            INSERT INTO user_action_logs (
+                user_id, user_email, user_role, action_type, action_name, page_url, payload_json, created_at
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            """,
+            (
+                str(admin_user["id"]),
+                admin_user.get("email") or "",
+                "platform_admin",
+                "admin_platform_settings",
+                f"commission_update_{policy_type}",
+                "/admin/platform-settings",
+                json.dumps({
+                    "policy_type": policy_type,
+                    "old_company_share_percent": old_policy["company_share_percent"] if old_policy else None,
+                    "new_company_share_percent": new_policy["company_share_percent"],
+                    "new_policy_version": new_policy["version_number"],
+                    "new_terms_version": terms_version["version_number"],
+                    "change_summary": change_summary,
+                }),
+                stamp,
+            ),
+        )
+        db.commit()
+    label = POLICY_TYPE_LABELS[policy_type]
+    return json_response({
+        "success": True,
+        "message": f"{label} commission updated. Terms version {terms_version['version_number']} published.",
+        "policy_type": policy_type,
+        "old_policy": serialize_policy(old_policy),
+        "new_policy": serialize_policy(new_policy),
+        "terms_version": serialize_terms_version(terms_version),
+    })

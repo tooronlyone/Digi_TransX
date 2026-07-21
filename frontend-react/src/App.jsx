@@ -96,6 +96,8 @@ import AdminAgreements from './pages/admin/AdminAgreements'
 import AdminDisputes from './pages/admin/AdminDisputes'
 import AdminDisputeChat from './pages/admin/AdminDisputeChat'
 import AdminPayments from './pages/admin/AdminPayments'
+import AdminPlatformSettings from './pages/admin/AdminPlatformSettings'
+import ClientTerms from './pages/client/Terms'
 
 function ClientGuard({ children }) {
   const { ready } = useClientAuth()
@@ -157,6 +159,7 @@ function AdminPortal() {
           <Route path="disputes" element={<AdminDisputes />} />
           <Route path="dispute-chat/:threadId" element={<AdminDisputeChat />} />
           <Route path="payments" element={<AdminPayments />} />
+          <Route path="platform-settings" element={<AdminPlatformSettings />} />
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
         </Routes>
@@ -184,6 +187,7 @@ function ClientPortal() {
           <Route path="balance" element={<Wallet />} />
           <Route path="account" element={<ClientAccount />} />
           <Route path="messages" element={<ClientMessages />} />
+          <Route path="terms" element={<ClientTerms />} />
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
         </Routes>
       </ClientLayout>
