@@ -3,10 +3,12 @@ from flask import Blueprint, request
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
 from shared.payments import (
+    CheckoutError,
     calculate_card_processing_fee,
     get_payment_provider,
     parse_money_amount,
     validate_dummy_card,
+    validate_idempotency_key,
     validate_payout_card,
 )
 from .helpers import (
@@ -133,9 +135,34 @@ def earnings_summary():
     })
 
 
+def _topup_result(message, gross_amount, gateway_fee, net_amount, new_balance, replayed=False):
+    return json_response(
+        {
+            "success": True,
+            "message": message,
+            "replayed": replayed,
+            "transaction": {
+                "gross_amount": round_money(gross_amount),
+                "gateway_fee": round_money(gateway_fee),
+                "net_amount": round_money(net_amount),
+                "new_balance": round_money(new_balance),
+            },
+        }
+    )
+
+
 @wallet_blueprint.post("/api/wallet/topup")
 @login_required
 def topup_wallet():
+    """Atomic, idempotent wallet top-up.
+
+    The provider charge is idempotent per Idempotency-Key and the wallet row
+    is locked for the whole credit, so concurrent requests can neither
+    double-charge nor lose a balance update. A replay (same key) returns the
+    original result without charging or crediting again; if the provider
+    charged but the DB rolled back, retrying the same key reuses the
+    provider-side charge and credits the wallet exactly once.
+    """
     err = csrf_error()
     if err:
         return err
@@ -144,6 +171,12 @@ def topup_wallet():
     wallet, error = get_or_create_wallet(request.current_user)
     if error:
         return error
+
+    # A valid Idempotency-Key is required before anything is charged.
+    try:
+        idempotency_key = validate_idempotency_key(request.headers.get("Idempotency-Key"))
+    except CheckoutError as exc:
+        return json_response({"success": False, "message": exc.message, "code": exc.code}, exc.status)
 
     # Shared card validation: card data is checked in memory only and is
     # never persisted or logged.
@@ -156,39 +189,61 @@ def topup_wallet():
     except ValueError as exc:
         return json_response({"success": False, "message": str(exc)}, 400)
 
-    # Role-specific top-up semantics (explicit for backward compatibility):
-    # - client/business wallets: the entered amount is the desired wallet
-    #   credit. The card is charged amount + processing fee; the wallet is
-    #   credited exactly the entered amount.
-    # - transporter wallets: legacy gross semantics kept unchanged — the fee
-    #   is deducted from the entered amount and the remainder is credited
-    #   (the security-deposit/minimum rules depend on this behaviour).
-    if wallet["role"] == "client":
-        gateway_fee = calculate_card_processing_fee(amount)
-        gross_amount = round_money(amount + gateway_fee)
-        net_amount = amount
-    else:
-        gross_amount = amount
-        gateway_fee, net_amount = calculate_gateway_fee(gross_amount)
-        projected_balance = round_money(wallet["balance"] + net_amount)
-        if not wallet["is_minimum_met"] and projected_balance + 1e-9 < wallet["minimum_required"]:
-            net_shortfall = round_money(wallet["minimum_required"] - wallet["balance"])
-            required_gross = calculate_required_gross_for_net(net_shortfall)
-            return json_response(
-                {
-                    "success": False,
-                    "message": f"Minimum balance of Rs {wallet['minimum_required']:.2f} required. Please add at least Rs {required_gross:.2f} to meet the minimum.",
-                },
-                400,
+    user_id = request.current_user["id"]
+    provider = get_payment_provider()
+
+    with open_db() as db:
+        # Lock the wallet row for the whole operation (serializes concurrent
+        # top-ups for this user).
+        locked = db.execute("SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (user_id,)).fetchone()
+        wallet = dict(locked) if locked else wallet
+
+        # After acquiring the lock, recheck the idempotency record: a
+        # concurrent same-key request may have already committed.
+        existing = db.execute(
+            "SELECT * FROM wallet_transactions WHERE user_id = %s AND type = 'topup' AND reference_id = %s",
+            (user_id, idempotency_key),
+        ).fetchone()
+        if existing:
+            existing = dict(existing)
+            return _topup_result(
+                "Wallet top-up already processed.",
+                existing["gross_amount"], existing["gateway_fee"],
+                existing["amount"], existing["balance_after"], replayed=True,
             )
 
-    # Dummy charge through the shared, replaceable provider interface.
-    get_payment_provider().charge(gross_amount, card_summary=card_summary, description="Wallet top-up")
+        # Recalculate role-specific amounts from the locked wallet row.
+        if wallet["role"] == "client":
+            # Business/client: entered amount is the desired credit; card is
+            # charged amount + processing fee.
+            gateway_fee = calculate_card_processing_fee(amount)
+            gross_amount = round_money(amount + gateway_fee)
+            net_amount = amount
+        else:
+            # Transporter: legacy gross semantics kept unchanged.
+            gross_amount = amount
+            gateway_fee, net_amount = calculate_gateway_fee(gross_amount)
+            projected_balance = round_money(wallet["balance"] + net_amount)
+            if not wallet["is_minimum_met"] and projected_balance + 1e-9 < wallet["minimum_required"]:
+                net_shortfall = round_money(wallet["minimum_required"] - wallet["balance"])
+                required_gross = calculate_required_gross_for_net(net_shortfall)
+                db.rollback()
+                return json_response(
+                    {
+                        "success": False,
+                        "message": f"Minimum balance of Rs {wallet['minimum_required']:.2f} required. Please add at least Rs {required_gross:.2f} to meet the minimum.",
+                    },
+                    400,
+                )
 
-    stamp = timestamp_bundle()["display"]
-    with open_db() as db:
-        current = db.execute("SELECT * FROM wallets WHERE user_id = %s", (request.current_user["id"],)).fetchone()
-        wallet = dict(current) if current else wallet
+        # Charge the provider with the idempotency key: on a retry after a
+        # crash the provider returns the same charge (credited only once).
+        charge = provider.charge(
+            gross_amount, card_summary=card_summary,
+            description="Wallet top-up", idempotency_key=idempotency_key,
+        )
+
+        stamp = timestamp_bundle()["display"]
         new_balance = round_money(wallet["balance"] + net_amount)
         is_minimum_met = bool(wallet["is_minimum_met"] or new_balance + 1e-9 >= wallet["minimum_required"])
         current_locked_balance = round_money(wallet["locked_balance"])
@@ -200,19 +255,22 @@ def topup_wallet():
         balance_error = adjust_wallet_balance(
             db,
             wallet,
-            request.current_user["id"],
+            user_id,
             net_amount,
             "topup",
             description="Wallet top-up",
+            reference_id=idempotency_key,
             gross_amount=gross_amount,
             gateway_fee=gateway_fee,
+            provider_name=charge.get("provider"),
+            provider_reference=charge.get("reference"),
         )
         if balance_error:
             db.rollback()
             return balance_error
         db.execute(
             "UPDATE wallets SET is_minimum_met = %s, updated_at = %s WHERE id = %s AND user_id = %s",
-            (is_minimum_met, stamp, wallet["id"], request.current_user["id"]),
+            (is_minimum_met, stamp, wallet["id"], user_id),
         )
         wallet["is_minimum_met"] = is_minimum_met
         wallet["updated_at"] = stamp
@@ -221,14 +279,14 @@ def topup_wallet():
             lock_delta = round_money(target_lock - current_locked_balance)
             db.execute(
                 "UPDATE wallets SET locked_balance = %s, updated_at = %s WHERE id = %s AND user_id = %s",
-                (target_lock, stamp, wallet["id"], request.current_user["id"]),
+                (target_lock, stamp, wallet["id"], user_id),
             )
             wallet["locked_balance"] = target_lock
             wallet["updated_at"] = stamp
             insert_wallet_transaction(
                 db,
                 wallet,
-                request.current_user["id"],
+                user_id,
                 "lock",
                 lock_delta,
                 description="Transporter minimum security deposit locked",
@@ -236,17 +294,8 @@ def topup_wallet():
             )
         db.commit()
 
-    return json_response(
-        {
-            "success": True,
-            "message": "Wallet topped up successfully",
-            "transaction": {
-                "gross_amount": round_money(gross_amount),
-                "gateway_fee": gateway_fee,
-                "net_amount": net_amount,
-                "new_balance": new_balance,
-            },
-        }
+    return _topup_result(
+        "Wallet topped up successfully", gross_amount, gateway_fee, net_amount, new_balance,
     )
 
 

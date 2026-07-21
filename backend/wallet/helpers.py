@@ -135,14 +135,15 @@ def ensure_wallet_locked_balance(db, wallet, user_id, amount, reason="wallet_loc
     return None
 
 
-def insert_wallet_transaction(db, wallet, user_id, tx_type, amount, description="", reference_id=None, gross_amount=None, gateway_fee=0):
+def insert_wallet_transaction(db, wallet, user_id, tx_type, amount, description="", reference_id=None, gross_amount=None, gateway_fee=0, provider_name=None, provider_reference=None):
     stamp = timestamp_bundle()["display"]
     db.execute(
         """
         INSERT INTO wallet_transactions (
             wallet_id, user_id, type, amount, gross_amount, gateway_fee,
-            description, reference_id, balance_after, created_at
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            description, reference_id, provider_name, provider_reference,
+            balance_after, created_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             wallet["id"],
@@ -153,6 +154,8 @@ def insert_wallet_transaction(db, wallet, user_id, tx_type, amount, description=
             round_money(gateway_fee),
             description or None,
             reference_id,
+            provider_name,
+            provider_reference,
             round_money(wallet["balance"]),
             stamp,
         ),
@@ -186,7 +189,7 @@ def ensure_wallet_unlocked_balance(db, wallet, user_id, amount, reason="wallet_u
     return None
 
 
-def adjust_wallet_balance(db, wallet, user_id, delta_amount, tx_type, description="", reference_id=None, gross_amount=None, gateway_fee=0):
+def adjust_wallet_balance(db, wallet, user_id, delta_amount, tx_type, description="", reference_id=None, gross_amount=None, gateway_fee=0, provider_name=None, provider_reference=None):
     delta_amount = round_money(delta_amount)
     next_balance = round_money(wallet["balance"] + delta_amount)
     if next_balance < -1e-9:
@@ -209,5 +212,7 @@ def adjust_wallet_balance(db, wallet, user_id, delta_amount, tx_type, descriptio
         reference_id=reference_id,
         gross_amount=gross_amount,
         gateway_fee=gateway_fee,
+        provider_name=provider_name,
+        provider_reference=provider_reference,
     )
     return None

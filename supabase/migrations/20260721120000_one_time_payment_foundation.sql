@@ -38,7 +38,9 @@ alter table public.payments
         check (processing_fee_percent is null or processing_fee_percent >= 0),
     add column if not exists processing_fee_amount  numeric(12,2) not null default 0
         check (processing_fee_amount >= 0),
-    add column if not exists total_card_charge      numeric(12,2)
+    -- numeric(14,2): card-funded amount can reach the maximum accepted bid and
+    -- the processing fee is added on top, exceeding the funded columns' range.
+    add column if not exists total_card_charge      numeric(14,2)
         check (total_card_charge is null or total_card_charge >= 0),
     add column if not exists funding_source         text
         check (funding_source is null or funding_source in ('wallet', 'card', 'wallet_card')),
@@ -69,6 +71,18 @@ create unique index if not exists uniq_payments_idempotency_key
 
 create index if not exists idx_payments_shipment_status
     on public.payments (shipment_id, status);
+
+-- ---------------------------------------------------------------------------
+-- 1b. Wallet top-up idempotency (reuse wallet_transactions, no new table)
+-- ---------------------------------------------------------------------------
+alter table public.wallet_transactions
+    add column if not exists provider_name      text,
+    add column if not exists provider_reference text;
+
+-- A user + idempotency key identifies exactly one top-up.
+create unique index if not exists uniq_wallet_topup_idempotency
+    on public.wallet_transactions (user_id, reference_id)
+    where type = 'topup' and reference_id is not null;
 
 -- ---------------------------------------------------------------------------
 -- 2. Saved payment methods (tokenized dummy cards)

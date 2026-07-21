@@ -140,6 +140,21 @@ def parse_positive_id(value, label="Id"):
     return parsed
 
 
+def parse_optional_bool(value, label="Value", default=False):
+    """Strict optional-boolean parser.
+
+    Only a real JSON boolean (`true`/`false`) is accepted. Missing/None falls
+    back to `default`; strings ("true"/"false"), numbers (0/1), arrays and
+    objects are rejected. This is what stops `save_card: "false"` from being
+    read as truthy (or a stray `"true"` from granting permission).
+    """
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"{label} must be true or false.")
+
+
 IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9_.:-]{8,128}$")
 
 
@@ -246,6 +261,28 @@ def detect_card_brand(card_number_digits):
     return "card"
 
 
+def parse_card_expiry(raw):
+    """Parse an MM/YY (or MM/YYYY) expiry. Single source of truth for expiry
+    validation, reused by both the checkout and payout card validators.
+
+    Returns (month, year, None) on success or (None, None, error_message) for
+    an unparseable or already-expired card.
+    """
+    match = re.fullmatch(r"(\d{1,2})\s*/\s*(\d{2}|\d{4})", str(raw or "").strip())
+    if not match:
+        return None, None, "Card expiry must be in MM/YY format."
+    month = int(match.group(1))
+    year = int(match.group(2))
+    if year < 100:
+        year += 2000
+    if not 1 <= month <= 12:
+        return None, None, "Card expiry month is invalid."
+    today = date.today()
+    if (year, month) < (today.year, today.month):
+        return None, None, "This card has expired."
+    return month, year, None
+
+
 def validate_dummy_card(card_data):
     """Validate raw dummy-card input.
 
@@ -263,19 +300,9 @@ def validate_dummy_card(card_data):
     cvc = str(data.get("card_cvc") or "").strip()
     if not re.fullmatch(r"\d{3,4}", cvc):
         return None, "Enter a valid card security code."
-    expiry_raw = str(data.get("card_expiry") or "").strip()
-    match = re.fullmatch(r"(\d{1,2})\s*/\s*(\d{2}|\d{4})", expiry_raw)
-    if not match:
-        return None, "Card expiry must be in MM/YY format."
-    month = int(match.group(1))
-    year = int(match.group(2))
-    if year < 100:
-        year += 2000
-    if not 1 <= month <= 12:
-        return None, "Card expiry month is invalid."
-    today = date.today()
-    if (year, month) < (today.year, today.month):
-        return None, "This card has expired."
+    month, year, expiry_error = parse_card_expiry(data.get("card_expiry"))
+    if expiry_error:
+        return None, expiry_error
     return (
         {
             "card_brand": detect_card_brand(number),
@@ -303,15 +330,15 @@ def validate_payout_card(card_data):
     holder = str(data.get("card_holder") or "").strip()
     if not holder:
         return None, "Card holder name required."
-    expiry = str(data.get("card_expiry") or "").strip()
-    if not expiry:
-        return None, "Card expiry required."
+    _month, _year, expiry_error = parse_card_expiry(data.get("card_expiry"))
+    if expiry_error:
+        return None, expiry_error
     return (
         {
             "card_brand": detect_card_brand(number),
             "card_last_four": number[-4:],
             "card_holder": holder,
-            "card_expiry": expiry,
+            "card_expiry": str(data.get("card_expiry") or "").strip(),
             "bank": str(data.get("bank") or "").strip(),
         },
         None,
@@ -733,11 +760,22 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
     """
     from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user
 
-    payload = payload or {}
+    payload = dict(payload or {})
     kind = normalize_client_kind(user.get("role"))
     if kind is None:
         raise CheckoutError("Client account required.", 403)
     idempotency_key = validate_idempotency_key(idempotency_key)
+
+    # Strict JSON booleans: "false"/"true"/0/1 are rejected so a string can
+    # never be read as confirmation or permission to save a card.
+    try:
+        payload["save_card"] = parse_optional_bool(payload.get("save_card"), "save_card")
+        payload["set_default"] = parse_optional_bool(payload.get("set_default"), "set_default")
+        payload["confirm_card_charge"] = parse_optional_bool(
+            payload.get("confirm_card_charge"), "confirm_card_charge"
+        )
+    except ValueError as exc:
+        raise CheckoutError(str(exc), 400, "invalid_boolean")
 
     # Idempotent replay (fast path): a repeated successful request returns
     # the original result without charging again.

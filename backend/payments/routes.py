@@ -16,6 +16,7 @@ from shared.payments import (
     get_saved_method,
     list_saved_methods,
     normalize_client_kind,
+    parse_optional_bool,
     parse_positive_id,
     serialize_saved_method,
     upsert_payment_preferences,
@@ -81,10 +82,14 @@ def add_payment_method():
     card_summary, card_error = validate_dummy_card(data)
     if card_error:
         return json_response({"success": False, "message": card_error}, 400)
+    try:
+        set_default = parse_optional_bool(data.get("set_default"), "set_default")
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
     with open_db() as db:
         method = create_saved_method(
             db, request.current_user["id"], card_summary,
-            set_default=bool(data.get("set_default")),
+            set_default=set_default,
         )
         if method and method.get("is_default"):
             upsert_payment_preferences(db, request.current_user["id"], default_method_id=method["id"])
@@ -102,7 +107,11 @@ def update_payment_method(method_id):
     if err:
         return err
     data = request.get_json(silent=True) or {}
-    if not data.get("is_default"):
+    try:
+        is_default = parse_optional_bool(data.get("is_default"), "is_default")
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
+    if not is_default:
         return json_response({"success": False, "message": "Only setting a card as default is supported."}, 400)
     stamp = timestamp_bundle()["iso"]
     with open_db() as db:
@@ -171,13 +180,13 @@ def update_preferences():
     if err:
         return err
     data = request.get_json(silent=True) or {}
-    auto_enabled = data.get("auto_shortfall_charge_enabled")
     # Strict JSON boolean: "true"/"false"/0/1 are rejected.
-    if auto_enabled is not None and not isinstance(auto_enabled, bool):
-        return json_response(
-            {"success": False, "message": "auto_shortfall_charge_enabled must be true or false."},
-            400,
+    try:
+        auto_enabled = parse_optional_bool(
+            data.get("auto_shortfall_charge_enabled"), "auto_shortfall_charge_enabled", default=None,
         )
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
     default_method_id = data.get("default_payment_method_id")
     if default_method_id is not None:
         try:

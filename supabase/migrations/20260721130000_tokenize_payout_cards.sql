@@ -21,6 +21,9 @@ alter table public.transporter_profiles
 
 -- Convert existing raw card numbers to safe display data, then drop the raw
 -- column entirely. Guarded so a re-run (column already gone) is a no-op.
+-- Each derived field is backfilled independently: a row that already has a
+-- token/brand/last-four keeps it, and any missing field is filled from the
+-- raw number without clobbering the others.
 do $$
 begin
     if exists (
@@ -30,23 +33,47 @@ begin
           and column_name = 'payout_card_number'
     ) then
         update public.transporter_profiles
-        set payout_card_last_four = right(regexp_replace(payout_card_number, '\D', '', 'g'), 4),
-            payout_card_brand = coalesce(payout_card_brand, case
+        set payout_card_last_four = right(regexp_replace(payout_card_number, '\D', '', 'g'), 4)
+        where payout_card_number is not null
+          and length(regexp_replace(payout_card_number, '\D', '', 'g')) >= 4
+          and payout_card_last_four is null;
+
+        update public.transporter_profiles
+        set payout_card_brand = case
                 when regexp_replace(payout_card_number, '\D', '', 'g') like '4%' then 'visa'
                 when regexp_replace(payout_card_number, '\D', '', 'g') like '5%' then 'mastercard'
                 when regexp_replace(payout_card_number, '\D', '', 'g') like '34%'
                   or regexp_replace(payout_card_number, '\D', '', 'g') like '37%' then 'amex'
                 when regexp_replace(payout_card_number, '\D', '', 'g') like '6%' then 'discover'
                 else 'card'
-            end),
-            payout_card_token = coalesce(
-                payout_card_token,
-                'dummytok_' || substr(md5(random()::text || clock_timestamp()::text), 1, 24)
-            )
+            end
         where payout_card_number is not null
           and length(regexp_replace(payout_card_number, '\D', '', 'g')) >= 4
-          and payout_card_last_four is null;
+          and payout_card_brand is null;
+
+        update public.transporter_profiles
+        set payout_card_token =
+                'dummytok_' || substr(md5(random()::text || clock_timestamp()::text), 1, 24)
+        where payout_card_number is not null
+          and length(regexp_replace(payout_card_number, '\D', '', 'g')) >= 4
+          and payout_card_token is null;
 
         alter table public.transporter_profiles drop column payout_card_number;
+    end if;
+end $$;
+
+-- Integrity: at most one profile per token, and last four is null or 4 digits.
+create unique index if not exists uniq_payout_card_token
+    on public.transporter_profiles (payout_card_token)
+    where payout_card_token is not null;
+
+do $$
+begin
+    if not exists (
+        select 1 from pg_constraint where conname = 'transporter_profiles_last_four_check'
+    ) then
+        alter table public.transporter_profiles
+            add constraint transporter_profiles_last_four_check
+            check (payout_card_last_four is null or payout_card_last_four ~ '^[0-9]{4}$');
     end if;
 end $$;

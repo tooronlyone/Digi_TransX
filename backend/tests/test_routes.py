@@ -483,9 +483,29 @@ def test_topup_rejects_invalid_card(client):
         "/api/wallet/topup",
         json={"amount": 10000, "card_number": "123", "card_expiry": "12/30",
               "card_cvc": "123", "card_holder_name": "X"},
-        headers=_headers(),
+        headers=_headers(idempotency_key="key-topup-badcard"),
     )
     assert resp.status_code == 400
+
+
+def test_topup_requires_idempotency_key_and_makes_no_charge(client):
+    db = client.db
+    _seed_wallet(db, BUSINESS["id"], 0)
+    db.commit()
+    client.login(BUSINESS)
+    resp = client.post(
+        "/api/wallet/topup",
+        json={"amount": 10000, **VALID_CARD},
+        headers=_headers(),                       # no Idempotency-Key
+    )
+    assert resp.status_code == 400
+    assert resp.get_json()["code"] == "idempotency_key_required"
+    # No transaction/credit happened.
+    count = db.execute(
+        "SELECT COUNT(*) AS c FROM wallet_transactions WHERE user_id = %s", (BUSINESS["id"],)
+    ).fetchone()["c"]
+    assert count == 0
+    assert float(db.execute("SELECT balance FROM wallets WHERE user_id = %s", (BUSINESS["id"],)).fetchone()["balance"]) == 0.0
 
 
 def test_topup_business_credits_exact_amount_and_charges_fee(client):
@@ -496,7 +516,7 @@ def test_topup_business_credits_exact_amount_and_charges_fee(client):
     resp = client.post(
         "/api/wallet/topup",
         json={"amount": 10000, **VALID_CARD},
-        headers=_headers(),
+        headers=_headers(idempotency_key="key-topup-biz"),
     )
     assert resp.status_code == 200
     tx = resp.get_json()["transaction"]
@@ -506,6 +526,38 @@ def test_topup_business_credits_exact_amount_and_charges_fee(client):
     assert tx["net_amount"] == 10000.0
     assert tx["new_balance"] == 10000.0
     _assert_no_secret_leak(resp.get_data(as_text=True))
+    # Provider reference persisted on the transaction.
+    row = db.execute(
+        "SELECT provider_name, provider_reference FROM wallet_transactions "
+        "WHERE user_id = %s AND type = 'topup'", (BUSINESS["id"],),
+    ).fetchone()
+    assert row["provider_name"] == "dummycard"
+    assert row["provider_reference"] and row["provider_reference"].startswith("dummych_")
+
+
+def test_topup_replay_returns_original_without_recrediting(client):
+    db = client.db
+    _seed_wallet(db, BUSINESS["id"], 0)
+    db.commit()
+    client.login(BUSINESS)
+    first = client.post(
+        "/api/wallet/topup", json={"amount": 10000, **VALID_CARD},
+        headers=_headers(idempotency_key="key-topup-replay"),
+    )
+    second = client.post(
+        "/api/wallet/topup", json={"amount": 10000, **VALID_CARD},
+        headers=_headers(idempotency_key="key-topup-replay"),
+    )
+    assert first.status_code == 200 and second.status_code == 200
+    assert second.get_json()["replayed"] is True
+    assert second.get_json()["transaction"]["new_balance"] == 10000.0
+    # Exactly one credit and one transaction.
+    count = db.execute(
+        "SELECT COUNT(*) AS c FROM wallet_transactions WHERE user_id = %s AND type = 'topup'",
+        (BUSINESS["id"],),
+    ).fetchone()["c"]
+    assert count == 1
+    assert float(db.execute("SELECT balance FROM wallets WHERE user_id = %s", (BUSINESS["id"],)).fetchone()["balance"]) == 10000.0
 
 
 def test_topup_transporter_keeps_legacy_gross_semantics(client):
@@ -518,7 +570,7 @@ def test_topup_transporter_keeps_legacy_gross_semantics(client):
     resp = client.post(
         "/api/wallet/topup",
         json={"amount": 10000, **VALID_CARD},
-        headers=_headers(),
+        headers=_headers(idempotency_key="key-topup-transporter"),
     )
     assert resp.status_code == 200
     tx = resp.get_json()["transaction"]
@@ -584,3 +636,100 @@ def test_concurrent_checkout_creates_only_one_trip(seeded_db, pg_session_info):
     payments = db.execute("SELECT COUNT(*) AS c FROM payments WHERE shipment_id = %s", (order_id,)).fetchone()["c"]
     assert trips == 1
     assert payments == 1
+
+
+def _run_topup(url, schema, user, amount, key, results, tag, barrier):
+    import psycopg2
+
+    from shared.db import Db
+    from shared.payments import (
+        calculate_card_processing_fee, get_payment_provider, round_money, validate_dummy_card,
+    )
+
+    conn = psycopg2.connect(url)
+    with conn.cursor() as cur:
+        cur.execute(f'set search_path to "{schema}"')
+    db = Db(conn)
+    provider = get_payment_provider()
+    card, _ = validate_dummy_card(VALID_CARD)
+    try:
+        barrier.wait()
+        locked = db.execute("SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (user["id"],)).fetchone()
+        wallet = dict(locked)
+        existing = db.execute(
+            "SELECT * FROM wallet_transactions WHERE user_id = %s AND type = 'topup' AND reference_id = %s",
+            (user["id"], key),
+        ).fetchone()
+        if existing:
+            conn.rollback()
+            results[tag] = "replay"
+            return
+        fee = calculate_card_processing_fee(amount)
+        gross = round_money(amount + fee)
+        provider.charge(gross, card_summary=card, idempotency_key=key)
+        new_balance = round_money(wallet["balance"] + amount)
+        db.execute("UPDATE wallets SET balance = %s WHERE user_id = %s", (new_balance, user["id"]))
+        db.execute(
+            "INSERT INTO wallet_transactions (wallet_id, user_id, type, amount, gross_amount, "
+            "gateway_fee, reference_id, provider_name, provider_reference, balance_after) "
+            "VALUES (%s, %s, 'topup', %s, %s, %s, %s, 'dummycard', 'ref', %s)",
+            (wallet["id"], user["id"], amount, gross, fee, key, new_balance),
+        )
+        conn.commit()
+        results[tag] = "ok"
+    except Exception as exc:
+        conn.rollback()
+        results[tag] = f"error:{type(exc).__name__}"
+    finally:
+        conn.close()
+
+
+def test_concurrent_same_key_topup_credits_once(seeded_db, pg_session_info):
+    db = seeded_db
+    schema, url = pg_session_info["schema"], pg_session_info["url"]
+    _seed_wallet(db, BUSINESS["id"], 0)
+    db.commit()
+
+    results = {}
+    barrier = threading.Barrier(2)
+    threads = [
+        threading.Thread(target=_run_topup, args=(url, schema, BUSINESS, 10000, "same-key-concurrent", results, tag, barrier))
+        for tag in ("a", "b")
+    ]
+    for t in threads:
+        t.start()
+    for t in threads:
+        t.join()
+
+    # One commits; the other either replays or is rejected by the unique index.
+    assert "ok" in results.values()
+    assert all(v in ("ok", "replay") or v.startswith("error:") for v in results.values())
+    tx_count = db.execute(
+        "SELECT COUNT(*) AS c FROM wallet_transactions WHERE user_id = %s AND type = 'topup'",
+        (BUSINESS["id"],),
+    ).fetchone()["c"]
+    assert tx_count == 1                              # exactly one credit
+    assert float(db.execute("SELECT balance FROM wallets WHERE user_id = %s", (BUSINESS["id"],)).fetchone()["balance"]) == 10000.0
+
+
+def test_concurrent_different_keys_both_credit(seeded_db, pg_session_info):
+    db = seeded_db
+    schema, url = pg_session_info["schema"], pg_session_info["url"]
+    _seed_wallet(db, BUSINESS["id"], 0)
+    db.commit()
+
+    results = {}
+    barrier = threading.Barrier(2)
+    t1 = threading.Thread(target=_run_topup, args=(url, schema, BUSINESS, 10000, "key-diff-1", results, "a", barrier))
+    t2 = threading.Thread(target=_run_topup, args=(url, schema, BUSINESS, 25000, "key-diff-2", results, "b", barrier))
+    t1.start(); t2.start()
+    t1.join(); t2.join()
+
+    assert sorted(results.values()) == ["ok", "ok"]
+    tx_count = db.execute(
+        "SELECT COUNT(*) AS c FROM wallet_transactions WHERE user_id = %s AND type = 'topup'",
+        (BUSINESS["id"],),
+    ).fetchone()["c"]
+    assert tx_count == 2
+    # Both amounts serialized into the final balance (35000, not a lost update).
+    assert float(db.execute("SELECT balance FROM wallets WHERE user_id = %s", (BUSINESS["id"],)).fetchone()["balance"]) == 35000.0

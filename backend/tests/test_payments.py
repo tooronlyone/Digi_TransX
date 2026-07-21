@@ -844,6 +844,115 @@ def test_transporter_wallet_rules_unchanged(db):
 
 
 # ---------------------------------------------------------------------------
+# Maximum card charge: no numeric overflow (item 2)
+# ---------------------------------------------------------------------------
+
+MAX_BID = 9999999999.99
+
+
+def test_configured_card_fee_is_finite_and_below_100():
+    from decimal import Decimal
+    from shared.payments import card_processing_fee_percent
+    percent = card_processing_fee_percent()
+    assert percent.is_finite()
+    assert Decimal("0") <= percent < Decimal("100")
+
+
+def test_max_bid_fully_card_funded_persists_without_overflow(seeded_db):
+    db = seeded_db
+    order_id = _mk_order(db, EVERYDAY_USER["id"])
+    bid_id = _mk_bid(db, order_id, TRANSPORTER_A, MAX_BID)
+    result = perform_checkout(
+        db, EVERYDAY_USER, order_id, bid_id,
+        payload={"card": VALID_CARD}, idempotency_key="key-maxbid",
+    )
+    db.commit()
+    payment = result["payment"]
+    # total_card_charge = 9,999,999,999.99 + 2.5% ≈ 10,249,999,999.99 — exceeds
+    # numeric(12,2) but fits numeric(14,2).
+    assert float(payment["card_funded_amount"]) == MAX_BID
+    assert float(payment["total_card_charge"]) == 10249999999.99
+    # Re-read from the DB to confirm the row actually persisted (no overflow).
+    stored = db.execute(
+        "SELECT total_card_charge FROM payments WHERE id = %s", (payment["id"],)
+    ).fetchone()
+    assert float(stored["total_card_charge"]) == 10249999999.99
+
+
+def test_bid_above_maximum_is_rejected_before_any_mutation():
+    # Above the accepted maximum -> rejected by the money parser, before any
+    # provider charge or DB write.
+    from shared.payments import parse_money_amount
+    with pytest.raises(ValueError):
+        parse_money_amount("10000000000.00", "Bid price")
+
+
+# ---------------------------------------------------------------------------
+# Strict JSON boolean (item 3)
+# ---------------------------------------------------------------------------
+
+def test_parse_optional_bool_strict():
+    from shared.payments import parse_optional_bool
+    assert parse_optional_bool(True, "x") is True
+    assert parse_optional_bool(False, "x") is False
+    assert parse_optional_bool(None, "x") is False
+    assert parse_optional_bool(None, "x", default=None) is None
+    for bad in ("true", "false", "0", "1", 0, 1, [], {}, 1.0):
+        with pytest.raises(ValueError):
+            parse_optional_bool(bad, "x")
+
+
+def test_string_false_save_card_rejected_and_saves_nothing(seeded_db):
+    db = seeded_db
+    _mk_wallet(db, BUSINESS_USER["id"], 0)
+    order_id = _mk_order(db, BUSINESS_USER["id"])
+    bid_id = _mk_bid(db, order_id, TRANSPORTER_A, 100000)
+    db.commit()
+    # "false" (a string) must be rejected — never read as truthy or falsy.
+    with pytest.raises(CheckoutError) as excinfo:
+        perform_checkout(
+            db, BUSINESS_USER, order_id, bid_id,
+            payload={"card": VALID_CARD, "save_card": "false"}, idempotency_key="key-strbool",
+        )
+    db.rollback()
+    assert excinfo.value.code == "invalid_boolean"
+    assert _count(db, "saved_payment_methods") == 0
+    assert _count(db, "payments") == 0
+
+
+def test_real_false_save_card_proceeds_without_saving(seeded_db):
+    db = seeded_db
+    _mk_wallet(db, BUSINESS_USER["id"], 0)
+    order_id = _mk_order(db, BUSINESS_USER["id"])
+    bid_id = _mk_bid(db, order_id, TRANSPORTER_A, 100000)
+    db.commit()
+    perform_checkout(
+        db, BUSINESS_USER, order_id, bid_id,
+        payload={"card": VALID_CARD, "save_card": False}, idempotency_key="key-realfalse",
+    )
+    db.commit()
+    assert _count(db, "saved_payment_methods") == 0     # not saved
+    assert _count(db, "payments") == 1                  # but checkout succeeded
+
+
+def test_real_true_save_card_saves_tokenized_method(seeded_db):
+    db = seeded_db
+    _mk_wallet(db, BUSINESS_USER["id"], 0)
+    order_id = _mk_order(db, BUSINESS_USER["id"])
+    bid_id = _mk_bid(db, order_id, TRANSPORTER_A, 100000)
+    db.commit()
+    perform_checkout(
+        db, BUSINESS_USER, order_id, bid_id,
+        payload={"card": VALID_CARD, "save_card": True}, idempotency_key="key-realtrue",
+    )
+    db.commit()
+    method = db.execute("SELECT * FROM saved_payment_methods").fetchone()
+    assert method is not None
+    assert method["card_last_four"] == "4242"
+    assert method["provider_token"].startswith("dummytok_")
+
+
+# ---------------------------------------------------------------------------
 # Payout card tokenization (item 7)
 # ---------------------------------------------------------------------------
 
@@ -867,6 +976,9 @@ def test_validate_payout_card_returns_no_pan():
     {"card_number": ""},
     {"card_holder": "  "},
     {"card_expiry": ""},
+    {"card_expiry": "13/30"},        # invalid month
+    {"card_expiry": "01/20"},        # expired
+    {"card_expiry": "notadate"},     # unparseable
 ])
 def test_validate_payout_card_rejects_invalid(patch):
     from shared.payments import validate_payout_card
@@ -874,6 +986,18 @@ def test_validate_payout_card_rejects_invalid(patch):
     summary, error = validate_payout_card(card)
     assert summary is None
     assert error
+
+
+def test_payout_and_checkout_share_one_expiry_parser():
+    # Both validators reject the same expired card via the shared parser.
+    from shared.payments import parse_card_expiry, validate_dummy_card, validate_payout_card
+    _m, _y, err = parse_card_expiry("01/20")
+    assert err is not None
+    _, e1 = validate_dummy_card({**{"card_number": "4242424242424242", "card_cvc": "123",
+                                     "card_holder_name": "X"}, "card_expiry": "01/20"})
+    _, e2 = validate_payout_card({"card_number": "5500000000000004", "card_holder": "X",
+                                  "card_expiry": "01/20"})
+    assert e1 and e2
 
 
 def test_payout_card_persists_only_tokenized_data(db):
