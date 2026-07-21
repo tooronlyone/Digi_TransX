@@ -1,6 +1,4 @@
 import json
-from uuid import uuid4
-
 from flask import Blueprint, request
 from datetime import datetime, timedelta, time
 
@@ -21,6 +19,8 @@ from shared.payments import (
     CheckoutError,
     build_payment_quote,
     get_active_payment_for_shipment,
+    parse_money_amount,
+    parse_positive_id,
     perform_checkout,
     perform_start_trip,
     public_quote,
@@ -300,13 +300,15 @@ def create_bid(order_id):
     data = request.get_json(silent=True) or {}
 
     try:
-        truck_id = int(data.get("truck_id"))
-        bid_price = float(data.get("bid_price"))
-    except (TypeError, ValueError):
+        truck_id = parse_positive_id(data.get("truck_id"), "Truck ID")
+    except ValueError:
         return json_response({"success": False, "message": "Invalid truck ID or bid price."}, 400)
-
-    if bid_price <= 0:
-        return json_response({"success": False, "message": "Bid price must be greater than 0."}, 400)
+    try:
+        # Strict Decimal validation: finite, positive, max two decimals,
+        # within numeric storage limits (rejects NaN/Infinity/0/negative).
+        bid_price = parse_money_amount(data.get("bid_price"), "Bid price")
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
 
     with open_db() as db:
         order = fetch_order(db, order_id)
@@ -470,9 +472,10 @@ def checkout_bid(order_id, bid_id):
         return err
 
     payload = request.get_json(silent=True) or {}
-    idempotency_key = (request.headers.get("Idempotency-Key") or "").strip()
-    if not idempotency_key:
-        idempotency_key = f"chk-{order_id}-{bid_id}-{uuid4().hex}"
+    # The client generates ONE key per checkout attempt and reuses it for
+    # retries; a missing/invalid key is rejected inside perform_checkout —
+    # the server never invents one (that would defeat idempotency).
+    idempotency_key = request.headers.get("Idempotency-Key")
 
     with open_db() as db:
         try:

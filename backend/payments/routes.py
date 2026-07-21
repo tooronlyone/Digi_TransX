@@ -16,6 +16,7 @@ from shared.payments import (
     get_saved_method,
     list_saved_methods,
     normalize_client_kind,
+    parse_positive_id,
     serialize_saved_method,
     upsert_payment_preferences,
     validate_dummy_card,
@@ -171,7 +172,18 @@ def update_preferences():
         return err
     data = request.get_json(silent=True) or {}
     auto_enabled = data.get("auto_shortfall_charge_enabled")
+    # Strict JSON boolean: "true"/"false"/0/1 are rejected.
+    if auto_enabled is not None and not isinstance(auto_enabled, bool):
+        return json_response(
+            {"success": False, "message": "auto_shortfall_charge_enabled must be true or false."},
+            400,
+        )
     default_method_id = data.get("default_payment_method_id")
+    if default_method_id is not None:
+        try:
+            default_method_id = parse_positive_id(default_method_id, "Payment method")
+        except ValueError as exc:
+            return json_response({"success": False, "message": str(exc)}, 400)
     with open_db() as db:
         if default_method_id is not None:
             method = get_saved_method(db, request.current_user["id"], default_method_id)

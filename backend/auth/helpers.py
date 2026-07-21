@@ -209,7 +209,8 @@ def _attach_role_profile(db, user):
         row = db.execute(
             """
             SELECT company_name, fleet_size, withdrawal_tier, withdrawal_tier_expires_at,
-                   payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank
+                   payout_card_brand, payout_card_last_four, payout_card_holder,
+                   payout_card_expiry, payout_card_bank
             FROM transporter_profiles WHERE user_id = %s
             """,
             (user["id"],),

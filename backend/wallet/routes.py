@@ -2,8 +2,14 @@ from flask import Blueprint, request
 
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
+from shared.payments import (
+    calculate_card_processing_fee,
+    get_payment_provider,
+    parse_money_amount,
+    validate_dummy_card,
+    validate_payout_card,
+)
 from .helpers import (
-    SUPPORTED_TOPUP_CARD_FIELDS,
     adjust_wallet_balance,
     available_balance,
     calculate_gateway_fee,
@@ -139,30 +145,45 @@ def topup_wallet():
     if error:
         return error
 
-    for field in SUPPORTED_TOPUP_CARD_FIELDS:
-        if not str(data.get(field) or "").strip():
-            return json_response({"success": False, "message": f"{field.replace('_', ' ').title()} is required."}, 400)
+    # Shared card validation: card data is checked in memory only and is
+    # never persisted or logged.
+    card_summary, card_error = validate_dummy_card(data)
+    if card_error:
+        return json_response({"success": False, "message": card_error}, 400)
 
     try:
-        gross_amount = float(data.get("amount"))
-    except (TypeError, ValueError):
-        return json_response({"success": False, "message": "Amount must be a valid number."}, 400)
+        amount = float(parse_money_amount(data.get("amount"), "Amount"))
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
 
-    if gross_amount <= 0:
-        return json_response({"success": False, "message": "Amount must be greater than 0."}, 400)
+    # Role-specific top-up semantics (explicit for backward compatibility):
+    # - client/business wallets: the entered amount is the desired wallet
+    #   credit. The card is charged amount + processing fee; the wallet is
+    #   credited exactly the entered amount.
+    # - transporter wallets: legacy gross semantics kept unchanged — the fee
+    #   is deducted from the entered amount and the remainder is credited
+    #   (the security-deposit/minimum rules depend on this behaviour).
+    if wallet["role"] == "client":
+        gateway_fee = calculate_card_processing_fee(amount)
+        gross_amount = round_money(amount + gateway_fee)
+        net_amount = amount
+    else:
+        gross_amount = amount
+        gateway_fee, net_amount = calculate_gateway_fee(gross_amount)
+        projected_balance = round_money(wallet["balance"] + net_amount)
+        if not wallet["is_minimum_met"] and projected_balance + 1e-9 < wallet["minimum_required"]:
+            net_shortfall = round_money(wallet["minimum_required"] - wallet["balance"])
+            required_gross = calculate_required_gross_for_net(net_shortfall)
+            return json_response(
+                {
+                    "success": False,
+                    "message": f"Minimum balance of Rs {wallet['minimum_required']:.2f} required. Please add at least Rs {required_gross:.2f} to meet the minimum.",
+                },
+                400,
+            )
 
-    gateway_fee, net_amount = calculate_gateway_fee(gross_amount)
-    projected_balance = round_money(wallet["balance"] + net_amount)
-    if not wallet["is_minimum_met"] and projected_balance + 1e-9 < wallet["minimum_required"]:
-        net_shortfall = round_money(wallet["minimum_required"] - wallet["balance"])
-        required_gross = calculate_required_gross_for_net(net_shortfall)
-        return json_response(
-            {
-                "success": False,
-                "message": f"Minimum balance of Rs {wallet['minimum_required']:.2f} required. Please add at least Rs {required_gross:.2f} to meet the minimum.",
-            },
-            400,
-        )
+    # Dummy charge through the shared, replaceable provider interface.
+    get_payment_provider().charge(gross_amount, card_summary=card_summary, description="Wallet top-up")
 
     stamp = timestamp_bundle()["display"]
     with open_db() as db:
@@ -598,18 +619,17 @@ def get_payout_card():
         return role_error
     with open_db() as db:
         user = db.execute(
-            "SELECT payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank FROM transporter_profiles WHERE user_id = %s",
+            "SELECT payout_card_brand, payout_card_last_four, payout_card_holder, "
+            "payout_card_expiry, payout_card_bank FROM transporter_profiles WHERE user_id = %s",
             (request.current_user["id"],)
         ).fetchone()
-    if not user:
-        return json_response({"success": True, "card": None})
-    card_number = user["payout_card_number"]
-    if not card_number:
+    if not user or not user["payout_card_last_four"]:
         return json_response({"success": True, "card": None})
     return json_response({
         "success": True,
         "card": {
-            "card_number_masked": "**** **** **** " + str(card_number)[-4:],
+            "card_number_masked": "**** **** **** " + str(user["payout_card_last_four"]),
+            "card_brand": user["payout_card_brand"] or "card",
             "card_holder": user["payout_card_holder"] or "",
             "card_expiry": user["payout_card_expiry"] or "",
             "bank": user["payout_card_bank"] or "",
@@ -620,6 +640,12 @@ def get_payout_card():
 @wallet_blueprint.post("/api/wallet/payout-card")
 @login_required
 def save_payout_card():
+    """Store the payout destination as tokenized display data only.
+
+    The full card number is validated in memory and immediately reduced to
+    brand + last four + a generated provider token; it is never stored,
+    logged or returned.
+    """
     role_error = ensure_transporter_role()
     if role_error:
         return role_error
@@ -627,30 +653,34 @@ def save_payout_card():
     if err:
         return err
     data = request.get_json(silent=True) or {}
-    card_number = str(data.get("card_number") or "").strip().replace(" ", "")
-    card_holder = str(data.get("card_holder") or "").strip()
-    card_expiry = str(data.get("card_expiry") or "").strip()
-    bank = str(data.get("bank") or "").strip()
-    if not card_number or len(card_number) < 12:
-        return json_response({"success": False, "message": "Valid card number required (min 12 digits)."}, 400)
-    if not card_holder:
-        return json_response({"success": False, "message": "Card holder name required."}, 400)
-    if not card_expiry:
-        return json_response({"success": False, "message": "Card expiry required."}, 400)
-    stamp = timestamp_bundle()["iso"]
+    summary, card_error = validate_payout_card(data)
+    if card_error:
+        return json_response({"success": False, "message": card_error}, 400)
+    token = get_payment_provider().tokenize(summary)
     with open_db() as db:
         db.execute(
             """
             INSERT INTO transporter_profiles (
-                user_id, payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank
-            ) VALUES (%s, %s, %s, %s, %s)
+                user_id, payout_card_token, payout_card_brand, payout_card_last_four,
+                payout_card_holder, payout_card_expiry, payout_card_bank
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
             ON CONFLICT (user_id) DO UPDATE SET
-                payout_card_number = excluded.payout_card_number,
+                payout_card_token = excluded.payout_card_token,
+                payout_card_brand = excluded.payout_card_brand,
+                payout_card_last_four = excluded.payout_card_last_four,
                 payout_card_holder = excluded.payout_card_holder,
                 payout_card_expiry = excluded.payout_card_expiry,
                 payout_card_bank = excluded.payout_card_bank
             """,
-            (request.current_user["id"], card_number, card_holder, card_expiry, bank)
+            (
+                request.current_user["id"],
+                token,
+                summary["card_brand"],
+                summary["card_last_four"],
+                summary["card_holder"],
+                summary["card_expiry"],
+                summary["bank"],
+            ),
         )
         db.commit()
     return json_response({"success": True, "message": "Payout card saved successfully."})

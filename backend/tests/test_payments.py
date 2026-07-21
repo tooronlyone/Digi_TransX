@@ -586,15 +586,25 @@ def test_transporter_payment_summary_hides_funding_details(seeded_db):
 # Start trip
 # ---------------------------------------------------------------------------
 
+def _mk_accepted_trip(db, order_id, bid_id, transporter_id, trip_status="ready_to_start"):
+    """Wire up a fully accepted (but unpaid) trip for start-trip tests."""
+    db.execute("UPDATE shipment_bids SET status = 'accepted' WHERE id = %s", (bid_id,))
+    trip_id = db.execute(
+        "INSERT INTO shipment_trips (order_id, accepted_bid_id, transporter_user_id, truck_id, status) "
+        "VALUES (%s, %s, %s, 1, %s) RETURNING id",
+        (order_id, bid_id, transporter_id, trip_status),
+    ).fetchone()["id"]
+    db.execute(
+        "UPDATE shipments SET accepted_bid_id = %s WHERE id = %s", (bid_id, order_id)
+    )
+    return trip_id
+
+
 def test_start_trip_requires_held_payment(seeded_db):
     db = seeded_db
     order_id = _mk_order(db, EVERYDAY_USER["id"], status="ready_to_start")
     bid_id = _mk_bid(db, order_id, TRANSPORTER_A, 50000)
-    trip_id = db.execute(
-        "INSERT INTO shipment_trips (order_id, accepted_bid_id, transporter_user_id, truck_id, status) "
-        "VALUES (%s, %s, %s, 1, 'ready_to_start') RETURNING id",
-        (order_id, bid_id, TRANSPORTER_A),
-    ).fetchone()["id"]
+    trip_id = _mk_accepted_trip(db, order_id, bid_id, TRANSPORTER_A)
     db.commit()
 
     with pytest.raises(CheckoutError) as excinfo:
@@ -636,6 +646,175 @@ def test_start_trip_updates_trip_and_shipment_and_is_idempotent(seeded_db):
 
 
 # ---------------------------------------------------------------------------
+# Hardening: money parser, idempotency, disputed uniqueness, start-trip integrity
+# ---------------------------------------------------------------------------
+
+@pytest.mark.parametrize("value", ["100", 100, "99.99", 0.01, "9999999999.99"])
+def test_parse_money_amount_accepts_valid(value):
+    from shared.payments import parse_money_amount
+    parsed = parse_money_amount(value)
+    assert parsed > 0
+
+
+@pytest.mark.parametrize("value", [
+    None, "", "   ", True, False, "abc",
+    "nan", float("nan"), "inf", float("inf"), "-inf",
+    0, "0", -1, "-0.01", "10.123", 1.005e10, "10000000000.00",
+])
+def test_parse_money_amount_rejects_invalid(value):
+    from shared.payments import parse_money_amount
+    with pytest.raises(ValueError):
+        parse_money_amount(value)
+
+
+@pytest.mark.parametrize("value", [1, "7", 42])
+def test_parse_positive_id_accepts_valid(value):
+    from shared.payments import parse_positive_id
+    assert parse_positive_id(value) > 0
+
+
+@pytest.mark.parametrize("value", [None, True, False, 0, -3, "0", "-1", "1.5", 1.5, "abc", ""])
+def test_parse_positive_id_rejects_invalid(value):
+    from shared.payments import parse_positive_id
+    with pytest.raises(ValueError):
+        parse_positive_id(value)
+
+
+@pytest.mark.parametrize("raw", [None, "", "short", "x" * 129, "bad key with spaces", "emoji-ékey"])
+def test_idempotency_key_required_and_validated(raw):
+    from shared.payments import validate_idempotency_key
+    with pytest.raises(CheckoutError) as excinfo:
+        validate_idempotency_key(raw)
+    assert excinfo.value.status == 400
+    assert excinfo.value.code in ("idempotency_key_required", "idempotency_key_invalid")
+
+
+def test_dummy_provider_charge_is_idempotent_per_key():
+    provider = get_payment_provider()
+    summary, _ = validate_dummy_card(VALID_CARD)
+    first = provider.charge(1000, card_summary=summary, idempotency_key="same-key-123")
+    second = provider.charge(1000, card_summary=summary, idempotency_key="same-key-123")
+    other = provider.charge(1000, card_summary=summary, idempotency_key="other-key-123")
+    assert first["reference"] == second["reference"]         # same key -> same charge
+    assert first["reference"] != other["reference"]
+
+
+def test_idempotency_key_reuse_for_different_checkout_is_conflict(seeded_db):
+    db = seeded_db
+    _mk_wallet(db, BUSINESS_USER["id"], 300000)
+    order_a = _mk_order(db, BUSINESS_USER["id"])
+    bid_a = _mk_bid(db, order_a, TRANSPORTER_A, 100000)
+    order_b = _mk_order(db, BUSINESS_USER["id"])
+    bid_b = _mk_bid(db, order_b, TRANSPORTER_A, 50000)
+    perform_checkout(db, BUSINESS_USER, order_a, bid_a,
+                     payload={}, idempotency_key="key-reused-once")
+    db.commit()
+
+    # Same key, different shipment -> 409, and nothing about order B changes.
+    with pytest.raises(CheckoutError) as excinfo:
+        perform_checkout(db, BUSINESS_USER, order_b, bid_b,
+                         payload={}, idempotency_key="key-reused-once")
+    db.rollback()
+    assert excinfo.value.status == 409
+    assert excinfo.value.code == "idempotency_key_conflict"
+    assert _order(db, order_b)["status"] == "open"
+    assert _bid(db, bid_b)["status"] == "pending"
+    assert _count(db, "payments") == 1
+
+    # Same key, same shipment but a DIFFERENT bid -> also 409.
+    with pytest.raises(CheckoutError) as conflict:
+        perform_checkout(db, BUSINESS_USER, order_a, bid_b,
+                         payload={}, idempotency_key="key-reused-once")
+    db.rollback()
+    assert conflict.value.code == "idempotency_key_conflict"
+
+
+def test_disputed_payment_still_blocks_second_active_payment(seeded_db):
+    db = seeded_db
+    order_id = _mk_order(db, EVERYDAY_USER["id"])
+    bid_id = _mk_bid(db, order_id, TRANSPORTER_A, 100000)
+    perform_checkout(db, EVERYDAY_USER, order_id, bid_id,
+                     payload={"card": VALID_CARD}, idempotency_key="key-dispute-uniq")
+    db.commit()
+
+    # The payment enters dispute — funds are still held, so it stays active.
+    db.execute("UPDATE payments SET status = 'disputed' WHERE shipment_id = %s", (order_id,))
+    db.commit()
+
+    trip = db.execute("SELECT id FROM shipment_trips LIMIT 1").fetchone()
+    with pytest.raises(IntegrityError):
+        db.execute(
+            "INSERT INTO payments (trip_id, shipment_id, invoice_number, client_user_id, "
+            "transporter_user_id, bid_price, company_fee, transporter_amount, status) "
+            "VALUES (%s, %s, 'DUP-DISPUTED', %s, %s, 1, 1, 1, 'held')",
+            (trip["id"], order_id, EVERYDAY_USER["id"], TRANSPORTER_A),
+        )
+    db.rollback()
+
+
+def test_start_trip_rejects_mismatched_payment(seeded_db):
+    db = seeded_db
+    # Order A checked out properly; order B gets a hand-made accepted trip
+    # with NO payment of its own.
+    order_a = _mk_order(db, EVERYDAY_USER["id"])
+    bid_a = _mk_bid(db, order_a, TRANSPORTER_A, 100000)
+    perform_checkout(db, EVERYDAY_USER, order_a, bid_a,
+                     payload={"card": VALID_CARD}, idempotency_key="key-mismatch-a")
+    db.commit()
+
+    order_b = _mk_order(db, EVERYDAY_USER["id"], status="ready_to_start")
+    bid_b = _mk_bid(db, order_b, TRANSPORTER_A, 100000)
+    trip_b = _mk_accepted_trip(db, order_b, bid_b, TRANSPORTER_A)
+    db.commit()
+
+    # Trip B has no held payment for ITS shipment: refused.
+    with pytest.raises(CheckoutError) as excinfo:
+        perform_start_trip(db, {"id": TRANSPORTER_A}, order_b, trip_b)
+    db.rollback()
+    assert excinfo.value.code == "payment_not_held"
+
+    # A second trip forged onto paid order A does not match the held
+    # payment's trip_id: refused.
+    forged_trip = db.execute(
+        "INSERT INTO shipment_trips (order_id, accepted_bid_id, transporter_user_id, truck_id, status) "
+        "VALUES (%s, %s, %s, 1, 'ready_to_start') RETURNING id",
+        (order_a, bid_a, TRANSPORTER_A),
+    ).fetchone()["id"]
+    db.commit()
+    with pytest.raises(CheckoutError) as forged:
+        perform_start_trip(db, {"id": TRANSPORTER_A}, order_a, forged_trip)
+    db.rollback()
+    assert forged.value.code == "payment_trip_mismatch"
+
+
+def test_start_trip_rejects_invalid_shipment_state(seeded_db):
+    db = seeded_db
+    order_id = _mk_order(db, EVERYDAY_USER["id"])
+    bid_id = _mk_bid(db, order_id, TRANSPORTER_A, 100000)
+    result = perform_checkout(db, EVERYDAY_USER, order_id, bid_id,
+                              payload={"card": VALID_CARD}, idempotency_key="key-badstate")
+    db.commit()
+    trip_id = result["trip"]["id"]
+
+    # Shipment forced out of ready state while the trip stays ready: refused.
+    db.execute("UPDATE shipments SET status = 'open' WHERE id = %s", (order_id,))
+    db.commit()
+    with pytest.raises(CheckoutError) as excinfo:
+        perform_start_trip(db, {"id": TRANSPORTER_A}, order_id, trip_id)
+    db.rollback()
+    assert excinfo.value.code == "order_not_ready"
+
+    # Trip not accepted for the order (accepted_bid cleared): refused.
+    db.execute("UPDATE shipments SET status = 'ready_to_start', accepted_bid_id = NULL WHERE id = %s",
+               (order_id,))
+    db.commit()
+    with pytest.raises(CheckoutError) as not_accepted:
+        perform_start_trip(db, {"id": TRANSPORTER_A}, order_id, trip_id)
+    db.rollback()
+    assert not_accepted.value.code == "trip_not_accepted"
+
+
+# ---------------------------------------------------------------------------
 # Wallet role integration
 # ---------------------------------------------------------------------------
 
@@ -662,3 +841,60 @@ def test_transporter_wallet_rules_unchanged(db):
     assert wallet["role"] == "transporter"
     assert float(wallet["minimum_required"]) == 30000.0
     assert bool(wallet["is_minimum_met"]) is False
+
+
+# ---------------------------------------------------------------------------
+# Payout card tokenization (item 7)
+# ---------------------------------------------------------------------------
+
+def test_validate_payout_card_returns_no_pan():
+    from shared.payments import validate_payout_card
+    summary, error = validate_payout_card({
+        "card_number": "5500 0000 0000 0004",
+        "card_holder": "Fleet Owner",
+        "card_expiry": "11/29",
+        "bank": "HBL",
+    })
+    assert error is None
+    assert summary["card_brand"] == "mastercard"
+    assert summary["card_last_four"] == "0004"
+    assert "card_number" not in summary
+    assert "5500000000000004" not in str(summary)
+
+
+@pytest.mark.parametrize("patch", [
+    {"card_number": "123"},
+    {"card_number": ""},
+    {"card_holder": "  "},
+    {"card_expiry": ""},
+])
+def test_validate_payout_card_rejects_invalid(patch):
+    from shared.payments import validate_payout_card
+    card = {"card_number": "5500000000000004", "card_holder": "X", "card_expiry": "11/29", **patch}
+    summary, error = validate_payout_card(card)
+    assert summary is None
+    assert error
+
+
+def test_payout_card_persists_only_tokenized_data(db):
+    from shared.payments import get_payment_provider, validate_payout_card
+    summary, _ = validate_payout_card({
+        "card_number": "4111 1111 1111 1111",
+        "card_holder": "Fleet Owner",
+        "card_expiry": "10/30",
+        "bank": "UBL",
+    })
+    token = get_payment_provider().tokenize(summary)
+    db.execute(
+        "INSERT INTO transporter_profiles (user_id, payout_card_token, payout_card_brand, "
+        "payout_card_last_four, payout_card_holder, payout_card_expiry, payout_card_bank) "
+        "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+        (TRANSPORTER_A, token, summary["card_brand"], summary["card_last_four"],
+         summary["card_holder"], summary["card_expiry"], summary["bank"]),
+    )
+    db.commit()
+    row = dict(db.execute("SELECT * FROM transporter_profiles WHERE user_id = %s", (TRANSPORTER_A,)).fetchone())
+    assert "payout_card_number" not in row       # column no longer exists
+    assert row["payout_card_last_four"] == "1111"
+    assert row["payout_card_token"].startswith("dummytok_")
+    assert "4111111111111111" not in str(row)

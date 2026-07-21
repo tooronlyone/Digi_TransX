@@ -22,9 +22,25 @@ never platform revenue.
 Card data policy: full card numbers and CVC codes are validated in memory
 only. They are never stored, never logged, and never returned. Persisted
 saved methods carry only a generated provider token, brand, last four
-digits, expiry and default flag.
+digits, expiry and default flag. The provider token itself is backend-only:
+it is never serialized into any API response.
+
+Idempotency contract (also binding for a future real gateway):
+  - Every checkout request carries a client-generated Idempotency-Key that is
+    persisted on the payment row under a unique index and passed through to
+    the provider's charge() call.
+  - The provider MUST be idempotent per key: charging the same key twice
+    returns the same charge (the dummy provider derives a deterministic
+    reference from the key).
+  - A real provider integration must additionally support reconciliation for
+    the crash window where the provider charge succeeded but the local
+    database transaction failed: on retry, look the charge up by idempotency
+    key at the provider and attach it instead of charging again; a recovery
+    job should sweep provider charges that have no matching payment row and
+    refund or attach them.
 """
 
+import hashlib
 import os
 import re
 import secrets
@@ -75,6 +91,78 @@ class CheckoutError(Exception):
 
 def round_money(value):
     return float(Decimal(str(value or 0)).quantize(TWO_PLACES, rounding=ROUND_HALF_UP))
+
+
+# Largest amount the numeric(12,2) audit columns can hold.
+MAX_MONEY_AMOUNT = Decimal("9999999999.99")
+
+
+def parse_money_amount(value, label="Amount"):
+    """Strict Decimal-based money parser for user-supplied amounts.
+
+    Accepts finite, positive numbers with at most two decimal places, within
+    the numeric storage limit. Rejects None, booleans, NaN, Infinity, zero,
+    negatives, more than two decimals and oversized values. Returns a Decimal
+    quantized to two places; raises ValueError with a user-facing message.
+    """
+    if value is None or (isinstance(value, str) and not value.strip()):
+        raise ValueError(f"{label} is required.")
+    if isinstance(value, bool):
+        raise ValueError(f"{label} must be a valid number.")
+    try:
+        parsed = Decimal(str(value).strip())
+    except (InvalidOperation, ValueError):
+        raise ValueError(f"{label} must be a valid number.")
+    if not parsed.is_finite():
+        raise ValueError(f"{label} must be a valid number.")
+    if parsed <= 0:
+        raise ValueError(f"{label} must be greater than 0.")
+    if parsed > MAX_MONEY_AMOUNT:
+        raise ValueError(f"{label} is too large.")
+    if parsed != parsed.quantize(TWO_PLACES):
+        raise ValueError(f"{label} supports at most two decimal places.")
+    return parsed.quantize(TWO_PLACES)
+
+
+def parse_positive_id(value, label="Id"):
+    """Strict positive-integer id parser (rejects booleans, floats, strings
+    that are not plain integers)."""
+    if isinstance(value, bool):
+        raise ValueError(f"{label} must be a positive whole number.")
+    if isinstance(value, int):
+        parsed = value
+    elif isinstance(value, str) and re.fullmatch(r"\d+", value.strip()):
+        parsed = int(value.strip())
+    else:
+        raise ValueError(f"{label} must be a positive whole number.")
+    if parsed <= 0:
+        raise ValueError(f"{label} must be a positive whole number.")
+    return parsed
+
+
+IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9_.:-]{8,128}$")
+
+
+def validate_idempotency_key(raw):
+    """Validate the client-supplied Idempotency-Key header.
+
+    Returns the key, or raises CheckoutError(400). The key is required — a
+    fresh random key per retry would defeat idempotency entirely, so the
+    server never invents one on the client's behalf.
+    """
+    key = (raw or "").strip()
+    if not key:
+        raise CheckoutError(
+            "Idempotency-Key header is required for checkout. Generate one key per "
+            "checkout attempt and reuse it for retries.",
+            400, "idempotency_key_required",
+        )
+    if not IDEMPOTENCY_KEY_RE.fullmatch(key):
+        raise CheckoutError(
+            "Idempotency-Key must be 8-128 characters of letters, digits, '_', '.', ':' or '-'.",
+            400, "idempotency_key_invalid",
+        )
+    return key
 
 
 def card_processing_fee_percent():
@@ -200,6 +288,36 @@ def validate_dummy_card(card_data):
     )
 
 
+def validate_payout_card(card_data):
+    """Validate a transporter payout-card entry (no CVC is collected for
+    payout destinations). Returns (summary, None) or (None, error).
+
+    Reuses the same number/expiry rules as validate_dummy_card; the summary
+    never contains the card number — only brand, last four, expiry and the
+    display labels.
+    """
+    data = card_data or {}
+    number = re.sub(r"\D", "", str(data.get("card_number") or ""))
+    if not 12 <= len(number) <= 19:
+        return None, "Valid card number required (12-19 digits)."
+    holder = str(data.get("card_holder") or "").strip()
+    if not holder:
+        return None, "Card holder name required."
+    expiry = str(data.get("card_expiry") or "").strip()
+    if not expiry:
+        return None, "Card expiry required."
+    return (
+        {
+            "card_brand": detect_card_brand(number),
+            "card_last_four": number[-4:],
+            "card_holder": holder,
+            "card_expiry": expiry,
+            "bank": str(data.get("bank") or "").strip(),
+        },
+        None,
+    )
+
+
 class DummyCardProvider:
     """Placeholder processor. A real gateway later only needs to implement
     this same interface (tokenize + charge) and be returned from
@@ -212,16 +330,25 @@ class DummyCardProvider:
         it encodes nothing about the card number."""
         return f"dummytok_{secrets.token_hex(12)}"
 
-    def charge(self, amount, token=None, card_summary=None, description=""):
-        """Charge a card (saved token or validated one-off card). The dummy
-        processor always succeeds for validated input."""
+    def charge(self, amount, token=None, card_summary=None, description="", idempotency_key=None):
+        """Charge a card (saved token or validated one-off card).
+
+        Idempotent per key: the same idempotency_key always yields the same
+        charge reference, so a retried checkout can never create a second
+        charge. A real gateway must honour the same contract provider-side.
+        """
         if amount <= 0:
             return {"provider": self.name, "reference": None, "status": "skipped"}
         if token is None and card_summary is None:
             raise CheckoutError("A card is required for this charge.", 400, "card_required")
+        if idempotency_key:
+            digest = hashlib.sha256(f"{self.name}:{idempotency_key}".encode()).hexdigest()[:24]
+            reference = f"dummych_{digest}"
+        else:
+            reference = f"dummych_{secrets.token_hex(12)}"
         return {
             "provider": self.name,
-            "reference": f"dummych_{secrets.token_hex(12)}",
+            "reference": reference,
             "status": "succeeded",
         }
 
@@ -508,7 +635,7 @@ def _checkout_result(db, order_id, payment, replayed=False):
     }
 
 
-def _resolve_card_charge(db, user, kind, quote, payload):
+def _resolve_card_charge(db, user, kind, quote, payload, idempotency_key=None):
     """Decide how the card-funded portion is charged. Returns
     (charge_result, saved_method_used, card_summary_or_None).
 
@@ -526,7 +653,8 @@ def _resolve_card_charge(db, user, kind, quote, payload):
         if error:
             raise CheckoutError(error, 400, "invalid_card")
         charge = provider.charge(total_charge, card_summary=card_summary,
-                                 description=f"One-time order shortfall {card_funded}")
+                                 description=f"One-time order shortfall {card_funded}",
+                                 idempotency_key=idempotency_key)
         saved = None
         if kind == "business" and payload.get("save_card"):
             saved = create_saved_method(db, user["id"], card_summary,
@@ -538,8 +666,12 @@ def _resolve_card_charge(db, user, kind, quote, payload):
 
     method = None
     explicit = False
-    if payload.get("saved_method_id"):
-        method = get_saved_method(db, user["id"], payload["saved_method_id"])
+    if payload.get("saved_method_id") is not None:
+        try:
+            method_id = parse_positive_id(payload.get("saved_method_id"), "Saved card")
+        except ValueError as exc:
+            raise CheckoutError(str(exc), 400, "invalid_saved_method")
+        method = get_saved_method(db, user["id"], method_id)
         if not method:
             raise CheckoutError("Saved card not found.", 404, "card_not_found")
         explicit = True
@@ -558,8 +690,38 @@ def _resolve_card_charge(db, user, kind, quote, payload):
             402, "card_confirmation_required",
         )
     charge = provider.charge(total_charge, token=method["provider_token"],
-                             description=f"One-time order shortfall {card_funded}")
+                             description=f"One-time order shortfall {card_funded}",
+                             idempotency_key=idempotency_key)
     return charge, method, None
+
+
+def _find_replay(db, user, order_id, bid_id, idempotency_key):
+    """Look up a previous checkout for this idempotency key.
+
+    Returns the payment row for a legitimate replay, None when the key is
+    unused, and raises 409 when the key was used for a DIFFERENT checkout
+    (different client, shipment, or accepted bid/trip).
+    """
+    existing = db.execute(
+        "SELECT * FROM payments WHERE idempotency_key = %s", (idempotency_key,)
+    ).fetchone()
+    if not existing:
+        return None
+    existing = dict(existing)
+    trip = db.execute(
+        "SELECT * FROM shipment_trips WHERE id = %s", (existing["trip_id"],)
+    ).fetchone()
+    if (
+        existing["client_user_id"] != user["id"]
+        or existing["shipment_id"] != order_id
+        or not trip
+        or trip["accepted_bid_id"] != bid_id
+    ):
+        raise CheckoutError(
+            "This Idempotency-Key was already used for a different checkout.",
+            409, "idempotency_key_conflict",
+        )
+    return existing
 
 
 def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=None):
@@ -575,20 +737,15 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
     kind = normalize_client_kind(user.get("role"))
     if kind is None:
         raise CheckoutError("Client account required.", 403)
+    idempotency_key = validate_idempotency_key(idempotency_key)
 
-    # Idempotent replay: a repeated successful request returns the original
-    # result without charging again.
-    if idempotency_key:
-        existing = db.execute(
-            "SELECT * FROM payments WHERE idempotency_key = %s", (idempotency_key,)
-        ).fetchone()
-        if existing:
-            existing = dict(existing)
-            if existing["client_user_id"] != user["id"] or existing["shipment_id"] != order_id:
-                raise CheckoutError("Idempotency key was already used for a different checkout.", 409)
-            result = _checkout_result(db, order_id, existing, replayed=True)
-            result["quote"] = None
-            return result
+    # Idempotent replay (fast path): a repeated successful request returns
+    # the original result without charging again.
+    replay = _find_replay(db, user, order_id, bid_id, idempotency_key)
+    if replay:
+        result = _checkout_result(db, order_id, replay, replayed=True)
+        result["quote"] = None
+        return result
 
     # 1-5. Lock and validate the shipment + bid.
     order_row = db.execute(
@@ -599,6 +756,16 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
     order = dict(order_row)
     if order["client_user_id"] != user["id"]:
         raise CheckoutError("Access denied.", 403)
+
+    # Recheck idempotency AFTER acquiring the shipment lock: a concurrent
+    # request with the same key may have committed while we waited, and must
+    # be replayed instead of failing on "order not open".
+    replay = _find_replay(db, user, order_id, bid_id, idempotency_key)
+    if replay:
+        result = _checkout_result(db, order_id, replay, replayed=True)
+        result["quote"] = None
+        return result
+
     if order["status"] != "open":
         raise CheckoutError("This order is no longer open for checkout.", 409, "order_not_open")
 
@@ -634,7 +801,9 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
     # money moves).
     charge = None
     if quote["card_funded_amount"] > 0:
-        charge, _method, _summary = _resolve_card_charge(db, user, kind, quote, payload)
+        charge, _method, _summary = _resolve_card_charge(
+            db, user, kind, quote, payload, idempotency_key=idempotency_key,
+        )
 
     # Wallet mutations (business only): credit exactly the card-funded
     # shortfall, then deduct the full bid amount into the platform hold.
@@ -769,7 +938,22 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
 # ---------------------------------------------------------------------------
 
 def perform_start_trip(db, user, order_id, trip_id):
-    """Transporter starts a paid, ready trip. Idempotent. Caller commits."""
+    """Transporter starts a paid, ready trip. Idempotent. Caller commits.
+
+    Verifies, under row locks: the trip belongs to the order AND to the
+    authenticated accepted transporter, it is the order's accepted trip/bid,
+    the held payment is for exactly this shipment AND this trip, and both the
+    shipment and trip are ready_to_start. Never releases the payout.
+    """
+    # Lock the shipment first (same order as checkout, avoiding deadlocks),
+    # then the trip.
+    order_row = db.execute(
+        "SELECT * FROM shipments WHERE id = %s FOR UPDATE", (order_id,)
+    ).fetchone()
+    if not order_row:
+        raise CheckoutError("Order not found.", 404)
+    order = dict(order_row)
+
     trip_row = db.execute(
         "SELECT * FROM shipment_trips WHERE id = %s AND order_id = %s FOR UPDATE",
         (trip_id, order_id),
@@ -780,14 +964,32 @@ def perform_start_trip(db, user, order_id, trip_id):
     if trip["transporter_user_id"] != user["id"]:
         raise CheckoutError("Access denied.", 403)
 
+    # The trip must be the order's accepted trip (bid accepted via checkout).
+    if order.get("accepted_bid_id") != trip["accepted_bid_id"]:
+        raise CheckoutError("This trip is not the accepted trip for the order.", 409, "trip_not_accepted")
+    accepted_bid = db.execute(
+        "SELECT id, status, transporter_user_id FROM shipment_bids WHERE id = %s AND order_id = %s",
+        (trip["accepted_bid_id"], order_id),
+    ).fetchone()
+    if not accepted_bid or accepted_bid["status"] != "accepted" \
+            or accepted_bid["transporter_user_id"] != user["id"]:
+        raise CheckoutError("This trip is not the accepted trip for the order.", 409, "trip_not_accepted")
+
     if trip["status"] == "in_progress":
         return {"trip": trip, "already_started": True}
     if trip["status"] != "ready_to_start":
         raise CheckoutError("This trip cannot be started.", 409, "trip_not_ready")
+    if order["status"] != "ready_to_start":
+        raise CheckoutError("This order is not ready to start.", 409, "order_not_ready")
 
-    payment = get_active_payment_for_shipment(db, order_id, statuses=("held", "released"))
+    payment = get_active_payment_for_shipment(
+        db, order_id, statuses=("processing", "held", "disputed", "released")
+    )
     if not payment or payment["status"] != "held":
         raise CheckoutError("Payment for this order is not held yet.", 409, "payment_not_held")
+    # The held payment must be for exactly this shipment and this trip.
+    if payment["shipment_id"] != order_id or payment["trip_id"] != trip_id:
+        raise CheckoutError("The held payment does not match this trip.", 409, "payment_trip_mismatch")
 
     stamp = timestamp_bundle()["display"]
     db.execute(
