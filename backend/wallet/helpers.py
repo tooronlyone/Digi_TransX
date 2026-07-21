@@ -1,12 +1,18 @@
-from decimal import Decimal, ROUND_CEILING, ROUND_HALF_UP
+from decimal import Decimal
 
 from auth.helpers import json_response, timestamp_bundle
 from shared.db import open_db
+# Fee math lives in the shared payment service (single source of truth);
+# re-exported here because the wallet routes and older callers import it
+# from this module.
+from shared.payments import (  # noqa: F401  (re-exported)
+    calculate_gateway_fee,
+    calculate_required_gross_for_net,
+    round_money,
+)
 
 
-CLIENT_MINIMUM_REQUIRED = Decimal("20000")
 TRANSPORTER_MINIMUM_REQUIRED = Decimal("30000")
-GATEWAY_FEE_RATE = Decimal("0.025")
 SUPPORTED_TOPUP_CARD_FIELDS = (
     "card_number",
     "card_expiry",
@@ -15,13 +21,15 @@ SUPPORTED_TOPUP_CARD_FIELDS = (
 )
 
 
-def round_money(value):
-    return float(Decimal(str(value or 0)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP))
-
-
 def normalize_wallet_role(user_role):
+    """Wallet role for a user role.
+
+    Everyday users do NOT use a wallet (they pay by card at checkout), so
+    they get no wallet role at all. Business service seekers (and the legacy
+    'client' role) keep the client wallet; transporter rules are unchanged.
+    """
     role = (user_role or "").strip().lower()
-    if role in {"client", "service_seeker", "everyday_user"}:
+    if role in {"client", "service_seeker"}:
         return "client"
     if role in {"transporter", "logistics_provider"}:
         return "transporter"
@@ -29,30 +37,11 @@ def normalize_wallet_role(user_role):
 
 
 def minimum_required_for_role(wallet_role):
-    if wallet_role == "client":
-        return round_money(CLIENT_MINIMUM_REQUIRED)
+    """Client wallets have no minimum-balance reserve; transporters keep the
+    existing security-deposit minimum unchanged."""
     if wallet_role == "transporter":
         return round_money(TRANSPORTER_MINIMUM_REQUIRED)
     return 0.0
-
-
-def calculate_gateway_fee(gross_amount):
-    gross = Decimal(str(gross_amount or 0))
-    fee = (gross * GATEWAY_FEE_RATE).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
-    net = gross - fee
-    return round_money(fee), round_money(net)
-
-
-def calculate_required_gross_for_net(net_amount_needed):
-    net = Decimal(str(max(net_amount_needed or 0, 0)))
-    if net <= 0:
-        return 0.0
-    gross = (net / (Decimal("1") - GATEWAY_FEE_RATE)).quantize(Decimal("0.01"), rounding=ROUND_CEILING)
-    fee, credited = calculate_gateway_fee(gross)
-    while credited + 1e-9 < round_money(net):
-        gross += Decimal("0.01")
-        fee, credited = calculate_gateway_fee(gross)
-    return round_money(gross)
 
 
 def available_balance(wallet_row):
@@ -91,9 +80,9 @@ def get_or_create_wallet_for_user(db, user):
         """
         INSERT INTO wallets (
             user_id, role, balance, locked_balance, minimum_required, is_minimum_met, completed_trips_count, created_at, updated_at
-        ) VALUES (%s, %s, 0, 0, %s, false, 0, %s, %s)
+        ) VALUES (%s, %s, 0, 0, %s, %s, 0, %s, %s)
         """,
-        (user["id"], wallet_role, minimum_required, stamp, stamp),
+        (user["id"], wallet_role, minimum_required, minimum_required <= 0, stamp, stamp),
     )
     row = db.execute("SELECT * FROM wallets WHERE user_id = %s", (user["id"],)).fetchone()
     return (dict(row) if row else None), None

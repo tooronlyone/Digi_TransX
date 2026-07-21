@@ -14,6 +14,7 @@ from admin import admin_blueprint
 from agreements import agreements_blueprint
 from chat import chat_blueprint
 from orders import orders_blueprint
+from payments import payments_blueprint
 from profile import profile_blueprint
 from settings import settings_blueprint
 from shared.db import FRONTEND_DIST, check_connection
@@ -34,6 +35,7 @@ app.register_blueprint(admin_blueprint)
 app.register_blueprint(agreements_blueprint)
 app.register_blueprint(chat_blueprint)
 app.register_blueprint(orders_blueprint)
+app.register_blueprint(payments_blueprint)
 app.register_blueprint(profile_blueprint)
 app.register_blueprint(settings_blueprint)
 app.register_blueprint(terms_blueprint)

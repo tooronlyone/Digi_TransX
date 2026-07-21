@@ -1,4 +1,6 @@
 import json
+from uuid import uuid4
+
 from flask import Blueprint, request
 from datetime import datetime, timedelta, time
 
@@ -14,16 +16,17 @@ from .goods_taxonomy import (
     FIELD_WEIGHT,
     FIELD_ANIMAL_COUNT,
 )
-from shared.commissions import (
-    POLICY_TYPE_ONE_TIME,
-    get_active_policy,
-    get_current_terms_version,
-    policy_company_share,
-    snapshot_company_share,
-    split_final_amount,
-    transporter_share_percent_for,
+from shared.commissions import snapshot_company_share, split_final_amount, transporter_share_percent_for
+from shared.payments import (
+    CheckoutError,
+    build_payment_quote,
+    get_active_payment_for_shipment,
+    perform_checkout,
+    perform_start_trip,
+    public_quote,
+    serialize_payment_summary,
 )
-from wallet.helpers import get_or_create_wallet, round_money, available_balance, adjust_wallet_balance
+from wallet.helpers import adjust_wallet_balance, get_or_create_wallet, round_money
 from agreements.helpers import require_client_role, require_transporter_role
 from .helpers import (
     serialize_order,
@@ -33,7 +36,9 @@ from .helpers import (
     validate_order_creation,
     fetch_order,
     fetch_bids_for_order,
+    fetch_trip_for_order,
     calculate_no_show_penalty,
+    order_access_for_user,
     truck_order_mismatch,
     parse_truck_types,
 )
@@ -54,10 +59,8 @@ def create_order():
 
     data = request.get_json(silent=True) or {}
 
-    # Validate wallet
-    wallet, wallet_error = get_or_create_wallet(request.current_user)
-    if wallet_error:
-        return wallet_error
+    # Posting an order needs no wallet and no advance payment: everyday users
+    # never get a wallet, and business clients pay only when accepting a bid.
 
     # ---- Single detailed location -> keep legacy city columns populated ----
     pickup_location = (data.get("pickup_location") or data.get("pickup_city") or "").strip()
@@ -367,192 +370,199 @@ def create_bid(order_id):
 @orders_blueprint.get("/api/orders/<int:order_id>")
 @login_required
 def get_order_details(order_id):
-    """Get order details with all bids."""
+    """Order details, scoped by access level.
+
+    Owner: full order, all bids, trip and payment summary.
+    Accepted transporter: order, ONLY their accepted bid, trip and a safe
+    payment summary (never competing bids, never card/funding details).
+    Everyone else: 403.
+    """
     with open_db() as db:
         order = fetch_order(db, order_id)
         if not order:
             return json_response({"success": False, "message": "Order not found."}, 404)
 
-        # Check access
-        if order["client_user_id"] != request.current_user["id"]:
+        access = order_access_for_user(db, order, request.current_user)
+        if access is None:
             return json_response({"success": False, "message": "Access denied."}, 403)
 
-        bids = fetch_bids_for_order(db, order_id)
+        trip = fetch_trip_for_order(db, order_id)
+        payment = get_active_payment_for_shipment(
+            db, order_id, statuses=("processing", "held", "released", "disputed", "refunded")
+        )
+
+        if access == "owner":
+            bids = fetch_bids_for_order(db, order_id)
+            payment_summary = serialize_payment_summary(payment, viewer="client")
+        else:
+            bids = [
+                dict(row)
+                for row in db.execute(
+                    "SELECT * FROM shipment_bids WHERE order_id = %s AND transporter_user_id = %s",
+                    (order_id, request.current_user["id"]),
+                ).fetchall()
+            ]
+            payment_summary = serialize_payment_summary(payment, viewer="transporter")
 
     return json_response({
         "success": True,
+        "access": access,
         "order": serialize_order(order),
         "bids": [serialize_bid(b) for b in bids],
+        "trip": serialize_trip(trip) if trip else None,
+        "payment": payment_summary,
+    })
+
+
+def _checkout_error_response(exc):
+    payload = {"success": False, "message": exc.message}
+    if exc.code:
+        payload["code"] = exc.code
+    return json_response(payload, exc.status)
+
+
+@orders_blueprint.get("/api/orders/<int:order_id>/bids/<int:bid_id>/payment-quote")
+@login_required
+def bid_payment_quote(order_id, bid_id):
+    """Server-calculated quote for paying one bid (client owner only)."""
+    role_error = require_client_role(request.current_user)
+    if role_error:
+        return role_error
+
+    with open_db() as db:
+        order = fetch_order(db, order_id)
+        if not order:
+            return json_response({"success": False, "message": "Order not found."}, 404)
+        if order["client_user_id"] != request.current_user["id"]:
+            return json_response({"success": False, "message": "Access denied."}, 403)
+        if order["status"] != "open":
+            return json_response({"success": False, "message": "This order is no longer open for checkout."}, 409)
+        bid = db.execute(
+            "SELECT * FROM shipment_bids WHERE id = %s AND order_id = %s", (bid_id, order_id)
+        ).fetchone()
+        if not bid:
+            return json_response({"success": False, "message": "Bid not found."}, 404)
+        if bid["status"] != "pending":
+            return json_response({"success": False, "message": "This bid can no longer be accepted."}, 409)
+        try:
+            quote = build_payment_quote(db, order, dict(bid), request.current_user)
+        except CheckoutError as exc:
+            return _checkout_error_response(exc)
+
+    return json_response({"success": True, "quote": public_quote(quote)})
+
+
+@orders_blueprint.post("/api/orders/<int:order_id>/bids/<int:bid_id>/checkout")
+@login_required
+def checkout_bid(order_id, bid_id):
+    """Pay for a bid and accept it in one atomic server-controlled workflow.
+
+    The bid is never accepted before the payment succeeds; on any failure the
+    whole transaction rolls back (no trip, no bid change, no wallet change,
+    no payment record). A repeated request with the same Idempotency-Key
+    returns the original result without charging again.
+    """
+    role_error = require_client_role(request.current_user)
+    if role_error:
+        return role_error
+    err = csrf_error()
+    if err:
+        return err
+
+    payload = request.get_json(silent=True) or {}
+    idempotency_key = (request.headers.get("Idempotency-Key") or "").strip()
+    if not idempotency_key:
+        idempotency_key = f"chk-{order_id}-{bid_id}-{uuid4().hex}"
+
+    with open_db() as db:
+        try:
+            result = perform_checkout(
+                db, request.current_user, order_id, bid_id,
+                payload=payload, idempotency_key=idempotency_key,
+            )
+        except CheckoutError as exc:
+            db.rollback()
+            return _checkout_error_response(exc)
+        db.commit()
+
+    return json_response({
+        "success": True,
+        "message": "Payment held and bid accepted. The transporter can now start the trip."
+        if not result["replayed"] else "Checkout already completed for this order.",
+        "replayed": result["replayed"],
+        "idempotency_key": idempotency_key,
+        "order": serialize_order(result["order"]),
+        "trip": serialize_trip(result["trip"]),
+        "payment": serialize_payment_summary(result["payment"], viewer="client"),
+        "quote": result.get("quote"),
+    })
+
+
+@orders_blueprint.post("/api/orders/<int:order_id>/trips/<int:trip_id>/start")
+@login_required
+def start_trip(order_id, trip_id):
+    """Accepted transporter starts a paid, ready trip (idempotent)."""
+    role_error = require_transporter_role(request.current_user)
+    if role_error:
+        return role_error
+    err = csrf_error()
+    if err:
+        return err
+
+    with open_db() as db:
+        try:
+            result = perform_start_trip(db, request.current_user, order_id, trip_id)
+        except CheckoutError as exc:
+            db.rollback()
+            return _checkout_error_response(exc)
+        db.commit()
+
+    return json_response({
+        "success": True,
+        "message": "Trip already started." if result["already_started"] else "Trip started.",
+        "already_started": result["already_started"],
+        "trip": serialize_trip(result["trip"]),
     })
 
 
 @orders_blueprint.post("/api/orders/<int:order_id>/accept-bid/<int:bid_id>")
 @login_required
 def accept_bid(order_id, bid_id):
-    """Client accepts a bid and creates a trip."""
-    err = csrf_error()
-    if err:
-        return err
+    """Removed pre-payment acceptance flow.
 
-    with open_db() as db:
-        order = fetch_order(db, order_id)
-        if not order:
-            return json_response({"success": False, "message": "Order not found."}, 404)
-
-        if order["client_user_id"] != request.current_user["id"]:
-            return json_response({"success": False, "message": "Access denied."}, 403)
-
-        if order["status"] != "open":
-            return json_response({"success": False, "message": "Order is not open for bids."}, 400)
-
-        bid = db.execute("SELECT * FROM shipment_bids WHERE id = %s AND order_id = %s", (bid_id, order_id)).fetchone()
-        if not bid:
-            return json_response({"success": False, "message": "Bid not found."}, 404)
-
-        if bid["status"] != "pending":
-            return json_response({"success": False, "message": "Bid cannot be accepted."}, 400)
-
-        stamp = timestamp_bundle()["display"]
-
-        # Snapshot the active one-time commission: this order keeps this split
-        # for its entire lifetime, regardless of later policy changes.
-        active_policy = get_active_policy(db, POLICY_TYPE_ONE_TIME)
-        current_terms = get_current_terms_version(db)
-        company_share = policy_company_share(active_policy)
-        transporter_share = transporter_share_percent_for(company_share)
-
-        # Update order status
-        db.execute(
-            """
-            UPDATE shipments
-            SET status = 'accepted', accepted_bid_id = %s, payment_amount = %s,
-                company_share_percent_snapshot = %s, transporter_share_percent_snapshot = %s,
-                commission_policy_id = %s, terms_version_id = %s, updated_at = %s
-            WHERE id = %s
-            """,
-            (
-                bid_id,
-                round_money(bid["bid_price"]),
-                float(company_share),
-                float(transporter_share),
-                active_policy["id"] if active_policy else None,
-                current_terms["id"] if current_terms else None,
-                stamp,
-                order_id,
-            ),
-        )
-
-        # Update bid status
-        db.execute(
-            "UPDATE shipment_bids SET status = 'accepted', updated_at = %s WHERE id = %s",
-            (stamp, bid_id),
-        )
-
-        # Reject other bids
-        db.execute(
-            "UPDATE shipment_bids SET status = 'rejected', updated_at = %s WHERE order_id = %s AND id != %s",
-            (stamp, order_id, bid_id),
-        )
-
-        # Create trip
-        trip_id = db.execute(
-            """
-            INSERT INTO shipment_trips (
-                order_id, accepted_bid_id, transporter_user_id, truck_id, status, created_at, updated_at
-            ) VALUES (%s, %s, %s, %s, 'accepted', %s, %s)
-            RETURNING id
-            """,
-            (order_id, bid_id, bid["transporter_user_id"], bid["truck_id"], stamp, stamp),
-        ).fetchone()["id"]
-
-        # Create no-show tracking
-        db.execute(
-            "INSERT INTO shipment_no_show_tracking (trip_id, status, created_at, updated_at) VALUES (%s, 'tracking', %s, %s)",
-            (trip_id, stamp, stamp),
-        )
-
-        db.commit()
-
-        trip = db.execute("SELECT * FROM shipment_trips WHERE id = %s", (trip_id,)).fetchone()
-        updated_order = fetch_order(db, order_id)
-
-    return json_response({
-        "success": True,
-        "message": "Bid accepted. Trip created. Awaiting payment confirmation.",
-        "order": serialize_order(updated_order),
-        "trip": serialize_trip(dict(trip)),
-    })
+    Bids are now accepted only through the atomic paid checkout — a bid can
+    never be accepted before its payment succeeds.
+    """
+    return json_response(
+        {
+            "success": False,
+            "code": "payment_required_checkout",
+            "message": "Accepting a bid now requires payment. Use the checkout endpoint instead.",
+            "checkout_endpoint": f"/api/orders/{order_id}/bids/{bid_id}/checkout",
+            "quote_endpoint": f"/api/orders/{order_id}/bids/{bid_id}/payment-quote",
+        },
+        409,
+    )
 
 
 @orders_blueprint.post("/api/orders/<int:order_id>/trips/<int:trip_id>/process-payment")
 @login_required
 def process_trip_payment(order_id, trip_id):
-    """Process payment when client confirms and payment is ready."""
-    err = csrf_error()
-    if err:
-        return err
+    """Removed post-acceptance payment flow.
 
-    with open_db() as db:
-        order = fetch_order(db, order_id)
-        if not order:
-            return json_response({"success": False, "message": "Order not found."}, 404)
-
-        if order["client_user_id"] != request.current_user["id"]:
-            return json_response({"success": False, "message": "Access denied."}, 403)
-
-        trip = db.execute("SELECT * FROM shipment_trips WHERE id = %s AND order_id = %s", (trip_id, order_id)).fetchone()
-        if not trip:
-            return json_response({"success": False, "message": "Trip not found."}, 404)
-
-        if trip["status"] != "accepted":
-            return json_response({"success": False, "message": "Trip cannot process payment."}, 400)
-
-        # Check wallet balance
-        wallet, wallet_error = get_or_create_wallet(request.current_user)
-        if wallet_error:
-            return wallet_error
-
-        payment_amount = round_money(order["payment_amount"])
-        if available_balance(wallet) + 1e-9 < payment_amount:
-            return json_response({
-                "success": False,
-                "message": f"Insufficient wallet balance. Required: PKR {payment_amount:,.2f}",
-            }, 400)
-
-        stamp = timestamp_bundle()["display"]
-
-        # Deduct from client wallet
-        debit_error = adjust_wallet_balance(
-            db,
-            wallet,
-            request.current_user["id"],
-            -payment_amount,
-            "order_payment",
-            description=f"Payment for order #{order_id}",
-            reference_id=str(trip_id),
-        )
-        if debit_error:
-            db.rollback()
-            return debit_error
-
-        # Update trip and order status
-        db.execute(
-            "UPDATE shipment_trips SET status = 'in_progress', trip_started_at = %s, updated_at = %s WHERE id = %s",
-            (stamp, stamp, trip_id),
-        )
-        db.execute(
-            "UPDATE shipments SET payment_status = 'paid', updated_at = %s WHERE id = %s",
-            (stamp, order_id),
-        )
-
-        db.commit()
-        trip = db.execute("SELECT * FROM shipment_trips WHERE id = %s", (trip_id,)).fetchone()
-
-    return json_response({
-        "success": True,
-        "message": "Payment processed. Trip started. Transporter can now pickup goods.",
-        "trip": serialize_trip(dict(trip)),
-    })
+    Payment now happens inside checkout before the bid is accepted, and the
+    transporter starts the trip through the start endpoint.
+    """
+    return json_response(
+        {
+            "success": False,
+            "code": "payment_required_checkout",
+            "message": "This payment flow has been replaced. Payment is taken during bid checkout; "
+                       "the transporter starts the trip once payment is held.",
+            "start_endpoint": f"/api/orders/{order_id}/trips/{trip_id}/start",
+        },
+        409,
+    )
 
 
 @orders_blueprint.post("/api/orders/<int:order_id>/trips/<int:trip_id>/mark-completed")
@@ -641,6 +651,22 @@ def verify_delivery(order_id, trip_id):
 
         if not verification:
             return json_response({"success": False, "message": "Verification record not found."}, 404)
+
+        # Orders paid through the new held-payment checkout release the payout
+        # in the delivery-confirmation phase (not yet implemented). Only
+        # legacy wallet-paid trips keep the old immediate-credit behaviour —
+        # crediting a held-payment order here would double-pay.
+        held_payment = get_active_payment_for_shipment(db, order_id, statuses=("processing", "held"))
+        if held_payment:
+            return json_response(
+                {
+                    "success": False,
+                    "code": "payout_release_later_phase",
+                    "message": "Delivery confirmation and payout release for this order are handled "
+                               "in the upcoming delivery-verification flow.",
+                },
+                409,
+            )
 
         if response == "yes":
             # Payment successful

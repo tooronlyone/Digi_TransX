@@ -115,6 +115,35 @@ def fetch_bids_for_order(db, order_id):
     return [dict(r) for r in rows]
 
 
+def order_access_for_user(db, order, user):
+    """Access level of a user on a one-time order.
+
+    'owner'                — the client who posted the order (full view)
+    'accepted_transporter' — the transporter whose bid was accepted (sees the
+                             order, their own bid, the trip and a safe payment
+                             summary — never other transporters' bids)
+    None                   — everyone else (403)
+    """
+    if order["client_user_id"] == user["id"]:
+        return "owner"
+    accepted = db.execute(
+        "SELECT id FROM shipment_bids WHERE order_id = %s AND transporter_user_id = %s "
+        "AND status = 'accepted' LIMIT 1",
+        (order["id"], user["id"]),
+    ).fetchone()
+    if accepted:
+        return "accepted_transporter"
+    return None
+
+
+def fetch_trip_for_order(db, order_id):
+    row = db.execute(
+        "SELECT * FROM shipment_trips WHERE order_id = %s ORDER BY id DESC LIMIT 1",
+        (order_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
 def validate_order_creation(data):
     """Validate order creation data."""
     # NOTE: goods_weight_tons is validated in create_order based on the goods
