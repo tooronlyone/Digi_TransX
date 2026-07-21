@@ -57,7 +57,7 @@ def earnings_summary():
             """
             SELECT COALESCE(SUM(transporter_amount), 0) AS total
             FROM agreement_monthly_payments
-            WHERE transporter_user_id = ? AND status = 'paid'
+            WHERE transporter_user_id = %s AND status = 'paid'
             """,
             (user["id"],),
         ).fetchone()
@@ -68,7 +68,7 @@ def earnings_summary():
             """
             SELECT COALESCE(SUM(transporter_amount), 0) AS total
             FROM agreement_monthly_payments
-            WHERE transporter_user_id = ? AND status = 'paid' AND month_year = ?
+            WHERE transporter_user_id = %s AND status = 'paid' AND month_year = %s
             """,
             (user["id"], current_month),
         ).fetchone()
@@ -78,7 +78,7 @@ def earnings_summary():
             """
             SELECT COALESCE(SUM(final_amount), 0) AS total
             FROM agreement_monthly_payments
-            WHERE transporter_user_id = ? AND status = 'pending'
+            WHERE transporter_user_id = %s AND status = 'pending'
             """,
             (user["id"],),
         ).fetchone()
@@ -88,7 +88,7 @@ def earnings_summary():
             """
             SELECT COUNT(*) AS total
             FROM agreement_trips
-            WHERE transporter_user_id = ? AND status = 'completed'
+            WHERE transporter_user_id = %s AND status = 'completed'
             """,
             (user["id"],),
         ).fetchone()
@@ -97,7 +97,7 @@ def earnings_summary():
         tx_rows = db.execute(
             """
             SELECT * FROM wallet_transactions
-            WHERE user_id = ? AND type = 'agreement_income'
+            WHERE user_id = %s AND type = 'agreement_income'
             ORDER BY id DESC
             LIMIT 10
             """,
@@ -166,7 +166,7 @@ def topup_wallet():
 
     stamp = timestamp_bundle()["display"]
     with open_db() as db:
-        current = db.execute("SELECT * FROM wallets WHERE user_id = ?", (request.current_user["id"],)).fetchone()
+        current = db.execute("SELECT * FROM wallets WHERE user_id = %s", (request.current_user["id"],)).fetchone()
         wallet = dict(current) if current else wallet
         new_balance = round_money(wallet["balance"] + net_amount)
         is_minimum_met = bool(wallet["is_minimum_met"] or new_balance + 1e-9 >= wallet["minimum_required"])
@@ -190,7 +190,7 @@ def topup_wallet():
             db.rollback()
             return balance_error
         db.execute(
-            "UPDATE wallets SET is_minimum_met = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+            "UPDATE wallets SET is_minimum_met = %s, updated_at = %s WHERE id = %s AND user_id = %s",
             (is_minimum_met, stamp, wallet["id"], request.current_user["id"]),
         )
         wallet["is_minimum_met"] = is_minimum_met
@@ -199,7 +199,7 @@ def topup_wallet():
             target_lock = round_money(wallet["minimum_required"])
             lock_delta = round_money(target_lock - current_locked_balance)
             db.execute(
-                "UPDATE wallets SET locked_balance = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+                "UPDATE wallets SET locked_balance = %s, updated_at = %s WHERE id = %s AND user_id = %s",
                 (target_lock, stamp, wallet["id"], request.current_user["id"]),
             )
             wallet["locked_balance"] = target_lock
@@ -251,14 +251,14 @@ def wallet_transactions():
         rows = db.execute(
             """
             SELECT * FROM wallet_transactions
-            WHERE user_id = ? AND wallet_id = ?
+            WHERE user_id = %s AND wallet_id = %s
             ORDER BY id DESC
-            LIMIT ? OFFSET ?
+            LIMIT %s OFFSET %s
             """,
             (request.current_user["id"], wallet["id"], page_size, offset),
         ).fetchall()
         total_row = db.execute(
-            "SELECT COUNT(*) AS total FROM wallet_transactions WHERE user_id = ? AND wallet_id = ?",
+            "SELECT COUNT(*) AS total FROM wallet_transactions WHERE user_id = %s AND wallet_id = %s",
             (request.current_user["id"], wallet["id"]),
         ).fetchone()
 
@@ -411,21 +411,21 @@ def create_locked_withdrawal_request():
         )
 
         # Re-fetch wallet inside transaction for accuracy
-        fresh_wallet = db.execute("SELECT * FROM wallets WHERE user_id = ?", (request.current_user["id"],)).fetchone()
+        fresh_wallet = db.execute("SELECT * FROM wallets WHERE user_id = %s", (request.current_user["id"],)).fetchone()
         fresh_wallet = dict(fresh_wallet) if fresh_wallet else wallet
 
         if within_limits:
             # Auto-approve: deduct from balance only, preserve locked_balance
             new_balance = round_money(fresh_wallet["balance"] - rounded_amount)
             db.execute(
-                "UPDATE wallets SET balance = ?, updated_at = ? WHERE user_id = ?",
+                "UPDATE wallets SET balance = %s, updated_at = %s WHERE user_id = %s",
                 (new_balance, stamp["display"], request.current_user["id"]),
             )
             fresh_wallet["balance"] = new_balance
             db.execute(
                 """
                 INSERT INTO wallet_withdrawal_requests (user_id, amount, status, requested_at, resolved_at)
-                VALUES (?, ?, 'approved', ?, ?)
+                VALUES (%s, %s, 'approved', %s, %s)
                 """,
                 (request.current_user["id"], rounded_amount, stamp["iso"], stamp["iso"]),
             )
@@ -452,7 +452,7 @@ def create_locked_withdrawal_request():
             db.execute(
                 """
                 INSERT INTO wallet_withdrawal_requests (user_id, amount, status, requested_at, resolved_at)
-                VALUES (?, ?, 'pending', ?, NULL)
+                VALUES (%s, %s, 'pending', %s, NULL)
                 """,
                 (request.current_user["id"], rounded_amount, stamp["iso"]),
             )
@@ -550,16 +550,16 @@ def upgrade_withdrawal_limit():
 
     with open_db() as db:
         db.execute(
-            "UPDATE wallets SET balance = balance - ?, updated_at = ? WHERE user_id = ?",
+            "UPDATE wallets SET balance = balance - %s, updated_at = %s WHERE user_id = %s",
             (fee, stamp, request.current_user["id"]),
         )
         db.execute(
             """
             INSERT INTO wallet_transactions
             (wallet_id, user_id, type, amount, gross_amount, gateway_fee, description, reference_id, balance_after, created_at)
-            SELECT id, user_id, 'plan_purchase', ?, ?, 0,
-                   ?, ?, balance, ?
-            FROM wallets WHERE user_id = ?
+            SELECT id, user_id, 'plan_purchase', %s, %s, 0,
+                   %s, %s, balance, %s
+            FROM wallets WHERE user_id = %s
             """,
             (
                 -fee,
@@ -573,7 +573,7 @@ def upgrade_withdrawal_limit():
         db.execute(
             """
             INSERT INTO transporter_profiles (user_id, withdrawal_tier, withdrawal_tier_expires_at)
-            VALUES (?, ?, ?)
+            VALUES (%s, %s, %s)
             ON CONFLICT (user_id) DO UPDATE SET
                 withdrawal_tier = excluded.withdrawal_tier,
                 withdrawal_tier_expires_at = excluded.withdrawal_tier_expires_at
@@ -598,7 +598,7 @@ def get_payout_card():
         return role_error
     with open_db() as db:
         user = db.execute(
-            "SELECT payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank FROM transporter_profiles WHERE user_id = ?",
+            "SELECT payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank FROM transporter_profiles WHERE user_id = %s",
             (request.current_user["id"],)
         ).fetchone()
     if not user:
@@ -643,7 +643,7 @@ def save_payout_card():
             """
             INSERT INTO transporter_profiles (
                 user_id, payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank
-            ) VALUES (?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s)
             ON CONFLICT (user_id) DO UPDATE SET
                 payout_card_number = excluded.payout_card_number,
                 payout_card_holder = excluded.payout_card_holder,

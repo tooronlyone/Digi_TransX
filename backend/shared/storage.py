@@ -67,7 +67,7 @@ def record_document(
         INSERT INTO documents (
             owner_user_id, shipment_id, vehicle_id, doc_type, storage_path,
             file_name, mime_type, size_bytes, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             owner_user_id,

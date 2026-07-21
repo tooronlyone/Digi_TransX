@@ -1,7 +1,13 @@
-"""Focused tests for the versioned commission-policy feature."""
+"""Focused tests for the versioned commission-policy feature.
+
+Pure calculation/validation tests run without a database. Tests that take the
+`db`/`seeded_db` fixtures are PostgreSQL integration tests (see conftest.py)
+and skip with a clear reason when TEST_SUPABASE_DB_URL is not configured.
+"""
 
 from decimal import Decimal
 
+import psycopg2
 import pytest
 
 from shared import commissions
@@ -81,8 +87,9 @@ def test_invalid_company_share_rejected(value):
 def test_blank_change_summary_rejected(seeded_db):
     # The route rejects blank summaries before reaching the helper; the
     # database schema also enforces a non-blank summary via CHECK constraint.
-    import sqlite3
-    with pytest.raises(sqlite3.IntegrityError):
+    from shared.db import IntegrityError
+
+    with pytest.raises(IntegrityError):
         commissions.create_policy_version(
             seeded_db, POLICY_TYPE_ONE_TIME, "15.00", "   ", None, STAMP,
         )
@@ -320,7 +327,68 @@ def test_everyday_users_skip_agreement_only_changes():
 
 
 # ---------------------------------------------------------------------------
-# 14. Backfill parity
+# 14. PostgreSQL data-layer behaviour: RETURNING id, ON CONFLICT, rowcount
+# ---------------------------------------------------------------------------
+
+def test_insert_returning_id_yields_usable_generated_key(db):
+    row = db.execute(
+        "INSERT INTO commission_policies ("
+        "    policy_type, version_number, company_share_percent,"
+        "    transporter_share_percent, change_summary"
+        ") VALUES (%s, 1, 20.00, 80.00, %s) RETURNING id",
+        (POLICY_TYPE_ONE_TIME, "Baseline rate."),
+    ).fetchone()
+    assert row["id"] >= 1
+    fetched = db.execute(
+        "SELECT id, policy_type FROM commission_policies WHERE id = %s", (row["id"],)
+    ).fetchone()
+    assert fetched["id"] == row["id"]
+    assert fetched["policy_type"] == POLICY_TYPE_ONE_TIME
+
+
+def test_on_conflict_do_nothing_reports_rowcount_and_creates_no_duplicate(seeded_db):
+    terms = get_current_terms_version(seeded_db)
+    insert_sql = (
+        "INSERT INTO terms_acknowledgements (user_id, terms_version_id, acknowledged_at) "
+        "VALUES (%s, %s, %s) ON CONFLICT (user_id, terms_version_id) DO NOTHING"
+    )
+    first = seeded_db.execute(insert_sql, (5, terms["id"], STAMP))
+    second = seeded_db.execute(insert_sql, (5, terms["id"], STAMP))
+    assert first.rowcount == 1
+    assert second.rowcount == 0  # conflict path: skipped, not duplicated
+    total = seeded_db.execute(
+        "SELECT COUNT(*) AS total FROM terms_acknowledgements WHERE user_id = 5"
+    ).fetchone()
+    assert total["total"] == 1
+
+
+def test_update_rowcount_reflects_affected_rows(seeded_db):
+    terms = get_current_terms_version(seeded_db)
+    record_acknowledgement(seeded_db, 9, terms["id"], STAMP)
+    hit = seeded_db.execute(
+        "UPDATE terms_acknowledgements SET acknowledged_at = %s WHERE user_id = %s",
+        (STAMP, 9),
+    )
+    assert hit.rowcount == 1
+    miss = seeded_db.execute(
+        "UPDATE terms_acknowledgements SET acknowledged_at = %s WHERE user_id = %s",
+        (STAMP, 999),
+    )
+    assert miss.rowcount == 0
+
+
+def test_published_versions_are_immutable_at_database_level(seeded_db):
+    policy = get_active_policy(seeded_db, POLICY_TYPE_ONE_TIME)
+    with pytest.raises(psycopg2.DatabaseError):
+        seeded_db.execute(
+            "UPDATE commission_policies SET company_share_percent = 1.00, "
+            "transporter_share_percent = 99.00 WHERE id = %s",
+            (policy["id"],),
+        )
+
+
+# ---------------------------------------------------------------------------
+# 15. Backfill parity
 # ---------------------------------------------------------------------------
 
 def test_backfill_split_matches_legacy_hardcoded_behaviour():

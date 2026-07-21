@@ -20,7 +20,7 @@ Digi_TransX is the first product of **D-HAG (Digital Human Harmony AI Grid)** �
 8. [Database](#database)
 9. [Running the Project](#running-the-project)
 10. [Configuration (Environment Variables)](#configuration-environment-variables)
-11. [Supabase Migration (In Progress)](#supabase-migration-in-progress)
+11. [Tests](#tests)
 12. [Future Features](#future-features)
 
 ---
@@ -168,9 +168,9 @@ Digi_TransX/
 │   ├── tracking/               # Traccar GPS integration
 │   ├── profile/                # User profile management
 │   ├── settings/               # User settings
+│   ├── tests/                  # Unit + PostgreSQL integration tests (commission policies)
 │   └── scripts/
-│       ├── create_admin.py     # Bootstrap a platform admin account (Supabase Auth)
-│       └── migrate_sqlite_to_supabase.py  # One-time data migration from SQLite
+│       └── create_admin.py     # Bootstrap a platform admin account (Supabase Auth)
 ├── frontend-react/
 │   └── src/pages/
 │       ├── auth/               # Login, signup, role selection, role-detail steps, unlock
@@ -180,11 +180,10 @@ Digi_TransX/
 │       ├── shopkeeper/         # POS / inventory / sales analytics module
 │       ├── org/                # Organization portal (admin / partner / departments)
 │       └── shared/             # Shared components (AI chat, etc.)
-├── Database/
-│   └── digitransx_auth.db      # Legacy SQLite database (kept until data migration is verified)
 ├── .env.example                # Environment template (Supabase keys, SMTP, Flask)
 └── supabase/
-    └── schema.sql              # Supabase PostgreSQL schema (tables, triggers, RLS, storage)
+    ├── schema.sql              # Supabase PostgreSQL schema (tables, triggers, RLS, storage)
+    └── migrations/             # Dated schema migrations for existing deployments
 ```
 
 ## Backend Modules (API)
@@ -219,7 +218,7 @@ Main table groups:
 
 **Row Level Security roles:** admin (full access) · dispatcher (shipments/drivers/vehicles) · customer (own shipments only) · transporter (own fleet, bids, assigned trips). The Flask backend itself uses the service role.
 
-Legacy SQLite file `Database/digitransx_auth.db` is kept until the data migration is verified, then it can be archived.
+Schema changes for existing deployments live as dated files in [supabase/migrations/](supabase/migrations) and are applied with `supabase db push` or the SQL Editor.
 
 ## Running the Project
 
@@ -251,18 +250,6 @@ Create an admin account:
 ```bash
 python backend/scripts/create_admin.py --email admin@example.com --password YourPassword123
 ```
-
-### 3. Data migration from the old SQLite database (one time)
-
-```bash
-python backend/scripts/migrate_sqlite_to_supabase.py --dry-run   # preview counts
-python backend/scripts/migrate_sqlite_to_supabase.py             # full migration
-```
-
-Copies all rows (keeping ids), creates Supabase Auth accounts for existing users,
-derives the `drivers`/`customers` tables, and uploads local files to Storage.
-**Existing users must use "Forgot password" once** — password hashes cannot be
-transferred into Supabase Auth.
 
 ### Frontend (React, development)
 
@@ -296,20 +283,25 @@ All configuration lives in `.env` (project root) — see [.env.example](.env.exa
 | `FLASK_SECRET_KEY` | Session signing key — **must change in production** |
 | `FLASK_HOST` / `FLASK_PORT` / `FLASK_DEBUG` / `FLASK_ENV` | Flask server settings |
 | `DIGITRANSX_SMTP_*` | SMTP settings for OTP / password-reset emails |
+| `TEST_SUPABASE_DB_URL` | **Tests only** — connection string of a dedicated PostgreSQL test database for the integration tests (never point this at the application database) |
 
-## Supabase Migration (Complete ✅)
+## Tests
 
-The platform now runs fully on **Supabase** — no SQLite anywhere in the app:
+The backend test suite lives in [backend/tests/](backend/tests):
 
-- ✅ **Schema**: [supabase/schema.sql](supabase/schema.sql) — all tables, indexes, triggers (automatic `shipment_status_history`, auto profile creation on signup), Row Level Security for admin / dispatcher / customer / transporter, and the private `shipment-documents` Storage bucket
-- ✅ **Database layer**: [backend/shared/db.py](backend/shared/db.py) — psycopg2 connection pool to Supabase PostgreSQL
-- ✅ **Auth**: signup / login / password reset / password change go through **Supabase Auth** ([backend/shared/supabase_client.py](backend/shared/supabase_client.py)); MPIN quick-unlock and the email OTP flow are unchanged
-- ✅ **Storage**: truck documents and chat media upload to the Storage bucket ([backend/shared/storage.py](backend/shared/storage.py)); file URLs (`/uploads/...`) are unchanged for the frontend
-- ✅ **Data migration**: [backend/scripts/migrate_sqlite_to_supabase.py](backend/scripts/migrate_sqlite_to_supabase.py) copies every legacy row, creates Auth accounts, and uploads files
+- **Unit tests** (calculation, validation, business rules) run with no database.
+- **PostgreSQL integration tests** (commission policy versioning, Terms,
+  acknowledgements, generated-key and conflict handling) run against a
+  dedicated test database configured via `TEST_SUPABASE_DB_URL`. They create
+  an isolated, uniquely named schema for the session and drop it afterwards.
+  If `TEST_SUPABASE_DB_URL` is not set, these tests are skipped with a clear
+  reason — they never fall back to `SUPABASE_DB_URL`.
 
-Business logic and UI are unchanged. Two operational notes:
-1. Existing users' passwords cannot be copied into Supabase Auth — after data migration each existing user resets their password once via "Forgot password".
-2. `Database/digitransx_auth.db` stays in the repo until migration + testing are verified.
+```bash
+cd backend
+python -m pytest tests                          # unit tests (+ skips)
+TEST_SUPABASE_DB_URL=postgresql://... python -m pytest tests   # full suite
+```
 
 ## Future Features
 

@@ -53,7 +53,7 @@ def get_thread_with_parties(db, thread_id, user_id):
                 SELECT COUNT(*)
                 FROM chat_messages
                 WHERE thread_id = ct.id
-                  AND sender_user_id <> ?
+                  AND sender_user_id <> %s
                   AND is_read = false
             ) AS unread_count
         FROM chat_threads ct
@@ -61,7 +61,7 @@ def get_thread_with_parties(db, thread_id, user_id):
         JOIN users client ON client.id = ct.client_user_id
         JOIN users transporter ON transporter.id = ct.transporter_user_id
         LEFT JOIN users admin ON admin.id = ct.admin_user_id
-        WHERE ct.id = ?
+        WHERE ct.id = %s
         """,
         (user_id, thread_id),
     ).fetchone()
@@ -88,7 +88,7 @@ def get_sender_name(db, user_id):
         """
         SELECT COALESCE(NULLIF(trim(full_name), ''), email, 'User') AS name
         FROM users
-        WHERE id = ?
+        WHERE id = %s
         """,
         (user_id,),
     ).fetchone()
@@ -97,16 +97,16 @@ def get_sender_name(db, user_id):
 
 def insert_chat_message(db, thread_id, sender_user_id, message_type, content="", media_path=None, media_request_status=None):
     stamp = timestamp_bundle()["iso"]
-    db.execute(
+    message_id = db.execute(
         """
         INSERT INTO chat_messages (
             thread_id, sender_user_id, message_type, content, media_path, media_request_status, is_read, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, false, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, false, %s)
+        RETURNING id
         """,
         (thread_id, sender_user_id, message_type, content or None, media_path, media_request_status, stamp),
-    )
-    message_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
-    db.execute("UPDATE chat_threads SET last_message_at = ? WHERE id = ?", (stamp, thread_id))
+    ).fetchone()["id"]
+    db.execute("UPDATE chat_threads SET last_message_at = %s WHERE id = %s", (stamp, thread_id))
     row = db.execute(
         """
         SELECT
@@ -114,7 +114,7 @@ def insert_chat_message(db, thread_id, sender_user_id, message_type, content="",
             COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'User') AS sender_name
         FROM chat_messages cm
         JOIN users u ON u.id = cm.sender_user_id
-        WHERE cm.id = ?
+        WHERE cm.id = %s
         """,
         (message_id,),
     ).fetchone()
@@ -125,11 +125,11 @@ def get_pending_media_request_for_sender(db, thread_id, sender_user_id):
     counterpart_id = db.execute(
         """
         SELECT CASE
-            WHEN client_user_id = ? THEN transporter_user_id
+            WHEN client_user_id = %s THEN transporter_user_id
             ELSE client_user_id
         END AS other_user_id
         FROM chat_threads
-        WHERE id = ?
+        WHERE id = %s
         """,
         (sender_user_id, thread_id),
     ).fetchone()
@@ -140,10 +140,10 @@ def get_pending_media_request_for_sender(db, thread_id, sender_user_id):
         """
         SELECT *
         FROM chat_messages
-        WHERE thread_id = ?
+        WHERE thread_id = %s
           AND message_type = 'media_request'
-          AND sender_user_id = ?
-          AND media_request_status = ?
+          AND sender_user_id = %s
+          AND media_request_status = %s
         ORDER BY id DESC
         LIMIT 1
         """,
@@ -195,7 +195,7 @@ def list_threads():
                     SELECT COUNT(*)
                     FROM chat_messages
                     WHERE thread_id = ct.id
-                      AND sender_user_id <> ?
+                      AND sender_user_id <> %s
                       AND is_read = false
                 ) AS unread_count
             FROM chat_threads ct
@@ -203,7 +203,7 @@ def list_threads():
             LEFT JOIN users admin ON admin.id = ct.admin_user_id
             JOIN users client ON client.id = ct.client_user_id
             JOIN users transporter ON transporter.id = ct.transporter_user_id
-            WHERE ct.client_user_id = ? OR ct.transporter_user_id = ? OR (ct.is_group_chat = true AND ct.admin_user_id = ?)
+            WHERE ct.client_user_id = %s OR ct.transporter_user_id = %s OR (ct.is_group_chat = true AND ct.admin_user_id = %s)
             ORDER BY
                 CASE WHEN ct.last_message_at IS NULL THEN 1 ELSE 0 END,
                 ct.last_message_at DESC,
@@ -241,7 +241,7 @@ def list_messages(thread_id):
                     COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'User') AS sender_name
                 FROM chat_messages cm
                 JOIN users u ON u.id = cm.sender_user_id
-                WHERE cm.thread_id = ? AND cm.id > ?
+                WHERE cm.thread_id = %s AND cm.id > %s
                 ORDER BY cm.id ASC
                 """,
                 (thread_id, after_id),
@@ -256,7 +256,7 @@ def list_messages(thread_id):
                         COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'User') AS sender_name
                     FROM chat_messages cm
                     JOIN users u ON u.id = cm.sender_user_id
-                    WHERE cm.thread_id = ?
+                    WHERE cm.thread_id = %s
                     ORDER BY cm.id DESC
                     LIMIT 50
                 ) AS recent_messages
@@ -269,8 +269,8 @@ def list_messages(thread_id):
             """
             SELECT id
             FROM chat_messages
-            WHERE thread_id = ?
-              AND sender_user_id <> ?
+            WHERE thread_id = %s
+              AND sender_user_id <> %s
               AND is_read = false
             """,
             (thread_id, user_id),
@@ -280,8 +280,8 @@ def list_messages(thread_id):
                 """
                 UPDATE chat_messages
                 SET is_read = true
-                WHERE thread_id = ?
-                  AND sender_user_id <> ?
+                WHERE thread_id = %s
+                  AND sender_user_id <> %s
                   AND is_read = false
                 """,
                 (thread_id, user_id),
@@ -345,7 +345,7 @@ def respond_media_request(thread_id, message_id):
             """
             SELECT *
             FROM chat_messages
-            WHERE id = ? AND thread_id = ?
+            WHERE id = %s AND thread_id = %s
             """,
             (message_id, thread_id),
         ).fetchone()
@@ -361,7 +361,7 @@ def respond_media_request(thread_id, message_id):
 
         next_status = MEDIA_REQUEST_APPROVED if action == "approve" else MEDIA_REQUEST_DENIED
         db.execute(
-            "UPDATE chat_messages SET media_request_status = ? WHERE id = ? AND thread_id = ?",
+            "UPDATE chat_messages SET media_request_status = %s WHERE id = %s AND thread_id = %s",
             (next_status, message_id, thread_id),
         )
         if action == "approve":
@@ -406,8 +406,8 @@ def send_media_message(thread_id):
         db.execute(
             """
             UPDATE chat_messages
-            SET media_request_status = ?
-            WHERE id = ? AND thread_id = ?
+            SET media_request_status = %s
+            WHERE id = %s AND thread_id = %s
             """,
             (MEDIA_REQUEST_FULFILLED, approved_request["id"], thread_id),
         )

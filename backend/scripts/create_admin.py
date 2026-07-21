@@ -15,12 +15,12 @@ from shared.supabase_client import supabase_create_user, supabase_update_passwor
 
 def available_admin_cnic(db, current_user_id=None):
     base = "0000000000000"
-    existing = db.execute("SELECT id FROM users WHERE cnic = ?", (base,)).fetchone()
+    existing = db.execute("SELECT id FROM users WHERE cnic = %s", (base,)).fetchone()
     if not existing or existing["id"] == current_user_id:
         return base
     for suffix in range(1, 10000):
         value = f"000000000{suffix:04d}"[-13:]
-        existing = db.execute("SELECT id FROM users WHERE cnic = ?", (value,)).fetchone()
+        existing = db.execute("SELECT id FROM users WHERE cnic = %s", (value,)).fetchone()
         if not existing or existing["id"] == current_user_id:
             return value
     raise RuntimeError("Could not find an available placeholder CNIC.")
@@ -41,7 +41,7 @@ def main():
 
     stamp = timestamp_bundle()["iso"]
     with open_db() as db:
-        existing = db.execute("SELECT * FROM users WHERE email = ?", (email,)).fetchone()
+        existing = db.execute("SELECT * FROM users WHERE email = %s", (email,)).fetchone()
         if existing:
             if existing["auth_id"]:
                 supabase_update_password(existing["auth_id"], args.password)
@@ -60,8 +60,8 @@ def main():
             db.execute(
                 """
                 UPDATE users
-                SET role = 'admin', legacy_role = 'platform_admin', cnic = ?, updated_at = ?
-                WHERE id = ?
+                SET role = 'admin', legacy_role = 'platform_admin', cnic = %s, updated_at = %s
+                WHERE id = %s
                 """,
                 (available_admin_cnic(db, existing["id"]), stamp, existing["id"]),
             )
@@ -83,14 +83,14 @@ def main():
             db.execute(
                 """
                 UPDATE users
-                SET full_name = ?, role = 'admin',
-                    legacy_role = 'platform_admin', city = '', updated_at = ?
-                WHERE email = ?
+                SET full_name = %s, role = 'admin',
+                    legacy_role = 'platform_admin', city = '', updated_at = %s
+                WHERE email = %s
                 """,
                 (args.name.strip() or "Platform Admin", stamp, email),
             )
             action = "created"
-            user_id = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()["id"]
+            user_id = db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone()["id"]
         db.commit()
 
     print(f"Platform admin {action}: id={user_id}, email={email}, role=platform_admin")

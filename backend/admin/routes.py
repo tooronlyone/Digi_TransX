@@ -117,11 +117,11 @@ def serialize_truck(row):
 
 def available_admin_cnic(db):
     base = "0000000000000"
-    if not db.execute("SELECT id FROM users WHERE cnic = ?", (base,)).fetchone():
+    if not db.execute("SELECT id FROM users WHERE cnic = %s", (base,)).fetchone():
         return base
     for suffix in range(1, 10000):
         value = f"000000000{suffix:04d}"[-13:]
-        if not db.execute("SELECT id FROM users WHERE cnic = ?", (value,)).fetchone():
+        if not db.execute("SELECT id FROM users WHERE cnic = %s", (value,)).fetchone():
             return value
     return datetime.now().strftime("%y%m%d%H%M%S")[:13]
 
@@ -140,13 +140,13 @@ def create_admin_user(db, name, email, password):
     db.execute(
         """
         UPDATE users
-        SET full_name = ?, cnic = ?, legacy_role = 'platform_admin',
-            role = 'admin', city = '', updated_at = ?
-        WHERE email = ?
+        SET full_name = %s, cnic = %s, legacy_role = 'platform_admin',
+            role = 'admin', city = '', updated_at = %s
+        WHERE email = %s
         """,
         (name, cnic, stamp, email),
     )
-    return db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()["id"]
+    return db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone()["id"]
 
 
 @admin_blueprint.get("/dashboard")
@@ -202,10 +202,10 @@ def list_users():
     role = (request.args.get("role") or "").strip()
     search = (request.args.get("search") or "").strip()
     if role:
-        clauses.append("COALESCE(legacy_role, role::text) = ?")
+        clauses.append("COALESCE(legacy_role, role::text) = %s")
         params.append(role)
     if search:
-        clauses.append("(full_name ILIKE ? OR email ILIKE ? OR cnic ILIKE ?)")
+        clauses.append("(full_name ILIKE %s OR email ILIKE %s OR cnic ILIKE %s)")
         like = f"%{search}%"
         params.extend([like, like, like])
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
@@ -216,7 +216,7 @@ def list_users():
             FROM users
             {where}
             ORDER BY created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT %s OFFSET %s
             """,
             (*params, page_size, offset),
         ).fetchall()
@@ -237,11 +237,11 @@ def create_admin():
     if not name or not email or len(password) < 8:
         return json_response({"success": False, "message": "Name, valid email, and 8+ character password are required."}, 400)
     with open_db() as db:
-        if db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone():
+        if db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone():
             return json_response({"success": False, "message": "Email is already registered."}, 409)
         user_id = create_admin_user(db, name, email, password)
         db.commit()
-        user = db.execute(f"SELECT *, {user_display_sql('users')} AS name FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute(f"SELECT *, {user_display_sql('users')} AS name FROM users WHERE id = %s", (user_id,)).fetchone()
     return json_response({"success": True, "user": serialize_admin_user(user)}, 201)
 
 
@@ -249,17 +249,17 @@ def create_admin():
 @admin_required
 def user_detail(user_id):
     with open_db() as db:
-        user = db.execute(f"SELECT *, {user_display_sql('users')} AS name FROM users WHERE id = ?", (user_id,)).fetchone()
+        user = db.execute(f"SELECT *, {user_display_sql('users')} AS name FROM users WHERE id = %s", (user_id,)).fetchone()
         if not user:
             return json_response({"success": False, "message": "User not found."}, 404)
-        wallet = rowdict(db.execute("SELECT balance, locked_balance FROM wallets WHERE user_id = ?", (user_id,)).fetchone()) or {"balance": 0, "locked_balance": 0}
-        trucks = db.execute("SELECT * FROM vehicles WHERE owner_user_id = ? ORDER BY created_at DESC", (user_id,)).fetchall()
+        wallet = rowdict(db.execute("SELECT balance, locked_balance FROM wallets WHERE user_id = %s", (user_id,)).fetchone()) or {"balance": 0, "locked_balance": 0}
+        trucks = db.execute("SELECT * FROM vehicles WHERE owner_user_id = %s ORDER BY created_at DESC", (user_id,)).fetchall()
         agreement_count = db.execute(
             """
             SELECT COUNT(DISTINCT a.id) AS total
             FROM agreements a
             LEFT JOIN agreement_trucks at ON at.agreement_id = a.id
-            WHERE a.client_user_id = ? OR at.transporter_user_id = ?
+            WHERE a.client_user_id = %s OR at.transporter_user_id = %s
             """,
             (user_id, user_id),
         ).fetchone()["total"]
@@ -276,8 +276,8 @@ def block_user(user_id):
     blocked = bool(data.get("blocked"))
     reason = (data.get("reason") or "").strip()
     with open_db() as db:
-        db.execute("UPDATE users SET is_blocked = ?, block_reason = ?, updated_at = ? WHERE id = ?", (blocked, reason if blocked else None, timestamp_bundle()["display"], user_id))
-        if db.total_changes == 0:
+        result = db.execute("UPDATE users SET is_blocked = %s, block_reason = %s, updated_at = %s WHERE id = %s", (blocked, reason if blocked else None, timestamp_bundle()["display"], user_id))
+        if result.rowcount == 0:
             return json_response({"success": False, "message": "User not found."}, 404)
         db.commit()
     return json_response({"success": True})
@@ -293,11 +293,11 @@ def list_trucks():
         value = (request.args.get(field) or "").strip()
         if value:
             column = "COALESCE(t.catalog_type_key, t.truck_type)" if field == "truck_type" else "t.status"
-            clauses.append(f"{column} = ?")
+            clauses.append(f"{column} = %s")
             params.append(value)
     search = (request.args.get("search") or "").strip()
     if search:
-        clauses.append("(t.truck_number ILIKE ? OR t.chassis_number ILIKE ?)")
+        clauses.append("(t.truck_number ILIKE %s OR t.chassis_number ILIKE %s)")
         params.extend([f"%{search}%", f"%{search}%"])
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     with open_db() as db:
@@ -308,7 +308,7 @@ def list_trucks():
             JOIN users u ON u.id = t.owner_user_id
             {where}
             ORDER BY t.created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT %s OFFSET %s
             """,
             (*params, page_size, offset),
         ).fetchall()
@@ -325,7 +325,7 @@ def truck_detail(truck_id):
             SELECT t.*, {user_display_sql('u')} AS owner_name, u.email AS owner_email
             FROM vehicles t
             JOIN users u ON u.id = t.owner_user_id
-            WHERE t.id = ?
+            WHERE t.id = %s
             """,
             (truck_id,),
         ).fetchone()
@@ -339,7 +339,7 @@ def truck_detail(truck_id):
 def withdrawals():
     page, page_size, offset = pagination()
     status = (request.args.get("status") or "").strip()
-    where = "WHERE wwr.status = ?" if status else ""
+    where = "WHERE wwr.status = %s" if status else ""
     params = [status] if status else []
     with open_db() as db:
         rows = db.execute(
@@ -350,7 +350,7 @@ def withdrawals():
             LEFT JOIN wallets w ON w.user_id = wwr.user_id
             {where}
             ORDER BY wwr.requested_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT %s OFFSET %s
             """,
             (*params, page_size, offset),
         ).fetchall()
@@ -366,12 +366,12 @@ def approve_withdrawal(request_id):
         return err
     stamp = timestamp_bundle()
     with open_db() as db:
-        req = rowdict(db.execute("SELECT * FROM wallet_withdrawal_requests WHERE id = ?", (request_id,)).fetchone())
+        req = rowdict(db.execute("SELECT * FROM wallet_withdrawal_requests WHERE id = %s", (request_id,)).fetchone())
         if not req:
             return json_response({"success": False, "message": "Withdrawal request not found."}, 404)
         if req["status"] != "pending":
             return json_response({"success": False, "message": "Withdrawal request is already resolved."}, 400)
-        user = rowdict(db.execute("SELECT id, role FROM users WHERE id = ?", (req["user_id"],)).fetchone())
+        user = rowdict(db.execute("SELECT id, role FROM users WHERE id = %s", (req["user_id"],)).fetchone())
         wallet, wallet_error = get_or_create_wallet_for_user(db, user)
         if wallet_error:
             return wallet_error
@@ -379,8 +379,8 @@ def approve_withdrawal(request_id):
         if round_money(wallet["balance"]) + 1e-9 < amount:
             return json_response({"success": False, "message": "Wallet balance is lower than the requested withdrawal amount."}, 400)
         wallet["balance"] = round_money(wallet["balance"] - amount)
-        db.execute("UPDATE wallets SET balance = ?, updated_at = ? WHERE id = ?", (wallet["balance"], stamp["display"], wallet["id"]))
-        db.execute("UPDATE wallet_withdrawal_requests SET status = 'approved', resolved_at = ? WHERE id = ?", (stamp["iso"], request_id))
+        db.execute("UPDATE wallets SET balance = %s, updated_at = %s WHERE id = %s", (wallet["balance"], stamp["display"], wallet["id"]))
+        db.execute("UPDATE wallet_withdrawal_requests SET status = 'approved', resolved_at = %s WHERE id = %s", (stamp["iso"], request_id))
         insert_wallet_transaction(db, wallet, req["user_id"], "withdrawal", -amount, description="Approved withdrawal", reference_id=str(request_id))
         db.commit()
     return json_response({"success": True})
@@ -393,8 +393,8 @@ def reject_withdrawal(request_id):
     if err:
         return err
     with open_db() as db:
-        db.execute("UPDATE wallet_withdrawal_requests SET status = 'rejected', resolved_at = ? WHERE id = ? AND status = 'pending'", (timestamp_bundle()["iso"], request_id))
-        if db.total_changes == 0:
+        result = db.execute("UPDATE wallet_withdrawal_requests SET status = 'rejected', resolved_at = %s WHERE id = %s AND status = 'pending'", (timestamp_bundle()["iso"], request_id))
+        if result.rowcount == 0:
             return json_response({"success": False, "message": "Pending withdrawal request not found."}, 404)
         db.commit()
     return json_response({"success": True})
@@ -405,7 +405,7 @@ def reject_withdrawal(request_id):
 def agreements():
     page, page_size, offset = pagination()
     status = (request.args.get("status") or "").strip()
-    where = "WHERE a.status = ?" if status else ""
+    where = "WHERE a.status = %s" if status else ""
     params = [status] if status else []
     current_month = month_key()
     with open_db() as db:
@@ -413,7 +413,7 @@ def agreements():
             f"""
             SELECT a.*, {user_display_sql('u')} AS client_name,
                    COUNT(DISTINCT at.id) AS truck_count,
-                   SUM(CASE WHEN amp.month_year = ? THEN amp.total_km ELSE 0 END) AS current_month_km
+                   SUM(CASE WHEN amp.month_year = %s THEN amp.total_km ELSE 0 END) AS current_month_km
             FROM agreements a
             JOIN users u ON u.id = a.client_user_id
             LEFT JOIN agreement_trucks at ON at.agreement_id = a.id
@@ -421,7 +421,7 @@ def agreements():
             {where}
             GROUP BY a.id, u.id
             ORDER BY a.created_at DESC
-            LIMIT ? OFFSET ?
+            LIMIT %s OFFSET %s
             """,
             (current_month, *params, page_size, offset),
         ).fetchall()
@@ -437,8 +437,8 @@ def agreement_detail(agreement_id):
         if not agreement:
             return json_response({"success": False, "message": "Agreement not found."}, 404)
         trucks = fetch_agreement_trucks(db, agreement_id)
-        payments = db.execute("SELECT amp.*, t.truck_number FROM agreement_monthly_payments amp JOIN agreement_trucks at ON at.id = amp.agreement_truck_id JOIN vehicles t ON t.id = at.truck_id WHERE amp.agreement_id = ? ORDER BY amp.payment_due_date ASC", (agreement_id,)).fetchall()
-        trips = db.execute("SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.agreement_id = ? ORDER BY atr.created_at DESC", (agreement_id,)).fetchall()
+        payments = db.execute("SELECT amp.*, t.truck_number FROM agreement_monthly_payments amp JOIN agreement_trucks at ON at.id = amp.agreement_truck_id JOIN vehicles t ON t.id = at.truck_id WHERE amp.agreement_id = %s ORDER BY amp.payment_due_date ASC", (agreement_id,)).fetchall()
+        trips = db.execute("SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.agreement_id = %s ORDER BY atr.created_at DESC", (agreement_id,)).fetchall()
     return json_response({"success": True, "agreement": serialize_agreement(agreement, [serialize_agreement_truck(row) for row in trucks]), "payments": [serialize_payment(dict(row)) for row in payments], "trips": [serialize_trip(dict(row)) for row in trips]})
 
 
@@ -471,7 +471,7 @@ def add_trip_km_to_payment(db, trip):
         FROM agreement_monthly_payments amp
         JOIN agreement_trucks at ON at.id = amp.agreement_truck_id
         JOIN agreements a ON a.id = amp.agreement_id
-        WHERE amp.agreement_id = ? AND amp.agreement_truck_id = ? AND amp.month_year = ?
+        WHERE amp.agreement_id = %s AND amp.agreement_truck_id = %s AND amp.month_year = %s
         LIMIT 1
         """,
         (trip["agreement_id"], trip["agreement_truck_id"], trip_month),
@@ -485,8 +485,8 @@ def add_trip_km_to_payment(db, trip):
         db.execute(
             """
             UPDATE agreement_monthly_payments
-            SET total_km = ?, total_earned = ?, final_amount = ?, company_fee = ?, transporter_amount = ?
-            WHERE id = ?
+            SET total_km = %s, total_earned = %s, final_amount = %s, company_fee = %s, transporter_amount = %s
+            WHERE id = %s
             """,
             (total_km, total_earned, final_amount, company_fee, transporter_amount, payment["id"]),
         )
@@ -504,12 +504,12 @@ def resolve_dispute(trip_id):
         return json_response({"success": False, "message": "Decision must be km_approved or km_rejected."}, 400)
     note = (data.get("admin_note") or "").strip()
     with open_db() as db:
-        trip = rowdict(db.execute("SELECT * FROM agreement_trips WHERE id = ?", (trip_id,)).fetchone())
+        trip = rowdict(db.execute("SELECT * FROM agreement_trips WHERE id = %s", (trip_id,)).fetchone())
         if not trip:
             return json_response({"success": False, "message": "Trip not found."}, 404)
         if trip["status"] != "disputed":
             return json_response({"success": False, "message": "Only disputed trips can be resolved."}, 400)
-        agreement = rowdict(db.execute("SELECT client_user_id FROM agreements WHERE id = ?", (trip["agreement_id"],)).fetchone())
+        agreement = rowdict(db.execute("SELECT client_user_id FROM agreements WHERE id = %s", (trip["agreement_id"],)).fetchone())
         penalty_user_id = agreement["client_user_id"] if decision == "km_approved" else trip["transporter_user_id"]
         penalty_role = "client" if decision == "km_approved" else "transporter"
         wallet, wallet_error = get_or_create_wallet_for_user(db, {"id": penalty_user_id, "role": penalty_role})
@@ -526,14 +526,14 @@ def resolve_dispute(trip_id):
         db.execute(
             f"""
             UPDATE agreement_trips
-            SET status = 'completed', admin_decision = ?, admin_note = ?,
-                admin_decided_at = ?, admin_decided_by = ?{distance_sql}
-            WHERE id = ?
+            SET status = 'completed', admin_decision = %s, admin_note = %s,
+                admin_decided_at = %s, admin_decided_by = %s{distance_sql}
+            WHERE id = %s
             """,
             values,
         )
         db.commit()
-        updated = db.execute("SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = ?", (trip_id,)).fetchone()
+        updated = db.execute("SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = %s", (trip_id,)).fetchone()
     return json_response({"success": True, "trip": serialize_trip(dict(updated))})
 
 
@@ -544,23 +544,23 @@ def create_group_chat(trip_id):
     if err:
         return err
     with open_db() as db:
-        trip = rowdict(db.execute("SELECT atr.*, a.client_user_id FROM agreement_trips atr JOIN agreements a ON a.id = atr.agreement_id WHERE atr.id = ?", (trip_id,)).fetchone())
+        trip = rowdict(db.execute("SELECT atr.*, a.client_user_id FROM agreement_trips atr JOIN agreements a ON a.id = atr.agreement_id WHERE atr.id = %s", (trip_id,)).fetchone())
         if not trip:
             return json_response({"success": False, "message": "Trip not found."}, 404)
-        existing = db.execute("SELECT id FROM chat_threads WHERE is_group_chat = true AND dispute_trip_id = ?", (trip_id,)).fetchone()
+        existing = db.execute("SELECT id FROM chat_threads WHERE is_group_chat = true AND dispute_trip_id = %s", (trip_id,)).fetchone()
         if existing:
             return json_response({"success": True, "thread_id": existing["id"]})
         stamp = timestamp_bundle()["iso"]
-        db.execute(
+        thread_id = db.execute(
             """
             INSERT INTO chat_threads (
                 client_user_id, transporter_user_id, is_group_chat,
                 admin_user_id, dispute_trip_id, last_message_at, created_at
-            ) VALUES (?, ?, true, ?, ?, ?, ?)
+            ) VALUES (%s, %s, true, %s, %s, %s, %s)
+            RETURNING id
             """,
             (trip["client_user_id"], trip["transporter_user_id"], request.current_user["id"], trip_id, stamp, stamp),
-        )
-        thread_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        ).fetchone()["id"]
         insert_chat_message(db, thread_id, request.current_user["id"], "system", content=f"Admin created this group chat to resolve the dispute for Trip #{trip_id} - {trip.get('pickup_description') or ''} - {round_money(trip.get('distance_km'))} km")
         db.commit()
     return json_response({"success": True, "thread_id": thread_id})
@@ -570,7 +570,7 @@ def create_group_chat(trip_id):
 @admin_required
 def get_group_chat(trip_id):
     with open_db() as db:
-        row = db.execute("SELECT * FROM chat_threads WHERE is_group_chat = true AND dispute_trip_id = ? ORDER BY id DESC LIMIT 1", (trip_id,)).fetchone()
+        row = db.execute("SELECT * FROM chat_threads WHERE is_group_chat = true AND dispute_trip_id = %s ORDER BY id DESC LIMIT 1", (trip_id,)).fetchone()
     return json_response({"success": True, "thread": dict(row) if row else None})
 
 
@@ -583,10 +583,10 @@ def payments():
     status = (request.args.get("status") or "").strip()
     month = (request.args.get("month_year") or "").strip()
     if status:
-        clauses.append("amp.status = ?")
+        clauses.append("amp.status = %s")
         params.append(status)
     if month:
-        clauses.append("amp.month_year = ?")
+        clauses.append("amp.month_year = %s")
         params.append(month)
     where = f"WHERE {' AND '.join(clauses)}" if clauses else ""
     with open_db() as db:
@@ -602,7 +602,7 @@ def payments():
             JOIN users transporter ON transporter.id = amp.transporter_user_id
             {where}
             ORDER BY amp.payment_due_date DESC
-            LIMIT ? OFFSET ?
+            LIMIT %s OFFSET %s
             """,
             (*params, page_size, offset),
         ).fetchall()
@@ -662,7 +662,7 @@ def commission_history():
         admin_ids.discard(None)
         admin_names = {}
         if admin_ids:
-            placeholders = ",".join("?" for _ in admin_ids)
+            placeholders = ",".join("%s" for _ in admin_ids)
             for row in db.execute(
                 f"SELECT id, {user_display_sql('users')} AS name FROM users WHERE id IN ({placeholders})",
                 tuple(admin_ids),
@@ -724,7 +724,7 @@ def publish_commission():
             """
             INSERT INTO user_action_logs (
                 user_id, user_email, user_role, action_type, action_name, page_url, payload_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 str(admin_user["id"]),

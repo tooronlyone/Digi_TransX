@@ -46,8 +46,8 @@ def get_24h_withdrawn(db, user_id) -> float:
         """
         SELECT COALESCE(SUM(amount), 0) AS total
         FROM wallet_withdrawal_requests
-        WHERE user_id = ? AND status IN ('pending', 'approved')
-        AND requested_at >= ?
+        WHERE user_id = %s AND status IN ('pending', 'approved')
+        AND requested_at >= %s
         """,
         (user_id, since),
     ).fetchone()

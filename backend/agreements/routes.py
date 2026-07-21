@@ -47,13 +47,13 @@ agreements_blueprint = Blueprint("agreements", __name__)
 
 
 def fetch_post(db, post_id):
-    row = db.execute("SELECT * FROM agreement_posts WHERE id = ?", (post_id,)).fetchone()
+    row = db.execute("SELECT * FROM agreement_posts WHERE id = %s", (post_id,)).fetchone()
     return dict(row) if row else None
 
 
 def fetch_post_trucks(db, post_id):
     rows = db.execute(
-        "SELECT * FROM agreement_post_trucks WHERE post_id = ? ORDER BY id ASC",
+        "SELECT * FROM agreement_post_trucks WHERE post_id = %s ORDER BY id ASC",
         (post_id,),
     ).fetchall()
     return [dict(row) for row in rows]
@@ -69,7 +69,7 @@ def fetch_agreement(db, agreement_id):
         FROM agreements a
         JOIN users u ON u.id = a.client_user_id
         LEFT JOIN agreement_trucks at ON at.agreement_id = a.id
-        WHERE a.id = ?
+        WHERE a.id = %s
         GROUP BY a.id, u.id
         """,
         (agreement_id,),
@@ -90,7 +90,7 @@ def fetch_agreement_trucks(db, agreement_id):
         FROM agreement_trucks at
         JOIN vehicles t ON t.id = at.truck_id
         JOIN users u ON u.id = at.transporter_user_id
-        WHERE at.agreement_id = ?
+        WHERE at.agreement_id = %s
         ORDER BY at.id ASC
         """,
         (agreement_id,),
@@ -102,7 +102,7 @@ def user_can_access_agreement(db, agreement, user):
     if agreement["client_user_id"] == user["id"]:
         return True
     row = db.execute(
-        "SELECT id FROM agreement_trucks WHERE agreement_id = ? AND transporter_user_id = ? LIMIT 1",
+        "SELECT id FROM agreement_trucks WHERE agreement_id = %s AND transporter_user_id = %s LIMIT 1",
         (agreement["id"], user["id"]),
     ).fetchone()
     return bool(row)
@@ -114,24 +114,27 @@ def active_gps_truck_where():
 
 def create_agreement_thread(db, post, transporter_user_id, bid_id=None):
     stamp = timestamp_bundle()["iso"]
+    # A thread per (post, transporter) pair: keep the existing thread if the
+    # transporter was already invited (unique constraint on those columns).
     db.execute(
         """
-        INSERT OR IGNORE INTO chat_threads (
+        INSERT INTO chat_threads (
             client_user_id, transporter_user_id, agreement_post_id, agreement_bid_id, last_message_at, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s)
+        ON CONFLICT (agreement_post_id, transporter_user_id) DO NOTHING
         """,
         (post["client_user_id"], transporter_user_id, post["id"], bid_id, stamp, stamp),
     )
     db.execute(
         """
         UPDATE chat_threads
-        SET agreement_bid_id = COALESCE(agreement_bid_id, ?), last_message_at = COALESCE(last_message_at, ?)
-        WHERE agreement_post_id = ? AND transporter_user_id = ?
+        SET agreement_bid_id = COALESCE(agreement_bid_id, %s), last_message_at = COALESCE(last_message_at, %s)
+        WHERE agreement_post_id = %s AND transporter_user_id = %s
         """,
         (bid_id, stamp, post["id"], transporter_user_id),
     )
     row = db.execute(
-        "SELECT id FROM chat_threads WHERE agreement_post_id = ? AND transporter_user_id = ?",
+        "SELECT id FROM chat_threads WHERE agreement_post_id = %s AND transporter_user_id = %s",
         (post["id"], transporter_user_id),
     ).fetchone()
     return row["id"] if row else None
@@ -142,7 +145,7 @@ def insert_system_note_for_agreement(db, agreement_id, transporter_user_id, cont
     if not agreement:
         return
     thread = db.execute(
-        "SELECT id FROM chat_threads WHERE agreement_post_id = ? AND transporter_user_id = ?",
+        "SELECT id FROM chat_threads WHERE agreement_post_id = %s AND transporter_user_id = %s",
         (agreement["post_id"], transporter_user_id),
     ).fetchone()
     if thread:
@@ -186,22 +189,22 @@ def create_post():
 
     stamp = timestamp_bundle()["display"]
     with open_db() as db:
-        db.execute(
+        post_id = db.execute(
             """
             INSERT INTO agreement_posts (
                 client_user_id, title, cargo_type, service_area, pickup_location, dropoff_location,
                 status, created_at, updated_at
             )
-            VALUES (?, ?, ?, ?, ?, ?, 'open', ?, ?)
+            VALUES (%s, %s, %s, %s, %s, %s, 'open', %s, %s)
+            RETURNING id
             """,
             (request.current_user["id"], title, cargo_type, service_area, pickup_location, dropoff_location, stamp, stamp),
-        )
-        post_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        ).fetchone()["id"]
         for truck in parsed_trucks:
             db.execute(
                 """
                 INSERT INTO agreement_post_trucks (post_id, truck_type, capacity_tons, quantity)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
                 """,
                 (post_id, truck["truck_type"], truck["capacity_tons"], truck["quantity"]),
             )
@@ -223,7 +226,7 @@ def available_posts():
             f"""
             SELECT DISTINCT catalog_type_key
             FROM vehicles
-            WHERE owner_user_id = ? AND {active_gps_truck_where()}
+            WHERE owner_user_id = %s AND {active_gps_truck_where()}
               AND catalog_type_key IS NOT NULL AND trim(catalog_type_key) <> ''
             """,
             (request.current_user["id"],),
@@ -231,7 +234,7 @@ def available_posts():
         types = [row["catalog_type_key"] for row in truck_type_rows]
         if not types:
             return json_response({"success": True, "posts": []})
-        placeholders = ",".join("?" for _ in types)
+        placeholders = ",".join("%s" for _ in types)
         rows = db.execute(
             f"""
             SELECT ap.*, COUNT(DISTINCT ab.id) AS bid_count
@@ -248,7 +251,7 @@ def available_posts():
         requirements = {}
         if post_ids:
             req_rows = db.execute(
-                f"SELECT * FROM agreement_post_trucks WHERE post_id IN ({','.join('?' for _ in post_ids)}) ORDER BY id ASC",
+                f"SELECT * FROM agreement_post_trucks WHERE post_id IN ({','.join('%s' for _ in post_ids)}) ORDER BY id ASC",
                 tuple(post_ids),
             ).fetchall()
             for req in req_rows:
@@ -292,7 +295,7 @@ def create_bid(post_id):
         if post["status"] != "open":
             return json_response({"success": False, "message": "This post is not accepting bids."}, 400)
         existing = db.execute(
-            "SELECT id FROM agreement_bids WHERE post_id = ? AND transporter_user_id = ? AND status IN ('pending', 'invited')",
+            "SELECT id FROM agreement_bids WHERE post_id = %s AND transporter_user_id = %s AND status IN ('pending', 'invited')",
             (post_id, request.current_user["id"]),
         ).fetchone()
         if existing:
@@ -302,8 +305,8 @@ def create_bid(post_id):
         rows = db.execute(
             f"""
             SELECT * FROM vehicles
-            WHERE id IN ({','.join('?' for _ in truck_ids)})
-              AND owner_user_id = ? AND {active_gps_truck_where()}
+            WHERE id IN ({','.join('%s' for _ in truck_ids)})
+              AND owner_user_id = %s AND {active_gps_truck_where()}
             """,
             (*truck_ids, request.current_user["id"]),
         ).fetchall()
@@ -316,30 +319,30 @@ def create_bid(post_id):
                 return json_response({"success": False, "message": "Selected trucks must match the post's required truck types."}, 400)
 
         stamp = timestamp_bundle()["display"]
-        db.execute(
+        bid_id = db.execute(
             """
             INSERT INTO agreement_bids (post_id, transporter_user_id, status, message, created_at, updated_at)
-            VALUES (?, ?, 'pending', ?, ?, ?)
+            VALUES (%s, %s, 'pending', %s, %s, %s)
+            RETURNING id
             """,
             (post_id, request.current_user["id"], message, stamp, stamp),
-        )
-        bid_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        ).fetchone()["id"]
         for item in parsed:
             db.execute(
                 """
                 INSERT INTO agreement_bid_trucks (bid_id, truck_id, per_km_rate, minimum_monthly_guarantee)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
                 """,
                 (bid_id, item["truck_id"], item["per_km_rate"], item["minimum_monthly_guarantee"]),
         )
         db.commit()
-        created = db.execute("SELECT * FROM agreement_bids WHERE id = ?", (bid_id,)).fetchone()
+        created = db.execute("SELECT * FROM agreement_bids WHERE id = %s", (bid_id,)).fetchone()
         truck_rows = db.execute(
             """
             SELECT abt.*, t.truck_number, t.truck_type, t.catalog_type_key, t.capacity_tons, t.truck_photo_path
             FROM agreement_bid_trucks abt
             JOIN vehicles t ON t.id = abt.truck_id
-            WHERE abt.bid_id = ?
+            WHERE abt.bid_id = %s
             ORDER BY abt.id ASC
             """,
             (bid_id,),
@@ -376,7 +379,7 @@ def list_bids(post_id):
             FROM agreement_bids ab
             JOIN users u ON u.id = ab.transporter_user_id
             LEFT JOIN agreement_bid_trucks abt ON abt.bid_id = ab.id
-            WHERE ab.post_id = ?
+            WHERE ab.post_id = %s
             GROUP BY ab.id, u.id
             """,
             (post_id,),
@@ -389,7 +392,7 @@ def list_bids(post_id):
                 SELECT abt.*, t.truck_number, t.truck_type, t.catalog_type_key, t.capacity_tons, t.truck_photo_path
                 FROM agreement_bid_trucks abt
                 JOIN vehicles t ON t.id = abt.truck_id
-                WHERE abt.bid_id IN ({','.join('?' for _ in bid_ids)})
+                WHERE abt.bid_id IN ({','.join('%s' for _ in bid_ids)})
                 ORDER BY abt.id ASC
                 """,
                 tuple(bid_ids),
@@ -424,12 +427,12 @@ def invite_bid(post_id, bid_id):
             return json_response({"success": False, "message": "Agreement post not found."}, 404)
         if post["client_user_id"] != request.current_user["id"]:
             return json_response({"success": False, "message": "You are not allowed to invite for this post."}, 403)
-        bid = db.execute("SELECT * FROM agreement_bids WHERE id = ? AND post_id = ?", (bid_id, post_id)).fetchone()
+        bid = db.execute("SELECT * FROM agreement_bids WHERE id = %s AND post_id = %s", (bid_id, post_id)).fetchone()
         if not bid:
             return json_response({"success": False, "message": "Bid not found."}, 404)
         stamp = timestamp_bundle()["display"]
         db.execute(
-            "UPDATE agreement_bids SET status = 'invited', updated_at = ? WHERE id = ?",
+            "UPDATE agreement_bids SET status = 'invited', updated_at = %s WHERE id = %s",
             (stamp, bid_id),
         )
         create_agreement_thread(db, post, bid["transporter_user_id"], bid_id=bid_id)
@@ -482,14 +485,15 @@ def finalize_agreement():
         current_terms = get_current_terms_version(db)
         company_share = policy_company_share(active_policy)
         transporter_share = transporter_share_percent_for(company_share)
-        db.execute(
+        agreement_id = db.execute(
             """
             INSERT INTO agreements (
                 post_id, client_user_id, duration_months, cargo_type, service_area,
                 start_date, end_date, status, contract_text,
                 company_share_percent_snapshot, transporter_share_percent_snapshot,
                 commission_policy_id, terms_version_id, created_at, updated_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, 'active', ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'active', %s, %s, %s, %s, %s, %s, %s)
+            RETURNING id
             """,
             (
                 post_id, request.current_user["id"], duration_months, cargo_type, service_area,
@@ -499,8 +503,7 @@ def finalize_agreement():
                 current_terms["id"] if current_terms else None,
                 stamp, stamp,
             ),
-        )
-        agreement_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        ).fetchone()["id"]
         accepted_bid_ids = set()
         for item in parsed_selected:
             row = db.execute(
@@ -508,7 +511,7 @@ def finalize_agreement():
                 SELECT abt.*, ab.transporter_user_id
                 FROM agreement_bid_trucks abt
                 JOIN agreement_bids ab ON ab.id = abt.bid_id
-                WHERE abt.bid_id = ? AND abt.truck_id = ? AND ab.post_id = ?
+                WHERE abt.bid_id = %s AND abt.truck_id = %s AND ab.post_id = %s
                 """,
                 (item["bid_id"], item["truck_id"], post_id),
             ).fetchone()
@@ -516,16 +519,16 @@ def finalize_agreement():
                 db.rollback()
                 return json_response({"success": False, "message": "Selected truck is not part of the selected bid."}, 400)
             accepted_bid_ids.add(item["bid_id"])
-            db.execute(
+            agreement_truck_id = db.execute(
                 """
                 INSERT INTO agreement_trucks (
                     agreement_id, truck_id, transporter_user_id, per_km_rate,
                     minimum_monthly_guarantee, status
-                ) VALUES (?, ?, ?, ?, ?, 'active')
+                ) VALUES (%s, %s, %s, %s, %s, 'active')
+                RETURNING id
                 """,
                 (agreement_id, item["truck_id"], row["transporter_user_id"], row["per_km_rate"], row["minimum_monthly_guarantee"]),
-            )
-            agreement_truck_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+            ).fetchone()["id"]
             for month_index in range(duration_months):
                 due_date = due_date_for_month(start_date, month_index)
                 _, final_amount, company_fee, transporter_amount = recalculate_payment_fields(
@@ -539,7 +542,7 @@ def finalize_agreement():
                         company_fee, transporter_amount,
                         company_share_percent, transporter_share_percent, commission_policy_id,
                         penalty_amount, status, payment_due_date, paid_at, created_at
-                    ) VALUES (?, ?, ?, ?, ?, 0, 0, ?, ?, ?, ?, ?, ?, ?, 0, 'pending', ?, NULL, ?)
+                    ) VALUES (%s, %s, %s, %s, %s, 0, 0, %s, %s, %s, %s, %s, %s, %s, 0, 'pending', %s, NULL, %s)
                     """,
                     (
                         agreement_id,
@@ -560,14 +563,14 @@ def finalize_agreement():
                 )
         if accepted_bid_ids:
             db.execute(
-                f"UPDATE agreement_bids SET status = 'accepted', updated_at = ? WHERE post_id = ? AND id IN ({','.join('?' for _ in accepted_bid_ids)})",
+                f"UPDATE agreement_bids SET status = 'accepted', updated_at = %s WHERE post_id = %s AND id IN ({','.join('%s' for _ in accepted_bid_ids)})",
                 (stamp, post_id, *accepted_bid_ids),
             )
         db.execute(
-            "UPDATE agreement_bids SET status = 'rejected', updated_at = ? WHERE post_id = ? AND status NOT IN ('accepted', 'withdrawn')",
+            "UPDATE agreement_bids SET status = 'rejected', updated_at = %s WHERE post_id = %s AND status NOT IN ('accepted', 'withdrawn')",
             (stamp, post_id),
         )
-        db.execute("UPDATE agreement_posts SET status = 'active', updated_at = ? WHERE id = ?", (stamp, post_id))
+        db.execute("UPDATE agreement_posts SET status = 'active', updated_at = %s WHERE id = %s", (stamp, post_id))
         db.commit()
         agreement = fetch_agreement(db, agreement_id)
         trucks = fetch_agreement_trucks(db, agreement_id)
@@ -601,34 +604,34 @@ def start_trip(agreement_id):
             SELECT at.*, t.truck_number
             FROM agreement_trucks at
             JOIN vehicles t ON t.id = at.truck_id
-            WHERE at.agreement_id = ? AND at.truck_id = ? AND at.transporter_user_id = ? AND at.status = 'active'
+            WHERE at.agreement_id = %s AND at.truck_id = %s AND at.transporter_user_id = %s AND at.status = 'active'
             """,
             (agreement_id, truck_id, request.current_user["id"]),
         ).fetchone()
         if not agreement_truck:
             return json_response({"success": False, "message": "Truck is not active in this agreement."}, 403)
         existing = db.execute(
-            "SELECT id FROM agreement_trips WHERE agreement_id = ? AND truck_id = ? AND status = 'in_progress' LIMIT 1",
+            "SELECT id FROM agreement_trips WHERE agreement_id = %s AND truck_id = %s AND status = 'in_progress' LIMIT 1",
             (agreement_id, truck_id),
         ).fetchone()
         if existing:
             return json_response({"success": False, "message": "This truck already has a trip in progress."}, 400)
         stamp = timestamp_bundle()
-        db.execute(
+        trip_id = db.execute(
             """
             INSERT INTO agreement_trips (
                 agreement_id, agreement_truck_id, truck_id, transporter_user_id,
                 pickup_description, trip_date, gps_start_lat, gps_start_lng,
                 started_at, status, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'in_progress', ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, 'in_progress', %s)
+            RETURNING id
             """,
             (agreement_id, agreement_truck["id"], truck_id, request.current_user["id"], pickup_description, date.today().isoformat(), gps_start_lat, gps_start_lng, stamp["iso"], stamp["iso"]),
-        )
-        trip_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+        ).fetchone()["id"]
         insert_system_note_for_agreement(db, agreement_id, request.current_user["id"], f"Truck {agreement_truck['truck_number']} started trip: {pickup_description}")
         db.commit()
         trip = db.execute(
-            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = ?",
+            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = %s",
             (trip_id,),
         ).fetchone()
     return json_response({"success": True, "trip": serialize_trip(dict(trip))})
@@ -657,7 +660,7 @@ def end_trip(agreement_id, trip_id):
             FROM agreement_trips atr
             JOIN agreement_trucks at ON at.id = atr.agreement_truck_id
             JOIN vehicles t ON t.id = atr.truck_id
-            WHERE atr.id = ? AND atr.agreement_id = ? AND atr.transporter_user_id = ?
+            WHERE atr.id = %s AND atr.agreement_id = %s AND atr.transporter_user_id = %s
             """,
             (trip_id, agreement_id, request.current_user["id"]),
         ).fetchone()
@@ -668,7 +671,7 @@ def end_trip(agreement_id, trip_id):
         distance_km = None
         distance_source = "haversine"
 
-        truck_row = db.execute("SELECT traccar_device_id FROM vehicles WHERE id = ?", (trip["truck_id"],)).fetchone()
+        truck_row = db.execute("SELECT traccar_device_id FROM vehicles WHERE id = %s", (trip["truck_id"],)).fetchone()
         traccar_device_id = truck_row["traccar_device_id"] if truck_row else None
         if traccar_device_id:
             try:
@@ -693,8 +696,8 @@ def end_trip(agreement_id, trip_id):
         db.execute(
             """
             UPDATE agreement_trips
-            SET gps_end_lat = ?, gps_end_lng = ?, distance_km = ?, distance_source = ?, ended_at = ?, status = 'completed'
-            WHERE id = ?
+            SET gps_end_lat = %s, gps_end_lng = %s, distance_km = %s, distance_source = %s, ended_at = %s, status = 'completed'
+            WHERE id = %s
             """,
             (gps_end_lat, gps_end_lng, distance_km, distance_source, stamp, trip_id),
         )
@@ -705,7 +708,7 @@ def end_trip(agreement_id, trip_id):
             FROM agreement_monthly_payments amp
             JOIN agreement_trucks at ON at.id = amp.agreement_truck_id
             JOIN agreements a ON a.id = amp.agreement_id
-            WHERE amp.agreement_id = ? AND amp.agreement_truck_id = ? AND amp.month_year = ?
+            WHERE amp.agreement_id = %s AND amp.agreement_truck_id = %s AND amp.month_year = %s
             LIMIT 1
             """,
             (agreement_id, trip["agreement_truck_id"], trip_month),
@@ -721,15 +724,15 @@ def end_trip(agreement_id, trip_id):
             db.execute(
                 """
                 UPDATE agreement_monthly_payments
-                SET total_km = ?, total_earned = ?, final_amount = ?, company_fee = ?, transporter_amount = ?
-                WHERE id = ?
+                SET total_km = %s, total_earned = %s, final_amount = %s, company_fee = %s, transporter_amount = %s
+                WHERE id = %s
                 """,
                 (total_km, total_earned, final_amount, company_fee, transporter_amount, payment["id"]),
             )
         insert_system_note_for_agreement(db, agreement_id, request.current_user["id"], f"Truck {trip['truck_number']} completed trip: {distance_km:.2f} km")
         db.commit()
         updated = db.execute(
-            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = ?",
+            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = %s",
             (trip_id,),
         ).fetchone()
     return json_response({"success": True, "trip": serialize_trip(dict(updated)), "distance_km": distance_km, "distance_source": distance_source})
@@ -747,7 +750,7 @@ def trip_live_location(trip_id):
             SELECT atr.*, t.traccar_device_id
             FROM agreement_trips atr
             JOIN vehicles t ON t.id = atr.truck_id
-            WHERE atr.id = ?
+            WHERE atr.id = %s
             """,
             (trip_id,),
         ).fetchone()
@@ -798,7 +801,7 @@ def dispute_trip(trip_id):
             SELECT atr.*, a.client_user_id
             FROM agreement_trips atr
             JOIN agreements a ON a.id = atr.agreement_id
-            WHERE atr.id = ?
+            WHERE atr.id = %s
             """,
             (trip_id,),
         ).fetchone()
@@ -810,12 +813,12 @@ def dispute_trip(trip_id):
             return json_response({"success": False, "message": "Only completed trips can be disputed."}, 400)
         stamp = timestamp_bundle()["iso"]
         db.execute(
-            "UPDATE agreement_trips SET status = 'disputed', updated_at = ? WHERE id = ?",
+            "UPDATE agreement_trips SET status = 'disputed', updated_at = %s WHERE id = %s",
             (stamp, trip_id),
         )
         db.commit()
         updated = db.execute(
-            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = ?",
+            "SELECT atr.*, t.truck_number FROM agreement_trips atr JOIN vehicles t ON t.id = atr.truck_id WHERE atr.id = %s",
             (trip_id,),
         ).fetchone()
     return json_response({"success": True, "trip": serialize_trip(dict(updated))})
@@ -835,11 +838,11 @@ def list_trips(agreement_id):
             SELECT atr.*, t.truck_number
             FROM agreement_trips atr
             JOIN vehicles t ON t.id = atr.truck_id
-            WHERE atr.agreement_id = ?
+            WHERE atr.agreement_id = %s
         """
         truck_id = request.args.get("truck_id")
         if truck_id:
-            query += " AND atr.truck_id = ?"
+            query += " AND atr.truck_id = %s"
             params.append(truck_id)
         query += " ORDER BY atr.id DESC"
         rows = db.execute(query, tuple(params)).fetchall()
@@ -858,13 +861,13 @@ def my_agreements():
                 """
                 SELECT a.*, COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'Client') AS client_name,
                        COUNT(DISTINCT at.id) AS truck_count,
-                       SUM(CASE WHEN amp.month_year = ? THEN amp.total_km ELSE 0 END) AS current_month_km,
-                       SUM(CASE WHEN amp.month_year = ? THEN amp.transporter_amount ELSE 0 END) AS current_month_earnings
+                       SUM(CASE WHEN amp.month_year = %s THEN amp.total_km ELSE 0 END) AS current_month_km,
+                       SUM(CASE WHEN amp.month_year = %s THEN amp.transporter_amount ELSE 0 END) AS current_month_earnings
                 FROM agreements a
                 JOIN users u ON u.id = a.client_user_id
                 LEFT JOIN agreement_trucks at ON at.agreement_id = a.id
                 LEFT JOIN agreement_monthly_payments amp ON amp.agreement_id = a.id
-                WHERE a.client_user_id = ?
+                WHERE a.client_user_id = %s
                 GROUP BY a.id, u.id
                 ORDER BY a.id DESC
                 """,
@@ -875,11 +878,11 @@ def my_agreements():
                 """
                 SELECT a.*, COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'Client') AS client_name,
                        COUNT(DISTINCT at.id) AS truck_count,
-                       SUM(CASE WHEN amp.month_year = ? THEN amp.total_km ELSE 0 END) AS current_month_km,
-                       SUM(CASE WHEN amp.month_year = ? THEN amp.transporter_amount ELSE 0 END) AS current_month_earnings
+                       SUM(CASE WHEN amp.month_year = %s THEN amp.total_km ELSE 0 END) AS current_month_km,
+                       SUM(CASE WHEN amp.month_year = %s THEN amp.transporter_amount ELSE 0 END) AS current_month_earnings
                 FROM agreements a
                 JOIN users u ON u.id = a.client_user_id
-                JOIN agreement_trucks at ON at.agreement_id = a.id AND at.transporter_user_id = ?
+                JOIN agreement_trucks at ON at.agreement_id = a.id AND at.transporter_user_id = %s
                 LEFT JOIN agreement_monthly_payments amp ON amp.agreement_truck_id = at.id
                 GROUP BY a.id, u.id
                 ORDER BY a.id DESC
@@ -896,7 +899,7 @@ def my_agreements():
                 FROM agreement_trucks at
                 JOIN vehicles t ON t.id = at.truck_id
                 JOIN users u ON u.id = at.transporter_user_id
-                WHERE at.agreement_id IN ({','.join('?' for _ in agreement_ids)})
+                WHERE at.agreement_id IN ({','.join('%s' for _ in agreement_ids)})
                 ORDER BY at.id ASC
                 """,
                 tuple(agreement_ids),
@@ -920,7 +923,7 @@ def list_payments(agreement_id):
             FROM agreement_monthly_payments amp
             JOIN agreement_trucks at ON at.id = amp.agreement_truck_id
             JOIN vehicles t ON t.id = at.truck_id
-            WHERE amp.agreement_id = ?
+            WHERE amp.agreement_id = %s
             ORDER BY amp.payment_due_date ASC, amp.id ASC
             """,
             (agreement_id,),

@@ -290,7 +290,7 @@ def process_payment_row(db, payment):
     if client_error:
         return False
     if available_balance(client_wallet) + 1e-9 < round_money(payment["final_amount"]):
-        db.execute("UPDATE agreement_monthly_payments SET status = 'failed' WHERE id = ?", (payment["id"],))
+        db.execute("UPDATE agreement_monthly_payments SET status = 'failed' WHERE id = %s", (payment["id"],))
         return False
 
     transporter_wallet, transporter_error = get_or_create_wallet_for_user(
@@ -323,7 +323,7 @@ def process_payment_row(db, payment):
         return False
     stamp = timestamp_bundle()["iso"]
     db.execute(
-        "UPDATE agreement_monthly_payments SET status = 'paid', paid_at = ? WHERE id = ?",
+        "UPDATE agreement_monthly_payments SET status = 'paid', paid_at = %s WHERE id = %s",
         (stamp, payment["id"]),
     )
     return True
@@ -339,7 +339,7 @@ def run_process_payments(db):
     failed = 0
     rows = db.execute(
         "SELECT * FROM agreement_monthly_payments "
-        "WHERE status = 'pending' AND payment_due_date <= ? ORDER BY id ASC",
+        "WHERE status = 'pending' AND payment_due_date <= %s ORDER BY id ASC",
         (today,),
     ).fetchall()
     for row in rows:
@@ -360,7 +360,7 @@ def run_apply_penalties(db):
     penalties_applied = 0
     rows = db.execute(
         "SELECT * FROM agreement_monthly_payments "
-        "WHERE status = 'failed' AND payment_due_date <= ? ORDER BY id ASC",
+        "WHERE status = 'failed' AND payment_due_date <= %s ORDER BY id ASC",
         (today,),
     ).fetchall()
     for row in rows:
@@ -382,23 +382,23 @@ def run_apply_penalties(db):
         if penalty_error:
             continue
         current_count = db.execute(
-            "SELECT COUNT(*) AS total FROM agreement_payment_penalties WHERE monthly_payment_id = ?",
+            "SELECT COUNT(*) AS total FROM agreement_payment_penalties WHERE monthly_payment_id = %s",
             (payment["id"],),
         ).fetchone()["total"]
         stamp = timestamp_bundle()["iso"]
         db.execute(
             "INSERT INTO agreement_payment_penalties ("
             "monthly_payment_id, client_user_id, penalty_amount, penalty_number, applied_at"
-            ") VALUES (?, ?, ?, ?, ?)",
+            ") VALUES (%s, %s, %s, %s, %s)",
             (payment["id"], payment["client_user_id"], PENALTY_AMOUNT, int(current_count or 0) + 1, stamp),
         )
         db.execute(
-            "UPDATE agreement_monthly_payments SET penalty_amount = penalty_amount + ? WHERE id = ?",
+            "UPDATE agreement_monthly_payments SET penalty_amount = penalty_amount + %s WHERE id = %s",
             (PENALTY_AMOUNT, payment["id"]),
         )
         penalties_applied += 1
         refreshed = db.execute(
-            "SELECT * FROM agreement_monthly_payments WHERE id = ?", (payment["id"],)
+            "SELECT * FROM agreement_monthly_payments WHERE id = %s", (payment["id"],)
         ).fetchone()
         if refreshed:
             process_payment_row(db, dict(refreshed))

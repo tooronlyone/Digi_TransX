@@ -36,7 +36,7 @@ CHASSIS_NUMBER_MESSAGE = (
 
 def get_owned_truck_or_error(truck_id, owner_user_id):
     with open_db() as db:
-        row = db.execute("SELECT * FROM vehicles WHERE id = ?", (truck_id,)).fetchone()
+        row = db.execute("SELECT * FROM vehicles WHERE id = %s", (truck_id,)).fetchone()
     if not row:
         return None, json_response({"success": False, "message": "Truck not found."}, 404)
     truck = dict(row)
@@ -147,21 +147,21 @@ def create_truck():
     stamp = timestamp_bundle()
     with open_db() as db:
         existing_truck_number = db.execute(
-            "SELECT id FROM vehicles WHERE lower(trim(truck_number)) = lower(trim(?)) LIMIT 1",
+            "SELECT id FROM vehicles WHERE lower(trim(truck_number)) = lower(trim(%s)) LIMIT 1",
             (truck_number,),
         ).fetchone()
         if existing_truck_number:
             return json_response({"success": False, "message": "This truck number is already registered in the system."}, 409)
 
         existing_chassis_number = db.execute(
-            "SELECT id FROM vehicles WHERE lower(trim(chassis_number)) = lower(trim(?)) LIMIT 1",
+            "SELECT id FROM vehicles WHERE lower(trim(chassis_number)) = lower(trim(%s)) LIMIT 1",
             (chassis_number,),
         ).fetchone()
         if existing_chassis_number:
             return json_response({"success": False, "message": "This chassis number is already registered in the system."}, 409)
 
         try:
-            db.execute(
+            truck_id = db.execute(
                 """
                 INSERT INTO vehicles (
                     owner_user_id, truck_number, truck_company, truck_model, truck_type, catalog_type_key,
@@ -169,7 +169,8 @@ def create_truck():
                     bed_length_ft, bed_width_ft, bed_height_ft,
                     body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id,
                     status, created_at, updated_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'inactive', ?, ?)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'inactive', %s, %s)
+                RETURNING id
                 """,
                 (
                     request.current_user["id"],
@@ -194,16 +195,15 @@ def create_truck():
                     stamp["display"],
                     stamp["display"],
                 ),
-            )
+            ).fetchone()["id"]
             db.commit()
-            truck_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
             try:
                 imei = parse_optional_text(form.get("trackingId"))
                 if imei is not None and imei.strip() != "":
                     gps_device_id = register_device(imei.strip(), truck_number)
                     if gps_device_id is not None:
                         db.execute(
-                            "UPDATE vehicles SET traccar_device_id = ? WHERE id = ?",
+                            "UPDATE vehicles SET traccar_device_id = %s WHERE id = %s",
                             (str(gps_device_id), truck_id),
                         )
                         db.commit()
@@ -212,14 +212,14 @@ def create_truck():
         except IntegrityError:
             db.rollback()
             duplicate_truck_number = db.execute(
-                "SELECT id FROM vehicles WHERE lower(trim(truck_number)) = lower(trim(?)) LIMIT 1",
+                "SELECT id FROM vehicles WHERE lower(trim(truck_number)) = lower(trim(%s)) LIMIT 1",
                 (truck_number,),
             ).fetchone()
             if duplicate_truck_number:
                 return json_response({"success": False, "message": "This truck number is already registered in the system."}, 409)
 
             duplicate_chassis_number = db.execute(
-                "SELECT id FROM vehicles WHERE lower(trim(chassis_number)) = lower(trim(?)) LIMIT 1",
+                "SELECT id FROM vehicles WHERE lower(trim(chassis_number)) = lower(trim(%s)) LIMIT 1",
                 (chassis_number,),
             ).fetchone()
             if duplicate_chassis_number:
@@ -236,7 +236,7 @@ def list_trucks():
         rows = db.execute(
             """
             SELECT * FROM vehicles
-            WHERE owner_user_id = ?
+            WHERE owner_user_id = %s
             ORDER BY id DESC
             """,
             (request.current_user["id"],),
@@ -258,7 +258,7 @@ def truck_stats():
                 SUM(CASE WHEN status = 'maintenance' THEN 1 ELSE 0 END) AS maintenance,
                 SUM(CASE WHEN status IN ('inactive', 'blocked') THEN 1 ELSE 0 END) AS inactive
             FROM vehicles
-            WHERE owner_user_id = ?
+            WHERE owner_user_id = %s
             """,
             (request.current_user["id"],),
         ).fetchone()
@@ -439,15 +439,15 @@ def update_truck_configuration(truck_id):
         db.execute(
             """
             UPDATE vehicles
-            SET truck_number = ?, truck_company = ?, truck_model = ?, truck_type = ?, catalog_type_key = ?, chassis_number = ?,
-                capacity_tons = ?, operating_provinces = ?, body_style = ?, payload_min_tons = ?, payload_max_tons = ?,
-                bed_length_ft = ?, bed_width_ft = ?, bed_height_ft = ?,
-                volume_min_cbm = ?, volume_max_cbm = ?, catalog_specs_json = ?, tracking_id = ?, driver_name = ?,
-                driver_cnic = ?,
-                refrigeration_supported = ?, hazardous_supported = ?, fragile_supported = ?,
-                truck_photo_path = ?, insurance_photo_path = ?, rc_book_photo_path = ?,
-                updated_at = ?, status_reason_code = ?, status_reason = ?
-            WHERE id = ? AND owner_user_id = ?
+            SET truck_number = %s, truck_company = %s, truck_model = %s, truck_type = %s, catalog_type_key = %s, chassis_number = %s,
+                capacity_tons = %s, operating_provinces = %s, body_style = %s, payload_min_tons = %s, payload_max_tons = %s,
+                bed_length_ft = %s, bed_width_ft = %s, bed_height_ft = %s,
+                volume_min_cbm = %s, volume_max_cbm = %s, catalog_specs_json = %s, tracking_id = %s, driver_name = %s,
+                driver_cnic = %s,
+                refrigeration_supported = %s, hazardous_supported = %s, fragile_supported = %s,
+                truck_photo_path = %s, insurance_photo_path = %s, rc_book_photo_path = %s,
+                updated_at = %s, status_reason_code = %s, status_reason = %s
+            WHERE id = %s AND owner_user_id = %s
             """,
             (
                 truck_number,
@@ -502,13 +502,13 @@ def update_truck_configuration(truck_id):
                 gps_device_id = register_device(imei.strip(), truck_number)
                 if gps_device_id is not None:
                     db.execute(
-                        "UPDATE vehicles SET traccar_device_id = ? WHERE id = ?",
+                        "UPDATE vehicles SET traccar_device_id = %s WHERE id = %s",
                         (str(gps_device_id), truck_id),
                     )
                     db.commit()
         except Exception:
             pass
-        updated = db.execute("SELECT * FROM vehicles WHERE id = ? AND owner_user_id = ?", (truck_id, request.current_user["id"])).fetchone()
+        updated = db.execute("SELECT * FROM vehicles WHERE id = %s AND owner_user_id = %s", (truck_id, request.current_user["id"])).fetchone()
 
     return json_response({"success": True, "truck": build_configuration_payload(dict(updated))})
 
@@ -554,12 +554,12 @@ def update_truck_status(truck_id):
         db.execute(
             """
             UPDATE vehicles
-            SET status = ?, status_reason_code = ?, status_reason = ?, updated_at = ?
-            WHERE id = ? AND owner_user_id = ?
+            SET status = %s, status_reason_code = %s, status_reason = %s, updated_at = %s
+            WHERE id = %s AND owner_user_id = %s
             """,
             (status, status_reason_code, status_reason, stamp["display"], truck_id, request.current_user["id"]),
         )
         db.commit()
-        updated = db.execute("SELECT * FROM vehicles WHERE id = ? AND owner_user_id = ?", (truck_id, request.current_user["id"])).fetchone()
+        updated = db.execute("SELECT * FROM vehicles WHERE id = %s AND owner_user_id = %s", (truck_id, request.current_user["id"])).fetchone()
 
     return json_response({"success": True, "truck": build_configuration_payload(dict(updated))})

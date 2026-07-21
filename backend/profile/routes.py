@@ -45,8 +45,8 @@ def profile_update():
         db.execute(
             """
             UPDATE users
-            SET full_name = ?, phone = ?, city = ?, about = ?, updated_at = ?
-            WHERE id = ?
+            SET full_name = %s, phone = %s, city = %s, about = %s, updated_at = %s
+            WHERE id = %s
             """,
             (full_name, phone, city, about, stamp["display"], request.current_user["id"]),
         )
@@ -116,7 +116,7 @@ def change_password():
     except Exception as exc:
         return json_response({"success": False, "message": f"Could not update password: {exc}"}, 500)
     with open_db() as db:
-        db.execute("UPDATE users SET updated_at = ? WHERE id = ?", (stamp["iso"], request.current_user["id"]))
+        db.execute("UPDATE users SET updated_at = %s WHERE id = %s", (stamp["iso"], request.current_user["id"]))
         db.commit()
     return json_response({"success": True, "message": "Password changed successfully."})
 

@@ -133,7 +133,7 @@ def snapshot_company_share(row):
 def get_active_policy(db, policy_type):
     """Latest published policy version for one type (None if unseeded)."""
     row = db.execute(
-        "SELECT * FROM commission_policies WHERE policy_type = ? "
+        "SELECT * FROM commission_policies WHERE policy_type = %s "
         "ORDER BY version_number DESC LIMIT 1",
         (policy_type,),
     ).fetchone()
@@ -143,14 +143,14 @@ def get_active_policy(db, policy_type):
 def get_policy_by_id(db, policy_id):
     if not policy_id:
         return None
-    row = db.execute("SELECT * FROM commission_policies WHERE id = ?", (policy_id,)).fetchone()
+    row = db.execute("SELECT * FROM commission_policies WHERE id = %s", (policy_id,)).fetchone()
     return dict(row) if row else None
 
 
 def list_policy_versions(db, policy_type=None):
     if policy_type:
         rows = db.execute(
-            "SELECT * FROM commission_policies WHERE policy_type = ? "
+            "SELECT * FROM commission_policies WHERE policy_type = %s "
             "ORDER BY version_number DESC",
             (policy_type,),
         ).fetchall()
@@ -170,16 +170,17 @@ def create_policy_version(db, policy_type, company_share_percent, change_summary
     transporter = transporter_share_percent_for(company)
     current = db.execute(
         "SELECT COALESCE(MAX(version_number), 0) AS latest FROM commission_policies "
-        "WHERE policy_type = ?",
+        "WHERE policy_type = %s",
         (policy_type,),
     ).fetchone()
     next_version = int(current["latest"] or 0) + 1
-    db.execute(
+    new_id = db.execute(
         """
         INSERT INTO commission_policies (
             policy_type, version_number, company_share_percent, transporter_share_percent,
             effective_at, change_summary, created_by_admin_user_id, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
         """,
         (
             policy_type,
@@ -191,8 +192,7 @@ def create_policy_version(db, policy_type, company_share_percent, change_summary
             admin_user_id,
             effective_at_iso,
         ),
-    )
-    new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
+    ).fetchone()["id"]
     return get_policy_by_id(db, new_id)
 
 
@@ -205,7 +205,7 @@ def get_current_terms_version(db):
 
 def get_terms_version_by_number(db, version_number):
     row = db.execute(
-        "SELECT * FROM terms_versions WHERE version_number = ?", (version_number,)
+        "SELECT * FROM terms_versions WHERE version_number = %s", (version_number,)
     ).fetchone()
     return dict(row) if row else None
 
@@ -222,13 +222,14 @@ def create_terms_version(db, one_time_policy_id, agreement_policy_id, change_sum
         "SELECT COALESCE(MAX(version_number), 0) AS latest FROM terms_versions"
     ).fetchone()
     next_version = int(current["latest"] or 0) + 1
-    db.execute(
+    new_id = db.execute(
         """
         INSERT INTO terms_versions (
             version_number, effective_at, change_summary,
             one_time_policy_id, agreement_policy_id,
             published_by_admin_user_id, published_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        RETURNING id
         """,
         (
             next_version,
@@ -239,9 +240,8 @@ def create_terms_version(db, one_time_policy_id, agreement_policy_id, change_sum
             admin_user_id,
             published_at_iso,
         ),
-    )
-    new_id = db.execute("SELECT last_insert_rowid()").fetchone()[0]
-    row = db.execute("SELECT * FROM terms_versions WHERE id = ?", (new_id,)).fetchone()
+    ).fetchone()["id"]
+    row = db.execute("SELECT * FROM terms_versions WHERE id = %s", (new_id,)).fetchone()
     return dict(row) if row else None
 
 
@@ -297,17 +297,22 @@ def publish_commission_change(db, policy_type, company_share_percent, change_sum
 # ---------------------------------------------------------------------------
 
 def record_acknowledgement(db, user_id, terms_version_id, stamp_iso):
-    """Idempotently record that a user reviewed a Terms version. Does NOT commit."""
+    """Idempotently record that a user reviewed a Terms version. Does NOT commit.
+
+    Repeat acknowledgements hit the (user_id, terms_version_id) unique
+    constraint and are skipped, so no duplicate rows are ever created.
+    """
     db.execute(
-        "INSERT OR IGNORE INTO terms_acknowledgements (user_id, terms_version_id, acknowledged_at) "
-        "VALUES (?, ?, ?)",
+        "INSERT INTO terms_acknowledgements (user_id, terms_version_id, acknowledged_at) "
+        "VALUES (%s, %s, %s) "
+        "ON CONFLICT (user_id, terms_version_id) DO NOTHING",
         (user_id, terms_version_id, stamp_iso),
     )
 
 
 def has_acknowledged(db, user_id, terms_version_id):
     row = db.execute(
-        "SELECT id FROM terms_acknowledgements WHERE user_id = ? AND terms_version_id = ?",
+        "SELECT id FROM terms_acknowledgements WHERE user_id = %s AND terms_version_id = %s",
         (user_id, terms_version_id),
     ).fetchone()
     return bool(row)

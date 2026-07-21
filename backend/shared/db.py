@@ -1,23 +1,27 @@
 """Database access layer — Supabase PostgreSQL.
 
-Replaces the old SQLite layer. Exposes the same open_db() context manager
-and cursor-style API the app modules already use, backed by a psycopg2
-connection pool pointed at the Supabase Postgres database.
+Shared psycopg2 connection pool for the whole Flask backend. Exposes an
+open_db() context manager yielding a Db wrapper with a cursor-style API:
 
-Compatibility notes (kept so the 7k-line app code keeps working unchanged):
-- '?' placeholders are translated to psycopg2's '%s'.
-- 'INSERT OR IGNORE' becomes 'INSERT ... ON CONFLICT DO NOTHING'.
-- 'SELECT last_insert_rowid()' is intercepted: every INSERT automatically
-  gets 'RETURNING id' appended and the id is cached on the wrapper.
-- Rows come back as dict-like Row objects (also indexable by position).
-- Values are normalized to what the app expects from SQLite:
-  timestamps -> ISO strings, dates -> 'YYYY-MM-DD', Decimal -> float,
-  jsonb -> JSON string.
-- Legacy display-format timestamp params ('20 Jul 2026 12:58:48 PM') are
-  parsed to real datetimes before hitting Postgres.
-- db.total_changes mirrors sqlite3's connection attribute (last rowcount).
+    with open_db() as db:
+        row = db.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
 
-There is NO SQLite fallback. SUPABASE_DB_URL must be configured.
+Contract:
+- Queries are native psycopg2 SQL with %s placeholders.
+- Inserts that need their generated key state it explicitly (RETURNING id).
+- Rows come back as plain dicts keyed by column name.
+- Every result exposes rowcount for UPDATE/DELETE affected-row checks.
+- Values are normalized for the JSON API contract the app was built on:
+  timestamps -> ISO strings, dates -> 'YYYY-MM-DD', times -> 'HH:MM:SS',
+  Decimal -> float, jsonb -> JSON string, memoryview -> bytes.
+- Display-format timestamp params ('20 Jul 2026 12:58:48 PM', produced by
+  auth.helpers.timestamp_bundle) are parsed to real datetimes before being
+  sent to PostgreSQL.
+- Transactions: open_db() commits on clean exit and rolls back on any
+  exception; Db.commit()/Db.rollback() remain available for explicit
+  mid-block boundaries.
+
+SUPABASE_DB_URL must be configured — there is no fallback engine.
 """
 
 import json
@@ -67,18 +71,7 @@ def _get_pool():
     return _pool
 
 
-class Row(dict):
-    """Dict row that also supports positional access like sqlite3.Row."""
-
-    def __getitem__(self, key):
-        if isinstance(key, int):
-            return list(self.values())[key]
-        return super().__getitem__(key)
-
-
 _DISPLAY_TS_RE = re.compile(r"^\d{1,2} [A-Z][a-z]{2} \d{4} \d{1,2}:\d{2}:\d{2} [AP]M$")
-_LASTROWID_RE = re.compile(r"^\s*SELECT\s+last_insert_rowid\s*\(\s*\)\s*;?\s*$", re.IGNORECASE)
-_INSERT_IGNORE_RE = re.compile(r"INSERT\s+OR\s+IGNORE\s+INTO", re.IGNORECASE)
 
 
 def _normalize_value(value):
@@ -106,21 +99,9 @@ def _normalize_param(value):
     return value
 
 
-def _translate_sql(sql, has_params):
-    on_conflict_ignore = False
-    if _INSERT_IGNORE_RE.search(sql):
-        sql = _INSERT_IGNORE_RE.sub("INSERT INTO", sql)
-        on_conflict_ignore = True
-    if has_params:
-        sql = sql.replace("%", "%%").replace("?", "%s")
-    stripped = sql.lstrip().upper()
-    if stripped.startswith("INSERT") and "RETURNING" not in stripped:
-        suffix = " ON CONFLICT DO NOTHING" if on_conflict_ignore else ""
-        sql = sql.rstrip().rstrip(";") + suffix + " RETURNING id"
-    return sql
-
-
 class _Result:
+    """Materialized query result: fetchone/fetchall plus the statement's rowcount."""
+
     def __init__(self, rows, rowcount=-1):
         self._rows = rows
         self._index = 0
@@ -140,44 +121,27 @@ class _Result:
 
 
 class Db:
-    """Connection wrapper mimicking the sqlite3 connection surface the app uses."""
+    """Thin connection wrapper: execute native PostgreSQL, get dict rows back."""
 
     def __init__(self, conn):
         self._conn = conn
-        self._last_insert_id = None
-        self._total_changes = 0
-
-    @property
-    def total_changes(self):
-        return self._total_changes
 
     def execute(self, sql, params=()):
-        if _LASTROWID_RE.match(sql):
-            return _Result([Row({"last_insert_rowid": self._last_insert_id})])
-
-        has_params = params is not None and len(params) > 0
-        translated = _translate_sql(sql, has_params)
-        is_insert = translated.lstrip().upper().startswith("INSERT")
-
         cursor = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
         try:
-            if has_params:
-                cursor.execute(translated, [_normalize_param(p) for p in params])
+            if params is not None and len(params) > 0:
+                cursor.execute(sql, [_normalize_param(p) for p in params])
             else:
-                cursor.execute(translated)
+                cursor.execute(sql)
 
             rows = []
             if cursor.description is not None:
                 rows = [
-                    Row({key: _normalize_value(val) for key, val in raw.items()})
+                    {key: _normalize_value(val) for key, val in raw.items()}
                     for raw in cursor.fetchall()
                 ]
-            self._total_changes = cursor.rowcount if cursor.rowcount is not None else 0
-            if is_insert:
-                if rows and "id" in rows[0]:
-                    self._last_insert_id = rows[0]["id"]
-                return _Result([], rowcount=self._total_changes)
-            return _Result(rows, rowcount=self._total_changes)
+            rowcount = cursor.rowcount if cursor.rowcount is not None else 0
+            return _Result(rows, rowcount=rowcount)
         finally:
             cursor.close()
 

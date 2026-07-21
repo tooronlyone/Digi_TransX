@@ -17,7 +17,7 @@ def api_track():
             """
             INSERT INTO user_action_logs (
                 user_id, user_email, user_role, action_type, action_name, page_url, payload_json, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 str(data.get("user_id") or ""),

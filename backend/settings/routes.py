@@ -68,7 +68,7 @@ def security_activity():
             """
             SELECT created_at, ip_address, status, login_method, failure_reason
             FROM login_activity
-            WHERE user_id = ?
+            WHERE user_id = %s
             ORDER BY id DESC
             LIMIT 20
             """,

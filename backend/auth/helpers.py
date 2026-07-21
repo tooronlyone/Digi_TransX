@@ -202,7 +202,7 @@ def _attach_role_profile(db, user):
     row = None
     if legacy in CLIENT_ROLES:
         row = db.execute(
-            "SELECT customer_type, company_name, business_type, transport_need FROM customers WHERE user_id = ?",
+            "SELECT customer_type, company_name, business_type, transport_need FROM customers WHERE user_id = %s",
             (user["id"],),
         ).fetchone()
     elif legacy in TRANSPORTER_ROLES:
@@ -210,18 +210,18 @@ def _attach_role_profile(db, user):
             """
             SELECT company_name, fleet_size, withdrawal_tier, withdrawal_tier_expires_at,
                    payout_card_number, payout_card_holder, payout_card_expiry, payout_card_bank
-            FROM transporter_profiles WHERE user_id = ?
+            FROM transporter_profiles WHERE user_id = %s
             """,
             (user["id"],),
         ).fetchone()
     elif legacy == "fuel_station_manager":
         row = db.execute(
-            "SELECT station_name, pumps_count, license_no FROM fuel_station_profiles WHERE user_id = ?",
+            "SELECT station_name, pumps_count, license_no FROM fuel_station_profiles WHERE user_id = %s",
             (user["id"],),
         ).fetchone()
     elif legacy == "shopkeeper":
         row = db.execute(
-            "SELECT shop_name FROM shopkeeper_profiles WHERE user_id = ?",
+            "SELECT shop_name FROM shopkeeper_profiles WHERE user_id = %s",
             (user["id"],),
         ).fetchone()
     if row:
@@ -233,7 +233,7 @@ def get_user_by_id(user_id):
     if not user_id:
         return None
     with open_db() as db:
-        row = db.execute("SELECT * FROM users WHERE id = ?", (user_id,)).fetchone()
+        row = db.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
         if not row:
             return None
         return _attach_role_profile(db, _with_legacy_role(dict(row)))
@@ -243,7 +243,7 @@ def get_user_by_login(login_id):
     login_kind, value = parse_login_id(login_id)
     column = "cnic" if login_kind == "cnic" else "email"
     with open_db() as db:
-        row = db.execute(f"SELECT * FROM users WHERE {column} = ?", (value,)).fetchone()
+        row = db.execute(f"SELECT * FROM users WHERE {column} = %s", (value,)).fetchone()
         user = _attach_role_profile(db, _with_legacy_role(dict(row))) if row else None
         return user, login_kind, value
 
@@ -309,7 +309,7 @@ def record_login_activity(user_id, login_identifier, login_method, status, failu
             INSERT INTO login_activity (
                 user_id, login_identifier, login_method, status, failure_reason,
                 ip_address, user_agent, created_at
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
             """,
             (
                 user_id,
@@ -329,15 +329,15 @@ def upsert_trusted_device(user_id):
     stamp = timestamp_bundle()
     device_token = request.cookies.get(DEVICE_COOKIE_NAME) or secrets.token_urlsafe(32)
     with open_db() as db:
-        existing = db.execute("SELECT id FROM trusted_devices WHERE device_token = ?", (device_token,)).fetchone()
+        existing = db.execute("SELECT id FROM trusted_devices WHERE device_token = %s", (device_token,)).fetchone()
         if existing:
             db.execute(
-                "UPDATE trusted_devices SET user_id = ?, last_seen_at = ? WHERE device_token = ?",
+                "UPDATE trusted_devices SET user_id = %s, last_seen_at = %s WHERE device_token = %s",
                 (user_id, stamp["display"], device_token),
             )
         else:
             db.execute(
-                "INSERT INTO trusted_devices (device_token, user_id, created_at, last_seen_at) VALUES (?, ?, ?, ?)",
+                "INSERT INTO trusted_devices (device_token, user_id, created_at, last_seen_at) VALUES (%s, %s, %s, %s)",
                 (device_token, user_id, stamp["display"], stamp["display"]),
             )
         db.commit()
@@ -373,7 +373,7 @@ def latest_otp_record(user_id, purpose):
         row = db.execute(
             """
             SELECT * FROM password_reset_otps
-            WHERE user_id = ? AND purpose = ?
+            WHERE user_id = %s AND purpose = %s
             ORDER BY id DESC
             LIMIT 1
             """,
@@ -390,7 +390,7 @@ def create_otp_record(user_id, purpose, otp_code, recipient_email):
             INSERT INTO password_reset_otps (
                 user_id, purpose, otp_hash, expires_at_iso, created_at, created_at_iso,
                 attempts, max_attempts, verified, cooldown_until_iso, delivery_target
-            ) VALUES (?, ?, ?, ?, ?, ?, 0, ?, 0, NULL, ?)
+            ) VALUES (%s, %s, %s, %s, %s, %s, 0, %s, 0, NULL, %s)
             """,
             (
                 user_id,
@@ -417,7 +417,7 @@ def create_reset_token(user_id, purpose):
         db.execute(
             """
             INSERT INTO reset_tokens (user_id, purpose, token_hash, expires_at_iso, created_at_iso, used)
-            VALUES (?, ?, ?, ?, ?, 0)
+            VALUES (%s, %s, %s, %s, %s, 0)
             """,
             (
                 user_id,
@@ -443,7 +443,7 @@ def find_valid_reset_token(raw_token, purpose):
         rows = db.execute(
             """
             SELECT * FROM reset_tokens
-            WHERE user_id = ? AND purpose = ? AND used = 0
+            WHERE user_id = %s AND purpose = %s AND used = 0
             ORDER BY id DESC
             """,
             (user_id, purpose),
@@ -519,7 +519,7 @@ def get_settings_dict(user):
 def update_user_settings(user_id, settings_dict):
     with open_db() as db:
         db.execute(
-            "UPDATE users SET settings_json = ?, updated_at = ? WHERE id = ?",
+            "UPDATE users SET settings_json = %s, updated_at = %s WHERE id = %s",
             (json.dumps(settings_dict), timestamp_bundle()["display"], user_id),
         )
         db.commit()
@@ -544,12 +544,12 @@ def verify_otp_for_user(user_id, purpose, otp_code):
             message = "Too many wrong attempts. Please wait 15 minutes before requesting a new code."
         with open_db() as db:
             db.execute(
-                "UPDATE password_reset_otps SET attempts = ?, cooldown_until_iso = ? WHERE id = ?",
+                "UPDATE password_reset_otps SET attempts = %s, cooldown_until_iso = %s WHERE id = %s",
                 (attempts, cooldown_until, record["id"]),
             )
             db.commit()
         return None, message
     with open_db() as db:
-        db.execute("UPDATE password_reset_otps SET verified = 1 WHERE id = ?", (record["id"],))
+        db.execute("UPDATE password_reset_otps SET verified = 1 WHERE id = %s", (record["id"],))
         db.commit()
     return latest_otp_record(user_id, purpose), ""

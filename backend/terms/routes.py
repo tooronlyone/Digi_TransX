@@ -77,7 +77,7 @@ def acknowledge_terms(terms_version_id):
     user = request.current_user
     with open_db() as db:
         exists = db.execute(
-            "SELECT id FROM terms_versions WHERE id = ?", (terms_version_id,)
+            "SELECT id FROM terms_versions WHERE id = %s", (terms_version_id,)
         ).fetchone()
         if not exists:
             return json_response({"success": False, "message": "Terms version not found."}, 404)

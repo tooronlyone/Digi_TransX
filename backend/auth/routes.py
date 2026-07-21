@@ -63,10 +63,10 @@ def signup():
     role = (data.get("role") or "").strip()
     stamp = timestamp_bundle()
     with open_db() as db:
-        email_exists = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        email_exists = db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone()
         if email_exists:
             return json_response({"success": False, "field": "email", "message": "Email is already registered."}, 409)
-        cnic_exists = db.execute("SELECT id FROM users WHERE cnic = ?", (cnic,)).fetchone()
+        cnic_exists = db.execute("SELECT id FROM users WHERE cnic = %s", (cnic,)).fetchone()
         if cnic_exists:
             return json_response({"success": False, "field": "cnic", "message": "CNIC is already registered."}, 409)
 
@@ -97,9 +97,9 @@ def signup():
         db.execute(
             """
             UPDATE users
-            SET full_name = ?, phone = ?, cnic = ?, legacy_role = ?,
-                city = ?, address = ?, about = ?, updated_at = ?, last_login_at = ?
-            WHERE email = ?
+            SET full_name = %s, phone = %s, cnic = %s, legacy_role = %s,
+                city = %s, address = %s, about = %s, updated_at = %s, last_login_at = %s
+            WHERE email = %s
             """,
             (
                 full_name,
@@ -114,7 +114,7 @@ def signup():
                 email,
             ),
         )
-        row = db.execute("SELECT id FROM users WHERE email = ?", (email,)).fetchone()
+        row = db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone()
         user_id = row["id"] if row else None
 
         # Role-specific data goes into its own profile table (clean structure,
@@ -123,7 +123,7 @@ def signup():
             db.execute(
                 """
                 INSERT INTO customers (user_id, customer_type, company_name, business_type, transport_need)
-                VALUES (?, ?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
                     customer_type = excluded.customer_type,
                     company_name = excluded.company_name,
@@ -142,7 +142,7 @@ def signup():
             db.execute(
                 """
                 INSERT INTO transporter_profiles (user_id, company_name, fleet_size)
-                VALUES (?, ?, ?)
+                VALUES (%s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
                     company_name = excluded.company_name,
                     fleet_size = excluded.fleet_size
@@ -153,7 +153,7 @@ def signup():
             db.execute(
                 """
                 INSERT INTO fuel_station_profiles (user_id, station_name, pumps_count, license_no)
-                VALUES (?, ?, ?, ?)
+                VALUES (%s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
                     station_name = excluded.station_name,
                     pumps_count = excluded.pumps_count,
@@ -165,7 +165,7 @@ def signup():
             db.execute(
                 """
                 INSERT INTO shopkeeper_profiles (user_id, shop_name)
-                VALUES (?, ?)
+                VALUES (%s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET shop_name = excluded.shop_name
                 """,
                 (user_id, clean("shop_name")),
@@ -197,7 +197,7 @@ def login():
         return json_response({"success": False, "field": "password", "message": "Incorrect password."}, 401)
     stamp = timestamp_bundle()
     with open_db() as db:
-        db.execute("UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?", (stamp["display"], stamp["display"], user["id"]))
+        db.execute("UPDATE users SET last_login_at = %s, updated_at = %s WHERE id = %s", (stamp["display"], stamp["display"], user["id"]))
         db.commit()
     user = get_user_by_id(user["id"])
     record_login_activity(user["id"], lookup_value, login_method, "success", "")
@@ -300,7 +300,7 @@ def reset_password():
         return json_response({"success": False, "message": error_message}, 400)
     stamp = timestamp_bundle()
     with open_db() as db:
-        row = db.execute("SELECT auth_id FROM users WHERE id = ?", (token_record["user_id"],)).fetchone()
+        row = db.execute("SELECT auth_id FROM users WHERE id = %s", (token_record["user_id"],)).fetchone()
         if not row or not row["auth_id"]:
             return json_response({"success": False, "message": "Account is not linked to the auth system. Please contact support."}, 500)
         auth_id = row["auth_id"]
@@ -309,9 +309,9 @@ def reset_password():
     except Exception as exc:
         return json_response({"success": False, "message": f"Could not update password: {exc}"}, 500)
     with open_db() as db:
-        db.execute("UPDATE users SET updated_at = ? WHERE id = ?", (stamp["iso"], token_record["user_id"]))
-        db.execute("UPDATE reset_tokens SET used = 1 WHERE id = ?", (token_record["id"],))
-        db.execute("UPDATE password_reset_otps SET verified = 1 WHERE user_id = ? AND purpose = 'password_reset'", (token_record["user_id"],))
+        db.execute("UPDATE users SET updated_at = %s WHERE id = %s", (stamp["iso"], token_record["user_id"]))
+        db.execute("UPDATE reset_tokens SET used = 1 WHERE id = %s", (token_record["id"],))
+        db.execute("UPDATE password_reset_otps SET verified = 1 WHERE user_id = %s AND purpose = 'password_reset'", (token_record["user_id"],))
         db.commit()
     return json_response({"success": True, "message": "Password reset successful."})
 
@@ -323,7 +323,7 @@ def fast_login_options():
         return json_response({"success": True, "available": False})
     with open_db() as db:
         row = db.execute(
-            "SELECT u.* FROM trusted_devices td JOIN users u ON u.id = td.user_id WHERE td.device_token = ?",
+            "SELECT u.* FROM trusted_devices td JOIN users u ON u.id = td.user_id WHERE td.device_token = %s",
             (device_token,),
         ).fetchone()
     if not row:
@@ -343,7 +343,7 @@ def fast_login_mpin():
         return json_response({"success": False, "message": "No trusted device found. Please login with password first."}, 404)
     with open_db() as db:
         row = db.execute(
-            "SELECT u.* FROM trusted_devices td JOIN users u ON u.id = td.user_id WHERE td.device_token = ?",
+            "SELECT u.* FROM trusted_devices td JOIN users u ON u.id = td.user_id WHERE td.device_token = %s",
             (device_token,),
         ).fetchone()
     if not row:
@@ -356,7 +356,7 @@ def fast_login_mpin():
         return json_response({"success": False, "message": "Invalid MPIN."}, 401)
     stamp = timestamp_bundle()
     with open_db() as db:
-        db.execute("UPDATE users SET last_login_at = ?, updated_at = ? WHERE id = ?", (stamp["display"], stamp["display"], user["id"]))
+        db.execute("UPDATE users SET last_login_at = %s, updated_at = %s WHERE id = %s", (stamp["display"], stamp["display"], user["id"]))
         db.commit()
     user = get_user_by_id(user["id"])
     record_login_activity(user["id"], user.get("email", ""), "mpin", "success", "")
@@ -375,7 +375,7 @@ def setup_fast_login():
         return json_response({"success": False, "field": "mpin", "message": "MPIN must be exactly 4 digits."}, 400)
     stamp = timestamp_bundle()
     with open_db() as db:
-        db.execute("UPDATE users SET mpin_hash = ?, mpin_enabled = true, updated_at = ? WHERE id = ?", (generate_password_hash(mpin), stamp["display"], request.current_user["id"]))
+        db.execute("UPDATE users SET mpin_hash = %s, mpin_enabled = true, updated_at = %s WHERE id = %s", (generate_password_hash(mpin), stamp["display"], request.current_user["id"]))
         db.commit()
     user = get_user_by_id(request.current_user["id"])
     return json_response({"success": True, "message": "MPIN enabled successfully.", "user": serialize_user(user), "csrf_token": session.get("csrf_token", "")})
@@ -389,7 +389,7 @@ def disable_fast_login():
         return err
     stamp = timestamp_bundle()
     with open_db() as db:
-        db.execute("UPDATE users SET mpin_hash = NULL, mpin_enabled = false, updated_at = ? WHERE id = ?", (stamp["display"], request.current_user["id"]))
+        db.execute("UPDATE users SET mpin_hash = NULL, mpin_enabled = false, updated_at = %s WHERE id = %s", (stamp["display"], request.current_user["id"]))
         db.commit()
     user = get_user_by_id(request.current_user["id"])
     return json_response({"success": True, "message": "MPIN disabled successfully.", "user": serialize_user(user), "csrf_token": session.get("csrf_token", "")})

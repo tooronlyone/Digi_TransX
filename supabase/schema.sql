@@ -1,25 +1,17 @@
 -- ============================================================================
--- Digi_TransX — Supabase PostgreSQL Schema (v1.1)
+-- Digi_TransX — Supabase PostgreSQL Schema
 -- ============================================================================
--- Migration source: Database/digitransx_auth.db (SQLite)
+-- Complete schema for the platform: tables, indexes, helper functions,
+-- triggers, Row Level Security policies, seed data, and the private
+-- 'shipment-documents' Storage bucket.
 --
--- Table mapping from the existing app:
---   users                    -> users        (linked to Supabase Auth)
---   users (client-side data) -> customers    (profile extension)
---   trucks.driver_name/cnic  -> drivers      (structured driver records)
---   trucks                   -> vehicles
---   orders                   -> shipments
---   order_bids               -> shipment_bids
---   order_trips              -> shipment_trips
---   (new, trigger-populated) -> shipment_status_history
---   uploaded files metadata  -> documents    (files live in Storage bucket)
---   order_invoices           -> payments
---
--- v1.1 note: COLUMN names intentionally keep the legacy app naming
--- (truck_number, client_user_id, order_id, ...) so the existing Flask
--- backend migrates with minimal risk. Table names follow the new design.
--- Status columns are TEXT (not enums) because the app uses many workflow
--- statuses (on_job, delivery_claimed, dispute_pending, ...).
+-- Naming notes:
+--   - Some COLUMN names keep the Flask app's established naming
+--     (truck_number, client_user_id, order_id, ...) — the backend queries
+--     depend on them. Table names follow the current design
+--     (vehicles, shipments, shipment_bids, payments, ...).
+--   - Status columns are TEXT (not enums) because the app uses many workflow
+--     statuses (on_job, delivery_claimed, dispute_pending, ...).
 --
 -- Run once on a fresh Supabase project (SQL Editor or `supabase db push`).
 -- ============================================================================
@@ -1137,11 +1129,3 @@ create policy "shipment_docs_admin_all" on storage.objects
 
 create policy "shipment_docs_dispatcher_read" on storage.objects
     for select using (bucket_id = 'shipment-documents' and public.is_dispatcher());
-
--- ---------------------------------------------------------------------------
--- 9. SEQUENCE ALIGNMENT (run AFTER data import from SQLite)
--- ---------------------------------------------------------------------------
--- The migration script (backend/scripts/migrate_sqlite_to_supabase.py) copies
--- legacy rows with their original ids and then bumps every identity sequence:
---   select setval(pg_get_serial_sequence('public.users', 'id'),
---                 coalesce((select max(id) from public.users), 0) + 1, false);

@@ -81,7 +81,7 @@ def get_or_create_wallet_for_user(db, user):
     if not wallet_role:
         return None, json_response({"success": False, "message": "Wallet is not available for this account role."}, 403)
 
-    row = db.execute("SELECT * FROM wallets WHERE user_id = ?", (user["id"],)).fetchone()
+    row = db.execute("SELECT * FROM wallets WHERE user_id = %s", (user["id"],)).fetchone()
     if row:
         return dict(row), None
 
@@ -91,11 +91,11 @@ def get_or_create_wallet_for_user(db, user):
         """
         INSERT INTO wallets (
             user_id, role, balance, locked_balance, minimum_required, is_minimum_met, completed_trips_count, created_at, updated_at
-        ) VALUES (?, ?, 0, 0, ?, false, 0, ?, ?)
+        ) VALUES (%s, %s, 0, 0, %s, false, 0, %s, %s)
         """,
         (user["id"], wallet_role, minimum_required, stamp, stamp),
     )
-    row = db.execute("SELECT * FROM wallets WHERE user_id = ?", (user["id"],)).fetchone()
+    row = db.execute("SELECT * FROM wallets WHERE user_id = %s", (user["id"],)).fetchone()
     return (dict(row) if row else None), None
 
 
@@ -118,7 +118,7 @@ def ensure_wallet_locked_balance(db, wallet, user_id, amount, reason="wallet_loc
     stamp = timestamp_bundle()["display"]
     locked_balance = round_money(wallet["locked_balance"] + amount)
     db.execute(
-        "UPDATE wallets SET locked_balance = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+        "UPDATE wallets SET locked_balance = %s, updated_at = %s WHERE id = %s AND user_id = %s",
         (locked_balance, stamp, wallet["id"], user_id),
     )
     wallet["locked_balance"] = locked_balance
@@ -128,7 +128,7 @@ def ensure_wallet_locked_balance(db, wallet, user_id, amount, reason="wallet_loc
         INSERT INTO wallet_transactions (
             wallet_id, user_id, type, amount, gross_amount, gateway_fee,
             description, reference_id, balance_after, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             wallet["id"],
@@ -153,7 +153,7 @@ def insert_wallet_transaction(db, wallet, user_id, tx_type, amount, description=
         INSERT INTO wallet_transactions (
             wallet_id, user_id, type, amount, gross_amount, gateway_fee,
             description, reference_id, balance_after, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
         """,
         (
             wallet["id"],
@@ -180,7 +180,7 @@ def ensure_wallet_unlocked_balance(db, wallet, user_id, amount, reason="wallet_u
     stamp = timestamp_bundle()["display"]
     locked_balance = round_money(wallet["locked_balance"] - amount)
     db.execute(
-        "UPDATE wallets SET locked_balance = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+        "UPDATE wallets SET locked_balance = %s, updated_at = %s WHERE id = %s AND user_id = %s",
         (locked_balance, stamp, wallet["id"], user_id),
     )
     wallet["locked_balance"] = locked_balance
@@ -205,7 +205,7 @@ def adjust_wallet_balance(db, wallet, user_id, delta_amount, tx_type, descriptio
 
     stamp = timestamp_bundle()["display"]
     db.execute(
-        "UPDATE wallets SET balance = ?, updated_at = ? WHERE id = ? AND user_id = ?",
+        "UPDATE wallets SET balance = %s, updated_at = %s WHERE id = %s AND user_id = %s",
         (next_balance, stamp, wallet["id"], user_id),
     )
     wallet["balance"] = next_balance

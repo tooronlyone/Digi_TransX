@@ -22,12 +22,7 @@ frontend-react/.vite/
 npm-debug.log*
 yarn-error.log*
 
-# ---- Database (legacy SQLite — local only) ----
-Database/*.db
-Database/*.db-journal
-Database/*.sqlite
-
-# ---- Uploaded files (now live in Supabase Storage) ----
+# ---- Uploaded files (live in Supabase Storage) ----
 backend/uploads/
 
 # ---- OS / editor ----
