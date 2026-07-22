@@ -35,7 +35,7 @@ from .helpers import (
     get_or_create_order_for_client,
     validate_order_creation,
     fetch_order,
-    fetch_bids_for_order,
+    fetch_enriched_bids,
     fetch_trip_for_order,
     calculate_no_show_penalty,
     order_access_for_user,
@@ -394,23 +394,21 @@ def get_order_details(order_id):
         )
 
         if access == "owner":
-            bids = fetch_bids_for_order(db, order_id)
+            # Owner: every non-withdrawn bid, enriched with safe transporter /
+            # truck data and per-bid checkout availability.
+            bids = fetch_enriched_bids(db, order)
             payment_summary = serialize_payment_summary(payment, viewer="client")
         else:
-            bids = [
-                dict(row)
-                for row in db.execute(
-                    "SELECT * FROM shipment_bids WHERE order_id = %s AND transporter_user_id = %s",
-                    (order_id, request.current_user["id"]),
-                ).fetchall()
-            ]
+            # Accepted transporter: the SAME enriched shape but scoped to only
+            # their own bid (never competing bids).
+            bids = fetch_enriched_bids(db, order, transporter_user_id=request.current_user["id"])
             payment_summary = serialize_payment_summary(payment, viewer="transporter")
 
     return json_response({
         "success": True,
         "access": access,
         "order": serialize_order(order),
-        "bids": [serialize_bid(b) for b in bids],
+        "bids": bids,
         "trip": serialize_trip(trip) if trip else None,
         "payment": payment_summary,
     })

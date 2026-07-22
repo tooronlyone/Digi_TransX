@@ -128,15 +128,60 @@ def _headers(idempotency_key=None, csrf=True):
     return headers
 
 
-def _seed_order(db, client_id, status="open"):
+def _seed_order(db, client_id, status="open", **cols):
+    base = {"client_user_id": client_id, "status": status}
+    base.update(cols)
+    keys = list(base.keys())
+    placeholders = ", ".join(["%s"] * len(keys))
     order_id = db.execute(
-        "INSERT INTO shipments (client_user_id, status) VALUES (%s, %s) RETURNING id",
-        (client_id, status),
+        f"INSERT INTO shipments ({', '.join(keys)}) VALUES ({placeholders}) RETURNING id",
+        tuple(base[k] for k in keys),
     ).fetchone()["id"]
     return order_id
 
 
-def _seed_bid(db, order_id, transporter_id, price, truck_id=1):
+def _seed_user(db, user_id, full_name="Ali Traders", email="ali-secret@example.com",
+               phone="03001234567", cnic="3520212345671", role="logistics_provider"):
+    db.execute(
+        "INSERT INTO users (id, full_name, email, phone, cnic, role) "
+        "VALUES (%s, %s, %s, %s, %s, %s)",
+        (user_id, full_name, email, phone, cnic, role),
+    )
+
+
+def _seed_transporter_profile(db, user_id, company_name="Ali Logistics Pvt Ltd"):
+    db.execute(
+        "INSERT INTO transporter_profiles (user_id, company_name) VALUES (%s, %s)",
+        (user_id, company_name),
+    )
+
+
+def _seed_truck(db, owner_id, status="active", **overrides):
+    """Seed an active, high-capacity vehicle owned by the transporter so the
+    bid's truck passes the shared current-truck validation at checkout."""
+    cols = {
+        "owner_user_id": owner_id,
+        "truck_number": f"T-{owner_id}",
+        "truck_company": "Volvo",
+        "truck_model": "Volvo FH",
+        "truck_type": "Cargo Truck",
+        "catalog_type_key": None,
+        "capacity_tons": 100,
+        "payload_max_tons": 100,
+        "status": status,
+    }
+    cols.update(overrides)
+    keys = list(cols.keys())
+    placeholders = ", ".join(["%s"] * len(keys))
+    return db.execute(
+        f"INSERT INTO vehicles ({', '.join(keys)}) VALUES ({placeholders}) RETURNING id",
+        tuple(cols[k] for k in keys),
+    ).fetchone()["id"]
+
+
+def _seed_bid(db, order_id, transporter_id, price, truck_id=None, truck_status="active"):
+    if truck_id is None:
+        truck_id = _seed_truck(db, transporter_id, status=truck_status)
     return db.execute(
         "INSERT INTO shipment_bids (order_id, transporter_user_id, truck_id, bid_price) "
         "VALUES (%s, %s, %s, %s) RETURNING id",
@@ -438,6 +483,216 @@ def test_order_details_route_scopes_by_access(client):
     # The losing bidder is unrelated -> 403.
     client.login(OTHER_TRANSPORTER)
     assert client.get(f"/api/orders/{order_id}").status_code == 403
+
+
+# ---------------------------------------------------------------------------
+# Enriched bid comparison + current-truck validation
+# ---------------------------------------------------------------------------
+
+SENSITIVE_STRINGS = (
+    "ali-secret@example.com",     # email
+    "03001234567",                # phone
+    "3520212345671",              # cnic
+    "driver-cnic-9",              # driver cnic (never selected)
+)
+
+
+def _seed_enriched_bid(db, order_id, transporter_id, price, company="Ali Logistics Pvt Ltd",
+                       full_name="Ali Traders", truck_status="active", **truck_overrides):
+    """Seed a transporter user + profile + a specced truck + the bid."""
+    _seed_user(db, transporter_id, full_name=full_name)
+    _seed_transporter_profile(db, transporter_id, company_name=company)
+    truck_id = _seed_truck(
+        db, transporter_id, status=truck_status,
+        truck_number="LES-8842", truck_company="Hino", truck_model="Hino 500",
+        catalog_type_key="heavy_rigid_truck_9_15_ton",
+        capacity_tons=15, payload_min_tons=9, payload_max_tons=15,
+        volume_min_cbm=30, volume_max_cbm=55,
+        bed_length_ft=20, bed_width_ft=8, bed_height_ft=8,
+        body_style="Rigid cargo body",
+        **truck_overrides,
+    )
+    bid_id = _seed_bid(db, order_id, transporter_id, price, truck_id=truck_id)
+    return bid_id, truck_id
+
+
+def test_owner_receives_enriched_bid_data_without_sensitive_fields(client):
+    db = client.db
+    order_id = _seed_order(db, BUSINESS["id"], goods_weight_tons=10, goods_type="Steel bars")
+    bid_id, truck_id = _seed_enriched_bid(db, order_id, TRANSPORTER["id"], 100000)
+    db.commit()
+
+    client.login(BUSINESS)
+    resp = client.get(f"/api/orders/{order_id}")
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["access"] == "owner"
+    assert len(body["bids"]) == 1
+    bid = body["bids"][0]
+
+    # (1) Enriched transporter + truck data.
+    assert bid["transporter"]["display_name"] == "Ali Traders"
+    assert bid["transporter"]["company_name"] == "Ali Logistics Pvt Ltd"
+    assert bid["transporter"]["completed_trips"] == 0
+    assert bid["truck"]["truck_number"] == "LES-8842"
+    assert bid["truck"]["type_name"] == "Heavy rigid truck 9-15 ton"
+    assert bid["truck"]["type_key"] == "heavy_rigid_truck_9_15_ton"
+    assert bid["truck"]["capacity_tons"] == 15.0
+    assert bid["truck"]["payload_max_tons"] == 15.0
+    assert bid["truck"]["volume_max_cbm"] == 55.0
+    assert bid["truck"]["bed_length_ft"] == 20.0
+    assert bid["truck"]["status"] == "active"
+    # Legacy top-level fields preserved for backward compatibility.
+    assert bid["bid_price"] == 100000.0
+    assert bid["truck_id"] == truck_id
+    assert bid["can_checkout"] is True
+    assert bid["unavailable_reason"] is None
+
+    # (2) No sensitive fields anywhere in the JSON.
+    text = resp.get_data(as_text=True)
+    for secret in SENSITIVE_STRINGS:
+        assert secret not in text
+    for banned in ("email", "phone", "cnic", "driver_cnic", "payout", "tracking_id",
+                   "traccar", "provider_token"):
+        assert banned not in text
+
+
+def test_withdrawn_bids_excluded_from_comparison(client):
+    db = client.db
+    order_id = _seed_order(db, BUSINESS["id"], goods_weight_tons=10)
+    live_id, _ = _seed_enriched_bid(db, order_id, TRANSPORTER["id"], 100000)
+    gone_id, _ = _seed_enriched_bid(db, order_id, OTHER_TRANSPORTER["id"], 90000,
+                                    company="Gone Ltd", full_name="Gone Bidder")
+    db.execute("UPDATE shipment_bids SET status = 'withdrawn' WHERE id = %s", (gone_id,))
+    db.commit()
+
+    client.login(BUSINESS)
+    body = client.get(f"/api/orders/{order_id}").get_json()
+    ids = [b["id"] for b in body["bids"]]
+    assert live_id in ids
+    assert gone_id not in ids
+    assert len(body["bids"]) == 1
+
+
+def test_accepted_transporter_sees_only_their_own_enriched_bid(client):
+    db = client.db
+    _seed_wallet(db, BUSINESS["id"], 300000)
+    order_id = _seed_order(db, BUSINESS["id"], goods_weight_tons=10)
+    win_id, _ = _seed_enriched_bid(db, order_id, TRANSPORTER["id"], 100000)
+    _seed_enriched_bid(db, order_id, OTHER_TRANSPORTER["id"], 90000,
+                       company="Rival Ltd", full_name="Rival Bidder")
+    db.commit()
+    client.login(BUSINESS)
+    client.post(
+        f"/api/orders/{order_id}/bids/{win_id}/checkout",
+        json={}, headers=_headers(idempotency_key="key-enriched-accept"),
+    )
+
+    client.login(TRANSPORTER)
+    resp = client.get(f"/api/orders/{order_id}")
+    body = resp.get_json()
+    assert body["access"] == "accepted_transporter"
+    assert len(body["bids"]) == 1
+    assert body["bids"][0]["transporter_user_id"] == TRANSPORTER["id"]
+    # Their own bid still carries the enriched shape.
+    assert body["bids"][0]["truck"]["truck_number"] == "LES-8842"
+    assert "Rival" not in resp.get_data(as_text=True)
+
+
+def test_unrelated_users_receive_403(client):
+    db = client.db
+    order_id = _seed_order(db, BUSINESS["id"], goods_weight_tons=10)
+    _seed_enriched_bid(db, order_id, TRANSPORTER["id"], 100000)
+    db.commit()
+    # A different client.
+    client.login({"id": 4040, "role": "service_seeker"})
+    assert client.get(f"/api/orders/{order_id}").status_code == 403
+    # A transporter who never bid.
+    client.login(OTHER_TRANSPORTER)
+    assert client.get(f"/api/orders/{order_id}").status_code == 403
+
+
+def test_quote_rejects_inactive_truck(client):
+    db = client.db
+    order_id = _seed_order(db, BUSINESS["id"], goods_weight_tons=10)
+    bid_id, truck_id = _seed_enriched_bid(db, order_id, TRANSPORTER["id"], 100000)
+    _seed_wallet(db, BUSINESS["id"], 300000)
+    db.execute("UPDATE vehicles SET status = 'inactive' WHERE id = %s", (truck_id,))
+    db.commit()
+    client.login(BUSINESS)
+    resp = client.get(f"/api/orders/{order_id}/bids/{bid_id}/payment-quote")
+    assert resp.status_code == 409
+    assert resp.get_json()["code"] == "bid_truck_unavailable"
+
+
+def test_quote_rejects_truck_no_longer_owned_by_bidder(client):
+    db = client.db
+    order_id = _seed_order(db, BUSINESS["id"], goods_weight_tons=10)
+    bid_id, truck_id = _seed_enriched_bid(db, order_id, TRANSPORTER["id"], 100000)
+    _seed_wallet(db, BUSINESS["id"], 300000)
+    db.execute("UPDATE vehicles SET owner_user_id = %s WHERE id = %s",
+               (OTHER_TRANSPORTER["id"], truck_id))
+    db.commit()
+    client.login(BUSINESS)
+    resp = client.get(f"/api/orders/{order_id}/bids/{bid_id}/payment-quote")
+    assert resp.status_code == 409
+    assert resp.get_json()["code"] == "bid_truck_unavailable"
+
+
+def test_quote_rejects_truck_that_no_longer_matches_order(client):
+    db = client.db
+    # Truck capacity 15 t; raise the load to 40 t so it no longer fits.
+    order_id = _seed_order(db, BUSINESS["id"], goods_weight_tons=40)
+    bid_id, truck_id = _seed_enriched_bid(db, order_id, TRANSPORTER["id"], 100000)
+    _seed_wallet(db, BUSINESS["id"], 300000)
+    db.commit()
+    client.login(BUSINESS)
+    resp = client.get(f"/api/orders/{order_id}/bids/{bid_id}/payment-quote")
+    assert resp.status_code == 409
+    assert resp.get_json()["code"] == "bid_truck_unavailable"
+
+
+def test_checkout_rechecks_truck_under_lock_and_makes_no_mutations(client):
+    db = client.db
+    _seed_wallet(db, BUSINESS["id"], 300000)
+    order_id = _seed_order(db, BUSINESS["id"], goods_weight_tons=10)
+    bid_id, truck_id = _seed_enriched_bid(db, order_id, TRANSPORTER["id"], 100000)
+    # Truck goes inactive after the bid — checkout must catch it under the lock.
+    db.execute("UPDATE vehicles SET status = 'maintenance' WHERE id = %s", (truck_id,))
+    db.commit()
+
+    client.login(BUSINESS)
+    resp = client.post(
+        f"/api/orders/{order_id}/bids/{bid_id}/checkout",
+        json={}, headers=_headers(idempotency_key="key-truck-gone"),
+    )
+    assert resp.status_code == 409
+    assert resp.get_json()["code"] == "bid_truck_unavailable"
+
+    # (10) No provider charge, no wallet mutation, no payment, no trip, no accept.
+    assert db.execute("SELECT COUNT(*) AS c FROM payments").fetchone()["c"] == 0
+    assert db.execute("SELECT COUNT(*) AS c FROM shipment_trips").fetchone()["c"] == 0
+    assert db.execute("SELECT status FROM shipment_bids WHERE id = %s", (bid_id,)).fetchone()["status"] == "pending"
+    assert float(db.execute("SELECT balance FROM wallets WHERE user_id = %s", (BUSINESS["id"],)).fetchone()["balance"]) == 300000.0
+    assert db.execute("SELECT status FROM shipments WHERE id = %s", (order_id,)).fetchone()["status"] == "open"
+
+
+def test_valid_enriched_bid_completes_checkout(client):
+    db = client.db
+    _seed_wallet(db, BUSINESS["id"], 300000)
+    order_id = _seed_order(db, BUSINESS["id"], goods_weight_tons=10)
+    bid_id, truck_id = _seed_enriched_bid(db, order_id, TRANSPORTER["id"], 100000)
+    db.commit()
+    client.login(BUSINESS)
+    resp = client.post(
+        f"/api/orders/{order_id}/bids/{bid_id}/checkout",
+        json={}, headers=_headers(idempotency_key="key-enriched-ok"),
+    )
+    assert resp.status_code == 200
+    body = resp.get_json()
+    assert body["trip"]["status"] == "ready_to_start"
+    assert body["payment"]["status"] == "held"
+    assert db.execute("SELECT status FROM shipment_bids WHERE id = %s", (bid_id,)).fetchone()["status"] == "accepted"
 
 
 # ---------------------------------------------------------------------------

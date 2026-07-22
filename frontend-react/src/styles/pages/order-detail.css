@@ -211,6 +211,261 @@
   cursor: not-allowed;
 }
 
+/* Sorting control */
+.odp-sort {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.odp-sort__label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: #64748b;
+  letter-spacing: 0.5px;
+}
+
+.odp-sort__select {
+  border: 1px solid #cbd5e1;
+  border-radius: 0.5rem;
+  padding: 0.375rem 0.625rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: #0f172a;
+  background: white;
+}
+
+/* Badges row */
+.bid-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  justify-content: flex-end;
+}
+
+.bid-badge--budget {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.bid-badge--accepted {
+  background: #16a34a;
+  color: white;
+}
+
+.bid-badge--rejected {
+  background: #e2e8f0;
+  color: #475569;
+}
+
+/* Accepted / rejected / unavailable card states */
+.bid-card--accepted {
+  border-color: #16a34a;
+  box-shadow: 0 0 0 1px #16a34a inset;
+}
+
+.bid-card--rejected {
+  opacity: 0.6;
+}
+
+.bid-card--unavailable {
+  border-color: #fed7aa;
+}
+
+/* Transporter block */
+.bid-transporter {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  margin-bottom: 1rem;
+}
+
+.bid-avatar {
+  width: 2.5rem;
+  height: 2.5rem;
+  border-radius: 9999px;
+  background: #eff6ff;
+  color: #2563eb;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+}
+
+.bid-transporter__meta {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.bid-transporter__name {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.95rem;
+}
+
+.bid-transporter__sub {
+  font-size: 0.8rem;
+  color: #64748b;
+}
+
+.bid-transporter__trips {
+  font-size: 0.75rem;
+  color: #16a34a;
+  font-weight: 600;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  margin-top: 0.15rem;
+}
+
+/* Truck block */
+.bid-truck {
+  display: flex;
+  gap: 0.875rem;
+  padding: 0.875rem;
+  background: #f8fafc;
+  border-radius: 0.625rem;
+  margin-bottom: 1rem;
+}
+
+.bid-truck__photo {
+  width: 5rem;
+  height: 4rem;
+  border-radius: 0.5rem;
+  overflow: hidden;
+  flex-shrink: 0;
+  background: #e2e8f0;
+}
+
+.bid-truck__photo img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.bid-truck__fallback {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  font-size: 1.5rem;
+}
+
+.bid-truck__specs {
+  min-width: 0;
+  flex: 1;
+}
+
+.bid-truck__title {
+  font-weight: 700;
+  color: #0f172a;
+  font-size: 0.9rem;
+}
+
+.bid-truck__number {
+  color: #64748b;
+  font-weight: 600;
+}
+
+.bid-truck__line {
+  font-size: 0.8rem;
+  color: #475569;
+  margin-top: 0.15rem;
+}
+
+.bid-truck__chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.375rem;
+  margin-top: 0.5rem;
+}
+
+.bid-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.3rem;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: #334155;
+  background: white;
+  border: 1px solid #e2e8f0;
+  border-radius: 9999px;
+  padding: 0.2rem 0.5rem;
+}
+
+.bid-chip i {
+  color: #64748b;
+}
+
+/* Unavailable warning */
+.bid-warning {
+  display: flex;
+  align-items: flex-start;
+  gap: 0.5rem;
+  background: #fff7ed;
+  border: 1px solid #fed7aa;
+  color: #9a3412;
+  border-radius: 0.5rem;
+  padding: 0.625rem 0.75rem;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin-bottom: 1rem;
+}
+
+/* Payment + trip summary */
+.payment-summary {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.payment-summary__row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.payment-summary__grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem;
+}
+
+.payment-summary__grid > div {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
+.odp-pill {
+  display: inline-flex;
+  align-items: center;
+  border-radius: 9999px;
+  padding: 0.25rem 0.75rem;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: capitalize;
+}
+
+.odp-pill--held {
+  background: #dcfce7;
+  color: #166534;
+}
+
+.odp-pill--trip {
+  background: #dbeafe;
+  color: #1e40af;
+}
+
+.odp-pill--muted {
+  background: #f1f5f9;
+  color: #475569;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
   .order-detail-grid {
