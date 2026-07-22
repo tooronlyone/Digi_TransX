@@ -74,6 +74,9 @@ export default function ClientOrderDetail() {
   }
 
   useEffect(() => {
+    // loadOrder is the shared loader reused by the "Refresh bids" button, so it
+    // stays defined outside the effect; invoking it on mount is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadOrder()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])

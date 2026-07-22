@@ -107,15 +107,6 @@ def fetch_order(db, order_id):
     return dict(row) if row else None
 
 
-def fetch_bids_for_order(db, order_id):
-    """Fetch all bids for an order."""
-    rows = db.execute(
-        "SELECT * FROM shipment_bids WHERE order_id = %s ORDER BY created_at ASC",
-        (order_id,)
-    ).fetchall()
-    return [dict(r) for r in rows]
-
-
 def order_access_for_user(db, order, user):
     """Access level of a user on a one-time order.
 

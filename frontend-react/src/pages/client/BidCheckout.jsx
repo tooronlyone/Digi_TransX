@@ -17,7 +17,8 @@ const EMPTY_CARD = {
 }
 
 function formatCardNumber(value) {
-  const digits = String(value || '').replace(/\D/g, '').slice(0, 16)
+  // Backend accepts 12–19 digits; group in fours for readability.
+  const digits = String(value || '').replace(/\D/g, '').slice(0, 19)
   return digits.replace(/(\d{4})(?=\d)/g, '$1 ')
 }
 
@@ -96,64 +97,89 @@ export default function BidCheckout() {
   const [submitError, setSubmitError] = useState('')
   const [success, setSuccess] = useState(false)
 
-  // Stable idempotency key for this order+bid checkout attempt.
-  const idemKeyRef = useRef(getOrCreateIdemKey(orderId, bidId))
+  // One idempotency key per (orderId, bidId) pair, derived from the route
+  // params: navigating to a different bid immediately uses that pair's own key,
+  // while a reload or retry for the same pair reuses its persisted key.
+  const idempotencyKey = useMemo(() => getOrCreateIdemKey(orderId, bidId), [orderId, bidId])
 
-  // Clear raw card data on unmount (defence in depth — state is dropped anyway).
-  useEffect(() => () => setCard(EMPTY_CARD), [])
-
-  async function loadAll() {
-    setLoading(true)
-    setError('')
-    try {
-      const orderResp = await fetch(`/api/orders/${orderId}`, { credentials: 'same-origin' })
-      const orderJson = await orderResp.json().catch(() => ({}))
-      if (!orderResp.ok || orderJson.success === false) {
-        throw new Error(orderJson.message || 'Unable to load order.')
-      }
-      const foundBid = (orderJson.bids || []).find((b) => String(b.id) === String(bidId))
-      setBid(foundBid || null)
-
-      const quoteResp = await fetch(`/api/orders/${orderId}/bids/${bidId}/payment-quote`, {
-        credentials: 'same-origin',
-      })
-      const quoteJson = await quoteResp.json().catch(() => ({}))
-      if (!quoteResp.ok || quoteJson.success === false) {
-        throw new Error(quoteJson.message || 'Unable to load the payment quote.')
-      }
-      const q = quoteJson.quote
-      setQuote(q)
-      setSelectedMethodId(q.default_card ? q.default_card.id : null)
-      setConfirmCharge(false)
-
-      // Business seekers may pay a shortfall with a saved card.
-      if (q.client_kind === 'business' && q.requires_card) {
-        try {
-          const methodsResp = await fetch('/api/payment-methods', { credentials: 'same-origin' })
-          const methodsJson = await methodsResp.json().catch(() => ({}))
-          if (methodsResp.ok && methodsJson.success !== false) {
-            const methods = methodsJson.methods || []
-            setSavedCards(methods)
-            setPayMode(methods.length > 0 ? 'saved' : 'new')
-          } else {
-            setSavedCards([])
-            setPayMode('new')
-          }
-        } catch {
-          setSavedCards([])
-          setPayMode('new')
-        }
-      }
-    } catch (loadError) {
-      setError(loadError.message || 'Unable to load checkout.')
-    } finally {
-      setLoading(false)
-    }
-  }
+  // Post-success redirect timer, cleared on unmount so it never fires late.
+  const redirectTimerRef = useRef(null)
+  useEffect(() => () => {
+    if (redirectTimerRef.current) clearTimeout(redirectTimerRef.current)
+  }, [])
 
   useEffect(() => {
-    loadAll()
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let active = true
+
+    async function load() {
+      setLoading(true)
+      setError('')
+      try {
+        const orderResp = await fetch(`/api/orders/${orderId}`, { credentials: 'same-origin' })
+        const orderJson = await orderResp.json().catch(() => ({}))
+        if (!orderResp.ok || orderJson.success === false) {
+          throw new Error(orderJson.message || 'Unable to load order.')
+        }
+        const foundBid = (orderJson.bids || []).find((b) => String(b.id) === String(bidId))
+        if (!active) return
+        setBid(foundBid || null)
+
+        const quoteResp = await fetch(`/api/orders/${orderId}/bids/${bidId}/payment-quote`, {
+          credentials: 'same-origin',
+        })
+        const quoteJson = await quoteResp.json().catch(() => ({}))
+        if (!quoteResp.ok || quoteJson.success === false) {
+          throw new Error(quoteJson.message || 'Unable to load the payment quote.')
+        }
+        const q = quoteJson.quote
+        if (!active) return
+        setQuote(q)
+        setConfirmCharge(false)
+
+        // Business seekers may pay a shortfall with a saved card.
+        if (q.client_kind === 'business' && q.requires_card) {
+          let methods = []
+          try {
+            const methodsResp = await fetch('/api/payment-methods', { credentials: 'same-origin' })
+            const methodsJson = await methodsResp.json().catch(() => ({}))
+            if (methodsResp.ok && methodsJson.success !== false) {
+              methods = methodsJson.methods || []
+            }
+          } catch {
+            methods = []
+          }
+          if (!active) return
+          setSavedCards(methods)
+          if (methods.length > 0) {
+            // Prefer the default card when it is one of the active methods,
+            // otherwise fall back to the first active card. Saved-card mode is
+            // never left with no selection.
+            const defaultInList = q.default_card
+              && methods.some((m) => String(m.id) === String(q.default_card.id))
+            setSelectedMethodId(defaultInList ? q.default_card.id : methods[0].id)
+            setPayMode('saved')
+          } else {
+            setSelectedMethodId(null)
+            setPayMode('new')
+          }
+        } else {
+          if (!active) return
+          setSavedCards([])
+          setSelectedMethodId(null)
+        }
+      } catch (loadError) {
+        if (active) setError(loadError.message || 'Unable to load checkout.')
+      } finally {
+        if (active) setLoading(false)
+      }
+    }
+
+    // load() guards every state update behind `active`, so it is safe to
+    // invoke directly here and cancel via the cleanup below.
+    load()
+    return () => {
+      active = false
+    }
   }, [orderId, bidId])
 
   const clientKind = quote?.client_kind
@@ -223,10 +249,17 @@ export default function BidCheckout() {
     event.preventDefault()
     if (submitting || success) return
 
-    // Client-side guard for the confirmation checkbox (backend re-enforces it).
-    if (clientKind === 'business' && requiresCard && payMode === 'saved' && !autoEnabled && !confirmCharge) {
-      setSubmitError('Please authorize the card charge to continue.')
-      return
+    // Saved-card mode must have a selected card and, when automatic charging
+    // is disabled, explicit authorization (backend re-enforces both).
+    if (clientKind === 'business' && requiresCard && payMode === 'saved') {
+      if (selectedMethodId == null) {
+        setSubmitError('Please select a saved card or enter a new card.')
+        return
+      }
+      if (!autoEnabled && !confirmCharge) {
+        setSubmitError('Please authorize the card charge to continue.')
+        return
+      }
     }
 
     setSubmitting(true)
@@ -239,7 +272,7 @@ export default function BidCheckout() {
         headers: {
           'Content-Type': 'application/json',
           'X-CSRF-Token': csrf,
-          'Idempotency-Key': idemKeyRef.current,
+          'Idempotency-Key': idempotencyKey,
         },
         body: JSON.stringify(buildPayload()),
       })
@@ -257,11 +290,11 @@ export default function BidCheckout() {
         throw new Error(json.message || 'Checkout could not be completed.')
       }
 
-      // Success — clear the raw card data and the idempotency key.
+      // Success — clear the raw card data and this pair's idempotency key.
       setCard(EMPTY_CARD)
       clearIdemKey()
       setSuccess(true)
-      setTimeout(returnToComparison, 1600)
+      redirectTimerRef.current = setTimeout(returnToComparison, 1600)
     } catch (submitException) {
       setSubmitError(submitException.message || 'Checkout could not be completed.')
     } finally {
