@@ -427,6 +427,20 @@ class DummyCardProvider:
             "status": "succeeded",
         }
 
+    def refund(self, amount, reference=None, idempotency_key=None):
+        """Refund a previously-charged amount (dummy phase). Idempotent per key:
+        the same key deterministically returns the same refund reference, so a
+        replayed admin client-win refund never issues a second card refund. No
+        card data is involved — refunds address the original charge."""
+        if amount is None or amount <= 0:
+            return {"provider": self.name, "reference": None, "status": "skipped"}
+        if idempotency_key:
+            digest = hashlib.sha256(f"{self.name}:refund:{idempotency_key}".encode()).hexdigest()[:24]
+            ref = f"dummyrf_{digest}"
+        else:
+            ref = f"dummyrf_{secrets.token_hex(12)}"
+        return {"provider": self.name, "reference": ref, "status": "refunded"}
+
 
 _provider = DummyCardProvider()
 
@@ -969,6 +983,11 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
         (trip_id, stamp["display"], stamp["display"]),
     )
 
+    # Open the single one-time chat thread at the earliest accepted-trip point so
+    # client and transporter can talk from ready_to_start onward (Phase J).
+    from chat.helpers import ensure_one_time_thread
+    ensure_one_time_thread(db, order_id, trip_id, user["id"], bid["transporter_user_id"])
+
     # 14. Shipment snapshot + status.
     db.execute(
         """
@@ -1310,4 +1329,161 @@ def perform_wallet_topup(db, user, amount_raw, card_data, client_key):
         "new_balance": new_balance,
         "provider_name": charge.get("provider"),
         "provider_reference": charge.get("reference"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Canonical held-payment RELEASE and REFUND (single services)
+# ---------------------------------------------------------------------------
+# One production release service and one production refund service for a
+# one-time held payment. Used by Client-Yes, the admin dispute resolutions and
+# any compatible legacy delivery-confirmation route. All money math is Decimal
+# via the saved commission snapshot on the payment row — never a live policy
+# lookup for an already-accepted order — and the card processing fee is never
+# treated as commission. Both are replay-safe (payment-status guarded under the
+# row lock) with a unique wallet-transaction reference as the double-credit
+# backstop. Callers hold the shipment + trip locks; these lock payment + wallet.
+
+def _lock_payment(db, payment_id):
+    row = db.execute(
+        "SELECT * FROM payments WHERE id = %s FOR UPDATE", (payment_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def release_one_time_payment(db, payment_id, now_iso=None):
+    """Release a held one-time payment to the transporter exactly once.
+
+    Locks the payment, credits the transporter's wallet with the SNAPSHOTTED
+    payout (payments.transporter_amount), retains the snapshotted commission
+    (payments.company_fee) and marks the payment released. Returns a dict with
+    "released" (False on an idempotent replay of an already-released payment).
+    Raises CheckoutError if the payment is missing or not in a releasable state.
+    """
+    from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user
+
+    payment = _lock_payment(db, payment_id)
+    if not payment:
+        raise CheckoutError("Payment not found.", 404, "payment_not_found")
+    if payment["status"] == "released":
+        return {"released": False, "already_released": True, "payment": payment}
+    if payment["status"] != "held":
+        raise CheckoutError(
+            "Only a held payment can be released.", 409, "payment_not_held"
+        )
+
+    bid_price = Decimal(str(payment["bid_price"]))
+    company_fee = Decimal(str(payment["company_fee"]))
+    transporter_amount = Decimal(str(payment["transporter_amount"]))
+    # Invariant: commission + payout == bid (processing fee lives outside this).
+    if (company_fee + transporter_amount).quantize(TWO_PLACES) != bid_price.quantize(TWO_PLACES):
+        raise CheckoutError(
+            "Payment split is inconsistent; refusing to release.", 409, "split_mismatch"
+        )
+
+    stamp = now_iso or timestamp_bundle()["iso"]
+    trip_id = payment["trip_id"]
+    transporter_id = payment["transporter_user_id"]
+
+    # Credit the transporter's wallet once. The unique (type, reference_id)
+    # index on order_payout is the double-credit backstop; the payment-status
+    # guard above plus the row lock is the primary idempotency guarantee.
+    wallet, _err = get_or_create_wallet_for_user(
+        db, {"id": transporter_id, "role": "transporter"}
+    )
+    if wallet is None:
+        raise CheckoutError("Transporter wallet unavailable.", 500, "wallet_unavailable")
+    wallet = dict(db.execute(
+        "SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (transporter_id,)
+    ).fetchone())
+    payout = round_money(transporter_amount)
+    credit_error = adjust_wallet_balance(
+        db, wallet, transporter_id, payout, "order_payout",
+        description=f"Payout released for order #{payment['shipment_id']}",
+        reference_id=f"payout:trip:{trip_id}",
+    )
+    if credit_error is not None:
+        raise CheckoutError("Payout could not be credited.", 500, "payout_failed")
+
+    db.execute(
+        "UPDATE payments SET status = 'released', released_at = %s WHERE id = %s AND status = 'held'",
+        (stamp, payment_id),
+    )
+    payment = _lock_payment(db, payment_id)
+    return {
+        "released": True,
+        "already_released": False,
+        "payout_amount": payout,
+        "company_fee": round_money(company_fee),
+        "payment": payment,
+    }
+
+
+def refund_one_time_payment(db, payment_id, now_iso=None):
+    """Refund a held one-time payment to the client exactly once (dummy phase).
+
+    Restores the wallet-funded portion to a business seeker's wallet (once) and
+    issues a dummy card refund for the FULL card charge — card-funded amount
+    plus the dummy processing fee. Everyday users have no wallet, so their whole
+    payment was card-funded and is refunded on the card. No commission and no
+    transporter payout ever occur. Replay-safe (payment-status guarded).
+    """
+    from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user
+
+    payment = _lock_payment(db, payment_id)
+    if not payment:
+        raise CheckoutError("Payment not found.", 404, "payment_not_found")
+    if payment["status"] == "refunded":
+        return {"refunded": False, "already_refunded": True, "payment": payment}
+    if payment["status"] != "held":
+        raise CheckoutError(
+            "Only a held payment can be refunded.", 409, "payment_not_held"
+        )
+
+    stamp = now_iso or timestamp_bundle()["iso"]
+    trip_id = payment["trip_id"]
+    client_id = payment["client_user_id"]
+    wallet_funded = round_money(payment.get("wallet_funded_amount") or 0)
+    total_card_charge = payment.get("total_card_charge")
+    total_card_charge = round_money(total_card_charge) if total_card_charge is not None else 0.0
+
+    # 1. Restore the wallet-funded portion to the business client's wallet once.
+    if wallet_funded > 0:
+        wallet, _err = get_or_create_wallet_for_user(
+            db, {"id": client_id, "role": "client"}
+        )
+        if wallet is None:
+            raise CheckoutError("Client wallet unavailable.", 500, "wallet_unavailable")
+        wallet = dict(db.execute(
+            "SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (client_id,)
+        ).fetchone())
+        restore_error = adjust_wallet_balance(
+            db, wallet, client_id, wallet_funded, "order_refund",
+            description=f"Refund of held payment for order #{payment['shipment_id']}",
+            reference_id=f"refund:trip:{trip_id}",
+        )
+        if restore_error is not None:
+            raise CheckoutError("Wallet refund could not be credited.", 500, "refund_failed")
+
+    # 2. Dummy card refund for the full card charge (incl. dummy processing fee).
+    refund_reference = payment.get("refund_provider_reference")
+    if total_card_charge > 0:
+        provider = get_payment_provider()
+        provider_key = build_provider_idempotency_key("refund", client_id, payment_id)
+        refund = provider.refund(total_card_charge, idempotency_key=provider_key)
+        refund_reference = refund.get("reference")
+
+    db.execute(
+        "UPDATE payments SET status = 'refunded', refunded_at = %s, refund_provider_reference = %s "
+        "WHERE id = %s AND status = 'held'",
+        (stamp, refund_reference, payment_id),
+    )
+    payment = _lock_payment(db, payment_id)
+    return {
+        "refunded": True,
+        "already_refunded": False,
+        "wallet_refund_amount": wallet_funded,
+        "card_refund_amount": total_card_charge,
+        "refund_provider_reference": refund_reference,
+        "payment": payment,
     }

@@ -754,3 +754,173 @@ def publish_commission():
         "new_policy": serialize_policy(new_policy),
         "terms_version": serialize_terms_version(terms_version),
     })
+
+
+# ---------------------------------------------------------------------------
+# One-time delivery disputes (Phase H) + 6-hour deadline manual trigger
+# ---------------------------------------------------------------------------
+from orders.lifecycle import (  # noqa: E402
+    process_overdue_delivery_confirmations,
+    resolve_dispute_client_win,
+    resolve_dispute_transporter_win,
+    serialize_dispute,
+)
+from shared.payments import CheckoutError, serialize_payment_summary  # noqa: E402
+
+
+def _one_time_dispute_row(db, dispute_id):
+    row = db.execute(
+        """
+        SELECT d.*,
+               COALESCE(NULLIF(trim(c.full_name), ''), c.email, 'Client') AS client_name,
+               COALESCE(NULLIF(trim(t.full_name), ''), t.email, 'Transporter') AS transporter_name,
+               s.pickup_city, s.dropoff_city, s.status AS shipment_status
+        FROM shipment_disputes d
+        JOIN users c ON c.id = d.client_user_id
+        JOIN users t ON t.id = d.transporter_user_id
+        JOIN shipments s ON s.id = d.shipment_id
+        WHERE d.id = %s
+        """,
+        (dispute_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+@admin_blueprint.get("/one-time-disputes")
+@admin_required
+def list_one_time_disputes():
+    """Open one-time delivery disputes queue (client_no + confirmation_timeout)."""
+    status = (request.args.get("status") or "open").strip().lower()
+    with open_db() as db:
+        if status == "all":
+            rows = db.execute(
+                """
+                SELECT d.*, s.pickup_city, s.dropoff_city,
+                       COALESCE(NULLIF(trim(c.full_name), ''), c.email, 'Client') AS client_name,
+                       COALESCE(NULLIF(trim(t.full_name), ''), t.email, 'Transporter') AS transporter_name
+                FROM shipment_disputes d
+                JOIN users c ON c.id = d.client_user_id
+                JOIN users t ON t.id = d.transporter_user_id
+                JOIN shipments s ON s.id = d.shipment_id
+                ORDER BY d.created_at DESC
+                """
+            ).fetchall()
+        else:
+            rows = db.execute(
+                """
+                SELECT d.*, s.pickup_city, s.dropoff_city,
+                       COALESCE(NULLIF(trim(c.full_name), ''), c.email, 'Client') AS client_name,
+                       COALESCE(NULLIF(trim(t.full_name), ''), t.email, 'Transporter') AS transporter_name
+                FROM shipment_disputes d
+                JOIN users c ON c.id = d.client_user_id
+                JOIN users t ON t.id = d.transporter_user_id
+                JOIN shipments s ON s.id = d.shipment_id
+                WHERE d.status = %s
+                ORDER BY d.created_at DESC
+                """,
+                (status,),
+            ).fetchall()
+    disputes = []
+    for row in rows:
+        row = dict(row)
+        disputes.append(serialize_dispute(row) | {
+            "client_name": row.get("client_name"),
+            "transporter_name": row.get("transporter_name"),
+            "pickup_city": row.get("pickup_city"),
+            "dropoff_city": row.get("dropoff_city"),
+        })
+    return json_response({"success": True, "disputes": disputes})
+
+
+@admin_blueprint.get("/one-time-disputes/<int:dispute_id>")
+@admin_required
+def one_time_dispute_detail(dispute_id):
+    """Full order / trip / payment / chat / audit context for one dispute."""
+    with open_db() as db:
+        row = _one_time_dispute_row(db, dispute_id)
+        if not row:
+            return json_response({"success": False, "message": "Dispute not found."}, 404)
+        payment = None
+        if row.get("payment_id"):
+            p = db.execute("SELECT * FROM payments WHERE id = %s", (row["payment_id"],)).fetchone()
+            payment = serialize_payment_summary(dict(p), viewer="client") if p else None
+        trip = db.execute("SELECT * FROM shipment_trips WHERE id = %s", (row["trip_id"],)).fetchone()
+        messages = []
+        if row.get("chat_thread_id"):
+            messages = [
+                dict(m) for m in db.execute(
+                    """
+                    SELECT cm.id, cm.sender_user_id, cm.message_type, cm.content, cm.created_at,
+                           COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'User') AS sender_name
+                    FROM chat_messages cm JOIN users u ON u.id = cm.sender_user_id
+                    WHERE cm.thread_id = %s ORDER BY cm.id ASC
+                    """,
+                    (row["chat_thread_id"],),
+                ).fetchall()
+            ]
+        history = [
+            dict(h) for h in db.execute(
+                "SELECT old_status, new_status, created_at FROM shipment_status_history "
+                "WHERE shipment_id = %s ORDER BY id ASC",
+                (row["shipment_id"],),
+            ).fetchall()
+        ]
+    detail = serialize_dispute(row) | {
+        "client_name": row.get("client_name"),
+        "transporter_name": row.get("transporter_name"),
+        "pickup_city": row.get("pickup_city"),
+        "dropoff_city": row.get("dropoff_city"),
+        "shipment_status": row.get("shipment_status"),
+        "trip_status": trip["status"] if trip else None,
+        "payment": payment,
+        "chat_messages": messages,
+        "status_history": history,
+    }
+    return json_response({"success": True, "dispute": detail})
+
+
+@admin_blueprint.post("/one-time-disputes/<int:dispute_id>/resolve")
+@admin_required
+def resolve_one_time_dispute(dispute_id):
+    """Resolve a one-time dispute (transporter_win releases payout, client_win
+    refunds). Requires admin notes. Idempotent."""
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    resolution = (data.get("resolution") or "").strip().lower()
+    notes = data.get("notes")
+    if resolution not in ("transporter_win", "client_win"):
+        return json_response(
+            {"success": False, "message": "resolution must be 'transporter_win' or 'client_win'."}, 400
+        )
+    with open_db() as db:
+        try:
+            if resolution == "transporter_win":
+                result = resolve_dispute_transporter_win(db, request.current_user, dispute_id, notes)
+            else:
+                result = resolve_dispute_client_win(db, request.current_user, dispute_id, notes)
+        except CheckoutError as exc:
+            db.rollback()
+            return json_response({"success": False, "message": exc.message, "code": exc.code}, exc.status)
+        db.commit()
+    return json_response({
+        "success": True,
+        "already": result["already"],
+        "message": "Dispute resolved.",
+        "dispute": result["dispute"],
+    })
+
+
+@admin_blueprint.post("/delivery-confirmations/process-overdue")
+@admin_required
+def trigger_overdue_delivery_sweep():
+    """Admin-only manual trigger for the 6-hour confirmation deadline processor
+    (the same production function the scheduler runs). For testing/ops."""
+    err = csrf_error()
+    if err:
+        return err
+    with open_db() as db:
+        result = process_overdue_delivery_confirmations(db)
+        db.commit()
+    return json_response({"success": True, **result})

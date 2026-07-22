@@ -14,7 +14,6 @@ from .goods_taxonomy import (
     FIELD_WEIGHT,
     FIELD_ANIMAL_COUNT,
 )
-from shared.commissions import snapshot_company_share, split_final_amount, transporter_share_percent_for
 from shared.roles import normalize_client_kind
 from shared.payments import (
     CheckoutError,
@@ -27,7 +26,13 @@ from shared.payments import (
     public_quote,
     serialize_payment_summary,
 )
-from wallet.helpers import adjust_wallet_balance, get_or_create_wallet, round_money
+from .lifecycle import (
+    add_transporter_statement,
+    perform_client_confirm,
+    perform_complete_delivery,
+    serialize_dispute,
+)
+from wallet.helpers import round_money
 from agreements.helpers import require_client_role, require_transporter_role
 from .helpers import (
     serialize_order,
@@ -447,6 +452,21 @@ def get_order_details(order_id):
             bids = fetch_enriched_bids(db, order, transporter_user_id=request.current_user["id"])
             payment_summary = serialize_payment_summary(payment, viewer="transporter")
 
+        # Lifecycle context: the current dispute (if any) and the one-time chat
+        # thread so both parties get an Open Chat action and dispute state.
+        dispute = None
+        chat_thread_id = None
+        if trip:
+            dispute_row = db.execute(
+                "SELECT * FROM shipment_disputes WHERE trip_id = %s ORDER BY id DESC LIMIT 1",
+                (trip["id"],),
+            ).fetchone()
+            dispute = serialize_dispute(dict(dispute_row)) if dispute_row else None
+        thread_row = db.execute(
+            "SELECT id FROM chat_threads WHERE shipment_id = %s", (order_id,)
+        ).fetchone()
+        chat_thread_id = thread_row["id"] if thread_row else None
+
     return json_response({
         "success": True,
         "access": access,
@@ -454,6 +474,8 @@ def get_order_details(order_id):
         "bids": bids,
         "trip": serialize_trip(trip) if trip else None,
         "payment": payment_summary,
+        "dispute": dispute,
+        "chat_thread_id": chat_thread_id,
     })
 
 
@@ -609,206 +631,106 @@ def process_trip_payment(order_id, trip_id):
     )
 
 
+@orders_blueprint.post("/api/orders/<int:order_id>/trips/<int:trip_id>/complete-delivery")
 @orders_blueprint.post("/api/orders/<int:order_id>/trips/<int:trip_id>/mark-completed")
 @login_required
-def mark_trip_completed(order_id, trip_id):
-    """Transporter marks trip as completed."""
+def complete_delivery(order_id, trip_id):
+    """Transporter marks the goods delivered and opens the 6-hour client
+    confirmation window. Payment stays held; no payout occurs. Idempotent.
+
+    /mark-completed is kept as a backward-compatible alias for the one canonical
+    handler (both hit the single lifecycle service — no duplicated logic)."""
+    role_error = require_transporter_role(request.current_user)
+    if role_error:
+        return role_error
     err = csrf_error()
     if err:
         return err
 
     with open_db() as db:
-        trip = db.execute("SELECT * FROM shipment_trips WHERE id = %s AND order_id = %s", (trip_id, order_id)).fetchone()
-        if not trip:
-            return json_response({"success": False, "message": "Trip not found."}, 404)
-
-        if trip["transporter_user_id"] != request.current_user["id"]:
-            return json_response({"success": False, "message": "Access denied."}, 403)
-
-        if trip["status"] != "in_progress":
-            return json_response({"success": False, "message": "Trip is not in progress."}, 400)
-
-        stamp = timestamp_bundle()["display"]
-
-        # Update trip status
-        db.execute(
-            "UPDATE shipment_trips SET status = 'delivery_claimed', trip_completed_at = %s, updated_at = %s WHERE id = %s",
-            (stamp, stamp, trip_id),
-        )
-
-        # Create verification record
-        db.execute(
-            """
-            INSERT INTO shipment_trip_verification (
-                trip_id, transporter_claim_at, created_at, updated_at
-            ) VALUES (%s, %s, %s, %s)
-            """,
-            (trip_id, stamp, stamp, stamp),
-        )
-
+        try:
+            result = perform_complete_delivery(db, request.current_user, order_id, trip_id)
+        except CheckoutError as exc:
+            db.rollback()
+            return _checkout_error_response(exc)
         db.commit()
-        trip = db.execute("SELECT * FROM shipment_trips WHERE id = %s", (trip_id,)).fetchone()
 
     return json_response({
         "success": True,
-        "message": "Delivery marked as completed. Awaiting client verification.",
-        "trip": serialize_trip(dict(trip)),
+        "already": result["already"],
+        "message": ("Delivery completion already requested."
+                    if result["already"]
+                    else "Delivery marked complete. Waiting for the client to confirm within 6 hours."),
+        "trip": serialize_trip(result["trip"]),
+        "confirmation_deadline_at": result["confirmation_deadline_at"],
     })
 
 
+@orders_blueprint.post("/api/orders/<int:order_id>/trips/<int:trip_id>/confirm-delivery")
 @orders_blueprint.post("/api/orders/<int:order_id>/trips/<int:trip_id>/verify-delivery")
 @login_required
-def verify_delivery(order_id, trip_id):
-    """Client verifies delivery."""
+def confirm_delivery(order_id, trip_id):
+    """Client confirms delivery (Yes) or reports a problem (No).
+
+    Yes releases the held payout once through the canonical release service; No
+    opens exactly one dispute and keeps the money held. There is no legacy
+    branch and no `payout_release_later_phase` response any more — this is the
+    single client confirmation endpoint. /verify-delivery is a compatibility
+    alias for the same handler (it accepts the legacy `response` field too)."""
     err = csrf_error()
     if err:
         return err
 
     data = request.get_json(silent=True) or {}
-    response = data.get("response")  # 'yes' or 'no'
-
-    if response not in ("yes", "no"):
-        return json_response({"success": False, "message": "Invalid response."}, 400)
+    decision = (data.get("decision") or data.get("response") or "").strip().lower()
+    reason = data.get("reason")
 
     with open_db() as db:
-        order = fetch_order(db, order_id)
-        if not order:
-            return json_response({"success": False, "message": "Order not found."}, 404)
-
-        if order["client_user_id"] != request.current_user["id"]:
-            return json_response({"success": False, "message": "Access denied."}, 403)
-
-        trip = db.execute("SELECT * FROM shipment_trips WHERE id = %s AND order_id = %s", (trip_id, order_id)).fetchone()
-        if not trip:
-            return json_response({"success": False, "message": "Trip not found."}, 404)
-
-        if trip["status"] not in ("delivery_claimed", "first_response_pending"):
-            return json_response({"success": False, "message": "Trip cannot be verified."}, 400)
-
-        stamp = timestamp_bundle()["display"]
-
-        # Get verification record
-        verification = db.execute(
-            "SELECT * FROM shipment_trip_verification WHERE trip_id = %s",
-            (trip_id,),
-        ).fetchone()
-
-        if not verification:
-            return json_response({"success": False, "message": "Verification record not found."}, 404)
-
-        # Orders paid through the new held-payment checkout release the payout
-        # in the delivery-confirmation phase (not yet implemented). Only
-        # legacy wallet-paid trips keep the old immediate-credit behaviour —
-        # crediting a held-payment order here would double-pay.
-        held_payment = get_active_payment_for_shipment(db, order_id, statuses=("processing", "held"))
-        if held_payment:
-            return json_response(
-                {
-                    "success": False,
-                    "code": "payout_release_later_phase",
-                    "message": "Delivery confirmation and payout release for this order are handled "
-                               "in the upcoming delivery-verification flow.",
-                },
-                409,
+        try:
+            result = perform_client_confirm(
+                db, request.current_user, order_id, trip_id, decision, reason=reason
             )
+        except CheckoutError as exc:
+            db.rollback()
+            return _checkout_error_response(exc)
+        db.commit()
 
-        if response == "yes":
-            # Payment successful
-            trip_obj = dict(trip)
-            transporter_wallet, _ = get_or_create_wallet({"id": trip_obj["transporter_user_id"], "role": "transporter"})
+    payload = {
+        "success": True,
+        "decision": result["decision"],
+        "already": result["already"],
+        "trip": serialize_trip(result["trip"]),
+    }
+    if result["decision"] == "yes":
+        payload["message"] = "Delivery confirmed. Payment released to the transporter."
+        payload["payout_amount"] = result.get("payout_amount")
+    else:
+        payload["message"] = "We recorded that there is a problem. An admin will review this delivery."
+        payload["dispute"] = result.get("dispute")
+    return json_response(payload)
 
-            # Always split with the commission snapshot saved at bid acceptance
-            # (legacy orders without a snapshot fall back to the 20/80 split
-            # they were accepted under).
-            payment_amount = round_money(order["payment_amount"])
-            company_share = snapshot_company_share(order)
-            company_fee, transporter_amount = split_final_amount(payment_amount, company_share)
 
-            # Credit transporter
-            adjust_wallet_balance(
-                db,
-                transporter_wallet,
-                trip_obj["transporter_user_id"],
-                transporter_amount,
-                "order_income",
-                description=f"Payment received for order #{order_id}",
-                reference_id=str(trip_id),
+@orders_blueprint.post("/api/disputes/<int:dispute_id>/statement")
+@login_required
+def submit_dispute_statement(dispute_id):
+    """Transporter adds a written complaint/statement to their open dispute."""
+    role_error = require_transporter_role(request.current_user)
+    if role_error:
+        return role_error
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True) or {}
+    with open_db() as db:
+        try:
+            dispute = add_transporter_statement(
+                db, request.current_user, dispute_id, data.get("statement")
             )
-
-            # Update trip
-            db.execute(
-                "UPDATE shipment_trips SET status = 'completed', delivery_confirmed_at = %s, updated_at = %s WHERE id = %s",
-                (stamp, stamp, trip_id),
-            )
-
-            # Update verification
-            db.execute(
-                "UPDATE shipment_trip_verification SET client_first_response = 'yes', client_first_response_at = %s, final_verification_status = 'confirmed', updated_at = %s WHERE trip_id = %s",
-                (stamp, stamp, trip_id),
-            )
-
-            # Create invoice (records the applied split for the audit trail)
-            db.execute(
-                """
-                INSERT INTO payments (
-                    trip_id, invoice_number, client_user_id, transporter_user_id,
-                    bid_price, company_fee, transporter_amount,
-                    company_share_percent, transporter_share_percent, commission_policy_id,
-                    created_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                """,
-                (
-                    trip_id,
-                    f"ORD-{order_id}-{trip_id}-{datetime.now().strftime('%Y%m%d')}",
-                    order["client_user_id"],
-                    trip_obj["transporter_user_id"],
-                    payment_amount,
-                    company_fee,
-                    transporter_amount,
-                    float(company_share),
-                    float(transporter_share_percent_for(company_share)),
-                    order.get("commission_policy_id"),
-                    stamp,
-                ),
-            )
-
-            db.commit()
-            return json_response({
-                "success": True,
-                "message": "Delivery confirmed. Payment released to transporter.",
-            })
-        else:
-            # Client says NO
-            if verification["client_first_response"] is None:
-                # First NO - set 10 min reminder
-                db.execute(
-                    "UPDATE shipment_trip_verification SET client_first_response = 'no', client_first_response_at = %s, updated_at = %s WHERE trip_id = %s",
-                    (stamp, stamp, trip_id),
-                )
-                db.execute(
-                    "UPDATE shipment_trips SET status = 'first_response_pending', updated_at = %s WHERE id = %s",
-                    (stamp, trip_id),
-                )
-                db.commit()
-                return json_response({
-                    "success": True,
-                    "message": "Your response has been recorded. You will receive a reminder in 10 minutes.",
-                })
-            else:
-                # Second NO or timeout - admin review
-                db.execute(
-                    "UPDATE shipment_trip_verification SET client_second_response = 'no', client_second_response_at = %s, final_verification_status = 'pending_admin', updated_at = %s WHERE trip_id = %s",
-                    (stamp, stamp, trip_id),
-                )
-                db.execute(
-                    "UPDATE shipment_trips SET status = 'dispute_pending', updated_at = %s WHERE id = %s",
-                    (stamp, trip_id),
-                )
-                db.commit()
-                return json_response({
-                    "success": True,
-                    "message": "Admin will review this dispute and determine the outcome.",
-                })
+        except CheckoutError as exc:
+            db.rollback()
+            return _checkout_error_response(exc)
+        db.commit()
+    return json_response({"success": True, "dispute": dispute})
 
 
 @orders_blueprint.get("/api/orders/my-orders")
@@ -852,3 +774,59 @@ def get_my_bids():
         result = [serialize_bid(dict(b)) for b in bids]
 
     return json_response({"success": True, "bids": result})
+
+
+# ---------------------------------------------------------------------------
+# In-app lifecycle notifications (extends shipment_notifications; no new table)
+# ---------------------------------------------------------------------------
+from shared.notifications import serialize_notification  # noqa: E402
+
+
+@orders_blueprint.get("/api/notifications")
+@login_required
+def list_notifications():
+    """Current user's lifecycle notifications (most recent first)."""
+    with open_db() as db:
+        rows = db.execute(
+            "SELECT * FROM shipment_notifications WHERE user_id = %s ORDER BY id DESC LIMIT 100",
+            (request.current_user["id"],),
+        ).fetchall()
+        unread = db.execute(
+            "SELECT COUNT(*) AS c FROM shipment_notifications WHERE user_id = %s AND is_read = false",
+            (request.current_user["id"],),
+        ).fetchone()["c"]
+    return json_response({
+        "success": True,
+        "unread_count": int(unread),
+        "notifications": [serialize_notification(dict(r)) for r in rows],
+    })
+
+
+@orders_blueprint.post("/api/notifications/<int:notification_id>/read")
+@login_required
+def mark_notification_read(notification_id):
+    err = csrf_error()
+    if err:
+        return err
+    with open_db() as db:
+        db.execute(
+            "UPDATE shipment_notifications SET is_read = true WHERE id = %s AND user_id = %s",
+            (notification_id, request.current_user["id"]),
+        )
+        db.commit()
+    return json_response({"success": True})
+
+
+@orders_blueprint.post("/api/notifications/read-all")
+@login_required
+def mark_all_notifications_read():
+    err = csrf_error()
+    if err:
+        return err
+    with open_db() as db:
+        db.execute(
+            "UPDATE shipment_notifications SET is_read = true WHERE user_id = %s AND is_read = false",
+            (request.current_user["id"],),
+        )
+        db.commit()
+    return json_response({"success": True})

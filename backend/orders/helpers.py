@@ -94,6 +94,8 @@ def serialize_trip(trip_dict):
         "status": trip_dict.get("status"),
         "trip_started_at": trip_dict.get("trip_started_at"),
         "trip_completed_at": trip_dict.get("trip_completed_at"),
+        "delivery_completion_requested_at": trip_dict.get("delivery_completion_requested_at"),
+        "confirmation_deadline_at": trip_dict.get("confirmation_deadline_at"),
         "delivery_confirmed_at": trip_dict.get("delivery_confirmed_at"),
         "actual_distance_km": round_money(trip_dict.get("actual_distance_km")) if trip_dict.get("actual_distance_km") else None,
         "created_at": trip_dict.get("created_at"),

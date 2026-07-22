@@ -31,6 +31,9 @@ def get_thread_with_parties(db, thread_id, user_id):
             ap.title AS agreement_title,
             ap.service_area AS agreement_service_area,
             ap.status AS agreement_status,
+            s.pickup_city AS order_pickup_city,
+            s.dropoff_city AS order_dropoff_city,
+            s.status AS order_status,
             COALESCE(NULLIF(trim(client.full_name), ''), client.email, 'Client') AS client_name,
             COALESCE(NULLIF(trim(transporter.full_name), ''), transporter.email, 'Transporter') AS transporter_name,
             COALESCE(NULLIF(trim(admin.full_name), ''), admin.email, 'Admin') AS admin_name,
@@ -58,6 +61,7 @@ def get_thread_with_parties(db, thread_id, user_id):
             ) AS unread_count
         FROM chat_threads ct
         LEFT JOIN agreement_posts ap ON ap.id = ct.agreement_post_id
+        LEFT JOIN shipments s ON s.id = ct.shipment_id
         JOIN users client ON client.id = ct.client_user_id
         JOIN users transporter ON transporter.id = ct.transporter_user_id
         LEFT JOIN users admin ON admin.id = ct.admin_user_id
@@ -174,6 +178,9 @@ def list_threads():
                 ap.title AS agreement_title,
                 ap.service_area AS agreement_service_area,
                 ap.status AS agreement_status,
+                s.pickup_city AS order_pickup_city,
+                s.dropoff_city AS order_dropoff_city,
+                s.status AS order_status,
                 COALESCE(NULLIF(trim(client.full_name), ''), client.email, 'Client') AS client_name,
                 COALESCE(NULLIF(trim(transporter.full_name), ''), transporter.email, 'Transporter') AS transporter_name,
                 (
@@ -200,6 +207,7 @@ def list_threads():
                 ) AS unread_count
             FROM chat_threads ct
             LEFT JOIN agreement_posts ap ON ap.id = ct.agreement_post_id
+            LEFT JOIN shipments s ON s.id = ct.shipment_id
             LEFT JOIN users admin ON admin.id = ct.admin_user_id
             JOIN users client ON client.id = ct.client_user_id
             JOIN users transporter ON transporter.id = ct.transporter_user_id

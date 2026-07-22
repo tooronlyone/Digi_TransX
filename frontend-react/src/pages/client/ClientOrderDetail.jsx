@@ -6,6 +6,7 @@ import {
   StateMessage,
   formatMoney,
   formatDate,
+  getCsrfToken,
 } from './clientUtils'
 import useClientBasePath from '../../hooks/useClientBasePath'
 import '../../styles/pages/order-detail.css'
@@ -15,6 +16,21 @@ const SORTS = [
   { key: 'newest', label: 'Newest bid' },
   { key: 'capacity', label: 'Highest weight capacity' },
 ]
+
+function Countdown({ deadline }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  if (!deadline) return null
+  const remaining = Math.max(0, new Date(deadline).getTime() - now)
+  if (remaining <= 0) return <span className="odp-countdown">Time is up — pending admin review.</span>
+  const h = Math.floor(remaining / 3600000)
+  const m = Math.floor((remaining % 3600000) / 60000)
+  const s = Math.floor((remaining % 60000) / 1000)
+  return <span className="odp-countdown">{`${h}h ${m}m ${s}s left to confirm`}</span>
+}
 
 function truckCapacityTons(truck) {
   if (!truck) return null
@@ -54,6 +70,9 @@ export default function ClientOrderDetail() {
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
   const [sortKey, setSortKey] = useState('price')
+  const [chatThreadId, setChatThreadId] = useState(null)
+  const [actionLoading, setActionLoading] = useState('')
+  const [actionMsg, setActionMsg] = useState('')
 
   async function loadOrder({ silent = false } = {}) {
     if (silent) setRefreshing(true)
@@ -67,6 +86,7 @@ export default function ClientOrderDetail() {
       setBids(json.bids || [])
       setTrip(json.trip || null)
       setPayment(json.payment || null)
+      setChatThreadId(json.chat_thread_id || null)
     } catch (loadError) {
       setError(loadError.message || 'Unable to load order details.')
     } finally {
@@ -82,6 +102,39 @@ export default function ClientOrderDetail() {
     loadOrder()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
+
+  async function confirmDelivery(decision) {
+    const prompt = decision === 'yes'
+      ? 'Confirm delivery? This releases the held payment to the transporter and cannot be undone.'
+      : 'Report a problem with this delivery? The payment stays held and an admin will review the case.'
+    if (!window.confirm(prompt)) return
+    let reason
+    if (decision === 'no') {
+      reason = window.prompt('Optionally add a short reason (you can leave this blank):') || ''
+    }
+    setActionLoading(decision)
+    setError('')
+    setActionMsg('')
+    try {
+      const csrf = await getCsrfToken()
+      const response = await fetch(`/api/orders/${orderId}/trips/${trip.id}/confirm-delivery`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, reason }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok || json.success === false) throw new Error(json.message || 'Unable to submit your response.')
+      setActionMsg(json.message || 'Response recorded.')
+      await loadOrder({ silent: true })
+    } catch (confirmError) {
+      setError(confirmError.message || 'Unable to submit your response.')
+    } finally {
+      setActionLoading('')
+    }
+  }
+
+  const openChat = () => navigate(`${base}/messages`)
 
   const orderOpen = order?.status === 'open'
   const budget = order?.estimated_budget ? Number(order.estimated_budget) : null
@@ -241,6 +294,74 @@ export default function ClientOrderDetail() {
               )}
             </div>
           </div>
+
+          {actionMsg && <div className="odp-confirm__msg">{actionMsg}</div>}
+
+          {trip && trip.status === 'awaiting_client_confirmation' && (
+            <div className="odp-confirm">
+              <p className="odp-confirm__lead">
+                <i className="fas fa-lock" aria-hidden="true"></i>{' '}
+                Your payment is held safely. The transporter marked the delivery complete —
+                please confirm within the window below.
+              </p>
+              <Countdown deadline={trip.confirmation_deadline_at} />
+              <div className="odp-confirm__actions">
+                <button
+                  type="button"
+                  className="odp-btn odp-btn--yes"
+                  disabled={!!actionLoading}
+                  onClick={() => confirmDelivery('yes')}
+                >
+                  <i className={`fas ${actionLoading === 'yes' ? 'fa-spinner fa-spin' : 'fa-check'}`} aria-hidden="true"></i>
+                  Yes, delivery completed
+                </button>
+                <button
+                  type="button"
+                  className="odp-btn odp-btn--no"
+                  disabled={!!actionLoading}
+                  onClick={() => confirmDelivery('no')}
+                >
+                  <i className={`fas ${actionLoading === 'no' ? 'fa-spinner fa-spin' : 'fa-triangle-exclamation'}`} aria-hidden="true"></i>
+                  No, there is a problem
+                </button>
+              </div>
+              {chatThreadId && (
+                <button type="button" className="odp-btn odp-btn--ghost" onClick={openChat}>
+                  <i className="fas fa-comments" aria-hidden="true"></i> Open Chat
+                </button>
+              )}
+            </div>
+          )}
+
+          {trip && trip.status === 'completed' && (
+            <div className="odp-confirm odp-confirm--ok">
+              <i className="fas fa-circle-check" aria-hidden="true"></i>
+              <span>You confirmed delivery. The payment has been released to the transporter.</span>
+            </div>
+          )}
+
+          {trip && (trip.status === 'delivery_disputed' || trip.status === 'admin_review') && (
+            <div className="odp-confirm odp-confirm--dispute">
+              <i className="fas fa-gavel" aria-hidden="true"></i>
+              <span>
+                {trip.status === 'admin_review'
+                  ? 'The confirmation window passed. An admin is now reviewing this delivery.'
+                  : 'You reported a problem. Your payment stays held while an admin reviews the case.'}
+              </span>
+              {chatThreadId && (
+                <button type="button" className="odp-btn odp-btn--ghost" onClick={openChat}>
+                  <i className="fas fa-comments" aria-hidden="true"></i> Open Chat
+                </button>
+              )}
+            </div>
+          )}
+
+          {trip && trip.status === 'resolved_client' && (
+            <div className="odp-confirm odp-confirm--ok">
+              <i className="fas fa-rotate-left" aria-hidden="true"></i>
+              <span>An admin resolved this in your favour. Your payment has been refunded.</span>
+            </div>
+          )}
         </SectionCard>
       )}
 

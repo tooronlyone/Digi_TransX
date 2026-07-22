@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useParams, Link } from 'react-router-dom'
+import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getCsrfToken } from '../client/clientUtils'
 import '../../styles/pages/order-tracking.css'
 
@@ -18,14 +18,38 @@ function formatDateTime(isoString) {
   }
 }
 
+function Countdown({ deadline }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  if (!deadline) return null
+  const end = new Date(deadline).getTime()
+  const remaining = Math.max(0, end - now)
+  const h = Math.floor(remaining / 3600000)
+  const m = Math.floor((remaining % 3600000) / 60000)
+  const s = Math.floor((remaining % 60000) / 1000)
+  return (
+    <span className="order-tracking-countdown">
+      {remaining > 0 ? `${h}h ${m}m ${s}s remaining` : 'Deadline passed — pending admin review'}
+    </span>
+  )
+}
+
 export default function OrderTracking() {
   const { orderId } = useParams()
+  const navigate = useNavigate()
   const [order, setOrder] = useState(null)
   const [trip, setTrip] = useState(null)
+  const [payment, setPayment] = useState(null)
+  const [dispute, setDispute] = useState(null)
+  const [chatThreadId, setChatThreadId] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [actionLoading, setActionLoading] = useState('')
   const [notice, setNotice] = useState('')
+  const [statement, setStatement] = useState('')
 
   async function loadOrder() {
     setLoading(true)
@@ -36,6 +60,9 @@ export default function OrderTracking() {
       if (!response.ok || json.success === false) throw new Error(json.message || 'Unable to load order.')
       setOrder(json.order || null)
       setTrip(json.trip || null)
+      setPayment(json.payment || null)
+      setDispute(json.dispute || null)
+      setChatThreadId(json.chat_thread_id || null)
     } catch (loadError) {
       setError(loadError.message || 'Unable to load order details.')
     } finally {
@@ -44,32 +71,59 @@ export default function OrderTracking() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadOrder()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
-  async function markTripCompleted() {
-    const confirmed = window.confirm('Mark delivery as completed? Client will receive verification request.')
-    if (!confirmed) return
-
-    setActionLoading('complete')
+  async function postAction(url, body, confirmMessage, key, successMessage) {
+    if (confirmMessage && !window.confirm(confirmMessage)) return
+    setActionLoading(key)
     setError('')
+    setNotice('')
     try {
       const csrf = await getCsrfToken()
-      const response = await fetch(`/api/orders/${orderId}/trips/${trip.id}/mark-completed`, {
+      const response = await fetch(url, {
         method: 'POST',
         credentials: 'same-origin',
-        headers: { 'X-CSRF-Token': csrf },
+        headers: { 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
+        body: body ? JSON.stringify(body) : undefined,
       })
       const json = await response.json().catch(() => ({}))
-      if (!response.ok || json.success === false) throw new Error(json.message || 'Unable to mark trip completed.')
-      setNotice('Trip marked as completed. Awaiting client verification.')
+      if (!response.ok || json.success === false) throw new Error(json.message || 'Action failed.')
+      setNotice(successMessage || json.message || 'Done.')
       await loadOrder()
-    } catch (completeError) {
-      setError(completeError.message || 'Unable to complete trip.')
+    } catch (actionError) {
+      setError(actionError.message || 'Action failed.')
     } finally {
       setActionLoading('')
     }
   }
+
+  const startTrip = () =>
+    postAction(
+      `/api/orders/${orderId}/trips/${trip.id}/start`, null,
+      'Start this trip? The payment is held in escrow until the client confirms delivery.',
+      'start', 'Trip started.',
+    )
+
+  const completeDelivery = () =>
+    postAction(
+      `/api/orders/${orderId}/trips/${trip.id}/complete-delivery`, null,
+      'Mark delivery complete? The client then has 6 hours to confirm before it goes to admin review.',
+      'complete', 'Delivery marked complete. Waiting for the client to confirm.',
+    )
+
+  async function submitStatement() {
+    if (!dispute || !statement.trim()) return
+    await postAction(
+      `/api/disputes/${dispute.id}/statement`, { statement: statement.trim() },
+      null, 'statement', 'Your statement was added to the dispute.',
+    )
+    setStatement('')
+  }
+
+  const openChat = () => navigate('/transporter/messages')
 
   if (loading) {
     return (
@@ -79,7 +133,7 @@ export default function OrderTracking() {
     )
   }
 
-  if (error) {
+  if (error && !order) {
     return (
       <div className="order-tracking-page">
         <div className="order-tracking-error">{error}</div>
@@ -96,6 +150,8 @@ export default function OrderTracking() {
       </div>
     )
   }
+
+  const paymentHeld = payment && payment.status === 'held'
 
   return (
     <div className="order-tracking-page">
@@ -114,13 +170,12 @@ export default function OrderTracking() {
       {error && <div className="order-tracking-error-box">{error}</div>}
 
       <div className="order-tracking-grid">
-        {/* Order Details Card */}
         <div className="order-tracking-card">
           <h2 className="order-tracking-card-title">Order Details</h2>
           <div className="order-tracking-details">
             <div className="detail-row">
               <span className="detail-label">Status</span>
-              <span className={`detail-value status-${order.status}`}>{order.status.toUpperCase()}</span>
+              <span className={`detail-value status-${order.status}`}>{(order.status || '').replace(/_/g, ' ').toUpperCase()}</span>
             </div>
             <div className="detail-row">
               <span className="detail-label">Pickup</span>
@@ -131,25 +186,29 @@ export default function OrderTracking() {
               <span className="detail-value">{order.dropoff_location || order.dropoff_city}</span>
             </div>
             <div className="detail-row">
-              <span className="detail-label">Date & Time</span>
-              <span className="detail-value">{order.pickup_date} at {order.pickup_time}</span>
-            </div>
-            <div className="detail-row">
               <span className="detail-label">Goods Type</span>
               <span className="detail-value">{order.goods_type}</span>
-            </div>
-            <div className="detail-row">
-              <span className="detail-label">Weight</span>
-              <span className="detail-value">{order.goods_weight_tons} tons</span>
             </div>
             <div className="detail-row">
               <span className="detail-label">Your Bid</span>
               <span className="detail-value amount">{formatMoney(order.payment_amount)}</span>
             </div>
+            {payment && (
+              <div className="detail-row">
+                <span className="detail-label">Payment</span>
+                <span className="detail-value">
+                  {paymentHeld ? 'Held in escrow' : (payment.status || '').toUpperCase()}
+                </span>
+              </div>
+            )}
           </div>
+          {chatThreadId && (
+            <button onClick={openChat} className="order-tracking-btn order-tracking-btn--ghost">
+              <i className="fas fa-comments" aria-hidden="true"></i> Open Chat
+            </button>
+          )}
         </div>
 
-        {/* Trip Status Card */}
         <div className="order-tracking-card">
           <h2 className="order-tracking-card-title">Trip Status</h2>
           <div className="order-tracking-timeline">
@@ -160,57 +219,109 @@ export default function OrderTracking() {
                 <div className="timeline-time">{trip.trip_started_at ? formatDateTime(trip.trip_started_at) : 'Waiting...'}</div>
               </div>
             </div>
-            <div className={`timeline-item ${trip.trip_completed_at ? 'completed' : 'pending'}`}>
+            <div className={`timeline-item ${trip.delivery_completion_requested_at ? 'completed' : 'pending'}`}>
               <div className="timeline-dot"></div>
               <div className="timeline-content">
                 <div className="timeline-label">Delivery Completed</div>
-                <div className="timeline-time">{trip.trip_completed_at ? formatDateTime(trip.trip_completed_at) : 'Pending...'}</div>
+                <div className="timeline-time">{trip.delivery_completion_requested_at ? formatDateTime(trip.delivery_completion_requested_at) : 'Pending...'}</div>
               </div>
             </div>
             <div className={`timeline-item ${trip.delivery_confirmed_at ? 'completed' : 'pending'}`}>
               <div className="timeline-dot"></div>
               <div className="timeline-content">
-                <div className="timeline-label">Client Verified</div>
+                <div className="timeline-label">Client Confirmed</div>
                 <div className="timeline-time">{trip.delivery_confirmed_at ? formatDateTime(trip.delivery_confirmed_at) : 'Awaiting...'}</div>
               </div>
             </div>
           </div>
 
-          {trip.status === 'in_progress' && !trip.trip_completed_at && (
+          {trip.status === 'ready_to_start' && (
+            <>
+              {paymentHeld && (
+                <p className="order-tracking-hint">
+                  <i className="fas fa-lock" aria-hidden="true"></i> Payment is held in escrow. Start the trip to begin.
+                </p>
+              )}
+              <button
+                onClick={startTrip}
+                disabled={actionLoading === 'start' || !paymentHeld}
+                className="order-tracking-btn order-tracking-btn--primary"
+              >
+                <i className={`fas ${actionLoading === 'start' ? 'fa-spinner fa-spin' : 'fa-play'}`} aria-hidden="true"></i>
+                Start Trip
+              </button>
+            </>
+          )}
+
+          {trip.status === 'in_progress' && (
             <button
-              onClick={markTripCompleted}
+              onClick={completeDelivery}
               disabled={actionLoading === 'complete'}
               className="order-tracking-btn order-tracking-btn--primary"
             >
               <i className={`fas ${actionLoading === 'complete' ? 'fa-spinner fa-spin' : 'fa-check-circle'}`} aria-hidden="true"></i>
-              Mark Delivery Complete
+              Mark Delivery Completed
             </button>
           )}
 
-          {trip.status === 'delivery_claimed' && (
+          {trip.status === 'awaiting_client_confirmation' && (
             <div className="order-tracking-waiting">
-              <i className="fas fa-hourglass-end" aria-hidden="true"></i>
-              <p>Waiting for client to verify delivery...</p>
+              <i className="fas fa-hourglass-half" aria-hidden="true"></i>
+              <p>Waiting for the client to confirm delivery.</p>
+              <Countdown deadline={trip.confirmation_deadline_at} />
             </div>
           )}
 
           {trip.status === 'completed' && (
             <div className="order-tracking-success">
               <i className="fas fa-check-double" aria-hidden="true"></i>
-              <p>Delivery verified! Payment will be released shortly.</p>
+              <p>Delivery confirmed. Your payout has been released.</p>
             </div>
           )}
 
-          {trip.status === 'dispute_pending' && (
+          {(trip.status === 'delivery_disputed' || trip.status === 'admin_review') && (
             <div className="order-tracking-dispute">
               <i className="fas fa-exclamation-circle" aria-hidden="true"></i>
-              <p>Delivery verification under dispute. Admin review in progress.</p>
+              <p>
+                {trip.status === 'admin_review'
+                  ? 'The confirmation window lapsed. An admin is reviewing this delivery.'
+                  : 'The client reported a problem. An admin will review this delivery.'}
+              </p>
+              {dispute && dispute.status === 'open' && (
+                <div className="order-tracking-statement">
+                  <label htmlFor="statement">Add your statement for the admin</label>
+                  <textarea
+                    id="statement"
+                    value={statement}
+                    onChange={(e) => setStatement(e.target.value)}
+                    placeholder="Explain what happened (proof of delivery, timing, etc.)"
+                    rows={3}
+                  />
+                  <button
+                    onClick={submitStatement}
+                    disabled={actionLoading === 'statement' || !statement.trim()}
+                    className="order-tracking-btn order-tracking-btn--secondary"
+                  >
+                    <i className={`fas ${actionLoading === 'statement' ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`} aria-hidden="true"></i>
+                    Submit Statement
+                  </button>
+                  {dispute.transporter_statement && (
+                    <p className="order-tracking-hint">Submitted: {dispute.transporter_statement}</p>
+                  )}
+                </div>
+              )}
+            </div>
+          )}
+
+          {trip.status === 'resolved_client' && (
+            <div className="order-tracking-dispute">
+              <i className="fas fa-gavel" aria-hidden="true"></i>
+              <p>An admin resolved this dispute in the client's favour. The payment was refunded.</p>
             </div>
           )}
         </div>
       </div>
 
-      {/* Notes Section */}
       {order.notes && (
         <div className="order-tracking-card">
           <h2 className="order-tracking-card-title">Special Instructions</h2>

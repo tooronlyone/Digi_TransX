@@ -78,7 +78,54 @@ def make_chat_upload_relative_path(thread_id, file_storage):
     return filename
 
 
+def ensure_one_time_thread(db, shipment_id, trip_id, client_user_id, transporter_user_id):
+    """Create (or reuse) the single chat thread for an accepted one-time order.
+
+    One thread per accepted one-time shipment (uniq_chat_thread_one_time). Safe
+    to call repeatedly and concurrently — a race falls back to the existing row.
+    Does NOT commit. Returns the thread id.
+    """
+    from shared.db import IntegrityError
+
+    existing = db.execute(
+        "SELECT id FROM chat_threads WHERE shipment_id = %s", (shipment_id,)
+    ).fetchone()
+    if existing:
+        return existing["id"]
+    try:
+        row = db.execute(
+            """
+            INSERT INTO chat_threads (
+                client_user_id, transporter_user_id, shipment_id, one_time_trip_id, created_at
+            ) VALUES (%s, %s, %s, %s, now())
+            RETURNING id
+            """,
+            (client_user_id, transporter_user_id, shipment_id, trip_id),
+        ).fetchone()
+        return row["id"]
+    except IntegrityError:
+        # Concurrent creator won the unique index — reuse their row.
+        existing = db.execute(
+            "SELECT id FROM chat_threads WHERE shipment_id = %s", (shipment_id,)
+        ).fetchone()
+        return existing["id"] if existing else None
+
+
 def build_thread_order_summary(row):
+    # One-time order threads carry a shipment_id; agreement threads carry an
+    # agreement_post_id. Present whichever this thread is bound to.
+    if row.get("shipment_id"):
+        return {
+            "id": row.get("shipment_id"),
+            "pickup_city": row.get("order_pickup_city") or "Pickup",
+            "dropoff_city": row.get("order_dropoff_city") or "Drop-off",
+            "status": row.get("order_status") or "open",
+            "route_label": (
+                f"{row.get('order_pickup_city') or 'Pickup'} → "
+                f"{row.get('order_dropoff_city') or 'Drop-off'}"
+            ),
+            "kind": "one_time",
+        }
     return {
         "id": row.get("agreement_post_id"),
         "pickup_city": row.get("agreement_title") or "Agreement",

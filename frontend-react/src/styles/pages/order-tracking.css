@@ -368,3 +368,14 @@
     margin-top: 0.25rem;
   }
 }
+
+/* One-time lifecycle additions */
+.order-tracking-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 20px; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; font-size: 14px; margin-top: 12px; }
+.order-tracking-btn:disabled { opacity: .6; cursor: not-allowed; }
+.order-tracking-btn--primary { background: linear-gradient(135deg,#2563eb,#3b82f6); color: #fff; }
+.order-tracking-btn--secondary { background: #0f172a; color: #fff; }
+.order-tracking-btn--ghost { background: #eff6ff; color: #2563eb; border: 1.5px solid #bfdbfe; }
+.order-tracking-hint { display: flex; align-items: center; gap: 8px; color: #475569; font-size: 13px; margin: 10px 0 0; }
+.order-tracking-countdown { display: inline-block; margin-top: 8px; font-weight: 700; color: #b45309; }
+.order-tracking-statement { margin-top: 14px; display: flex; flex-direction: column; gap: 8px; }
+.order-tracking-statement textarea { width: 100%; padding: 10px 12px; border-radius: 10px; border: 1.5px solid #e2e8f0; font-size: 14px; box-sizing: border-box; resize: vertical; }

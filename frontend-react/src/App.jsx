@@ -215,6 +215,9 @@ function EverydayPortal() {
           <Route path="orders" element={<MyOrders />} />
           <Route path="order/:orderId" element={<ClientOrderDetail />} />
           <Route path="order/:orderId/bid/:bidId/checkout" element={<BidCheckout />} />
+          {/* One-time chat is relevant to everyday users; Messages is exposed
+              (agreements/wallet pages remain hidden for this surface). */}
+          <Route path="messages" element={<ClientMessages />} />
           <Route path="terms" element={<ClientTerms />} />
           <Route path="*" element={<Navigate to="/everyday/dashboard" replace />} />
         </Routes>

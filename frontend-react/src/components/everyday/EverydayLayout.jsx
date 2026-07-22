@@ -11,6 +11,7 @@ const NAV_ITEMS = [
   { label: 'Dashboard', icon: 'fa-home', path: '/everyday/dashboard' },
   { label: 'Post Order', icon: 'fa-shipping-fast', path: '/everyday/post-order' },
   { label: 'My Orders', icon: 'fa-clipboard-list', path: '/everyday/orders' },
+  { label: 'Messages', icon: 'fa-comments', path: '/everyday/messages' },
   { label: 'Terms & Fees', icon: 'fa-file-lines', path: '/everyday/terms' },
 ]
 

@@ -42,14 +42,44 @@ export default function AdminDisputes() {
   const [decision, setDecision] = useState('km_approved')
   const [adminNote, setAdminNote] = useState('')
   const [error, setError]       = useState('')
+  // One-time delivery disputes (client_no / confirmation_timeout).
+  const [otItems, setOtItems]   = useState([])
+  const [otSelected, setOtSelected] = useState(null)
+  const [otResolution, setOtResolution] = useState('transporter_win')
+  const [otNotes, setOtNotes]   = useState('')
+  const [otBusy, setOtBusy]     = useState(false)
 
   async function load() {
     try {
       const json = await adminRequest('/api/admin/disputes')
       setItems(json.disputes || [])
     } catch (err) { setError(err.message) }
+    try {
+      const otJson = await adminRequest('/api/admin/one-time-disputes?status=open')
+      setOtItems(otJson.disputes || [])
+    } catch (err) { setError(err.message) }
   }
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { load() }, [])
+
+  async function resolveOneTime() {
+    if (!otSelected) return
+    if (!otNotes.trim()) { setError('Admin notes are required to resolve a delivery dispute.'); return }
+    if (!window.confirm(
+      otResolution === 'transporter_win'
+        ? 'Release the held payment to the transporter and complete this order?'
+        : 'Refund the client and mark this order resolved in their favour?'
+    )) return
+    setOtBusy(true)
+    setError('')
+    try {
+      await adminRequest(`/api/admin/one-time-disputes/${otSelected.id}/resolve`, {
+        method: 'POST',
+        body: JSON.stringify({ resolution: otResolution, notes: otNotes.trim() }),
+      })
+      setOtSelected(null); setOtNotes(''); setOtResolution('transporter_win'); load()
+    } catch (err) { setError(err.message) } finally { setOtBusy(false) }
+  }
 
   async function openChat() {
     try {
@@ -155,6 +185,84 @@ export default function AdminDisputes() {
               <button onClick={() => setSelected(null)} style={S.btnOutline}>Cancel</button>
               <button onClick={resolve} style={S.btnPrimary}>
                 <i className="fas fa-gavel" style={{ marginRight: 8 }} />Confirm Decision
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* One-time delivery disputes ------------------------------------ */}
+      <div style={{ margin: '32px 0 16px' }}>
+        <h1 style={S.heading}>One-time Delivery Disputes</h1>
+        <p style={S.sub}>Client-denied or 6-hour-timeout deliveries. Payment stays held until you resolve.</p>
+      </div>
+      <div style={S.card}>
+        <table style={{ width: '100%', borderCollapse: 'collapse' }}>
+          <thead>
+            <tr>{['Dispute','Order','Route','Transporter','Client','Trigger','Opened',''].map(h => <th key={h} style={S.th}>{h}</th>)}</tr>
+          </thead>
+          <tbody>
+            {otItems.map(item => (
+              <tr key={item.id}>
+                <td style={{ ...S.td, fontWeight: 700, color: '#0f172a' }}>#{item.id}</td>
+                <td style={S.td}>#{item.shipment_id}</td>
+                <td style={S.td}>{item.pickup_city} → {item.dropoff_city}</td>
+                <td style={S.td}>{item.transporter_name}</td>
+                <td style={S.td}>{item.client_name}</td>
+                <td style={S.td}>{String(item.trigger || '').replace(/_/g, ' ')}</td>
+                <td style={{ ...S.td, color: '#64748b' }}>{dateText(item.created_at)}</td>
+                <td style={S.td}>
+                  <button onClick={() => { setOtSelected(item); setOtResolution('transporter_win'); setOtNotes('') }}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', fontWeight: 600, fontSize: 13 }}>
+                    Resolve →
+                  </button>
+                </td>
+              </tr>
+            ))}
+            {otItems.length === 0 && (
+              <tr><td colSpan={8} style={{ padding: '40px', textAlign: 'center', color: '#94a3b8', fontSize: 14 }}>No open delivery disputes.</td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+
+      {otSelected && (
+        <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.4)', padding: 16 }}>
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', padding: 28, width: '100%', maxWidth: 560 }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
+              <div>
+                <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: 0 }}>Order #{otSelected.shipment_id}</h2>
+                <p style={{ fontSize: 13, color: '#64748b', marginTop: 4 }}>
+                  {otSelected.pickup_city} → {otSelected.dropoff_city} · trigger: {String(otSelected.trigger || '').replace(/_/g, ' ')}
+                </p>
+              </div>
+              <button onClick={() => setOtSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 20 }}>
+                <i className="fas fa-times" />
+              </button>
+            </div>
+
+            {otSelected.client_reason && (
+              <p style={{ fontSize: 13, color: '#475569' }}><strong>Client reason:</strong> {otSelected.client_reason}</p>
+            )}
+            {otSelected.transporter_statement && (
+              <p style={{ fontSize: 13, color: '#475569' }}><strong>Transporter statement:</strong> {otSelected.transporter_statement}</p>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
+              <DecisionBtn value="transporter_win" current={otResolution} onClick={() => setOtResolution('transporter_win')}
+                title="Transporter wins" sub="Release the held payout" />
+              <DecisionBtn value="client_win" current={otResolution} onClick={() => setOtResolution('client_win')}
+                title="Client wins" sub="Refund the client, no payout" />
+            </div>
+
+            <textarea rows={4} style={{ ...S.textarea, marginTop: 16 }}
+              placeholder="Admin notes (required)" value={otNotes}
+              onChange={e => setOtNotes(e.target.value)} />
+
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
+              <button onClick={() => setOtSelected(null)} style={S.btnOutline}>Cancel</button>
+              <button onClick={resolveOneTime} disabled={otBusy || !otNotes.trim()} style={S.btnPrimary}>
+                <i className="fas fa-gavel" style={{ marginRight: 8 }} />Resolve Dispute
               </button>
             </div>
           </div>

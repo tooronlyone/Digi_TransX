@@ -484,3 +484,17 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* One-time delivery confirmation (client Yes/No) */
+.odp-confirm { margin-top: 16px; padding: 16px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; }
+.odp-confirm__lead { display: flex; align-items: flex-start; gap: 8px; color: #334155; font-size: 14px; margin: 0 0 8px; }
+.odp-confirm__msg { margin-top: 12px; padding: 10px 14px; border-radius: 10px; background: #eff6ff; color: #1d4ed8; font-size: 13px; }
+.odp-confirm__actions { display: flex; flex-wrap: wrap; gap: 12px; margin: 12px 0; }
+.odp-countdown { display: inline-block; font-weight: 700; color: #b45309; }
+.odp-btn { display: inline-flex; align-items: center; gap: 8px; padding: 12px 18px; border-radius: 10px; border: none; cursor: pointer; font-weight: 700; font-size: 14px; }
+.odp-btn:disabled { opacity: .6; cursor: not-allowed; }
+.odp-btn--yes { background: linear-gradient(135deg,#16a34a,#22c55e); color: #fff; }
+.odp-btn--no { background: linear-gradient(135deg,#dc2626,#ef4444); color: #fff; }
+.odp-btn--ghost { background: #eff6ff; color: #2563eb; border: 1.5px solid #bfdbfe; }
+.odp-confirm--ok { display: flex; align-items: center; gap: 10px; color: #15803d; background: #f0fdf4; border-color: #bbf7d0; }
+.odp-confirm--dispute { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; color: #b45309; background: #fffbeb; border-color: #fde68a; }
