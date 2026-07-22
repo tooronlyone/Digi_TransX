@@ -35,19 +35,35 @@ const everydayPaymentsSection = {
   ],
 }
 
-const clientSections = [
-  {
-    id: 'account-use',
-    icon: 'fa-id-badge',
-    title: 'Your Account',
-    intro:
-      'Your Digi_TransX account is personal to you or your business. You are responsible for every booking, agreement and payment made through your login.',
-    points: [
-      'Keep login credentials, OTP flows, and account recovery channels secure.',
-      'Profile, company, and contact information must stay accurate and current.',
-      'Report account misuse, impersonation, or suspicious access to Digi_TransX immediately.',
-    ],
-  },
+// "Your Account" differs by audience: everyday accounts are personal with no
+// business/agreement wording; business accounts keep the company/agreement copy.
+const businessAccountSection = {
+  id: 'account-use',
+  icon: 'fa-id-badge',
+  title: 'Your Account',
+  intro:
+    'Your Digi_TransX account is personal to you or your business. You are responsible for every booking, agreement and payment made through your login.',
+  points: [
+    'Keep login credentials, OTP flows, and account recovery channels secure.',
+    'Profile, company, and contact information must stay accurate and current.',
+    'Report account misuse, impersonation, or suspicious access to Digi_TransX immediately.',
+  ],
+}
+
+const everydayAccountSection = {
+  id: 'account-use',
+  icon: 'fa-id-badge',
+  title: 'Your Account',
+  intro:
+    'Your Digi_TransX account is personal to you. You are responsible for every order and payment made through your login.',
+  points: [
+    'Keep login credentials, OTP flows, and account recovery channels secure.',
+    'Profile and contact information must stay accurate and current.',
+    'Report account misuse, impersonation, or suspicious access to Digi_TransX immediately.',
+  ],
+}
+
+const sharedSections = [
   {
     id: 'disputes',
     icon: 'fa-triangle-exclamation',
@@ -82,18 +98,22 @@ export default function ClientTerms() {
 
   const audience = useMemo(() => (base === '/everyday' ? 'everyday' : 'client'), [base])
 
+  const isEveryday = audience === 'everyday'
+
   const sections = useMemo(() => {
-    const [accountUse, ...rest] = clientSections
-    const payments = audience === 'everyday' ? everydayPaymentsSection : businessPaymentsSection
-    return [accountUse, payments, ...rest]
-  }, [audience])
+    const account = isEveryday ? everydayAccountSection : businessAccountSection
+    const payments = isEveryday ? everydayPaymentsSection : businessPaymentsSection
+    return [account, payments, ...sharedSections]
+  }, [isEveryday])
 
   return (
     <div className="page-terms">
       <div style={{ marginBottom: 20 }}>
         <h1 style={{ margin: 0, fontSize: 26, fontWeight: 800, color: '#0f172a' }}>Terms &amp; Platform Fees</h1>
         <p style={{ color: '#64748b', fontSize: 14, marginTop: 6 }}>
-          These terms govern how your bookings, agreements, payments and account activity work on Digi_TransX.
+          {isEveryday
+            ? 'These terms govern how your orders, payments and account activity work on Digi_TransX. '
+            : 'These terms govern how your bookings, agreements, payments and account activity work on Digi_TransX. '}
           The fee section below always shows the currently approved commission rates.
         </p>
       </div>
@@ -137,18 +157,20 @@ export default function ClientTerms() {
         <div>
           <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#0f172a' }}>Questions about these terms?</h2>
           <p style={{ fontSize: 13, color: '#64748b', margin: '6px 0 0' }}>
-            Reach out through Messages before accepting a bid or finalizing an agreement if anything is unclear.
+            {isEveryday
+              ? 'Review your orders and the bids you receive before accepting one if anything is unclear.'
+              : 'Reach out through Messages before accepting a bid or finalizing an agreement if anything is unclear.'}
           </p>
         </div>
         <Link
-          to={audience === 'everyday' ? `${base}/orders` : `${base}/messages`}
+          to={isEveryday ? `${base}/orders` : `${base}/messages`}
           style={{
             background: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#fff',
             padding: '10px 18px', borderRadius: 10, fontWeight: 600, fontSize: 13, textDecoration: 'none',
           }}
         >
-          <i className="fas fa-comments" aria-hidden="true" style={{ marginRight: 8 }}></i>
-          Contact Support
+          <i className={`fas ${isEveryday ? 'fa-clipboard-list' : 'fa-comments'}`} aria-hidden="true" style={{ marginRight: 8 }}></i>
+          {isEveryday ? 'View My Orders' : 'Contact Support'}
         </Link>
       </section>
     </div>

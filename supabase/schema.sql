@@ -100,14 +100,48 @@ create table public.everyday_user_profiles (
 
 -- A user may hold at most ONE client-profile kind. These triggers reject an
 -- insert into one table when a row already exists in the other.
+-- ONE shared trigger function guards profile-type integrity for both tables.
+-- A transaction-scoped advisory lock on the user_id serializes concurrent
+-- inserts across BOTH tables, so two racing transactions can never each insert
+-- the opposite profile and end up with a user holding both. It also enforces
+-- that the profile type matches the owning user's role.
 create or replace function public.enforce_single_client_profile()
 returns trigger language plpgsql as $$
 declare
+    v_legacy text;
     other_table text := case tg_table_name
         when 'service_seeker_profiles' then 'everyday_user_profiles'
         else 'service_seeker_profiles' end;
     conflict boolean;
 begin
+    -- 1) Serialize on the user_id (released at commit/rollback). A concurrent
+    --    opposite-table insert for the same user blocks here until we finish.
+    perform pg_advisory_xact_lock(new.user_id);
+
+    -- 2) Read the owning user's app-logic role.
+    select lower(coalesce(legacy_role, '')) into v_legacy
+    from public.users where id = new.user_id;
+    if not found then
+        raise exception 'user % does not exist; cannot create a client profile', new.user_id;
+    end if;
+
+    -- 3) Profile type must match the role:
+    --    everyday_user_profiles  <-> legacy_role everyday_user
+    --    service_seeker_profiles <-> legacy_role service_seeker/client
+    --    any other role (transporter/admin/shopkeeper/...) gets neither.
+    if tg_table_name = 'everyday_user_profiles' then
+        if v_legacy <> 'everyday_user' then
+            raise exception 'everyday_user_profiles requires legacy_role everyday_user (user % is %)',
+                new.user_id, coalesce(nullif(v_legacy, ''), '(none)');
+        end if;
+    else
+        if v_legacy not in ('service_seeker', 'client') then
+            raise exception 'service_seeker_profiles requires legacy_role service_seeker or client (user % is %)',
+                new.user_id, coalesce(nullif(v_legacy, ''), '(none)');
+        end if;
+    end if;
+
+    -- 4) Reject if the opposite profile already exists (checked under the lock).
     execute format('select exists(select 1 from public.%I where user_id = $1)', other_table)
         into conflict using new.user_id;
     if conflict then
@@ -1091,17 +1125,16 @@ create policy users_update_own on public.users
     for update using (auth_id = auth.uid())
     with check (auth_id = auth.uid() and role = (select u.role from public.users u where u.auth_id = auth.uid()));
 
--- 7.2 client profiles (own row only; dispatcher read)
-create policy service_seeker_profile_own on public.service_seeker_profiles
-    for all using (user_id = public.current_app_user_id())
-    with check (user_id = public.current_app_user_id());
-create policy service_seeker_profile_dispatcher_read on public.service_seeker_profiles
-    for select using (public.is_dispatcher());
-create policy everyday_user_profile_own on public.everyday_user_profiles
-    for all using (user_id = public.current_app_user_id())
-    with check (user_id = public.current_app_user_id());
-create policy everyday_user_profile_dispatcher_read on public.everyday_user_profiles
-    for select using (public.is_dispatcher());
+-- 7.2 client profiles: the owner may SELECT their own row ONLY. All profile
+-- mutations (create/convert/counters) go through the backend service role,
+-- which bypasses RLS — there is deliberately no owner INSERT/UPDATE/DELETE
+-- policy, so a browser client cannot alter user_id, switch profile type, or
+-- change counters directly. Admin keeps full access via admin_all_* (above).
+-- There is NO dispatcher access to client profiles.
+create policy service_seeker_profile_select_own on public.service_seeker_profiles
+    for select using (user_id = public.current_app_user_id());
+create policy everyday_user_profile_select_own on public.everyday_user_profiles
+    for select using (user_id = public.current_app_user_id());
 
 -- 7.2b role profile tables: own row only
 create policy transporter_profile_own on public.transporter_profiles

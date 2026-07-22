@@ -45,6 +45,25 @@ def require_business_client_role(user):
     return None
 
 
+def deny_everyday_agreements(user):
+    """Central everyday-denial for the MIXED-audience agreement endpoints.
+
+    Agreements are a business-only feature. Endpoints that legitimately serve a
+    transporter OR a business client (agreement detail, trips, payments, bids
+    list, live location) call this FIRST — before any lookup — so an everyday
+    user always gets the same 403 and can never reach or probe a legacy
+    agreement that happens to reference their user id. Returning here before the
+    DB lookup means the response never reveals whether the agreement exists.
+
+    Business clients, transporters and admins are unaffected (returns None).
+    """
+    if normalize_client_kind(user.get("role")) == "everyday":
+        return json_response(
+            {"success": False, "message": "Business account required."}, 403
+        )
+    return None
+
+
 def require_transporter_role(user):
     if normalize_role(user.get("role")) not in TRANSPORTER_AGREEMENT_ROLES:
         return json_response({"success": False, "message": "Transporter account required."}, 403)

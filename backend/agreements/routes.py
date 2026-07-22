@@ -19,6 +19,7 @@ from shared.roles import normalize_client_kind
 from .helpers import (
     CLIENT_AGREEMENT_ROLES,
     PENALTY_AMOUNT,
+    deny_everyday_agreements,
     add_months,
     due_date_for_month,
     haversine_km,
@@ -361,6 +362,9 @@ def create_bid(post_id):
 @agreements_blueprint.get("/api/agreements/posts/<int:post_id>/bids")
 @login_required
 def list_bids(post_id):
+    denied = deny_everyday_agreements(request.current_user)
+    if denied:
+        return denied
     with open_db() as db:
         post = fetch_post(db, post_id)
         if not post:
@@ -746,6 +750,9 @@ def trip_live_location(trip_id):
     """Return current GPS position from Traccar for an active trip."""
     from tracking.traccar import get_latest_position
 
+    denied = deny_everyday_agreements(request.current_user)
+    if denied:
+        return denied
     with open_db() as db:
         trip = db.execute(
             """
@@ -829,6 +836,9 @@ def dispute_trip(trip_id):
 @agreements_blueprint.get("/api/agreements/<int:agreement_id>/trips")
 @login_required
 def list_trips(agreement_id):
+    denied = deny_everyday_agreements(request.current_user)
+    if denied:
+        return denied
     with open_db() as db:
         agreement = fetch_agreement(db, agreement_id)
         if not agreement:
@@ -917,6 +927,9 @@ def my_agreements():
 @agreements_blueprint.get("/api/agreements/<int:agreement_id>/payments")
 @login_required
 def list_payments(agreement_id):
+    denied = deny_everyday_agreements(request.current_user)
+    if denied:
+        return denied
     with open_db() as db:
         agreement = fetch_agreement(db, agreement_id)
         if not agreement:
@@ -940,6 +953,9 @@ def list_payments(agreement_id):
 @agreements_blueprint.get("/api/agreements/<int:agreement_id>")
 @login_required
 def agreement_detail(agreement_id):
+    denied = deny_everyday_agreements(request.current_user)
+    if denied:
+        return denied
     with open_db() as db:
         agreement = fetch_agreement(db, agreement_id)
         if not agreement:

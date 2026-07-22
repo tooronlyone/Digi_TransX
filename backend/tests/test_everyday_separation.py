@@ -101,6 +101,75 @@ def test_user_cannot_hold_both_profile_types(db):
     db.rollback()
 
 
+def test_service_seeker_cannot_receive_everyday_profile(db):
+    import psycopg2
+    uid = _mk_user(db, "service_seeker", "ss-role@test")
+    with pytest.raises(psycopg2.errors.RaiseException):
+        db.execute("INSERT INTO everyday_user_profiles (user_id) VALUES (%s)", (uid,))
+    db.rollback()
+
+
+def test_everyday_user_cannot_receive_service_seeker_profile(db):
+    import psycopg2
+    uid = _mk_user(db, "everyday_user", "ev-role@test")
+    with pytest.raises(psycopg2.errors.RaiseException):
+        db.execute("INSERT INTO service_seeker_profiles (user_id) VALUES (%s)", (uid,))
+    db.rollback()
+
+
+def test_non_client_cannot_receive_either_profile(db):
+    import psycopg2
+    tid = _mk_user(db, "logistics_provider", "trans-role@test")
+    for tbl in ("service_seeker_profiles", "everyday_user_profiles"):
+        with pytest.raises(psycopg2.errors.RaiseException):
+            db.execute(f"INSERT INTO {tbl} (user_id) VALUES (%s)", (tid,))
+        db.rollback()
+
+
+def test_concurrent_opposite_profiles_cannot_both_commit(db, pg_session_info):
+    """Two independent connections race to give the SAME user opposite profiles.
+    The advisory lock + checks guarantee at most one row exists afterwards, and
+    never both types."""
+    import threading
+    import psycopg2
+
+    # A user whose role permits a service-seeker profile; the everyday attempt
+    # is both role-invalid AND opposite-conflicting — under the lock it can
+    # never coexist with the service-seeker row.
+    uid = _mk_user(db, "service_seeker", "race@test")
+    db.commit()
+
+    schema, url = pg_session_info["schema"], pg_session_info["url"]
+    barrier = threading.Barrier(2)
+    results = {}
+
+    def attempt(name, table):
+        conn = psycopg2.connect(url)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f'set search_path to "{schema}"')
+                barrier.wait(timeout=10)
+                cur.execute(f"INSERT INTO {table} (user_id) VALUES (%s)", (uid,))
+            conn.commit()
+            results[name] = "ok"
+        except Exception as exc:  # noqa: BLE001
+            conn.rollback()
+            results[name] = type(exc).__name__
+        finally:
+            conn.close()
+
+    t1 = threading.Thread(target=attempt, args=("seeker", "service_seeker_profiles"))
+    t2 = threading.Thread(target=attempt, args=("everyday", "everyday_user_profiles"))
+    t1.start(); t2.start(); t1.join(); t2.join()
+
+    ss = db.execute("SELECT count(*) c FROM service_seeker_profiles WHERE user_id=%s", (uid,)).fetchone()["c"]
+    ev = db.execute("SELECT count(*) c FROM everyday_user_profiles WHERE user_id=%s", (uid,)).fetchone()["c"]
+    # Never both; and the role-valid seeker profile is the one that can exist.
+    assert not (ss and ev), f"user ended with both profiles: ss={ss} ev={ev}"
+    assert ev == 0
+    assert ss <= 1
+
+
 # ---------------------------------------------------------------------------
 # Signup writes to the correct profile table (#1, #2)
 # ---------------------------------------------------------------------------
@@ -210,11 +279,46 @@ def test_order_response_has_no_area_fields(client):
 # Everyday users are blocked from business-only backends (403) (#7,#8,#9,#10)
 # ---------------------------------------------------------------------------
 
-def test_everyday_agreement_post_forbidden(client):
+# Every agreement endpoint an everyday user could reach — each must 403 BEFORE
+# any lookup, so a legacy agreement referencing their id is never exposed and
+# the response never reveals whether the agreement exists.
+_CSRF = {"X-CSRF-Token": "test-csrf-token"}
+_AGREEMENT_ENDPOINTS = [
+    ("post", "/api/agreements/posts", {"title": "x"}),
+    ("get", "/api/agreements/posts/1/bids", None),
+    ("post", "/api/agreements/posts/1/bids/1/invite", {}),
+    ("post", "/api/agreements/finalize", {}),
+    ("get", "/api/agreements/my", None),
+    ("get", "/api/agreements/1", None),
+    ("get", "/api/agreements/1/trips", None),
+    ("get", "/api/agreements/1/payments", None),
+    ("get", "/api/agreements/trips/1/live-location", None),
+    ("post", "/api/agreements/trips/1/dispute", {}),
+]
+
+
+@pytest.mark.parametrize("method,path,body", _AGREEMENT_ENDPOINTS)
+def test_everyday_denied_from_every_agreement_endpoint(client, method, path, body):
     client.login(EVERYDAY)
-    resp = client.post("/api/agreements/posts", data=json.dumps({"title": "x"}),
-                       content_type="application/json", headers={"X-CSRF-Token": "test-csrf-token"})
-    assert resp.status_code == 403
+    if method == "get":
+        resp = client.get(path)
+    else:
+        resp = client.post(path, data=json.dumps(body or {}), content_type="application/json", headers=_CSRF)
+    assert resp.status_code == 403, f"{path} -> {resp.status_code}: {resp.get_data(as_text=True)}"
+    # Consistent message; no leak of whether a protected agreement exists.
+    body_json = resp.get_json() or {}
+    assert body_json.get("success") is False
+    assert "not found" not in (body_json.get("message") or "").lower()
+
+
+def test_everyday_agreement_403_identical_for_existing_and_missing(client):
+    """The 403 for an everyday user is identical whether or not id 1 exists —
+    proving no existence leak (the guard runs before any DB lookup)."""
+    client.login(EVERYDAY)
+    a = client.get("/api/agreements/1")
+    b = client.get("/api/agreements/999999")
+    assert a.status_code == b.status_code == 403
+    assert a.get_json() == b.get_json()
 
 
 def test_everyday_my_agreements_forbidden(client):

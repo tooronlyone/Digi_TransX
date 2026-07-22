@@ -168,14 +168,34 @@ create table everyday_user_profiles (
     updated_at      timestamptz not null default now()
 );
 
+-- Hardened shared trigger (mirrors public.enforce_single_client_profile):
+-- advisory lock per user_id + profile/role consistency + opposite-table reject.
+-- Unqualified names because tests run inside an isolated schema on search_path.
 create or replace function enforce_single_client_profile()
 returns trigger language plpgsql as $$
 declare
+    v_legacy text;
     other_table text := case tg_table_name
         when 'service_seeker_profiles' then 'everyday_user_profiles'
         else 'service_seeker_profiles' end;
     conflict boolean;
 begin
+    perform pg_advisory_xact_lock(new.user_id);
+    select lower(coalesce(legacy_role, '')) into v_legacy from users where id = new.user_id;
+    if not found then
+        raise exception 'user % does not exist; cannot create a client profile', new.user_id;
+    end if;
+    if tg_table_name = 'everyday_user_profiles' then
+        if v_legacy <> 'everyday_user' then
+            raise exception 'everyday_user_profiles requires legacy_role everyday_user (user % is %)',
+                new.user_id, coalesce(nullif(v_legacy, ''), '(none)');
+        end if;
+    else
+        if v_legacy not in ('service_seeker', 'client') then
+            raise exception 'service_seeker_profiles requires legacy_role service_seeker or client (user % is %)',
+                new.user_id, coalesce(nullif(v_legacy, ''), '(none)');
+        end if;
+    end if;
     execute format('select exists(select 1 from %I where user_id = $1)', other_table)
         into conflict using new.user_id;
     if conflict then

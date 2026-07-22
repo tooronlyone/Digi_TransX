@@ -16,10 +16,9 @@ from urllib.parse import urlsplit, urlunsplit
 
 import pytest
 
-MIGRATION = (
-    Path(__file__).resolve().parent.parent.parent
-    / "supabase" / "migrations" / "20260723090000_everyday_user_separation.sql"
-)
+_MIG_DIR = Path(__file__).resolve().parent.parent.parent / "supabase" / "migrations"
+MIGRATION = _MIG_DIR / "20260723090000_everyday_user_separation.sql"
+HARDENING = _MIG_DIR / "20260723100000_everyday_profile_hardening.sql"
 
 PRELUDE = """
 create or replace function public.set_updated_at() returns trigger language plpgsql as $$
@@ -94,7 +93,61 @@ def throwaway_db():
         admin.close()
 
 
-def test_migration_splits_and_drops(throwaway_db):
+def _scalar(cur, sql):
+    cur.execute(sql)
+    return cur.fetchone()[0]
+
+
+def _profile_policies(cur):
+    cur.execute("select policyname from pg_policies where tablename in "
+                "('service_seeker_profiles','everyday_user_profiles')")
+    return {r[0] for r in cur.fetchall()}
+
+
+def test_both_migrations_sequentially(throwaway_db):
+    """A fresh pre-migration database run through BOTH migrations in order."""
+    conn = throwaway_db
+    with conn.cursor() as cur:
+        cur.execute(PRELUDE)
+        conn.commit()
+        cur.execute(MIGRATION.read_text(encoding="utf-8"))
+        conn.commit()
+        cur.execute(HARDENING.read_text(encoding="utf-8"))
+        conn.commit()
+
+        # customers gone, area columns gone.
+        assert not _scalar(cur, "select exists(select 1 from information_schema.tables "
+                                "where table_schema='public' and table_name='customers')")
+        assert not _scalar(cur, "select exists(select 1 from information_schema.columns "
+                                "where table_name='shipments' and column_name='pickup_area')")
+        assert not _scalar(cur, "select exists(select 1 from information_schema.columns "
+                                "where table_name='shipments' and column_name='dropoff_area')")
+        # migrated to the right tables (business: 1,3 ; everyday: 2,4).
+        assert _scalar(cur, "select array_agg(user_id order by user_id) from public.service_seeker_profiles") == [1, 3]
+        assert _scalar(cur, "select array_agg(user_id order by user_id) from public.everyday_user_profiles") == [2, 4]
+        assert _scalar(cur, "select count(*) from public.service_seeker_profiles s "
+                            "join public.everyday_user_profiles e on e.user_id=s.user_id") == 0
+        assert _scalar(cur, "select array_agg(seeker_kind_snapshot order by id) from public.shipments") == ["business", "everyday"]
+        assert _scalar(cur, "select is_nullable from information_schema.columns where "
+                            "table_name='shipments' and column_name='seeker_kind_snapshot'") == "NO"
+        # Final RLS: SELECT-own only, NO dispatcher, NO FOR ALL owner policy.
+        pols = _profile_policies(cur)
+        assert "service_seeker_profile_select_own" in pols
+        assert "everyday_user_profile_select_own" in pols
+        assert not any("dispatcher" in p for p in pols)
+        assert "service_seeker_profile_own" not in pols
+        assert "everyday_user_profile_own" not in pols
+        # Hardened trigger active: a service_seeker cannot get an everyday row.
+        cur.execute("insert into public.users values (99,'x@t','service_seeker')")
+        with pytest.raises(psycopg2_error()):
+            cur.execute("insert into public.everyday_user_profiles (user_id) values (99)")
+        conn.rollback()
+
+
+def test_hardening_alone_on_090000_state(throwaway_db):
+    """The hardening migration applied ALONE to a database already at the
+    20260723090000 state (dispatcher policies + FOR ALL owner policies present),
+    and re-applied to prove idempotency."""
     conn = throwaway_db
     with conn.cursor() as cur:
         cur.execute(PRELUDE)
@@ -102,32 +155,30 @@ def test_migration_splits_and_drops(throwaway_db):
         cur.execute(MIGRATION.read_text(encoding="utf-8"))
         conn.commit()
 
-        def scalar(sql):
-            cur.execute(sql)
-            return cur.fetchone()[0]
+        # State after the FIRST migration: dispatcher + FOR ALL owner policies.
+        pols = _profile_policies(cur)
+        assert "service_seeker_profile_dispatcher_read" in pols
+        assert "everyday_user_profile_dispatcher_read" in pols
+        assert "service_seeker_profile_own" in pols
 
-        # #5 customers gone, area columns gone.
-        assert not scalar("select exists(select 1 from information_schema.tables "
-                          "where table_schema='public' and table_name='customers')")
-        assert not scalar("select exists(select 1 from information_schema.columns "
-                          "where table_name='shipments' and column_name='pickup_area')")
-        assert not scalar("select exists(select 1 from information_schema.columns "
-                          "where table_name='shipments' and column_name='dropoff_area')")
-        # #4 migrated to the right tables (business: 1,3 ; everyday: 2,4).
-        assert scalar("select array_agg(user_id order by user_id) from public.service_seeker_profiles") == [1, 3]
-        assert scalar("select array_agg(user_id order by user_id) from public.everyday_user_profiles") == [2, 4]
-        # #3 nobody in both.
-        assert scalar("select count(*) from public.service_seeker_profiles s "
-                      "join public.everyday_user_profiles e on e.user_id=s.user_id") == 0
-        # seeker_kind_snapshot backfilled + NOT NULL.
-        assert scalar("select array_agg(seeker_kind_snapshot order by id) from public.shipments") == ["business", "everyday"]
-        assert scalar("select is_nullable from information_schema.columns where "
-                      "table_name='shipments' and column_name='seeker_kind_snapshot'") == "NO"
-        # default_pickup_area not copied into the new business table.
-        assert not scalar("select exists(select 1 from information_schema.columns where "
-                          "table_name='service_seeker_profiles' and column_name='default_pickup_area')")
-        # #6 own-row RLS policies exist on both new tables.
-        policies = scalar("select array_agg(policyname order by policyname) from pg_policies "
-                          "where tablename in ('service_seeker_profiles','everyday_user_profiles')")
-        assert "service_seeker_profile_own" in policies
-        assert "everyday_user_profile_own" in policies
+        # Apply ONLY the hardening migration.
+        hardening_sql = HARDENING.read_text(encoding="utf-8")
+        cur.execute(hardening_sql)
+        conn.commit()
+
+        pols = _profile_policies(cur)
+        assert not any("dispatcher" in p for p in pols)
+        assert "service_seeker_profile_own" not in pols
+        assert "everyday_user_profile_own" not in pols
+        assert "service_seeker_profile_select_own" in pols
+        assert "everyday_user_profile_select_own" in pols
+
+        # Idempotent: re-applying the hardening migration succeeds unchanged.
+        cur.execute(hardening_sql)
+        conn.commit()
+        assert _profile_policies(cur) == pols
+
+
+def psycopg2_error():
+    import psycopg2
+    return psycopg2.errors.RaiseException
