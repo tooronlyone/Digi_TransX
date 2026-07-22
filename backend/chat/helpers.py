@@ -82,9 +82,7 @@ def build_thread_order_summary(row):
     return {
         "id": row.get("agreement_post_id"),
         "pickup_city": row.get("agreement_title") or "Agreement",
-        "pickup_area": "",
         "dropoff_city": row.get("agreement_service_area") or "",
-        "dropoff_area": "",
         "status": row.get("agreement_status") or "open",
         "route_label": row.get("agreement_title") or "Agreement shipment",
         "kind": "agreement",

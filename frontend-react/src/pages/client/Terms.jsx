@@ -1,6 +1,39 @@
 import { useEffect, useMemo } from 'react'
 import { Link } from 'react-router-dom'
 import PlatformFeesSection from '../../components/common/PlatformFeesSection'
+import useClientBasePath from '../../hooks/useClientBasePath'
+
+// The "Orders, Payments and Fees" section differs by audience: everyday users
+// pay the accepted bid by card (plus the card-processing fee) and have no
+// wallet or agreements; business seekers pay wallet-first and may hold
+// agreements. Every other section is shared.
+const businessPaymentsSection = {
+  id: 'orders-payments',
+  icon: 'fa-wallet',
+  title: 'Orders, Payments and Fees',
+  intro:
+    'Bookings are paid through your platform wallet, with a saved card covering any shortfall. The platform fee that applies to each order or agreement is shown in the Platform Fees section above.',
+  points: [
+    'One-time order checkout draws from your wallet first; a saved card covers any remaining shortfall plus the card-processing fee.',
+    'The commission for a one-time order is locked in when you accept a bid; it never changes afterwards.',
+    'The commission for an agreement is locked in when the agreement is finalized and applies to every monthly payment for its full duration.',
+    'Completed payments, invoices and payouts are never recalculated retroactively when platform fees change.',
+  ],
+}
+
+const everydayPaymentsSection = {
+  id: 'orders-payments',
+  icon: 'fa-credit-card',
+  title: 'Orders and Payments',
+  intro:
+    'You pay the transporter bid you accept directly by card. There is no wallet and there are no recurring agreements on an everyday account.',
+  points: [
+    'When you accept a bid, you pay that bid amount by card plus a separate card-processing fee shown before you confirm.',
+    'The platform commission applies only to the transporter bid amount and is locked in when you accept the bid.',
+    'Card details are entered only at checkout and are never stored on your account.',
+    'Completed payments and invoices are never recalculated retroactively when platform fees change.',
+  ],
+}
 
 const clientSections = [
   {
@@ -13,19 +46,6 @@ const clientSections = [
       'Keep login credentials, OTP flows, and account recovery channels secure.',
       'Profile, company, and contact information must stay accurate and current.',
       'Report account misuse, impersonation, or suspicious access to Digi_TransX immediately.',
-    ],
-  },
-  {
-    id: 'orders-payments',
-    icon: 'fa-wallet',
-    title: 'Orders, Payments and Fees',
-    intro:
-      'Bookings are paid through your platform wallet. The platform fee that applies to each order or agreement is shown in the Platform Fees section above.',
-    points: [
-      'The commission for a one-time order is locked in when you accept a bid; it never changes afterwards.',
-      'The commission for an agreement is locked in when the agreement is finalized and applies to every monthly payment for its full duration.',
-      'Keep a sufficient wallet balance for scheduled payments — failed agreement payments can incur late penalties.',
-      'Completed payments, invoices and payouts are never recalculated retroactively when platform fees change.',
     ],
   },
   {
@@ -55,18 +75,18 @@ const clientSections = [
 ]
 
 export default function ClientTerms() {
+  const base = useClientBasePath()
   useEffect(() => {
     document.title = 'Terms & Platform Fees - Digi_TransX'
   }, [])
 
-  const audience = useMemo(() => {
-    try {
-      const user = JSON.parse(sessionStorage.getItem('user') || 'null')
-      return String(user?.role || '').trim().toLowerCase() === 'everyday_user' ? 'everyday' : 'client'
-    } catch {
-      return 'client'
-    }
-  }, [])
+  const audience = useMemo(() => (base === '/everyday' ? 'everyday' : 'client'), [base])
+
+  const sections = useMemo(() => {
+    const [accountUse, ...rest] = clientSections
+    const payments = audience === 'everyday' ? everydayPaymentsSection : businessPaymentsSection
+    return [accountUse, payments, ...rest]
+  }, [audience])
 
   return (
     <div className="page-terms">
@@ -80,7 +100,7 @@ export default function ClientTerms() {
 
       <PlatformFeesSection audience={audience} />
 
-      {clientSections.map((section) => (
+      {sections.map((section) => (
         <section
           key={section.id}
           id={section.id}
@@ -121,7 +141,7 @@ export default function ClientTerms() {
           </p>
         </div>
         <Link
-          to="/client/messages"
+          to={audience === 'everyday' ? `${base}/orders` : `${base}/messages`}
           style={{
             background: 'linear-gradient(135deg,#2563eb,#3b82f6)', color: '#fff',
             padding: '10px 18px', borderRadius: 10, fontWeight: 600, fontSize: 13, textDecoration: 'none',

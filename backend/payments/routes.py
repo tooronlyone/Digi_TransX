@@ -10,12 +10,12 @@ from flask import Blueprint, request
 
 from auth.helpers import csrf_error, json_response, login_required, timestamp_bundle
 from shared.db import open_db
+from shared.roles import normalize_client_kind
 from shared.payments import (
     create_saved_method,
     get_payment_preferences,
     get_saved_method,
     list_saved_methods,
-    normalize_client_kind,
     parse_optional_bool,
     parse_positive_id,
     serialize_saved_method,

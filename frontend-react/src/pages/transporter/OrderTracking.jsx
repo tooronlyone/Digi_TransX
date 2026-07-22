@@ -124,11 +124,11 @@ export default function OrderTracking() {
             </div>
             <div className="detail-row">
               <span className="detail-label">Pickup</span>
-              <span className="detail-value">{order.pickup_city}, {order.pickup_area}</span>
+              <span className="detail-value">{order.pickup_location || order.pickup_city}</span>
             </div>
             <div className="detail-row">
               <span className="detail-label">Dropoff</span>
-              <span className="detail-value">{order.dropoff_city}, {order.dropoff_area}</span>
+              <span className="detail-value">{order.dropoff_location || order.dropoff_city}</span>
             </div>
             <div className="detail-row">
               <span className="detail-label">Date & Time</span>

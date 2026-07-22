@@ -6,6 +6,7 @@ import {
   StateMessage,
   formatMoney,
 } from './clientUtils'
+import useClientBasePath from '../../hooks/useClientBasePath'
 
 function statusBadgeClass(status) {
   const baseClass = 'rounded-full px-3 py-1 text-xs font-semibold'
@@ -29,6 +30,7 @@ function paymentStatusBadgeClass(status) {
 }
 
 export default function MyOrders() {
+  const base = useClientBasePath()
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -58,7 +60,7 @@ export default function MyOrders() {
         title="My Orders"
         subtitle="Track all your shipment orders and manage bids from transporters."
         actions={
-          <Link to="/client/post-order" className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+          <Link to={`${base}/post-order`} className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
             <i className="fas fa-plus-circle mr-2" aria-hidden="true"></i>
             Post New Order
           </Link>
@@ -81,7 +83,7 @@ export default function MyOrders() {
         <SectionCard>
           <StateMessage type="empty">
             <p>You haven't posted any orders yet.</p>
-            <Link to="/client/post-order" className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+            <Link to={`${base}/post-order`} className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
               Post Your First Order
             </Link>
           </StateMessage>
@@ -165,7 +167,7 @@ export default function MyOrders() {
 
               <div className="mt-4 flex flex-wrap gap-2">
                 <Link
-                  to={`/client/order/${order.id}`}
+                  to={`${base}/order/${order.id}`}
                   className="inline-flex min-h-9 items-center justify-center rounded-lg bg-blue-600 px-4 py-1.5 text-sm font-semibold text-white transition-colors hover:bg-blue-700"
                 >
                   <i className="fas fa-eye mr-1.5" aria-hidden="true"></i>
@@ -174,7 +176,7 @@ export default function MyOrders() {
                 {order.status === 'open' && (
                   <button
                     className="inline-flex min-h-9 items-center justify-center rounded-lg border border-slate-300 px-4 py-1.5 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-50"
-                    onClick={() => window.location.href = `/client/post-order?copy=${order.id}`}
+                    onClick={() => window.location.href = `${base}/post-order?copy=${order.id}`}
                   >
                     <i className="fas fa-copy mr-1.5" aria-hidden="true"></i>
                     Duplicate

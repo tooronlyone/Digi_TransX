@@ -65,10 +65,14 @@ HUNDRED = Decimal("100")
 DEFAULT_CARD_FEE_PERCENT = Decimal("2.5")
 CARD_FEE_PERCENT_ENV = "DIGITRANSX_CARD_FEE_PERCENT"
 
-# Wallet roles: everyday users have no wallet at all; business service
-# seekers (and the legacy 'client' role) keep the existing wallet.
-EVERYDAY_ROLES = {"everyday_user"}
-BUSINESS_CLIENT_ROLES = {"service_seeker", "client"}
+# Client-role classification lives in shared.roles (single implementation).
+# Re-exported here so existing `from shared.payments import normalize_client_kind`
+# callers keep working without a second definition.
+from shared.roles import (  # noqa: F401
+    EVERYDAY_ROLES,
+    BUSINESS_CLIENT_ROLES,
+    normalize_client_kind,
+)
 
 
 class CheckoutError(Exception):
@@ -564,16 +568,6 @@ def _method_expired(method):
 # ---------------------------------------------------------------------------
 # Quote
 # ---------------------------------------------------------------------------
-
-def normalize_client_kind(role):
-    """'everyday' | 'business' | None for a client-side role string."""
-    normalized = (role or "").strip().lower()
-    if normalized in EVERYDAY_ROLES:
-        return "everyday"
-    if normalized in BUSINESS_CLIENT_ROLES:
-        return "business"
-    return None
-
 
 def build_payment_quote(db, order, bid, user, wallet=None, truck=None):
     """Server-calculated quote for paying one bid. Never trusts client input.

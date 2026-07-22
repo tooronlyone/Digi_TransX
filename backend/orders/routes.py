@@ -15,6 +15,7 @@ from .goods_taxonomy import (
     FIELD_ANIMAL_COUNT,
 )
 from shared.commissions import snapshot_company_share, split_final_amount, transporter_share_percent_for
+from shared.roles import normalize_client_kind
 from shared.payments import (
     CheckoutError,
     build_payment_quote,
@@ -58,6 +59,13 @@ def create_order():
     err = csrf_error()
     if err:
         return err
+
+    # Stable seeker-kind snapshot, derived server-side from the authenticated
+    # role — never from the request body. Both kinds create shipments through
+    # this one path; only the snapshot differs.
+    seeker_kind = normalize_client_kind(request.current_user.get("role"))
+    if seeker_kind is None:
+        return json_response({"success": False, "message": "Client account required."}, 403)
 
     data = request.get_json(silent=True) or {}
 
@@ -179,7 +187,7 @@ def create_order():
         order_id = db.execute(
             """
             INSERT INTO shipments (
-                client_user_id, pickup_city, pickup_area, dropoff_city, dropoff_area,
+                client_user_id, pickup_city, dropoff_city,
                 pickup_date, pickup_time, goods_type, goods_weight_tons, goods_volume_cbm,
                 estimated_budget, notes, status,
                 goods_category, goods_form, goods_commodity,
@@ -188,17 +196,16 @@ def create_order():
                 is_refrigerated, is_hazardous, is_food_grade,
                 pickup_location, pickup_lat, pickup_lng,
                 dropoff_location, dropoff_lat, dropoff_lng,
+                seeker_kind_snapshot,
                 created_at, updated_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'open',
-                      %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'open',
+                      %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
             RETURNING id
             """,
             (
                 request.current_user["id"],
                 pickup_location,
-                (data.get("pickup_area") or "").strip(),
                 dropoff_location,
-                (data.get("dropoff_area") or "").strip(),
                 pickup_date.isoformat(),
                 data.get("pickup_time", "").strip(),
                 data.get("goods_type", "").strip(),
@@ -226,6 +233,7 @@ def create_order():
                 dropoff_location,
                 dropoff_lat,
                 dropoff_lng,
+                seeker_kind,
                 stamp,
                 stamp,
             ),

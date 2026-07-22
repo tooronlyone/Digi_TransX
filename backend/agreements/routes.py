@@ -15,7 +15,9 @@ from shared.commissions import (
     transporter_share_percent_for,
 )
 from wallet.helpers import adjust_wallet_balance, available_balance, get_or_create_wallet_for_user, round_money
+from shared.roles import normalize_client_kind
 from .helpers import (
+    CLIENT_AGREEMENT_ROLES,
     PENALTY_AMOUNT,
     add_months,
     due_date_for_month,
@@ -26,7 +28,7 @@ from .helpers import (
     parse_positive_float,
     parse_positive_int,
     parse_required_text,
-    require_client_role,
+    require_business_client_role,
     require_transporter_role,
     serialize_agreement,
     serialize_agreement_truck,
@@ -155,7 +157,7 @@ def insert_system_note_for_agreement(db, agreement_id, transporter_user_id, cont
 @agreements_blueprint.post("/api/agreements/posts")
 @login_required
 def create_post():
-    role_error = require_client_role(request.current_user)
+    role_error = require_business_client_role(request.current_user)
     if role_error:
         return role_error
     err = csrf_error()
@@ -415,7 +417,7 @@ def list_bids(post_id):
 @agreements_blueprint.post("/api/agreements/posts/<int:post_id>/bids/<int:bid_id>/invite")
 @login_required
 def invite_bid(post_id, bid_id):
-    role_error = require_client_role(request.current_user)
+    role_error = require_business_client_role(request.current_user)
     if role_error:
         return role_error
     err = csrf_error()
@@ -443,7 +445,7 @@ def invite_bid(post_id, bid_id):
 @agreements_blueprint.post("/api/agreements/finalize")
 @login_required
 def finalize_agreement():
-    role_error = require_client_role(request.current_user)
+    role_error = require_business_client_role(request.current_user)
     if role_error:
         return role_error
     err = csrf_error()
@@ -788,7 +790,7 @@ def trip_live_location(trip_id):
 @login_required
 def dispute_trip(trip_id):
     """Client marks a completed trip as disputed."""
-    role_error = require_client_role(request.current_user)
+    role_error = require_business_client_role(request.current_user)
     if role_error:
         return role_error
     err = csrf_error()
@@ -854,9 +856,13 @@ def list_trips(agreement_id):
 def my_agreements():
     user_id = request.current_user["id"]
     role = (request.current_user.get("role") or "").strip().lower()
+    # Everyday users have no agreements — deny consistently (same 403 as the
+    # other agreement endpoints). Business clients and transporters continue.
+    if normalize_client_kind(role) == "everyday":
+        return json_response({"success": False, "message": "Business account required."}, 403)
     current_month = month_key()
     with open_db() as db:
-        if role in {"service_seeker", "everyday_user", "client"}:
+        if role in CLIENT_AGREEMENT_ROLES:
             rows = db.execute(
                 """
                 SELECT a.*, COALESCE(NULLIF(trim(u.full_name), ''), u.email, 'Client') AS client_name,

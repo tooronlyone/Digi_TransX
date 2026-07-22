@@ -35,7 +35,7 @@ export function useAuthSession() {
       service_seeker:       '/client/dashboard',
       logistics_provider:   '/transporter/dashboard',
       transporter:          '/transporter/dashboard',
-      everyday_user:        '/client/dashboard',
+      everyday_user:        '/everyday/dashboard',
       fuel_station_manager: '/fuelstation/dashboard',
       shopkeeper:           '/shopkeeper/dashboard',
     }

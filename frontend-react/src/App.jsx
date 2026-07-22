@@ -22,6 +22,9 @@ import ShopkeeperGuard from './components/shopkeeper/ShopkeeperGuard'
 import TransporterPlaceholderPage from './components/transporter/TransporterPlaceholderPage'
 import ClientLayout from './components/client/ClientLayout'
 import useClientAuth from './hooks/useClientAuth'
+import EverydayGuard from './components/everyday/EverydayGuard'
+import EverydayLayout from './components/everyday/EverydayLayout'
+import EverydayDashboard from './pages/everyday/EverydayDashboard'
 
 import Dashboard from './pages/transporter/transporter_dashboard'
 import MyTrucks from './pages/transporter/My Truck'
@@ -197,6 +200,29 @@ function ClientPortal() {
   )
 }
 
+function EverydayPortal() {
+  // Everyday users reuse the SAME order pages as business clients (PostOrder,
+  // MyOrders, ClientOrderDetail, BidCheckout, ClientTerms) — they build correct
+  // /everyday/* links via useClientBasePath. No wallet/agreement routes exist
+  // here, and an everyday user hitting an unknown path returns to their surface.
+  return (
+    <EverydayGuard>
+      <EverydayLayout>
+        <Routes>
+          <Route index element={<Navigate to="dashboard" replace />} />
+          <Route path="dashboard" element={<EverydayDashboard />} />
+          <Route path="post-order" element={<PostOrder />} />
+          <Route path="orders" element={<MyOrders />} />
+          <Route path="order/:orderId" element={<ClientOrderDetail />} />
+          <Route path="order/:orderId/bid/:bidId/checkout" element={<BidCheckout />} />
+          <Route path="terms" element={<ClientTerms />} />
+          <Route path="*" element={<Navigate to="/everyday/dashboard" replace />} />
+        </Routes>
+      </EverydayLayout>
+    </EverydayGuard>
+  )
+}
+
 function TransporterPortal() {
   return (
     <TransporterGuard>
@@ -342,6 +368,7 @@ export default function App() {
             <Route path="/transporter-dashboard" element={<Navigate to="/transporter/dashboard" replace />} />
             <Route path="/transporter/*" element={<TransporterPortal />} />
             <Route path="/client/*" element={<ClientPortal />} />
+            <Route path="/everyday/*" element={<EverydayPortal />} />
             <Route path="/org/*" element={<OrgPortal />} />
             <Route path="/shopkeeper/*" element={<ShopkeeperPortal />} />
             <Route

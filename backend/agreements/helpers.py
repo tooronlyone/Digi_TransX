@@ -11,7 +11,13 @@ from wallet.helpers import (
 )
 
 
-CLIENT_AGREEMENT_ROLES = {"service_seeker", "everyday_user", "client"}
+# Agreements are a BUSINESS-only feature: only service seekers (and the legacy
+# 'client' role) may post/bid/manage agreements. Everyday users are excluded.
+# The order feature uses require_client_role (any client incl. everyday); the
+# agreement feature uses require_business_client_role.
+from shared.roles import BUSINESS_CLIENT_ROLES, CLIENT_ROLES, normalize_client_kind
+
+CLIENT_AGREEMENT_ROLES = set(BUSINESS_CLIENT_ROLES)
 TRANSPORTER_AGREEMENT_ROLES = {"logistics_provider", "transporter"}
 # Commission rates are no longer hard-coded here: every agreement carries its
 # own snapshot (see shared/commissions.py) saved when it was finalized.
@@ -23,8 +29,19 @@ def normalize_role(role):
 
 
 def require_client_role(user):
-    if normalize_role(user.get("role")) not in CLIENT_AGREEMENT_ROLES:
+    """Any client (business OR everyday) — used by the one-time ORDER feature."""
+    if normalize_role(user.get("role")) not in CLIENT_ROLES:
         return json_response({"success": False, "message": "Client account required."}, 403)
+    return None
+
+
+def require_business_client_role(user):
+    """Business service seekers only — used by AGREEMENTS and other business-only
+    features. Everyday users receive a consistent 403."""
+    if normalize_client_kind(user.get("role")) != "business":
+        return json_response(
+            {"success": False, "message": "Business account required."}, 403
+        )
     return None
 
 

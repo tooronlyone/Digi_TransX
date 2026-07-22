@@ -12,6 +12,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from shared.db import open_db
+from shared.roles import BUSINESS_CLIENT_ROLES, EVERYDAY_ROLES
 
 
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -87,7 +88,7 @@ def role_redirect(role):
         "service_seeker": "/client/dashboard",
         "client": "/client/dashboard",
         "shopkeeper": "/shopkeeper/dashboard",
-        "everyday_user": "/client/dashboard",
+        "everyday_user": "/everyday/dashboard",
         "fuel_station_manager": "/fuelstation/dashboard",
         "platform_admin": "/admin/dashboard",
     }
@@ -183,7 +184,8 @@ def map_legacy_role(legacy_role):
     return LEGACY_TO_APP_ROLE.get((legacy_role or "").strip().lower(), "customer")
 
 
-CLIENT_ROLES = {"client", "service_seeker", "everyday_user"}
+# CLIENT_ROLES / BUSINESS_CLIENT_ROLES / EVERYDAY_ROLES come from shared.roles
+# (single source). Transporter role set stays local to this module.
 TRANSPORTER_ROLES = {"transporter", "logistics_provider"}
 
 
@@ -195,14 +197,22 @@ def _with_legacy_role(user):
 
 
 def _attach_role_profile(db, user):
-    """Merge the user's role-profile row (customers / transporter_profiles /
-    fuel_station_profiles / shopkeeper_profiles) into the user dict so the
-    rest of the app keeps reading the same field names as before."""
+    """Merge the user's role-profile row (service_seeker_profiles /
+    everyday_user_profiles / transporter_profiles / fuel_station_profiles /
+    shopkeeper_profiles) into the user dict so the rest of the app keeps
+    reading the same field names as before. Business seekers and everyday
+    individuals now live in separate tables — read the one matching the role."""
     legacy = (user.get("legacy_role") or user.get("role") or "").strip().lower()
     row = None
-    if legacy in CLIENT_ROLES:
+    if legacy in BUSINESS_CLIENT_ROLES:
         row = db.execute(
-            "SELECT customer_type, company_name, business_type, transport_need FROM customers WHERE user_id = %s",
+            "SELECT company_name, business_type, transport_need, default_pickup_city, "
+            "billing_address, total_shipments FROM service_seeker_profiles WHERE user_id = %s",
+            (user["id"],),
+        ).fetchone()
+    elif legacy in EVERYDAY_ROLES:
+        row = db.execute(
+            "SELECT total_shipments FROM everyday_user_profiles WHERE user_id = %s",
             (user["id"],),
         ).fetchone()
     elif legacy in TRANSPORTER_ROLES:

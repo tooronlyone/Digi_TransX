@@ -7,6 +7,7 @@ import {
   formatMoney,
   getCsrfToken,
 } from './clientUtils'
+import useClientBasePath from '../../hooks/useClientBasePath'
 import '../../styles/pages/bid-checkout.css'
 
 const EMPTY_CARD = {
@@ -78,6 +79,7 @@ function getOrCreateIdemKey(orderId, bidId) {
 export default function BidCheckout() {
   const { orderId, bidId } = useParams()
   const navigate = useNavigate()
+  const base = useClientBasePath()
 
   const [bid, setBid] = useState(null)
   const [quote, setQuote] = useState(null)
@@ -242,7 +244,7 @@ export default function BidCheckout() {
   }
 
   function returnToComparison() {
-    navigate(`/client/order/${orderId}`)
+    navigate(`${base}/order/${orderId}`)
   }
 
   async function handleSubmit(event) {
@@ -322,7 +324,7 @@ export default function BidCheckout() {
     return (
       <div className="bid-checkout-page">
         <StateMessage type="error">{error}</StateMessage>
-        <Link to={`/client/order/${orderId}`} className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
+        <Link to={`${base}/order/${orderId}`} className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
           <i className="fas fa-arrow-left"></i>
           Back to Order
         </Link>
@@ -468,7 +470,7 @@ export default function BidCheckout() {
             )}
 
             <div className="checkout-actions">
-              <Link to={`/client/order/${orderId}`} className="checkout-secondary-btn">
+              <Link to={`${base}/order/${orderId}`} className="checkout-secondary-btn">
                 <i className="fas fa-arrow-left" aria-hidden="true"></i> Back
               </Link>
               <button type="submit" disabled={submitting} className="checkout-primary-btn">

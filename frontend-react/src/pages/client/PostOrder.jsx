@@ -17,6 +17,7 @@ import {
 } from '../../lib/goodsTaxonomy'
 import { FALLBACK_TRUCK_TYPES } from '../../lib/truckCatalog'
 import LocationPicker from '../../components/common/LocationPicker'
+import useClientBasePath from '../../hooks/useClientBasePath'
 
 const TRUCK_LABELS = Object.fromEntries(FALLBACK_TRUCK_TYPES.map((t) => [t.type_key, t.display_name]))
 function truckLabel(key) {
@@ -66,12 +67,12 @@ const labelCls = 'grid gap-2 text-sm font-medium text-slate-700'
 
 export default function PostOrder() {
   const navigate = useNavigate()
+  const base = useClientBasePath()
   const [form, setForm] = useState(INITIAL_FORM)
   const [pickup, setPickup] = useState(EMPTY_LOCATION)
   const [dropoff, setDropoff] = useState(EMPTY_LOCATION)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [walletBlocked, setWalletBlocked] = useState(false)
   const [success, setSuccess] = useState('')
 
   // Lock out past dates/times plus the required lead time for the transporter.
@@ -117,7 +118,6 @@ export default function PostOrder() {
     setSubmitting(true)
     setError('')
     setSuccess('')
-    setWalletBlocked(false)
 
     if (!pickup.location.trim() || !dropoff.location.trim()) {
       setError('Please enter both pickup and dropoff locations.')
@@ -155,11 +155,9 @@ export default function PostOrder() {
       setForm(INITIAL_FORM)
       setPickup(EMPTY_LOCATION)
       setDropoff(EMPTY_LOCATION)
-      setTimeout(() => navigate('/client/orders'), 900)
+      setTimeout(() => navigate(`${base}/orders`), 900)
     } catch (submitError) {
-      const message = submitError.message || 'Unable to post order right now.'
-      setError(message)
-      setWalletBlocked(message.includes('Minimum wallet balance'))
+      setError(submitError.message || 'Unable to post order right now.')
     } finally {
       setSubmitting(false)
     }
@@ -175,18 +173,7 @@ export default function PostOrder() {
       <SectionCard title="Shipment Details" icon="fa-boxes-stacked">
         {error && (
           <StateMessage type="error" title="Order could not be posted">
-            <div className="space-y-3">
-              <p>{error}</p>
-              {walletBlocked && (
-                <Link
-                  to="/client/wallet"
-                  className="inline-flex min-h-10 items-center gap-2 rounded-lg bg-amber-500 px-4 py-2 text-sm font-semibold text-white hover:bg-amber-600"
-                >
-                  <i className="fas fa-wallet" aria-hidden="true"></i>
-                  Go to Wallet
-                </Link>
-              )}
-            </div>
+            <p>{error}</p>
           </StateMessage>
         )}
         {success && <StateMessage type="success">{success}</StateMessage>}
@@ -363,7 +350,7 @@ export default function PostOrder() {
               <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`} aria-hidden="true"></i>
               {submitting ? 'Posting order...' : 'Post order'}
             </PrimaryButton>
-            <Link to="/client/orders" className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Link to={`${base}/orders`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               View my orders
             </Link>
           </div>

@@ -118,25 +118,39 @@ def signup():
         user_id = row["id"] if row else None
 
         # Role-specific data goes into its own profile table (clean structure,
-        # no duplication in users).
-        if role in {"service_seeker", "everyday_user", "client"}:
+        # no duplication of the common users fields). Business service seekers
+        # and everyday individuals now live in separate tables; a user ends up
+        # in exactly one (the opposite row is cleared to keep them exclusive).
+        if role in {"service_seeker", "client"}:
+            db.execute("DELETE FROM everyday_user_profiles WHERE user_id = %s", (user_id,))
             db.execute(
                 """
-                INSERT INTO customers (user_id, customer_type, company_name, business_type, transport_need)
-                VALUES (%s, %s, %s, %s, %s)
+                INSERT INTO service_seeker_profiles
+                    (user_id, company_name, business_type, transport_need,
+                     default_pickup_city, billing_address)
+                VALUES (%s, %s, %s, %s, %s, %s)
                 ON CONFLICT (user_id) DO UPDATE SET
-                    customer_type = excluded.customer_type,
                     company_name = excluded.company_name,
                     business_type = excluded.business_type,
-                    transport_need = excluded.transport_need
+                    transport_need = excluded.transport_need,
+                    default_pickup_city = excluded.default_pickup_city,
+                    billing_address = excluded.billing_address
                 """,
                 (
                     user_id,
-                    "business" if role == "service_seeker" else "individual",
                     clean("company_name"),
                     clean("business_type"),
                     clean("transport_need"),
+                    clean("default_pickup_city"),
+                    clean("billing_address"),
                 ),
+            )
+        elif role == "everyday_user":
+            db.execute("DELETE FROM service_seeker_profiles WHERE user_id = %s", (user_id,))
+            db.execute(
+                "INSERT INTO everyday_user_profiles (user_id) VALUES (%s) "
+                "ON CONFLICT (user_id) DO NOTHING",
+                (user_id,),
             )
         elif role == "logistics_provider":
             db.execute(

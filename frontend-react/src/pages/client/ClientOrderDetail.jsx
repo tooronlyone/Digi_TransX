@@ -7,6 +7,7 @@ import {
   formatMoney,
   formatDate,
 } from './clientUtils'
+import useClientBasePath from '../../hooks/useClientBasePath'
 import '../../styles/pages/order-detail.css'
 
 const SORTS = [
@@ -44,6 +45,7 @@ function sortBids(bids, sortKey) {
 export default function ClientOrderDetail() {
   const { orderId } = useParams()
   const navigate = useNavigate()
+  const base = useClientBasePath()
   const [order, setOrder] = useState(null)
   const [bids, setBids] = useState([])
   const [trip, setTrip] = useState(null)
@@ -107,7 +109,7 @@ export default function ClientOrderDetail() {
     return (
       <div className="order-detail-page">
         <StateMessage type="error">{error}</StateMessage>
-        <Link to="/client/orders" className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
+        <Link to={`${base}/orders`} className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
           <i className="fas fa-arrow-left"></i>
           Back to Orders
         </Link>
@@ -119,7 +121,7 @@ export default function ClientOrderDetail() {
     return (
       <div className="order-detail-page">
         <StateMessage type="error">Order not found.</StateMessage>
-        <Link to="/client/orders" className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
+        <Link to={`${base}/orders`} className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
           <i className="fas fa-arrow-left"></i>
           Back to Orders
         </Link>
@@ -155,11 +157,11 @@ export default function ClientOrderDetail() {
           <div className="detail-grid">
             <div className="detail-item">
               <span className="detail-label">Pickup Location</span>
-              <span className="detail-value">{order.pickup_city}{order.pickup_area ? `, ${order.pickup_area}` : ''}</span>
+              <span className="detail-value">{order.pickup_location || order.pickup_city}</span>
             </div>
             <div className="detail-item">
               <span className="detail-label">Dropoff Location</span>
-              <span className="detail-value">{order.dropoff_city}{order.dropoff_area ? `, ${order.dropoff_area}` : ''}</span>
+              <span className="detail-value">{order.dropoff_location || order.dropoff_city}</span>
             </div>
             <div className="detail-item">
               <span className="detail-label">Date &amp; Time</span>
@@ -362,7 +364,7 @@ export default function ClientOrderDetail() {
                   {orderOpen && (
                     <button
                       type="button"
-                      onClick={() => navigate(`/client/order/${order.id}/bid/${bid.id}/checkout`)}
+                      onClick={() => navigate(`${base}/order/${order.id}/bid/${bid.id}/checkout`)}
                       disabled={!canSelect}
                       className="bid-accept-btn"
                     >
@@ -378,7 +380,7 @@ export default function ClientOrderDetail() {
       </SectionCard>
 
       <div className="flex gap-2 justify-center mt-6">
-        <Link to="/client/orders" className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+        <Link to={`${base}/orders`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
           <i className="fas fa-arrow-left mr-2" aria-hidden="true"></i>
           Back to Orders
         </Link>
