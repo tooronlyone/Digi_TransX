@@ -76,6 +76,7 @@ import ClientDashboard from './pages/client/ClientDashboard'
 import PostOrder from './pages/client/PostOrder'
 import MyOrders from './pages/client/MyOrders'
 import ClientOrderDetail from './pages/client/ClientOrderDetail'
+import BidCheckout from './pages/client/BidCheckout'
 import Agreements from './pages/client/Agreements'
 import PostAgreement from './pages/client/PostAgreement'
 import ClientAgreementBids from './pages/client/AgreementBids'
@@ -178,6 +179,7 @@ function ClientPortal() {
           <Route path="post-order" element={<PostOrder />} />
           <Route path="orders" element={<MyOrders />} />
           <Route path="order/:orderId" element={<ClientOrderDetail />} />
+          <Route path="order/:orderId/bid/:bidId/checkout" element={<BidCheckout />} />
           <Route path="agreements" element={<Agreements />} />
           <Route path="post-agreement" element={<PostAgreement />} />
           <Route path="agreement-bids/:postId" element={<ClientAgreementBids />} />

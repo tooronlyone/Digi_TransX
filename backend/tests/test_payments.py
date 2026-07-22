@@ -149,6 +149,24 @@ def test_normalize_client_kind():
     assert normalize_client_kind("") is None
 
 
+def test_validate_bid_truck_pure():
+    """The shared current-truck validation, exercised without a database."""
+    from orders.helpers import validate_bid_truck
+
+    order = {"status": "open", "goods_weight_tons": 10, "required_truck_types": None}
+    good = {"id": 5, "owner_user_id": 201, "status": "active", "capacity_tons": 15}
+    assert validate_bid_truck(order, 201, good) is None
+    assert validate_bid_truck(order, 201, None) is not None                     # missing truck
+    assert validate_bid_truck(order, 201, {**good, "status": "inactive"}) is not None
+    assert validate_bid_truck(order, 999, good) is not None                     # owner changed
+    heavy = {"status": "open", "goods_weight_tons": 40, "required_truck_types": None}
+    assert validate_bid_truck(heavy, 201, good) is not None                     # weight mismatch
+    typed = {"status": "open", "goods_weight_tons": 5,
+             "required_truck_types": '["milk_tanker"]'}
+    typed_truck = {**good, "catalog_type_key": "flatbed_trailer_open_semi_trailer"}
+    assert validate_bid_truck(typed, 201, typed_truck) is not None              # type mismatch
+
+
 def test_wallet_role_rules():
     # Everyday users have no wallet at all.
     assert normalize_wallet_role("everyday_user") is None
@@ -231,7 +249,32 @@ def _mk_order(db, client_id, status="open"):
     ).fetchone()["id"]
 
 
-def _mk_bid(db, order_id, transporter_id, price, truck_id=1):
+def _mk_truck(db, owner_id, status="active", **overrides):
+    """Seed an active, high-capacity vehicle owned by the transporter so the
+    bid's truck passes the shared current-truck validation at checkout."""
+    cols = {
+        "owner_user_id": owner_id,
+        "truck_number": f"T-{owner_id}",
+        "truck_company": "Volvo",
+        "truck_model": "Volvo FH",
+        "truck_type": "Cargo Truck",
+        "catalog_type_key": None,
+        "capacity_tons": 100,
+        "payload_max_tons": 100,
+        "status": status,
+    }
+    cols.update(overrides)
+    keys = list(cols.keys())
+    placeholders = ", ".join(["%s"] * len(keys))
+    return db.execute(
+        f"INSERT INTO vehicles ({', '.join(keys)}) VALUES ({placeholders}) RETURNING id",
+        tuple(cols[k] for k in keys),
+    ).fetchone()["id"]
+
+
+def _mk_bid(db, order_id, transporter_id, price, truck_id=None, truck_status="active"):
+    if truck_id is None:
+        truck_id = _mk_truck(db, transporter_id, status=truck_status)
     return db.execute(
         "INSERT INTO shipment_bids (order_id, transporter_user_id, truck_id, bid_price) "
         "VALUES (%s, %s, %s, %s) RETURNING id",

@@ -575,15 +575,33 @@ def normalize_client_kind(role):
     return None
 
 
-def build_payment_quote(db, order, bid, user, wallet=None):
+def build_payment_quote(db, order, bid, user, wallet=None, truck=None):
     """Server-calculated quote for paying one bid. Never trusts client input.
 
     `wallet` may be passed when the caller already holds a locked row;
     otherwise the wallet is read here (business clients only).
+
+    `truck` may be passed when the caller already holds the locked vehicle row
+    (checkout); otherwise it is read here (the quote endpoint). Either way the
+    truck is revalidated against the current order — an inactive, re-owned or
+    no-longer-matching truck raises CheckoutError(bid_truck_unavailable, 409)
+    so a quote can never be built for an unpayable bid.
     """
+    # One shared validation for the comparison view, the quote and checkout.
+    from orders.helpers import validate_bid_truck
+
     kind = normalize_client_kind(user.get("role"))
     if kind is None:
         raise CheckoutError("Client account required.", 403)
+
+    if truck is None:
+        truck_row = db.execute(
+            "SELECT * FROM vehicles WHERE id = %s", (bid["truck_id"],)
+        ).fetchone()
+        truck = dict(truck_row) if truck_row else None
+    truck_reason = validate_bid_truck(order, bid["transporter_user_id"], truck)
+    if truck_reason:
+        raise CheckoutError(truck_reason, 409, "bid_truck_unavailable")
 
     bid_amount = round_money(bid["bid_price"])
     wallet_available = 0.0
@@ -863,7 +881,22 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
     if bid["status"] != "pending":
         raise CheckoutError("This bid can no longer be accepted.", 409, "bid_not_pending")
 
-    # 6-7. Recalculate the full quote server-side (wallet row locked).
+    # Lock the selected vehicle row THIRD and revalidate it under the lock,
+    # before any provider charge or wallet mutation. A truck that became
+    # inactive / re-owned / no-longer-matching since the bid was placed aborts
+    # here with 409 bid_truck_unavailable — no charge, no wallet change, no
+    # accepted bid, no trip, no payment. build_payment_quote runs the shared
+    # validation on this exact locked row (no duplicated validation logic).
+    from orders.helpers import validate_bid_truck
+    truck_row = db.execute(
+        "SELECT * FROM vehicles WHERE id = %s FOR UPDATE", (bid["truck_id"],)
+    ).fetchone()
+    truck = dict(truck_row) if truck_row else None
+    truck_reason = validate_bid_truck(order, bid["transporter_user_id"], truck)
+    if truck_reason:
+        raise CheckoutError(truck_reason, 409, "bid_truck_unavailable")
+
+    # 6-7. Recalculate the full quote server-side (wallet + vehicle rows locked).
     wallet = None
     if kind == "business":
         wallet, wallet_error = get_or_create_wallet_for_user(db, user)
@@ -873,7 +906,7 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
             "SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (user["id"],)
         ).fetchone()
         wallet = dict(locked)
-    quote = build_payment_quote(db, order, bid, user, wallet=wallet)
+    quote = build_payment_quote(db, order, bid, user, wallet=wallet, truck=truck)
 
     stamp = timestamp_bundle()
     policy = quote["_policy"]

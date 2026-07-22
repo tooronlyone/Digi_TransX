@@ -2,6 +2,7 @@ import json
 
 from auth.helpers import json_response
 from wallet.helpers import round_money
+from trucks.helpers import get_catalog_type
 
 
 def parse_truck_types(value):
@@ -104,15 +105,6 @@ def fetch_order(db, order_id):
     """Fetch order by ID."""
     row = db.execute("SELECT * FROM shipments WHERE id = %s", (order_id,)).fetchone()
     return dict(row) if row else None
-
-
-def fetch_bids_for_order(db, order_id):
-    """Fetch all bids for an order."""
-    rows = db.execute(
-        "SELECT * FROM shipment_bids WHERE order_id = %s ORDER BY created_at ASC",
-        (order_id,)
-    ).fetchall()
-    return [dict(r) for r in rows]
 
 
 def order_access_for_user(db, order, user):
@@ -253,6 +245,203 @@ def truck_order_mismatch(truck, required_types, order):
         return dim_error
 
     return None
+
+
+# ---------------------------------------------------------------------------
+# Current-truck validation (shared by comparison, quote and checkout)
+# ---------------------------------------------------------------------------
+
+def validate_bid_truck(order, bid_transporter_id, truck):
+    """Return None if the bid's truck is still usable for this order, else a
+    human-readable reason.
+
+    ONE pure validation used everywhere a bid may be paid: the comparison
+    response (to derive can_checkout / unavailable_reason), the payment quote,
+    and perform_checkout under the locked vehicle row. Reuses
+    truck_order_mismatch for the type/weight/volume/dimension checks so there
+    is exactly one matching algorithm. A truck can silently become inactive,
+    change owner, or stop matching after the bid was placed — this catches all
+    of that at pay time.
+    """
+    if not truck or truck.get("id") is None:
+        return "The truck offered for this bid is no longer available."
+    owner_id = truck.get("owner_user_id")
+    if owner_id is not None and bid_transporter_id is not None and owner_id != bid_transporter_id:
+        return "This truck no longer belongs to the transporter who placed the bid."
+    if (truck.get("status") or "").strip() != "active":
+        return "This truck is no longer active and cannot be booked."
+    required_types = parse_truck_types(order.get("required_truck_types"))
+    mismatch = truck_order_mismatch(truck, required_types, order)
+    if mismatch:
+        return mismatch
+    return None
+
+
+# ---------------------------------------------------------------------------
+# Enriched bid comparison (single joined query, no N+1)
+# ---------------------------------------------------------------------------
+
+def _truck_type_display(catalog_type_key, truck_type):
+    catalog = get_catalog_type(catalog_type_key) if catalog_type_key else None
+    if catalog and catalog.get("display_name"):
+        return catalog["display_name"]
+    return truck_type or None
+
+
+def _photo_url(path):
+    path = (path or "").strip()
+    if not path:
+        return None
+    return path if path.startswith("/") else f"/{path}"
+
+
+# bids + the SAFE vehicle and transporter fields, plus a completed one-time
+# trip count — all in ONE query (no N+1). Sensitive columns (email, phone,
+# cnic, driver_cnic, payout*, tracking_id, traccar_device_id, wallet, private
+# documents) are deliberately never selected.
+_BID_COMPARISON_SQL = """
+    SELECT
+        b.id                  AS bid_id,
+        b.order_id            AS order_id,
+        b.transporter_user_id AS transporter_user_id,
+        b.truck_id            AS truck_id,
+        b.bid_price           AS bid_price,
+        b.message             AS message,
+        b.status              AS bid_status,
+        b.created_at          AS bid_created_at,
+        b.updated_at          AS bid_updated_at,
+        COALESCE(NULLIF(trim(u.full_name), ''), 'Transporter') AS transporter_display_name,
+        tp.company_name       AS transporter_company_name,
+        COALESCE(ct.completed_trips, 0) AS completed_trips,
+        v.id                  AS truck_row_id,
+        v.owner_user_id       AS truck_owner_user_id,
+        v.truck_number        AS truck_number,
+        v.truck_company       AS truck_company,
+        v.truck_model         AS truck_model,
+        v.truck_type          AS truck_type,
+        v.catalog_type_key    AS catalog_type_key,
+        v.capacity_tons       AS capacity_tons,
+        v.payload_min_tons    AS payload_min_tons,
+        v.payload_max_tons    AS payload_max_tons,
+        v.volume_min_cbm      AS volume_min_cbm,
+        v.volume_max_cbm      AS volume_max_cbm,
+        v.bed_length_ft       AS bed_length_ft,
+        v.bed_width_ft        AS bed_width_ft,
+        v.bed_height_ft       AS bed_height_ft,
+        v.body_style          AS body_style,
+        v.truck_photo_path    AS truck_photo_path,
+        v.status              AS truck_status
+    FROM shipment_bids b
+    LEFT JOIN vehicles v ON v.id = b.truck_id
+    LEFT JOIN users u ON u.id = b.transporter_user_id
+    LEFT JOIN transporter_profiles tp ON tp.user_id = b.transporter_user_id
+    LEFT JOIN (
+        SELECT transporter_user_id, COUNT(*) AS completed_trips
+        FROM shipment_trips
+        WHERE status = 'completed'
+        GROUP BY transporter_user_id
+    ) ct ON ct.transporter_user_id = b.transporter_user_id
+    WHERE b.order_id = %s AND b.status != 'withdrawn'
+"""
+
+
+def fetch_bid_comparison_rows(db, order_id, transporter_user_id=None):
+    """One joined query for the enriched bid comparison.
+
+    Owner passes transporter_user_id=None and receives every non-withdrawn
+    bid. The accepted transporter passes their own id and receives only their
+    own bid. A single SQL string with an optional transporter filter — the
+    owner and transporter paths never copy the query.
+    """
+    sql = _BID_COMPARISON_SQL
+    params = [order_id]
+    if transporter_user_id is not None:
+        sql += " AND b.transporter_user_id = %s"
+        params.append(transporter_user_id)
+    sql += " ORDER BY b.bid_price ASC, b.created_at ASC"
+    return [dict(r) for r in db.execute(sql, tuple(params)).fetchall()]
+
+
+def serialize_enriched_bid(row, order):
+    """Serialize one comparison row into a bid with nested SAFE transporter /
+    truck objects plus checkout availability. Preserves the legacy top-level
+    bid fields for backward compatibility."""
+    truck_present = row.get("truck_row_id") is not None
+    truck_for_validation = {
+        "id": row.get("truck_row_id"),
+        "owner_user_id": row.get("truck_owner_user_id"),
+        "status": row.get("truck_status"),
+        "catalog_type_key": row.get("catalog_type_key"),
+        "truck_type": row.get("truck_type"),
+        "capacity_tons": row.get("capacity_tons"),
+        "payload_max_tons": row.get("payload_max_tons"),
+        "volume_max_cbm": row.get("volume_max_cbm"),
+        "bed_length_ft": row.get("bed_length_ft"),
+        "bed_width_ft": row.get("bed_width_ft"),
+        "bed_height_ft": row.get("bed_height_ft"),
+    }
+    truck_reason = validate_bid_truck(order, row.get("transporter_user_id"), truck_for_validation)
+    bid_status = row.get("bid_status")
+    order_open = order.get("status") == "open"
+
+    if truck_reason:
+        unavailable_reason = truck_reason
+    elif bid_status != "pending":
+        unavailable_reason = "This bid is no longer available for selection."
+    elif not order_open:
+        unavailable_reason = "This order is no longer open for checkout."
+    else:
+        unavailable_reason = None
+    can_checkout = bool(order_open and bid_status == "pending" and truck_reason is None)
+
+    transporter = {
+        "id": row.get("transporter_user_id"),
+        "display_name": row.get("transporter_display_name") or "Transporter",
+        "company_name": row.get("transporter_company_name"),
+        "completed_trips": int(row.get("completed_trips") or 0),
+    }
+    truck = None
+    if truck_present:
+        truck = {
+            "id": row.get("truck_row_id"),
+            "truck_number": row.get("truck_number"),
+            "company": row.get("truck_company"),
+            "model": row.get("truck_model"),
+            "type_key": row.get("catalog_type_key"),
+            "type_name": _truck_type_display(row.get("catalog_type_key"), row.get("truck_type")),
+            "capacity_tons": _to_float(row.get("capacity_tons")),
+            "payload_min_tons": _to_float(row.get("payload_min_tons")),
+            "payload_max_tons": _to_float(row.get("payload_max_tons")),
+            "volume_min_cbm": _to_float(row.get("volume_min_cbm")),
+            "volume_max_cbm": _to_float(row.get("volume_max_cbm")),
+            "bed_length_ft": _to_float(row.get("bed_length_ft")),
+            "bed_width_ft": _to_float(row.get("bed_width_ft")),
+            "bed_height_ft": _to_float(row.get("bed_height_ft")),
+            "body_style": row.get("body_style"),
+            "photo_url": _photo_url(row.get("truck_photo_path")),
+            "status": row.get("truck_status"),
+        }
+
+    return {
+        "id": row.get("bid_id"),
+        "order_id": row.get("order_id"),
+        "transporter_user_id": row.get("transporter_user_id"),
+        "truck_id": row.get("truck_id"),
+        "bid_price": round_money(row.get("bid_price", 0)),
+        "message": row.get("message"),
+        "status": bid_status,
+        "created_at": row.get("bid_created_at"),
+        "updated_at": row.get("bid_updated_at"),
+        "transporter": transporter,
+        "truck": truck,
+        "can_checkout": can_checkout,
+        "unavailable_reason": unavailable_reason,
+    }
+
+
+def fetch_enriched_bids(db, order, transporter_user_id=None):
+    rows = fetch_bid_comparison_rows(db, order["id"], transporter_user_id=transporter_user_id)
+    return [serialize_enriched_bid(row, order) for row in rows]
 
 
 def calculate_no_show_penalty(bid_price):
