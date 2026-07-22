@@ -216,7 +216,7 @@ Main table groups:
 - **Communication**: `chat_threads`, `chat_messages`
 - **Files**: `documents` (metadata for the private `shipment-documents` Storage bucket)
 
-**Row Level Security roles:** admin (full access) · dispatcher (shipments/drivers/vehicles) · customer (own shipments only) · transporter (own fleet, bids, assigned trips). The Flask backend itself uses the service role.
+**Row Level Security roles:** admin (full access) · customer (own shipments only) · transporter (own fleet, bids, assigned trips). The Flask backend itself uses the service role.
 
 Schema changes for existing deployments live as dated files in [supabase/migrations/](supabase/migrations) and are applied with `supabase db push` or the SQL Editor.
 

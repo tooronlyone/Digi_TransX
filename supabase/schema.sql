@@ -29,11 +29,10 @@ create extension if not exists pgcrypto;
 --   platform_admin                          -> admin
 --   client / service_seeker / everyday_user -> customer
 --   transporter / logistics_provider        -> transporter
---   (new operational role)                  -> dispatcher
 -- The original legacy role string is preserved in users.legacy_role and is
 -- what the Flask app logic keeps using.
 create type public.app_role as enum
-    ('admin', 'dispatcher', 'customer', 'transporter',
+    ('admin', 'customer', 'transporter',
      'fuel_station_manager', 'shopkeeper');
 
 -- ---------------------------------------------------------------------------
@@ -987,13 +986,6 @@ as $$
     select coalesce(public.current_app_role() = 'admin', false);
 $$;
 
-create or replace function public.is_dispatcher()
-returns boolean
-language sql stable security definer set search_path = public
-as $$
-    select coalesce(public.current_app_role() = 'dispatcher', false);
-$$;
-
 -- ---------------------------------------------------------------------------
 -- 6. TRIGGERS
 -- ---------------------------------------------------------------------------
@@ -1056,7 +1048,6 @@ begin
         when 'transporter' then 'transporter'::public.app_role
         when 'fuel_station_manager' then 'fuel_station_manager'::public.app_role
         when 'shopkeeper' then 'shopkeeper'::public.app_role
-        when 'dispatcher' then 'dispatcher'::public.app_role
         else 'customer'::public.app_role
     end;
     insert into public.users (auth_id, email, full_name, phone, cnic, role, legacy_role)
@@ -1086,7 +1077,6 @@ create trigger trg_on_auth_user_created
 --
 -- Access model (as requested):
 --   admin      -> full access to everything
---   dispatcher -> manage shipments, drivers, vehicles (+ shipment sub-tables)
 --   customer   -> only their own shipments (and own related rows)
 --   transporter (needed by the app) -> own vehicles/drivers/bids/assigned trips
 
@@ -1120,7 +1110,7 @@ end $$;
 
 -- 7.1 users
 create policy users_select_own on public.users
-    for select using (auth_id = auth.uid() or public.is_dispatcher());
+    for select using (auth_id = auth.uid());
 create policy users_update_own on public.users
     for update using (auth_id = auth.uid())
     with check (auth_id = auth.uid() and role = (select u.role from public.users u where u.auth_id = auth.uid()));
@@ -1130,7 +1120,6 @@ create policy users_update_own on public.users
 -- which bypasses RLS — there is deliberately no owner INSERT/UPDATE/DELETE
 -- policy, so a browser client cannot alter user_id, switch profile type, or
 -- change counters directly. Admin keeps full access via admin_all_* (above).
--- There is NO dispatcher access to client profiles.
 create policy service_seeker_profile_select_own on public.service_seeker_profiles
     for select using (user_id = public.current_app_user_id());
 create policy everyday_user_profile_select_own on public.everyday_user_profiles
@@ -1148,15 +1137,11 @@ create policy shopkeeper_profile_own on public.shopkeeper_profiles
     with check (user_id = public.current_app_user_id());
 
 -- 7.3 drivers
-create policy drivers_dispatcher_all on public.drivers
-    for all using (public.is_dispatcher()) with check (public.is_dispatcher());
 create policy drivers_owner_all on public.drivers
     for all using (owner_user_id = public.current_app_user_id())
     with check (owner_user_id = public.current_app_user_id());
 
 -- 7.4 vehicles
-create policy vehicles_dispatcher_all on public.vehicles
-    for all using (public.is_dispatcher()) with check (public.is_dispatcher());
 create policy vehicles_owner_all on public.vehicles
     for all using (owner_user_id = public.current_app_user_id())
     with check (owner_user_id = public.current_app_user_id());
@@ -1164,8 +1149,6 @@ create policy vehicles_active_read on public.vehicles
     for select using (status = 'active');
 
 -- 7.5 shipments
-create policy shipments_dispatcher_all on public.shipments
-    for all using (public.is_dispatcher()) with check (public.is_dispatcher());
 create policy shipments_client_own on public.shipments
     for all using (client_user_id = public.current_app_user_id())
     with check (client_user_id = public.current_app_user_id());
@@ -1180,8 +1163,6 @@ create policy shipments_transporter_read on public.shipments
     );
 
 -- 7.6 shipment_bids
-create policy bids_dispatcher_all on public.shipment_bids
-    for all using (public.is_dispatcher()) with check (public.is_dispatcher());
 create policy bids_transporter_own on public.shipment_bids
     for all using (transporter_user_id = public.current_app_user_id())
     with check (transporter_user_id = public.current_app_user_id());
@@ -1191,8 +1172,6 @@ create policy bids_client_read on public.shipment_bids
                      where client_user_id = public.current_app_user_id()));
 
 -- 7.7 shipment_trips
-create policy trips_dispatcher_all on public.shipment_trips
-    for all using (public.is_dispatcher()) with check (public.is_dispatcher());
 create policy trips_transporter_own on public.shipment_trips
     for all using (transporter_user_id = public.current_app_user_id())
     with check (transporter_user_id = public.current_app_user_id());
@@ -1202,8 +1181,6 @@ create policy trips_client_read on public.shipment_trips
                      where client_user_id = public.current_app_user_id()));
 
 -- 7.8 shipment_status_history (read-only for involved parties)
-create policy history_dispatcher_read on public.shipment_status_history
-    for select using (public.is_dispatcher());
 create policy history_client_read on public.shipment_status_history
     for select using (
         shipment_id in (select id from public.shipments
@@ -1217,8 +1194,6 @@ create policy history_transporter_read on public.shipment_status_history
 create policy documents_owner_all on public.documents
     for all using (owner_user_id = public.current_app_user_id())
     with check (owner_user_id = public.current_app_user_id());
-create policy documents_dispatcher_read on public.documents
-    for select using (public.is_dispatcher());
 create policy documents_shipment_parties_read on public.documents
     for select using (
         shipment_id in (
@@ -1352,11 +1327,7 @@ values ('shipment-documents', 'shipment-documents', false)
 on conflict (id) do nothing;
 
 -- The Flask backend uploads/serves files with the service role (bypasses RLS).
--- These policies additionally allow direct dashboard/client access for admins
--- and dispatchers.
+-- This policy additionally allows direct dashboard access for admins.
 create policy "shipment_docs_admin_all" on storage.objects
     for all using (bucket_id = 'shipment-documents' and public.is_admin())
     with check (bucket_id = 'shipment-documents' and public.is_admin());
-
-create policy "shipment_docs_dispatcher_read" on storage.objects
-    for select using (bucket_id = 'shipment-documents' and public.is_dispatcher());

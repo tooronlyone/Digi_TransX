@@ -176,7 +176,6 @@ LEGACY_TO_APP_ROLE = {
     "logistics_provider": "transporter",
     "fuel_station_manager": "fuel_station_manager",
     "shopkeeper": "shopkeeper",
-    "dispatcher": "dispatcher",
 }
 
 
