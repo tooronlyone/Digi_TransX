@@ -182,7 +182,7 @@ def _upsert_transporter(db, n, type_key, occurrence):
     ).fetchone()
 
     columns = [
-        "truck_company", "truck_model", "truck_type", "catalog_type_key",
+        "truck_number", "truck_company", "truck_model", "truck_type", "catalog_type_key",
         "chassis_number", "capacity_tons", "main_use", "payload_min_tons",
         "payload_max_tons", "volume_min_cbm", "volume_max_cbm", "bed_length_ft",
         "bed_width_ft", "bed_height_ft", "body_style", "operating_provinces",
