@@ -150,21 +150,32 @@ def test_normalize_client_kind():
 
 
 def test_validate_bid_truck_pure():
-    """The shared current-truck validation, exercised without a database."""
+    """The shared current-truck validation, exercised without a database.
+
+    validate_bid_truck now composes cargo AND pickup-location eligibility, so
+    the order carries pickup coordinates and the good truck sits on them.
+    """
     from orders.helpers import validate_bid_truck
 
-    order = {"status": "open", "goods_weight_tons": 10, "required_truck_types": None}
-    good = {"id": 5, "owner_user_id": 201, "status": "active", "capacity_tons": 15}
+    order = {"status": "open", "goods_weight_tons": 10, "required_truck_types": None,
+             "pickup_lat": 32.1877, "pickup_lng": 74.1945}
+    good = {"id": 5, "owner_user_id": 201, "status": "active", "capacity_tons": 15,
+            "current_lat": 32.1877, "current_lng": 74.1945, "service_radius_km": 100}
     assert validate_bid_truck(order, 201, good) is None
     assert validate_bid_truck(order, 201, None) is not None                     # missing truck
     assert validate_bid_truck(order, 201, {**good, "status": "inactive"}) is not None
     assert validate_bid_truck(order, 999, good) is not None                     # owner changed
-    heavy = {"status": "open", "goods_weight_tons": 40, "required_truck_types": None}
+    heavy = {**order, "goods_weight_tons": 40}
     assert validate_bid_truck(heavy, 201, good) is not None                     # weight mismatch
-    typed = {"status": "open", "goods_weight_tons": 5,
-             "required_truck_types": '["milk_tanker"]'}
+    typed = {**order, "goods_weight_tons": 5, "required_truck_types": '["milk_tanker"]'}
     typed_truck = {**good, "catalog_type_key": "flatbed_trailer_open_semi_trailer"}
     assert validate_bid_truck(typed, 201, typed_truck) is not None              # type mismatch
+    # A far truck (Karachi) is now ineligible for the Gujranwala pickup.
+    far = {**good, "current_lat": 24.8607, "current_lng": 67.0011}
+    assert validate_bid_truck(order, 201, far) is not None                      # location mismatch
+    # A truck with no coordinates is ineligible (never nationwide).
+    no_loc = {"id": 5, "owner_user_id": 201, "status": "active", "capacity_tons": 15}
+    assert validate_bid_truck(order, 201, no_loc) is not None
 
 
 def test_wallet_role_rules():
@@ -242,16 +253,24 @@ def test_dummy_provider_rejects_same_scoped_key_with_different_fingerprint():
 # Integration helpers
 # ---------------------------------------------------------------------------
 
+# A single reference point (Gujranwala) shared by the order pickup and the
+# truck's current location, so the seeded truck is location-eligible (distance
+# 0) under the composed cargo + pickup eligibility rule.
+_PICKUP = (32.1877, 74.1945)
+
+
 def _mk_order(db, client_id, status="open"):
     return db.execute(
-        "INSERT INTO shipments (client_user_id, status) VALUES (%s, %s) RETURNING id",
-        (client_id, status),
+        "INSERT INTO shipments (client_user_id, status, pickup_city, pickup_lat, pickup_lng) "
+        "VALUES (%s, %s, 'Gujranwala', %s, %s) RETURNING id",
+        (client_id, status, _PICKUP[0], _PICKUP[1]),
     ).fetchone()["id"]
 
 
 def _mk_truck(db, owner_id, status="active", **overrides):
     """Seed an active, high-capacity vehicle owned by the transporter so the
-    bid's truck passes the shared current-truck validation at checkout."""
+    bid's truck passes the shared current-truck validation at checkout. The
+    truck sits at the order pickup, so it is within its service radius."""
     cols = {
         "owner_user_id": owner_id,
         "truck_number": f"T-{owner_id}",
@@ -261,6 +280,10 @@ def _mk_truck(db, owner_id, status="active", **overrides):
         "catalog_type_key": None,
         "capacity_tons": 100,
         "payload_max_tons": 100,
+        "current_city": "Gujranwala",
+        "current_lat": _PICKUP[0],
+        "current_lng": _PICKUP[1],
+        "service_radius_km": 100,
         "status": status,
     }
     cols.update(overrides)

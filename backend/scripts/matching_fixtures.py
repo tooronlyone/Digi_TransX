@@ -150,6 +150,41 @@ _PROVINCE_SETS = [
     "Punjab,Sindh,Balochistan,Khyber Pakhtunkhwa",
 ]
 
+# --- Operating-location fixtures --------------------------------------------
+# THE single registry of realistic Pakistani operating cities + coordinates.
+# Each city's coordinates appear exactly once here; both the vehicle fixture
+# builder and location-aware tests read cities from this one list (no second
+# city-coordinate registry anywhere).
+OPERATING_CITIES = [
+    {"city": "Gujranwala", "lat": 32.1877, "lng": 74.1945},
+    {"city": "Lahore",     "lat": 31.5204, "lng": 74.3587},
+    {"city": "Sialkot",    "lat": 32.4945, "lng": 74.5229},
+    {"city": "Gujrat",     "lat": 32.5731, "lng": 74.0789},
+    {"city": "Faisalabad", "lat": 31.4504, "lng": 73.1350},
+    {"city": "Islamabad",  "lat": 33.6844, "lng": 73.0479},
+    {"city": "Rawalpindi", "lat": 33.5651, "lng": 73.0169},
+    {"city": "Multan",     "lat": 30.1575, "lng": 71.5249},
+    {"city": "Karachi",    "lat": 24.8607, "lng": 67.0011},
+    {"city": "Hyderabad",  "lat": 25.3960, "lng": 68.3578},
+    {"city": "Peshawar",   "lat": 34.0151, "lng": 71.5805},
+    {"city": "Quetta",     "lat": 30.1798, "lng": 66.9750},
+]
+
+DEFAULT_FIXTURE_RADIUS_KM = 100
+
+
+def seed_location(n):
+    """Deterministic operating city + coordinates for transporter ``n`` (1-based),
+    cycling through the central OPERATING_CITIES registry. Service radius is the
+    100 km default for every fixture vehicle."""
+    city = OPERATING_CITIES[(n - 1) % len(OPERATING_CITIES)]
+    return {
+        "current_city": city["city"],
+        "current_lat": city["lat"],
+        "current_lng": city["lng"],
+        "service_radius_km": DEFAULT_FIXTURE_RADIUS_KM,
+    }
+
 
 def _vary(lo, hi, variant):
     """Deterministically pick a boundary or midpoint value within [lo, hi]."""
@@ -223,6 +258,8 @@ def build_vehicle_fields(n, type_key, occurrence=0):
         "hazardous_supported": type_key in _HAZ_TYPES,
         "fragile_supported": type_key in _FRAGILE_TYPES,
         "status": "active",
+        # Vehicle-level current operating location (from the central registry).
+        **seed_location(n),
     }
 
 

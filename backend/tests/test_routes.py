@@ -27,96 +27,8 @@ FULL_PAN = "4242424242424242"
 
 
 # ---------------------------------------------------------------------------
-# App / client fixtures
+# App / client fixtures live in conftest.py (shared with the location suite).
 # ---------------------------------------------------------------------------
-
-@pytest.fixture
-def app_env(seeded_db, pg_session_info, monkeypatch):
-    """Flask app wired to the test schema + a stub user registry.
-
-    Returns (app, ctx) where ctx holds mutable test state (current user,
-    seeded ids). The route modules' open_db() is redirected to a fresh
-    connection into the same isolated schema so handlers run their own real
-    transactions, exactly like production.
-    """
-    import psycopg2
-    from contextlib import contextmanager
-    from flask import Flask
-
-    from shared.db import Db
-    import auth.helpers as auth_helpers
-    import orders.routes as orders_routes
-    import payments.routes as payments_routes
-    import wallet.routes as wallet_routes
-    import wallet.helpers as wallet_helpers
-
-    schema = pg_session_info["schema"]
-    url = pg_session_info["url"]
-
-    open_connections = []
-
-    @contextmanager
-    def test_open_db():
-        conn = psycopg2.connect(url)
-        open_connections.append(conn)
-        try:
-            with conn.cursor() as cur:
-                cur.execute(f'set search_path to "{schema}"')
-            wrapper = Db(conn)
-            yield wrapper
-            conn.commit()
-        except Exception:
-            conn.rollback()
-            raise
-        finally:
-            conn.close()
-
-    # Redirect every module-local open_db reference to the test schema.
-    for module in (orders_routes, payments_routes, wallet_routes, wallet_helpers, auth_helpers):
-        if hasattr(module, "open_db"):
-            monkeypatch.setattr(module, "open_db", test_open_db)
-
-    ctx = {"user": None}
-
-    def fake_get_user_by_id(user_id):
-        user = ctx["user"]
-        if user and str(user["id"]) == str(user_id):
-            return dict(user)
-        return None
-
-    monkeypatch.setattr(auth_helpers, "get_user_by_id", fake_get_user_by_id)
-
-    app = Flask(__name__)
-    app.config["SECRET_KEY"] = "test-secret"
-    app.config["SESSION_COOKIE_SECURE"] = False
-    app.register_blueprint(orders_routes.orders_blueprint)
-    app.register_blueprint(payments_routes.payments_blueprint)
-    app.register_blueprint(wallet_routes.wallet_blueprint)
-
-    yield app, ctx, seeded_db
-
-    for conn in open_connections:
-        try:
-            conn.close()
-        except Exception:
-            pass
-
-
-@pytest.fixture
-def client(app_env):
-    app, ctx, db = app_env
-    test_client = app.test_client()
-
-    def login(user):
-        ctx["user"] = user
-        with test_client.session_transaction() as sess:
-            sess["user_id"] = user["id"]
-            sess["csrf_token"] = "test-csrf-token"
-
-    test_client.login = login
-    test_client.ctx = ctx
-    test_client.db = db
-    return test_client
 
 
 def _headers(idempotency_key=None, csrf=True):
@@ -128,8 +40,17 @@ def _headers(idempotency_key=None, csrf=True):
     return headers
 
 
+# Shared reference point (Gujranwala): the order pickup and the seeded truck
+# sit here so the truck is location-eligible (distance 0) under the composed
+# cargo + pickup eligibility rule. Callers can override any of these.
+_PICKUP = (32.1877, 74.1945)
+
+
 def _seed_order(db, client_id, status="open", **cols):
-    base = {"client_user_id": client_id, "status": status}
+    base = {
+        "client_user_id": client_id, "status": status,
+        "pickup_city": "Gujranwala", "pickup_lat": _PICKUP[0], "pickup_lng": _PICKUP[1],
+    }
     base.update(cols)
     keys = list(base.keys())
     placeholders = ", ".join(["%s"] * len(keys))
@@ -168,6 +89,10 @@ def _seed_truck(db, owner_id, status="active", **overrides):
         "catalog_type_key": None,
         "capacity_tons": 100,
         "payload_max_tons": 100,
+        "current_city": "Gujranwala",
+        "current_lat": _PICKUP[0],
+        "current_lng": _PICKUP[1],
+        "service_radius_km": 100,
         "status": status,
     }
     cols.update(overrides)

@@ -23,7 +23,11 @@ if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
 import matching_fixtures as fx  # noqa: E402
-from orders.helpers import parse_truck_types, truck_order_mismatch  # noqa: E402
+from orders.helpers import (  # noqa: E402
+    parse_truck_types,
+    truck_order_eligibility_mismatch,
+    truck_distance_to_pickup_km,
+)
 
 SEED_OUTPUT_DIR = BACKEND_DIR / "scripts" / "seed_output"
 
@@ -64,7 +68,9 @@ def audit(order_id):
         key = v.get("catalog_type_key") or v.get("truck_type") or "?"
         bucket = totals.setdefault(key, {"total": 0, "matched": 0})
         bucket["total"] += 1
-        reason = truck_order_mismatch(v, required_types, order)
+        # The SAME production eligibility helper the app uses everywhere:
+        # cargo (type/weight/volume/dimensions) composed with pickup location.
+        reason = truck_order_eligibility_mismatch(v, required_types, order)
         record = {
             "vehicle_id": v["id"],
             "owner_email": v.get("owner_email"),
@@ -76,6 +82,8 @@ def audit(order_id):
             "bed_length_ft": v.get("bed_length_ft"),
             "bed_width_ft": v.get("bed_width_ft"),
             "bed_height_ft": v.get("bed_height_ft"),
+            "current_city": v.get("current_city"),
+            "distance_to_pickup_km": truck_distance_to_pickup_km(v, order),
             "reason": reason,
         }
         if reason is None:
@@ -99,6 +107,8 @@ def _print_report(result):
     print("=" * 72)
     print(f"Order #{order.get('id')}  status={order.get('status')}")
     print(f"  commodity:      {order.get('goods_commodity') or order.get('goods_type')}")
+    print(f"  pickup:         {order.get('pickup_city') or order.get('pickup_location')}")
+    print(f"  pickup coords:  lat={order.get('pickup_lat')} lng={order.get('pickup_lng')}")
     print(f"  required types: {result['required_types'] or '(any)'}")
     print(f"  weight (tons):  {order.get('goods_weight_tons')}")
     print(f"  volume (cbm):   {order.get('goods_volume_cbm')}")
@@ -111,8 +121,10 @@ def _print_report(result):
     if not result["matches"]:
         print("  (none)")
     for m in result["matches"]:
+        dist = m.get("distance_to_pickup_km")
+        dist_str = f"{dist}km" if dist is not None else "city-match"
         print(f"  ✓ {m['owner_email']}  truck={m['truck_number']}  type={m['catalog_type_key']}  "
-              f"cap={m['capacity_tons']}t")
+              f"cap={m['capacity_tons']}t  city={m.get('current_city')}  dist={dist_str}")
 
     print(f"\nNON-MATCHES ({len(result['non_matches'])}) with exact production reason:")
     for m in result["non_matches"]:
@@ -142,7 +154,8 @@ def _write_output(result, out_path, fmt):
         fieldnames = [
             "vehicle_id", "owner_email", "owner_name", "truck_number",
             "catalog_type_key", "capacity_tons", "volume_max_cbm",
-            "bed_length_ft", "bed_width_ft", "bed_height_ft", "reason",
+            "bed_length_ft", "bed_width_ft", "bed_height_ft",
+            "current_city", "distance_to_pickup_km", "reason",
         ]
         with path.open("w", newline="", encoding="utf-8") as fh:
             writer = csv.DictWriter(fh, fieldnames=fieldnames)

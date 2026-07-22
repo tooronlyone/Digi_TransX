@@ -1,6 +1,11 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import LocationPicker from '../../components/common/LocationPicker'
 import '../../styles/pages/add-truck.css'
+
+const EMPTY_LOCATION = { location: '', lat: null, lng: null }
+const DEFAULT_RADIUS_KM = 100
+const MAX_RADIUS_KM = 150
 
 const BODY_TYPE_OPTIONS = ['Open Body', 'Box Body', 'Trailer', 'Tanker', 'Refrigerated', 'Livestock', 'Other']
 
@@ -38,6 +43,8 @@ const LIVESTOCK_OPTIONS = ['Cattle', 'Sheep', 'Goats', 'Poultry', 'Other']
 export default function AddTruck() {
   const navigate = useNavigate()
   const [bodyType, setBodyType] = useState('')
+  const [location, setLocation] = useState(EMPTY_LOCATION)
+  const [radius, setRadius] = useState(String(DEFAULT_RADIUS_KM))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [success, setSuccess] = useState('')
@@ -50,6 +57,18 @@ export default function AddTruck() {
     const form = e.target
     const data = new FormData(form)
     const selectedBodyType = String(data.get('body_style') || '')
+
+    // Operating location: both coordinates or neither; radius within 1-150 km.
+    const hasLat = location.lat != null && location.lng != null
+    const radiusNum = Number(radius)
+    if (!Number.isFinite(radiusNum) || radiusNum <= 0 || radiusNum > MAX_RADIUS_KM) {
+      setError(`Service radius must be between 1 and ${MAX_RADIUS_KM} km.`)
+      return
+    }
+    data.set('current_city', location.location || '')
+    data.set('current_lat', hasLat ? String(location.lat) : '')
+    data.set('current_lng', hasLat ? String(location.lng) : '')
+    data.set('service_radius_km', String(radiusNum))
 
     if (!selectedBodyType) {
       setError('Body Type is required.')
@@ -100,6 +119,8 @@ export default function AddTruck() {
         setSuccess('Truck registered successfully!')
         form.reset()
         setBodyType('')
+        setLocation(EMPTY_LOCATION)
+        setRadius(String(DEFAULT_RADIUS_KM))
         setTimeout(() => navigate('/transporter/trucks'), 1500)
       } else {
         setError(result.message || 'Failed to register truck. Please check your details.')
@@ -279,6 +300,40 @@ export default function AddTruck() {
                 <label htmlFor="trackingId" className="optional">GPS Device IMEI</label>
                 <input type="text" id="trackingId" name="trackingId"
                   placeholder="Optional - 15-digit GPS device IMEI number" />
+              </div>
+            </div>
+          </div>
+
+          <div className="form-card">
+            <div className="card-header">
+              <div className="card-icon card-icon-green"><i className="fas fa-location-dot"></i></div>
+              <div>
+                <h2 className="card-title">Operating Location</h2>
+                <p className="card-subtitle">
+                  Where this truck is based now. You will only see orders whose pickup is within
+                  the service radius of this location.
+                </p>
+              </div>
+            </div>
+
+            <div className="fields-grid">
+              <div className="form-group full-width">
+                <LocationPicker
+                  label="Current location of this truck"
+                  value={location}
+                  onChange={setLocation}
+                  placeholder="City / area where the truck is currently parked"
+                />
+              </div>
+
+              <div className="form-group">
+                <label htmlFor="service_radius_km">Service radius (km)</label>
+                <input
+                  type="number" id="service_radius_km" min="1" max={MAX_RADIUS_KM} step="1"
+                  value={radius} onChange={e => setRadius(e.target.value)}
+                  placeholder={`Default ${DEFAULT_RADIUS_KM}`}
+                />
+                <small>How far this truck will travel to a pickup. Default {DEFAULT_RADIUS_KM} km, maximum {MAX_RADIUS_KM} km.</small>
               </div>
             </div>
           </div>

@@ -187,6 +187,7 @@ def _upsert_transporter(db, n, type_key, occurrence):
         "payload_max_tons", "volume_min_cbm", "volume_max_cbm", "bed_length_ft",
         "bed_width_ft", "bed_height_ft", "body_style", "operating_provinces",
         "refrigeration_supported", "hazardous_supported", "fragile_supported",
+        "current_city", "current_lat", "current_lng", "service_radius_km",
         "status",
     ]
     values = [fields[c] for c in columns]
@@ -282,10 +283,60 @@ def run_seed(args):
                     _compensate_orphan_auth(client, [orphan])
                 raise
 
+    if args.pin_order_id is not None:
+        _pin_seed_vehicle_to_order(args)
+
     _write_report(args, {"summary": summary, "transporters": manifest})
     print("\nSeed summary:")
     for key, value in summary.items():
         print(f"  {key}: {value}")
+
+
+def _pin_seed_vehicle_to_order(args):
+    """Set ONE marked seed vehicle's current operating location to the pickup
+    of a real open order, so it is location-eligible for that order.
+
+    Test-only and idempotent: it reads the order's pickup city/coordinates and
+    copies them onto the vehicle owned by the given seed transporter index (the
+    Phase-A matched account). service_radius_km is kept at the 100 km default.
+    It never touches the order and never creates any row.
+    """
+    from shared.db import open_db
+
+    seed_index = args.pin_seed_index
+    email = fx.seed_email(seed_index)
+    where_sql, where_params = fx.marked_users_where()
+    with open_db() as db:
+        order = db.execute(
+            "SELECT id, pickup_city, pickup_location, pickup_lat, pickup_lng "
+            "FROM shipments WHERE id = %s",
+            (args.pin_order_id,),
+        ).fetchone()
+        if not order:
+            print(f"  ! pin skipped: order {args.pin_order_id} not found")
+            return
+        if order["pickup_lat"] is None or order["pickup_lng"] is None:
+            print(f"  ! pin skipped: order {args.pin_order_id} has no pickup coordinates")
+            return
+        # City label = first comma-segment of the pickup text (matches how the
+        # eligibility fallback normalizes cities).
+        pickup_text = (order["pickup_city"] or order["pickup_location"] or "").strip()
+        city = pickup_text.split(",")[0].strip() or None
+
+        result = db.execute(
+            "UPDATE vehicles v "
+            "SET current_city = %s, current_lat = %s, current_lng = %s, "
+            "    service_radius_km = %s, updated_at = now() "
+            "FROM users u "
+            f"WHERE v.owner_user_id = u.id AND u.email = %s AND {where_sql}",
+            [city, order["pickup_lat"], order["pickup_lng"],
+             fx.DEFAULT_FIXTURE_RADIUS_KM, email, *where_params],
+        )
+        db.commit()
+        print(
+            f"  pinned {result.rowcount} vehicle(s) of {email} to order "
+            f"#{args.pin_order_id} pickup ({city}: {order['pickup_lat']},{order['pickup_lng']})"
+        )
 
 
 # --- Cleanup ----------------------------------------------------------------
@@ -371,6 +422,11 @@ def build_parser():
                         help="Explicitly proceed when the target is not clearly dev/staging/test.")
     parser.add_argument("--report", default=None, help="Path for the JSON manifest (default: seed_output/).")
     parser.add_argument("--no-report", action="store_true", help="Do not write a manifest file.")
+    parser.add_argument("--pin-order-id", type=int, default=None,
+                        help="After seeding, copy this open order's pickup location onto the "
+                             "matched seed vehicle so it is location-eligible for that order.")
+    parser.add_argument("--pin-seed-index", type=int, default=7,
+                        help="1-based seed transporter index to pin (default: 7).")
     return parser
 
 

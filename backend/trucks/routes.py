@@ -22,6 +22,7 @@ from .helpers import (
     parse_optional_cnic,
     parse_optional_float,
     parse_optional_text,
+    parse_truck_location,
 )
 
 
@@ -144,6 +145,11 @@ def create_truck():
         if dim is not None and dim < 0:
             return json_response({"success": False, "message": "Cargo bed dimensions cannot be negative."}, 400)
 
+    # Current operating location (where this truck sits, for pickup proximity).
+    location, location_error = parse_truck_location(form)
+    if location_error:
+        return json_response({"success": False, "message": location_error}, 400)
+
     stamp = timestamp_bundle()
     with open_db() as db:
         existing_truck_number = db.execute(
@@ -168,8 +174,10 @@ def create_truck():
                     chassis_number, capacity_tons, main_use, payload_min_tons, payload_max_tons,
                     bed_length_ft, bed_width_ft, bed_height_ft,
                     body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id,
+                    current_city, current_lat, current_lng, service_radius_km,
                     status, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, 'inactive', %s, %s)
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                          %s, %s, %s, %s, 'inactive', %s, %s)
                 RETURNING id
                 """,
                 (
@@ -192,6 +200,10 @@ def create_truck():
                     parse_optional_text(form.get("driverName")),
                     parse_optional_cnic(form.get("driverCnic")),
                     parse_optional_text(form.get("trackingId")),
+                    location["current_city"],
+                    location["current_lat"],
+                    location["current_lng"],
+                    location["service_radius_km"],
                     stamp["display"],
                     stamp["display"],
                 ),
@@ -418,6 +430,11 @@ def update_truck_configuration(truck_id):
     if not operating_provinces:
         return json_response({"success": False, "message": "At least one operating province is required."}, 400)
 
+    # Current operating location (where this truck sits, for pickup proximity).
+    location, location_error = parse_truck_location(form)
+    if location_error:
+        return json_response({"success": False, "message": location_error}, 400)
+
     truck_photo_path = truck.get("truck_photo_path")
     insurance_photo_path = truck.get("insurance_photo_path")
     rc_book_photo_path = truck.get("rc_book_photo_path")
@@ -445,6 +462,7 @@ def update_truck_configuration(truck_id):
                 volume_min_cbm = %s, volume_max_cbm = %s, catalog_specs_json = %s, tracking_id = %s, driver_name = %s,
                 driver_cnic = %s,
                 refrigeration_supported = %s, hazardous_supported = %s, fragile_supported = %s,
+                current_city = %s, current_lat = %s, current_lng = %s, service_radius_km = %s,
                 truck_photo_path = %s, insurance_photo_path = %s, rc_book_photo_path = %s,
                 updated_at = %s, status_reason_code = %s, status_reason = %s
             WHERE id = %s AND owner_user_id = %s
@@ -473,6 +491,10 @@ def update_truck_configuration(truck_id):
                 parse_bool_flag(form.get("refrigeration_supported")),
                 parse_bool_flag(form.get("hazardous_supported")),
                 parse_bool_flag(form.get("fragile_supported")),
+                location["current_city"],
+                location["current_lat"],
+                location["current_lng"],
+                location["service_radius_km"],
                 truck_photo_path,
                 insurance_photo_path,
                 rc_book_photo_path,

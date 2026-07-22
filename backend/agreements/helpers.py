@@ -1,7 +1,7 @@
 from datetime import date, datetime
-from math import asin, cos, radians, sin, sqrt
 
 from auth.helpers import json_response, timestamp_bundle
+from shared.geo import haversine_distance_km
 from trucks.helpers import get_catalog_type
 from wallet.helpers import (
     adjust_wallet_balance,
@@ -93,11 +93,12 @@ def due_date_for_month(start_date, month_index):
 
 
 def haversine_km(start_lat, start_lng, end_lat, end_lng):
-    lat1, lng1, lat2, lng2 = map(radians, [start_lat, start_lng, end_lat, end_lng])
-    dlat = lat2 - lat1
-    dlng = lng2 - lng1
-    value = sin(dlat / 2) ** 2 + cos(lat1) * cos(lat2) * sin(dlng / 2) ** 2
-    return round_money(6371.0 * 2 * asin(sqrt(value)))
+    """Great-circle distance (km, rounded to 2 dp) for agreement trip billing.
+
+    Delegates to the ONE shared Haversine helper so there is a single distance
+    formula in the codebase; only the money-style rounding is applied here.
+    """
+    return round_money(haversine_distance_km(start_lat, start_lng, end_lat, end_lng))
 
 
 def service_area_to_text(value):

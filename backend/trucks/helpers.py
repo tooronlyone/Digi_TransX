@@ -79,6 +79,56 @@ def parse_optional_float(value):
     return float(cleaned)
 
 
+# Vehicle-level operating-location limits (mirror the vehicles table + the
+# orders eligibility helper: default radius 100 km, hard maximum 150 km).
+DEFAULT_SERVICE_RADIUS_KM = 100.0
+MAX_SERVICE_RADIUS_KM = 150.0
+
+
+def parse_truck_location(form):
+    """Parse + validate a truck's current operating-location fields from a form.
+
+    Returns (location_dict, error_message). On success location_dict has
+    current_city, current_lat, current_lng and service_radius_km. Coordinates
+    must be a complete pair (both present or both absent); the radius defaults
+    to 100 km and must be > 0 and <= 150 km. Mirrors the backend/DB constraints
+    so the same rules are enforced on the server regardless of the client.
+    """
+    city = parse_optional_text(form.get("current_city"))
+    lat_raw = (form.get("current_lat") or "").strip()
+    lng_raw = (form.get("current_lng") or "").strip()
+    try:
+        lat = float(lat_raw) if lat_raw else None
+        lng = float(lng_raw) if lng_raw else None
+    except (TypeError, ValueError):
+        return None, "Operating location coordinates must be valid numbers."
+    if (lat is None) != (lng is None):
+        return None, "Operating location needs both latitude and longitude, or neither."
+    if lat is not None and not (-90 <= lat <= 90):
+        return None, "Latitude must be between -90 and 90."
+    if lng is not None and not (-180 <= lng <= 180):
+        return None, "Longitude must be between -180 and 180."
+
+    radius_raw = (form.get("service_radius_km") or "").strip()
+    if radius_raw:
+        try:
+            radius = float(radius_raw)
+        except (TypeError, ValueError):
+            return None, "Service radius must be a valid number of kilometres."
+    else:
+        radius = DEFAULT_SERVICE_RADIUS_KM
+    if radius <= 0:
+        return None, "Service radius must be greater than 0 km."
+    if radius > MAX_SERVICE_RADIUS_KM:
+        return None, f"Service radius cannot exceed {MAX_SERVICE_RADIUS_KM:g} km."
+
+    return (
+        {"current_city": city, "current_lat": lat, "current_lng": lng,
+         "service_radius_km": radius},
+        None,
+    )
+
+
 def get_catalog_type(type_key):
     for item in TRUCK_TYPES:
         if item["type_key"] == type_key:
@@ -133,6 +183,10 @@ def build_truck_payload(row):
         "bed_height_ft": row["bed_height_ft"],
         "body_style": row["body_style"],
         "catalog_specs_json": catalog_specs,
+        "current_city": row.get("current_city") if isinstance(row, dict) else row["current_city"],
+        "current_lat": row.get("current_lat") if isinstance(row, dict) else row["current_lat"],
+        "current_lng": row.get("current_lng") if isinstance(row, dict) else row["current_lng"],
+        "service_radius_km": row.get("service_radius_km") if isinstance(row, dict) else row["service_radius_km"],
         "driver_name": row["driver_name"],
         "driver_cnic": row["driver_cnic"],
         "tracking_id": row["tracking_id"],
@@ -170,6 +224,10 @@ def build_configuration_payload(row):
         "max_capacity": truck["max_capacity"] or "",
         "chassis_number": truck["chassis_number"] or "",
         "operating_provinces": operating_provinces,
+        "current_city": truck["current_city"] or "",
+        "current_lat": truck["current_lat"] if truck["current_lat"] is not None else "",
+        "current_lng": truck["current_lng"] if truck["current_lng"] is not None else "",
+        "service_radius_km": truck["service_radius_km"] if truck["service_radius_km"] is not None else "",
         "body_style": truck["body_style"] or "",
         "payload_min_tons": truck["payload_min_tons"] or "",
         "payload_max_tons": truck["payload_max_tons"] or "",

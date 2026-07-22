@@ -3,6 +3,7 @@ import json
 from auth.helpers import json_response
 from wallet.helpers import round_money
 from trucks.helpers import get_catalog_type
+from shared.geo import haversine_distance_km
 
 
 def parse_truck_types(value):
@@ -248,6 +249,141 @@ def truck_order_mismatch(truck, required_types, order):
 
 
 # ---------------------------------------------------------------------------
+# Vehicle-level location eligibility (truck current location -> order pickup)
+# ---------------------------------------------------------------------------
+
+# A truck serves orders whose PICKUP is within its service radius of where the
+# truck currently sits. Dropoff distance is irrelevant. Defaults/limits mirror
+# the vehicles.service_radius_km column (default 100, hard max 150).
+DEFAULT_SERVICE_RADIUS_KM = 100.0
+MAX_SERVICE_RADIUS_KM = 150.0
+# ~50 m float tolerance so an exactly-on-the-boundary pickup is accepted.
+_RADIUS_EPS_KM = 0.05
+
+# Missing-location reasons (kept as constants so the routes and tests assert on
+# one canonical wording).
+LOCATION_UNSET_REASON = "Set this truck's operating location before viewing nearby orders."
+
+
+def _service_radius_km(truck):
+    """Effective service radius for a truck: the stored value, defaulted to
+    100 km when absent/invalid and clamped to the 150 km hard maximum."""
+    radius = _to_float(truck.get("service_radius_km"))
+    if radius is None or radius <= 0:
+        return DEFAULT_SERVICE_RADIUS_KM
+    if radius > MAX_SERVICE_RADIUS_KM:
+        return MAX_SERVICE_RADIUS_KM
+    return radius
+
+
+def _normalize_city(text):
+    """Canonical city token for the no-coordinates fallback.
+
+    Takes the part before the first comma (so a long geocoded string like
+    'Gujranwala, Punjab, Pakistan' reduces to 'gujranwala'), lowercased and
+    whitespace-collapsed. Matching is EXACT equality on this token — never a
+    substring test — so 'Gujrat' can never be treated as 'Gujranwala'.
+    """
+    if not text:
+        return ""
+    head = str(text).split(",")[0]
+    return " ".join(head.lower().split())
+
+
+def _truck_coords(truck):
+    lat = _to_float(truck.get("current_lat"))
+    lng = _to_float(truck.get("current_lng"))
+    if lat is None or lng is None:
+        return None
+    return lat, lng
+
+
+def _pickup_coords(order):
+    lat = _to_float(order.get("pickup_lat"))
+    lng = _to_float(order.get("pickup_lng"))
+    if lat is None or lng is None:
+        return None
+    return lat, lng
+
+
+def truck_distance_to_pickup_km(truck, order):
+    """Great-circle km from the truck's current location to the order pickup,
+    or None when either side lacks coordinates.
+
+    Used to show a transporter the distance for their OWN eligible orders. It
+    never returns or exposes the raw coordinates themselves.
+    """
+    truck_pos = _truck_coords(truck)
+    pickup_pos = _pickup_coords(order)
+    if not truck_pos or not pickup_pos:
+        return None
+    return round(haversine_distance_km(truck_pos[0], truck_pos[1], pickup_pos[0], pickup_pos[1]), 1)
+
+
+def truck_pickup_location_mismatch(truck, order):
+    """Return None if the truck is close enough to the order's PICKUP, else a
+    human-readable reason.
+
+    Rules (never nationwide):
+      * No truck coordinates  -> ineligible (LOCATION_UNSET_REASON). An active
+        truck without a location must not see any distant order.
+      * Order has coordinates -> Haversine(truck, pickup) must be within the
+        truck's service radius (default 100 km, max 150 km).
+      * Order has NO coordinates -> exact normalized city match only
+        (truck.current_city == order pickup city). Coordinates are never
+        guessed; anything else is ineligible with a clear reason.
+
+    Eligibility is measured to the PICKUP only — the dropoff may be anywhere.
+    """
+    pickup_pos = _pickup_coords(order)
+
+    if pickup_pos:
+        # Order has coordinates: always distance-based, which needs the truck's
+        # coordinates. A truck without coordinates gets NO distant order.
+        truck_pos = _truck_coords(truck)
+        if not truck_pos:
+            return LOCATION_UNSET_REASON
+        radius = _service_radius_km(truck)
+        distance = haversine_distance_km(truck_pos[0], truck_pos[1], pickup_pos[0], pickup_pos[1])
+        if distance > radius + _RADIUS_EPS_KM:
+            return (
+                f"This truck is {distance:.0f} km from the pickup, beyond its "
+                f"{radius:g} km service radius. Please choose a nearer order."
+            )
+        return None
+
+    # Order without coordinates: exact normalized-city fallback ONLY (never a
+    # province-wide or substring match, and coordinates are never guessed).
+    truck_city = _normalize_city(truck.get("current_city"))
+    if not truck_city:
+        return LOCATION_UNSET_REASON
+    pickup_city = _normalize_city(order.get("pickup_city") or order.get("pickup_location"))
+    if pickup_city and truck_city == pickup_city:
+        return None
+    return (
+        "This order has no pickup coordinates, so it is only shown to trucks "
+        "whose operating city matches the pickup city."
+    )
+
+
+def truck_order_eligibility_mismatch(truck, required_types, order):
+    """The single authoritative eligibility check: cargo AND pickup location.
+
+    Composes the two independent rules — no rule is duplicated here:
+      1. truck_order_mismatch        (type / weight / volume / dimensions)
+      2. truck_pickup_location_mismatch (distance to pickup)
+
+    Every caller (available-orders listing, bid placement, bid comparison,
+    payment quote, locked checkout and the matching audit) goes through this
+    one function, so availability and bidding can never apply different rules.
+    """
+    cargo_reason = truck_order_mismatch(truck, required_types, order)
+    if cargo_reason:
+        return cargo_reason
+    return truck_pickup_location_mismatch(truck, order)
+
+
+# ---------------------------------------------------------------------------
 # Current-truck validation (shared by comparison, quote and checkout)
 # ---------------------------------------------------------------------------
 
@@ -258,10 +394,11 @@ def validate_bid_truck(order, bid_transporter_id, truck):
     ONE pure validation used everywhere a bid may be paid: the comparison
     response (to derive can_checkout / unavailable_reason), the payment quote,
     and perform_checkout under the locked vehicle row. Reuses
-    truck_order_mismatch for the type/weight/volume/dimension checks so there
-    is exactly one matching algorithm. A truck can silently become inactive,
-    change owner, or stop matching after the bid was placed — this catches all
-    of that at pay time.
+    truck_order_eligibility_mismatch for the type/weight/volume/dimension AND
+    pickup-location checks so there is exactly one eligibility path. A truck can
+    silently become inactive, change owner, move away from the pickup, or stop
+    matching after the bid was placed — this catches all of that at pay time,
+    so a truck that is now outside its service radius cannot be checked out.
     """
     if not truck or truck.get("id") is None:
         return "The truck offered for this bid is no longer available."
@@ -271,7 +408,7 @@ def validate_bid_truck(order, bid_transporter_id, truck):
     if (truck.get("status") or "").strip() != "active":
         return "This truck is no longer active and cannot be booked."
     required_types = parse_truck_types(order.get("required_truck_types"))
-    mismatch = truck_order_mismatch(truck, required_types, order)
+    mismatch = truck_order_eligibility_mismatch(truck, required_types, order)
     if mismatch:
         return mismatch
     return None
@@ -298,7 +435,9 @@ def _photo_url(path):
 # bids + the SAFE vehicle and transporter fields, plus a completed one-time
 # trip count — all in ONE query (no N+1). Sensitive columns (email, phone,
 # cnic, driver_cnic, payout*, tracking_id, traccar_device_id, wallet, private
-# documents) are deliberately never selected.
+# documents) are deliberately never selected. current_lat/current_lng ARE
+# selected because location eligibility is validated server-side, but they are
+# NEVER serialized into the seeker response (only current_city is exposed).
 _BID_COMPARISON_SQL = """
     SELECT
         b.id                  AS bid_id,
@@ -330,7 +469,11 @@ _BID_COMPARISON_SQL = """
         v.bed_height_ft       AS bed_height_ft,
         v.body_style          AS body_style,
         v.truck_photo_path    AS truck_photo_path,
-        v.status              AS truck_status
+        v.status              AS truck_status,
+        v.current_city        AS current_city,
+        v.current_lat         AS current_lat,
+        v.current_lng         AS current_lng,
+        v.service_radius_km   AS service_radius_km
     FROM shipment_bids b
     LEFT JOIN vehicles v ON v.id = b.truck_id
     LEFT JOIN users u ON u.id = b.transporter_user_id
@@ -379,6 +522,11 @@ def serialize_enriched_bid(row, order):
         "bed_length_ft": row.get("bed_length_ft"),
         "bed_width_ft": row.get("bed_width_ft"),
         "bed_height_ft": row.get("bed_height_ft"),
+        # Location fields feed truck_pickup_location_mismatch server-side only.
+        "current_lat": row.get("current_lat"),
+        "current_lng": row.get("current_lng"),
+        "current_city": row.get("current_city"),
+        "service_radius_km": row.get("service_radius_km"),
     }
     truck_reason = validate_bid_truck(order, row.get("transporter_user_id"), truck_for_validation)
     bid_status = row.get("bid_status")
@@ -420,6 +568,9 @@ def serialize_enriched_bid(row, order):
             "body_style": row.get("body_style"),
             "photo_url": _photo_url(row.get("truck_photo_path")),
             "status": row.get("truck_status"),
+            # Coarse city only — exact current_lat/current_lng are intentionally
+            # NOT exposed to the seeker (privacy of the truck's pre-trip position).
+            "current_city": row.get("current_city"),
         }
 
     return {

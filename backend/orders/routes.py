@@ -40,6 +40,8 @@ from .helpers import (
     calculate_no_show_penalty,
     order_access_for_user,
     truck_order_mismatch,
+    truck_order_eligibility_mismatch,
+    truck_distance_to_pickup_km,
     parse_truck_types,
 )
 
@@ -249,12 +251,14 @@ def available_orders():
 
     with open_db() as db:
         # Active trucks this transporter owns, with the specs needed to match
-        # both the goods' truck TYPE and its weight/volume CAPACITY.
+        # the goods' truck TYPE, its weight/volume CAPACITY, cargo-bed
+        # dimensions AND the truck's current location (for pickup proximity).
         my_trucks = [
             dict(r)
             for r in db.execute(
                 "SELECT catalog_type_key, truck_type, capacity_tons, payload_max_tons, volume_max_cbm, "
-                "bed_length_ft, bed_width_ft, bed_height_ft "
+                "bed_length_ft, bed_width_ft, bed_height_ft, "
+                "current_city, current_lat, current_lng, service_radius_km "
                 "FROM vehicles WHERE owner_user_id = %s AND status = 'active'",
                 (request.current_user["id"],),
             ).fetchall()
@@ -271,19 +275,48 @@ def available_orders():
             """
         ).fetchall()
 
+        # A truck with a set location lets us distinguish "no truck has a
+        # location yet" (setup prompt) from "trucks are simply too far".
+        active_truck_count = len(my_trucks)
+        located_trucks = [t for t in my_trucks if t.get("current_lat") is not None]
+        location_setup_required = active_truck_count > 0 and not located_trucks
+
         orders = []
+        too_far_count = 0  # cargo would match, but every truck is out of range
         for row in order_rows:
             row_dict = dict(row)
             serialized = serialize_order(row_dict, row_dict.get("bid_count", 0))
             required = serialized.get("required_truck_types") or []
-            # Smart matching: show the order only if the transporter owns at least
-            # one active truck of a suitable TYPE whose weight/volume CAPACITY can
-            # actually carry this load.
-            if not any(truck_order_mismatch(t, required, serialized) is None for t in my_trucks):
+            # Single composed eligibility: show the order only if the transporter
+            # owns at least one active truck that matches cargo AND is within its
+            # service radius of the PICKUP. Availability and bidding use the exact
+            # same helper, so they can never disagree.
+            eligible = [
+                t for t in my_trucks
+                if truck_order_eligibility_mismatch(t, required, serialized) is None
+            ]
+            if not eligible:
+                # Was it purely a distance miss (cargo matched on some truck)?
+                cargo_ok = any(
+                    truck_order_mismatch(t, required, serialized) is None for t in my_trucks
+                )
+                if cargo_ok:
+                    too_far_count += 1
                 continue
+            # Nearest eligible truck's distance to the pickup, for display.
+            distances = [
+                d for d in (truck_distance_to_pickup_km(t, serialized) for t in eligible)
+                if d is not None
+            ]
+            serialized["distance_to_pickup_km"] = min(distances) if distances else None
             orders.append(serialized)
 
-    return json_response({"success": True, "orders": orders})
+    return json_response({
+        "success": True,
+        "orders": orders,
+        "location_setup_required": location_setup_required,
+        "orders_out_of_range": too_far_count,
+    })
 
 
 @orders_blueprint.post("/api/orders/<int:order_id>/bids")
@@ -326,10 +359,12 @@ def create_bid(order_id):
         if not truck:
             return json_response({"success": False, "message": "Truck not found or not active."}, 404)
 
-        # Smart matching: the truck must be a suitable TYPE for the goods AND have
-        # enough weight/volume CAPACITY to carry this specific load.
+        # Single composed eligibility (same helper the availability list uses):
+        # the truck must be a suitable TYPE with enough weight/volume/dimension
+        # CAPACITY AND be within its service radius of the order PICKUP. A truck
+        # that can carry the cargo but sits too far away cannot bid.
         required_trucks = parse_truck_types(order.get("required_truck_types"))
-        mismatch = truck_order_mismatch(dict(truck), required_trucks, dict(order))
+        mismatch = truck_order_eligibility_mismatch(dict(truck), required_trucks, dict(order))
         if mismatch:
             return json_response({"success": False, "message": mismatch}, 400)
 

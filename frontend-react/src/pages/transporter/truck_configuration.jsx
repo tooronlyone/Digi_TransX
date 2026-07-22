@@ -2,7 +2,10 @@
 import { useState, useEffect } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
+import LocationPicker from '../../components/common/LocationPicker'
 import '../../styles/pages/truck-configuration.css'
+
+const MAX_RADIUS_KM = 150
 
 const EMPTY_FORM = {
   truck_number: '', truck_company: '', truck_model: '', truck_type: '', max_capacity: '', chassis_number: '',
@@ -10,6 +13,7 @@ const EMPTY_FORM = {
   catalog_type_key: '', body_style: '', payload_min_tons: '', payload_max_tons: '',
   volume_min_cbm: '', volume_max_cbm: '', catalog_specs_json: '',
   bed_length_ft: '', bed_width_ft: '', bed_height_ft: '',
+  current_city: '', current_lat: '', current_lng: '', service_radius_km: 100,
   tracking_id: '', driver_name: '', driver_cnic: '',
   refrigeration_supported: true, hazardous_supported: true, fragile_supported: true,
   photo: '', insurance_photo: '', rc_book_photo: '',
@@ -279,6 +283,15 @@ export default function TruckConfiguration() {
       showToast(`Please fill: ${missing.map(k => k.replace(/_/g, ' ')).join(', ')}`, 'error')
       return
     }
+    const radiusNum = Number(form.service_radius_km)
+    if (!Number.isFinite(radiusNum) || radiusNum <= 0 || radiusNum > MAX_RADIUS_KM) {
+      showToast(`Service radius must be between 1 and ${MAX_RADIUS_KM} km.`, 'error')
+      return
+    }
+    if ((form.current_lat === '') !== (form.current_lng === '')) {
+      showToast('Operating location needs both latitude and longitude, or neither.', 'error')
+      return
+    }
     setSaving(true)
     try {
       const fd = new FormData()
@@ -493,6 +506,42 @@ export default function TruckConfiguration() {
                   ))}
                 </div>
                 <p className="mt-4 text-xs text-gray-400">Click to select or deselect provinces.</p>
+              </section>
+
+              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
+                <h2 className="text-lg font-bold text-[#111827]">Operating Location</h2>
+                <p className="mt-1 text-xs text-gray-400">
+                  Where this truck is based now. You will only see orders whose pickup is within
+                  the service radius of this location.
+                </p>
+                <div className="mt-5 grid gap-5 md:grid-cols-2">
+                  <div className="md:col-span-2">
+                    <LocationPicker
+                      label="Current location of this truck"
+                      value={{
+                        location: form.current_city || '',
+                        lat: form.current_lat === '' || form.current_lat == null ? null : Number(form.current_lat),
+                        lng: form.current_lng === '' || form.current_lng == null ? null : Number(form.current_lng),
+                      }}
+                      onChange={(next) => setForm(f => ({
+                        ...f,
+                        current_city: next.location || '',
+                        current_lat: next.lat == null ? '' : next.lat,
+                        current_lng: next.lng == null ? '' : next.lng,
+                      }))}
+                      placeholder="City / area where the truck is currently parked"
+                    />
+                  </div>
+                  <label className="block">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Service radius (km)</span>
+                    <input
+                      className="mt-2 w-full rounded-lg border border-[#E5E7EB] px-4 py-3 text-sm text-[#111827] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500"
+                      type="number" name="service_radius_km" min="1" max={MAX_RADIUS_KM} step="1"
+                      value={form.service_radius_km} onChange={setField} placeholder="Default 100"
+                    />
+                    <span className="mt-1 block text-xs text-gray-400">Default 100 km, maximum {MAX_RADIUS_KM} km.</span>
+                  </label>
+                </div>
               </section>
 
               <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">

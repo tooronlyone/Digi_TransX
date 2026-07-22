@@ -10,6 +10,8 @@ function formatMoney(value) {
 export default function AvailableBids() {
   const [orders, setOrders] = useState([])
   const [trucks, setTrucks] = useState([])
+  const [locationSetupRequired, setLocationSetupRequired] = useState(false)
+  const [ordersOutOfRange, setOrdersOutOfRange] = useState(0)
   const [selectedOrderId, setSelectedOrderId] = useState(null)
   const [form, setForm] = useState({ truck_id: '', bid_price: '', message: '' })
   const [loading, setLoading] = useState(true)
@@ -31,6 +33,8 @@ export default function AvailableBids() {
       if (!trucksRes.ok || trucksJson.success === false) throw new Error(trucksJson.message || 'Unable to load trucks.')
       setOrders(ordersJson.orders || [])
       setTrucks(trucksJson.trucks || [])
+      setLocationSetupRequired(Boolean(ordersJson.location_setup_required))
+      setOrdersOutOfRange(Number(ordersJson.orders_out_of_range || 0))
     } catch (loadError) {
       setError(loadError.message || 'Unable to load available orders.')
     } finally {
@@ -110,9 +114,25 @@ export default function AvailableBids() {
         {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
         {success && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div>}
 
-        {!loading && !error && orders.length === 0 && (
+        {!loading && !error && locationSetupRequired && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+            <i className="fas fa-location-dot mr-2" aria-hidden="true"></i>
+            None of your active trucks has an operating location yet. Set each truck's current
+            location and service radius in its configuration to see nearby orders.
+          </div>
+        )}
+
+        {!loading && !error && orders.length === 0 && !locationSetupRequired && ordersOutOfRange > 0 && (
           <div className="rounded-xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
-            No open bids right now. Check back soon.
+            {ordersOutOfRange} open order{ordersOutOfRange === 1 ? '' : 's'} match your trucks' cargo
+            capability but the pickup is outside their service radius. Move a truck closer or widen
+            its radius (up to 150 km) to bid.
+          </div>
+        )}
+
+        {!loading && !error && orders.length === 0 && !locationSetupRequired && ordersOutOfRange === 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
+            No open bids near your trucks right now. Check back soon.
           </div>
         )}
 
@@ -126,7 +146,15 @@ export default function AvailableBids() {
                       <h2 className="text-lg font-bold text-slate-900">{order.pickup_city}{' -> '}{order.dropoff_city}</h2>
                       <p className="mt-1 text-sm text-slate-500">{order.pickup_date} at {order.pickup_time}</p>
                     </div>
-                    <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">{order.bid_count} bids</span>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">{order.bid_count} bids</span>
+                      {order.distance_to_pickup_km != null && (
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                          <i className="fas fa-location-arrow mr-1" aria-hidden="true"></i>
+                          {order.distance_to_pickup_km} km to pickup
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
                     <div><span className="font-semibold text-slate-800">Goods:</span> {order.goods_type}</div>

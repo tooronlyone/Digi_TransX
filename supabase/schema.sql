@@ -248,6 +248,11 @@ create table public.vehicles (
     status_reason_code text,
     status_reason   text,
     operating_provinces text,
+    -- Vehicle-level current operating location (truck -> pickup eligibility).
+    current_city    text,
+    current_lat     double precision,
+    current_lng     double precision,
+    service_radius_km numeric(6,2) not null default 100,
     per_km_rate     numeric,
     waiting_charge_per_hour numeric,
     loading_charge  numeric,
@@ -258,7 +263,18 @@ create table public.vehicles (
     insurance_photo_path text,
     rc_book_photo_path   text,
     created_at      timestamptz not null default now(),
-    updated_at      timestamptz not null default now()
+    updated_at      timestamptz not null default now(),
+    constraint vehicles_current_lat_range
+        check (current_lat is null or (current_lat >= -90 and current_lat <= 90)),
+    constraint vehicles_current_lng_range
+        check (current_lng is null or (current_lng >= -180 and current_lng <= 180)),
+    constraint vehicles_current_coords_pair
+        check (
+            (current_lat is null and current_lng is null)
+            or (current_lat is not null and current_lng is not null)
+        ),
+    constraint vehicles_service_radius_km_bounds
+        check (service_radius_km > 0 and service_radius_km <= 150)
 );
 
 create unique index vehicles_truck_number_unique

@@ -6,7 +6,7 @@ update GPS_PROVIDER_* constants below and implement the three functions.
 All functions return None / [] on failure - never crash the app.
 """
 
-import math
+from shared.geo import haversine_distance_km
 
 # =============================================================
 # GPS PROVIDER CONFIG - update these when you get API access
@@ -112,25 +112,19 @@ def calculate_route_distance_km(positions: list) -> float:
     Calculate total route distance using haversine formula.
     Input: list of {lat, lon} dicts.
     Returns distance in km as float.
+
+    Sums the shared ``haversine_distance_km`` over consecutive points — the one
+    Haversine implementation in the codebase — so the accumulated distance is
+    identical to the previous inline formula.
     """
     try:
         if len(positions) < 2:
             return 0.0
         total_km = 0.0
-        earth_radius_km = 6371.0
         for previous, current in zip(positions, positions[1:]):
-            prev_lat = math.radians(float(previous["lat"]))
-            prev_lon = math.radians(float(previous["lon"]))
-            curr_lat = math.radians(float(current["lat"]))
-            curr_lon = math.radians(float(current["lon"]))
-            delta_lat = curr_lat - prev_lat
-            delta_lon = curr_lon - prev_lon
-            a = (
-                math.sin(delta_lat / 2) ** 2
-                + math.cos(prev_lat) * math.cos(curr_lat) * math.sin(delta_lon / 2) ** 2
+            total_km += haversine_distance_km(
+                previous["lat"], previous["lon"], current["lat"], current["lon"]
             )
-            c = 2 * math.atan2(math.sqrt(a), math.sqrt(1 - a))
-            total_km += earth_radius_km * c
         return total_km
     except Exception:
         return 0.0

@@ -159,9 +159,19 @@ create table vehicles (
     bed_height_ft   numeric,
     body_style      text,
     truck_photo_path text,
+    current_city    text,
+    current_lat     double precision,
+    current_lng     double precision,
+    service_radius_km numeric(6,2) not null default 100
+        check (service_radius_km > 0 and service_radius_km <= 150),
     status          text not null default 'active',
     created_at      timestamptz not null default now(),
-    updated_at      timestamptz not null default now()
+    updated_at      timestamptz not null default now(),
+    constraint vehicles_current_coords_pair
+        check (
+            (current_lat is null and current_lng is null)
+            or (current_lat is not null and current_lng is not null)
+        )
 );
 
 create table shipments (
@@ -175,6 +185,12 @@ create table shipments (
     length_cm       numeric,
     width_cm        numeric,
     height_cm       numeric,
+    pickup_city     text,
+    pickup_location text,
+    pickup_lat      double precision,
+    pickup_lng      double precision,
+    dropoff_lat     double precision,
+    dropoff_lng     double precision,
     accepted_bid_id bigint,
     payment_amount  numeric,
     payment_status  text not null default 'pending',
@@ -411,3 +427,95 @@ def seed_default_policies(db):
 def seeded_db(db):
     seed_default_policies(db)
     return db
+
+
+# ---------------------------------------------------------------------------
+# Route-level Flask app + client fixtures (shared by the route test modules)
+# ---------------------------------------------------------------------------
+
+@pytest.fixture
+def app_env(seeded_db, pg_session_info, monkeypatch):
+    """Flask app wired to the test schema + a stub user registry.
+
+    Returns (app, ctx, seeded_db) where ctx holds mutable test state (current
+    user). The route modules' open_db() is redirected to a fresh connection
+    into the same isolated schema so handlers run their own real transactions,
+    exactly like production.
+    """
+    import psycopg2
+    from contextlib import contextmanager
+    from flask import Flask
+
+    from shared.db import Db
+    import auth.helpers as auth_helpers
+    import orders.routes as orders_routes
+    import payments.routes as payments_routes
+    import wallet.routes as wallet_routes
+    import wallet.helpers as wallet_helpers
+
+    schema = pg_session_info["schema"]
+    url = pg_session_info["url"]
+
+    open_connections = []
+
+    @contextmanager
+    def test_open_db():
+        conn = psycopg2.connect(url)
+        open_connections.append(conn)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f'set search_path to "{schema}"')
+            wrapper = Db(conn)
+            yield wrapper
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    for module in (orders_routes, payments_routes, wallet_routes, wallet_helpers, auth_helpers):
+        if hasattr(module, "open_db"):
+            monkeypatch.setattr(module, "open_db", test_open_db)
+
+    ctx = {"user": None}
+
+    def fake_get_user_by_id(user_id):
+        user = ctx["user"]
+        if user and str(user["id"]) == str(user_id):
+            return dict(user)
+        return None
+
+    monkeypatch.setattr(auth_helpers, "get_user_by_id", fake_get_user_by_id)
+
+    app = Flask(__name__)
+    app.config["SECRET_KEY"] = "test-secret"
+    app.config["SESSION_COOKIE_SECURE"] = False
+    app.register_blueprint(orders_routes.orders_blueprint)
+    app.register_blueprint(payments_routes.payments_blueprint)
+    app.register_blueprint(wallet_routes.wallet_blueprint)
+
+    yield app, ctx, seeded_db
+
+    for conn in open_connections:
+        try:
+            conn.close()
+        except Exception:
+            pass
+
+
+@pytest.fixture
+def client(app_env):
+    app, ctx, db = app_env
+    test_client = app.test_client()
+
+    def login(user):
+        ctx["user"] = user
+        with test_client.session_transaction() as sess:
+            sess["user_id"] = user["id"]
+            sess["csrf_token"] = "test-csrf-token"
+
+    test_client.login = login
+    test_client.ctx = ctx
+    test_client.db = db
+    return test_client
