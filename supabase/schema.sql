@@ -433,8 +433,11 @@ create table public.shipment_trips (
     truck_id        bigint not null references public.vehicles (id),
     status          text not null default 'accepted',
     trip_started_at timestamptz,
+    -- trip_completed_at marks a GENUINELY completed trip only (client Yes or an
+    -- admin transporter-win). A mere transporter "delivery complete" claim,
+    -- a dispute, an admin_review timeout or a client-win refund leave it NULL.
     trip_completed_at timestamptz,
-    -- One-time delivery lifecycle: the transporter's completion request opens a
+    -- One-time delivery lifecycle: the transporter's completion CLAIM opens a
     -- fixed 6-hour client-confirmation window (UTC). delivery_confirmed_at is
     -- set when the client (or admin, transporter-win) confirms the release.
     delivery_completion_requested_at timestamptz,

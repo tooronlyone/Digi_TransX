@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { adminRequest, dateText } from './adminApi'
+import { adminRequest, dateText, money } from './adminApi'
 
 const S = {
   heading:  { fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0 },
@@ -48,6 +48,28 @@ export default function AdminDisputes() {
   const [otResolution, setOtResolution] = useState('transporter_win')
   const [otNotes, setOtNotes]   = useState('')
   const [otBusy, setOtBusy]     = useState(false)
+  const [otDetail, setOtDetail] = useState(null)
+  const [otDetailLoading, setOtDetailLoading] = useState(false)
+  const [otDetailError, setOtDetailError] = useState('')
+
+  async function openOneTimeDispute(item) {
+    // Admins must review the full evidence before resolving — load the detail
+    // endpoint first and keep resolution disabled until it arrives.
+    setOtSelected(item); setOtResolution('transporter_win'); setOtNotes('')
+    setOtDetail(null); setOtDetailError(''); setOtDetailLoading(true)
+    try {
+      const json = await adminRequest(`/api/admin/one-time-disputes/${item.id}`)
+      setOtDetail(json.dispute || null)
+    } catch (err) {
+      setOtDetailError(err.message || 'Unable to load dispute details.')
+    } finally {
+      setOtDetailLoading(false)
+    }
+  }
+
+  function closeOneTimeDispute() {
+    setOtSelected(null); setOtDetail(null); setOtDetailError(''); setOtNotes('')
+  }
 
   async function load() {
     try {
@@ -77,7 +99,7 @@ export default function AdminDisputes() {
         method: 'POST',
         body: JSON.stringify({ resolution: otResolution, notes: otNotes.trim() }),
       })
-      setOtSelected(null); setOtNotes(''); setOtResolution('transporter_win'); load()
+      closeOneTimeDispute(); setOtResolution('transporter_win'); load()
     } catch (err) { setError(err.message) } finally { setOtBusy(false) }
   }
 
@@ -212,9 +234,9 @@ export default function AdminDisputes() {
                 <td style={S.td}>{String(item.trigger || '').replace(/_/g, ' ')}</td>
                 <td style={{ ...S.td, color: '#64748b' }}>{dateText(item.created_at)}</td>
                 <td style={S.td}>
-                  <button onClick={() => { setOtSelected(item); setOtResolution('transporter_win'); setOtNotes('') }}
+                  <button onClick={() => openOneTimeDispute(item)}
                     style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', fontWeight: 600, fontSize: 13 }}>
-                    Resolve →
+                    Review →
                   </button>
                 </td>
               </tr>
@@ -228,7 +250,7 @@ export default function AdminDisputes() {
 
       {otSelected && (
         <div style={{ position: 'fixed', inset: 0, zIndex: 50, display: 'grid', placeItems: 'center', background: 'rgba(0,0,0,0.4)', padding: 16 }}>
-          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', padding: 28, width: '100%', maxWidth: 560 }}>
+          <div style={{ background: '#fff', borderRadius: 14, border: '1px solid #e2e8f0', boxShadow: '0 8px 32px rgba(0,0,0,0.12)', padding: 28, width: '100%', maxWidth: 640, maxHeight: '90vh', overflowY: 'auto' }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: 12 }}>
               <div>
                 <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', margin: 0 }}>Order #{otSelected.shipment_id}</h2>
@@ -236,32 +258,102 @@ export default function AdminDisputes() {
                   {otSelected.pickup_city} → {otSelected.dropoff_city} · trigger: {String(otSelected.trigger || '').replace(/_/g, ' ')}
                 </p>
               </div>
-              <button onClick={() => setOtSelected(null)} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 20 }}>
+              <button onClick={closeOneTimeDispute} style={{ background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: 20 }}>
                 <i className="fas fa-times" />
               </button>
             </div>
 
-            {otSelected.client_reason && (
-              <p style={{ fontSize: 13, color: '#475569' }}><strong>Client reason:</strong> {otSelected.client_reason}</p>
+            {otDetailLoading && (
+              <div style={{ padding: 24, textAlign: 'center', color: '#64748b', fontSize: 14 }}>
+                <i className="fas fa-spinner fa-spin" style={{ marginRight: 8 }} />Loading dispute evidence…
+              </div>
             )}
-            {otSelected.transporter_statement && (
-              <p style={{ fontSize: 13, color: '#475569' }}><strong>Transporter statement:</strong> {otSelected.transporter_statement}</p>
+            {otDetailError && (
+              <div style={{ ...S.error, marginTop: 8 }}>{otDetailError}</div>
             )}
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 16 }}>
-              <DecisionBtn value="transporter_win" current={otResolution} onClick={() => setOtResolution('transporter_win')}
-                title="Transporter wins" sub="Release the held payout" />
-              <DecisionBtn value="client_win" current={otResolution} onClick={() => setOtResolution('client_win')}
-                title="Client wins" sub="Refund the client, no payout" />
-            </div>
+            {!otDetailLoading && !otDetailError && otDetail && (
+              <>
+                {/* Evidence: parties + statuses */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8, fontSize: 13, color: '#475569', marginBottom: 12 }}>
+                  <div><strong>Client:</strong> {otDetail.client_name}</div>
+                  <div><strong>Transporter:</strong> {otDetail.transporter_name}</div>
+                  <div><strong>Shipment status:</strong> {String(otDetail.shipment_status || '').replace(/_/g, ' ')}</div>
+                  <div><strong>Trip status:</strong> {String(otDetail.trip_status || '').replace(/_/g, ' ')}</div>
+                </div>
 
-            <textarea rows={4} style={{ ...S.textarea, marginTop: 16 }}
-              placeholder="Admin notes (required)" value={otNotes}
-              onChange={e => setOtNotes(e.target.value)} />
+                {/* Client reason + transporter statement */}
+                <p style={{ fontSize: 13, color: '#475569', margin: '4px 0' }}>
+                  <strong>Client reason:</strong> {otDetail.client_reason || <em style={{ color: '#94a3b8' }}>none provided</em>}
+                </p>
+                <p style={{ fontSize: 13, color: '#475569', margin: '4px 0' }}>
+                  <strong>Transporter statement:</strong> {otDetail.transporter_statement || <em style={{ color: '#94a3b8' }}>none submitted</em>}
+                </p>
+
+                {/* Payment split / refund evidence */}
+                {otDetail.payment && (
+                  <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 12, margin: '10px 0', fontSize: 13, color: '#475569' }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a', marginBottom: 6 }}>
+                      Payment — {String(otDetail.payment.status || '').toUpperCase()}
+                    </div>
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 4 }}>
+                      <div>Bid amount: {money(otDetail.payment.bid_amount)}</div>
+                      <div>Company fee: {money(otDetail.payment.company_fee)}</div>
+                      <div>Transporter payout: {money(otDetail.payment.transporter_amount)}</div>
+                      <div>Wallet funded: {money(otDetail.payment.wallet_funded_amount)}</div>
+                      <div>Card funded: {money(otDetail.payment.card_funded_amount)}</div>
+                      {otDetail.payment.total_card_charge != null && (
+                        <div>Total card charge: {money(otDetail.payment.total_card_charge)}</div>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* Status history */}
+                {Array.isArray(otDetail.status_history) && otDetail.status_history.length > 0 && (
+                  <div style={{ margin: '10px 0' }}>
+                    <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13, marginBottom: 4 }}>Status history</div>
+                    <ul style={{ margin: 0, paddingLeft: 18, fontSize: 12, color: '#64748b' }}>
+                      {otDetail.status_history.map((h, i) => (
+                        <li key={i}>{String(h.old_status || '—').replace(/_/g, ' ')} → {String(h.new_status || '').replace(/_/g, ' ')} · {dateText(h.created_at)}</li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                {/* Read-only chat transcript */}
+                <div style={{ margin: '10px 0' }}>
+                  <div style={{ fontWeight: 700, color: '#0f172a', fontSize: 13, marginBottom: 4 }}>Chat transcript (read-only)</div>
+                  <div style={{ maxHeight: 160, overflowY: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 10, padding: 10 }}>
+                    {Array.isArray(otDetail.chat_messages) && otDetail.chat_messages.length > 0 ? (
+                      otDetail.chat_messages.map((m) => (
+                        <div key={m.id} style={{ fontSize: 12, color: '#334155', marginBottom: 6 }}>
+                          <strong>{m.sender_name}:</strong> {m.content || <em style={{ color: '#94a3b8' }}>[{m.message_type}]</em>}
+                        </div>
+                      ))
+                    ) : (
+                      <div style={{ fontSize: 12, color: '#94a3b8' }}>No messages.</div>
+                    )}
+                  </div>
+                </div>
+
+                {/* Decision + mandatory notes */}
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 12, marginTop: 12 }}>
+                  <DecisionBtn value="transporter_win" current={otResolution} onClick={() => setOtResolution('transporter_win')}
+                    title="Transporter wins" sub="Release the held payout" />
+                  <DecisionBtn value="client_win" current={otResolution} onClick={() => setOtResolution('client_win')}
+                    title="Client wins" sub="Refund the client, no payout" />
+                </div>
+
+                <textarea rows={3} style={{ ...S.textarea, marginTop: 16 }}
+                  placeholder="Admin notes (required)" value={otNotes}
+                  onChange={e => setOtNotes(e.target.value)} />
+              </>
+            )}
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
-              <button onClick={() => setOtSelected(null)} style={S.btnOutline}>Cancel</button>
-              <button onClick={resolveOneTime} disabled={otBusy || !otNotes.trim()} style={S.btnPrimary}>
+              <button onClick={closeOneTimeDispute} style={S.btnOutline}>Cancel</button>
+              <button onClick={resolveOneTime} disabled={otBusy || !otDetail || !otNotes.trim()} style={S.btnPrimary}>
                 <i className="fas fa-gavel" style={{ marginRight: 8 }} />Resolve Dispute
               </button>
             </div>

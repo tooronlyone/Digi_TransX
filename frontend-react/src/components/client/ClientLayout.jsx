@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
+import NotificationBell from '../common/NotificationBell'
 import '../../styles/pages/client.css'
 
 const NAV_ITEMS = [
@@ -29,11 +30,12 @@ export default function ClientLayout({ children }) {
     try {
       const parsed = JSON.parse(stored)
       const full = [parsed.first_name, parsed.last_name].filter(Boolean).join(' ').trim()
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setUser({
         name: parsed.company_name || parsed.full_name || full || parsed.username || parsed.email || 'Client',
         role: parsed.organization_role_label || 'Service Seeker',
       })
-    } catch (_) {}
+    } catch { /* best-effort; ignore */ }
   }, [])
 
   useEffect(() => {
@@ -44,7 +46,7 @@ export default function ClientLayout({ children }) {
         if (!mounted) return
         const total = (json.threads || []).reduce((sum, thread) => sum + Number(thread.unread_count || 0), 0)
         setUnreadTotal(total)
-      } catch (_) {}
+      } catch { /* best-effort; ignore */ }
     }
     loadUnread()
     const intervalId = window.setInterval(loadUnread, 4000)
@@ -92,7 +94,7 @@ export default function ClientLayout({ children }) {
         credentials: 'same-origin',
         headers: { 'X-CSRF-Token': csrf },
       })
-    } catch (_) {}
+    } catch { /* best-effort; ignore */ }
     sessionStorage.clear()
     navigate('/login', { replace: true })
   }
@@ -150,6 +152,7 @@ export default function ClientLayout({ children }) {
         </div>
 
         <div className="navbar-right">
+          <NotificationBell orderPath={(id) => `/client/order/${id}`} />
           <div className="user-info">
             <div className="user-avatar">{initials}</div>
             <div className="user-details">

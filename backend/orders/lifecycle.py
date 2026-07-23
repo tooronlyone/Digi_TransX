@@ -4,8 +4,9 @@ Every status change for a one-time order flows through exactly one function
 here (no status-changing SQL is scattered across routes). Each transition:
 
   * validates the actor / ownership and the current state;
-  * takes row locks in a deterministic order (shipment -> trip -> payment ->
-    wallet) so concurrent transitions serialize without deadlocking;
+  * takes row locks in one canonical order — shipment -> trip -> dispute ->
+    payment -> wallet — so concurrent transitions serialize without deadlocking
+    (every path acquires a prefix/suffix of this order, never a cycle);
   * is idempotent (a replay in the target state returns the existing result);
   * relies on the automatic shipment_status_history trigger for the audit trail
     (every transition also moves the shipment status, so history is recorded);
@@ -25,7 +26,6 @@ refund ever happens outside the two canonical money services in shared.payments.
 from datetime import datetime, timedelta, timezone
 
 from auth.helpers import timestamp_bundle
-from shared.db import IntegrityError
 from shared.payments import (
     CheckoutError,
     get_active_payment_for_shipment,
@@ -114,7 +114,11 @@ def _get_open_dispute(db, trip_id):
 
 def _open_or_reuse_dispute(db, order, trip, payment, trigger, thread_id, client_reason=None):
     """Create the one open dispute for this trip, or reuse the existing one.
-    Returns (dispute_dict, created_bool)."""
+
+    Uses INSERT ON CONFLICT DO NOTHING against uniq_open_dispute_per_trip (the
+    partial unique index on trip_id WHERE status = 'open'), so a concurrent
+    opener is a no-op rather than a unique-violation — the transaction is never
+    aborted. Returns (dispute_dict, created_bool)."""
     existing = _get_open_dispute(db, trip["id"])
     if existing:
         if client_reason and not existing.get("client_reason"):
@@ -124,28 +128,28 @@ def _open_or_reuse_dispute(db, order, trip, payment, trigger, thread_id, client_
             )
             existing["client_reason"] = client_reason
         return existing, False
-    try:
-        row = db.execute(
-            """
-            INSERT INTO shipment_disputes (
-                shipment_id, trip_id, payment_id, client_user_id, transporter_user_id,
-                chat_thread_id, trigger, status, client_reason
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'open', %s)
-            RETURNING *
-            """,
-            (
-                order["id"], trip["id"], payment["id"] if payment else None,
-                order["client_user_id"], trip["transporter_user_id"],
-                thread_id, trigger, client_reason,
-            ),
-        ).fetchone()
-        return dict(row), True
-    except IntegrityError:
-        # Concurrent opener won the uniq_open_dispute_per_trip index — reuse it.
-        existing = _get_open_dispute(db, trip["id"])
-        if existing:
-            return existing, False
-        raise
+    inserted = db.execute(
+        """
+        INSERT INTO shipment_disputes (
+            shipment_id, trip_id, payment_id, client_user_id, transporter_user_id,
+            chat_thread_id, trigger, status, client_reason
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'open', %s)
+        ON CONFLICT (trip_id) WHERE status = 'open' DO NOTHING
+        RETURNING *
+        """,
+        (
+            order["id"], trip["id"], payment["id"] if payment else None,
+            order["client_user_id"], trip["transporter_user_id"],
+            thread_id, trigger, client_reason,
+        ),
+    ).fetchone()
+    if inserted:
+        return dict(inserted), True
+    # A concurrent opener committed first — reuse their open dispute (locked).
+    existing = _get_open_dispute(db, trip["id"])
+    if not existing:
+        raise CheckoutError("Dispute could not be created.", 500, "dispute_create_failed")
+    return existing, False
 
 
 def serialize_dispute(row):
@@ -199,12 +203,14 @@ def perform_complete_delivery(db, user, order_id, trip_id, now=None):
         raise CheckoutError("Payment for this order is not held.", 409, "payment_not_held")
 
     deadline = now + CONFIRMATION_WINDOW
+    # A completion CLAIM is not a completed trip: record the request time and the
+    # 6-hour window only. trip_completed_at is set later, and only on a genuine
+    # completion (client Yes / admin transporter-win).
     _set_trip_and_shipment(
         db, trip_id, order_id, AWAITING_CLIENT_CONFIRMATION,
         trip_extra={
             "delivery_completion_requested_at": now,
             "confirmation_deadline_at": deadline,
-            "trip_completed_at": now,
         },
     )
     _ensure_thread(db, order, trip)
@@ -253,9 +259,11 @@ def perform_client_confirm(db, user, order_id, trip_id, decision, reason=None, n
 
     if decision == "yes":
         release = release_one_time_payment(db, payment["id"], now_iso=now.isoformat())
+        # Genuine completion: stamp both the client-confirmation time and the
+        # trip completion time.
         _set_trip_and_shipment(
             db, trip_id, order_id, COMPLETED,
-            trip_extra={"delivery_confirmed_at": now},
+            trip_extra={"delivery_confirmed_at": now, "trip_completed_at": now},
         )
         notif.notify(db, order_id, trip_id, order["client_user_id"],
                      notif.DELIVERY_CONFIRMED, "You confirmed delivery. Payment released to the transporter.")
@@ -355,17 +363,33 @@ def _lock_dispute(db, dispute_id):
     return dict(row)
 
 
+def _read_dispute_ids(db, dispute_id):
+    """Non-locking read of a dispute's shipment/trip ids ONLY, used to discover
+    which shipment+trip to lock first. Nothing here is trusted after the locks
+    are taken — every field is revalidated once the dispute row is locked."""
+    row = db.execute(
+        "SELECT id, shipment_id, trip_id FROM shipment_disputes WHERE id = %s",
+        (dispute_id,),
+    ).fetchone()
+    if not row:
+        raise CheckoutError("Dispute not found.", 404, "dispute_not_found")
+    return dict(row)
+
+
 def add_transporter_statement(db, user, dispute_id, statement):
     """Transporter appends their written complaint/statement to an open dispute.
-    Only the case transporter, only while the dispute is open. Caller commits."""
+    Only the case transporter, only while the dispute is open. Locks only the
+    dispute row (the tail of the canonical lock order), so it can never deadlock
+    against an admin resolution that holds shipment+trip and wants the dispute.
+    Caller commits."""
+    text = (statement or "").strip()
+    if not text:
+        raise CheckoutError("A statement is required.", 400, "statement_required")
     dispute = _lock_dispute(db, dispute_id)
     if dispute["transporter_user_id"] != user["id"]:
         raise CheckoutError("Access denied.", 403)
     if dispute["status"] != "open":
         raise CheckoutError("This dispute is already resolved.", 409, "dispute_closed")
-    text = (statement or "").strip()
-    if not text:
-        raise CheckoutError("A statement is required.", 400, "statement_required")
     db.execute(
         "UPDATE shipment_disputes SET transporter_statement = %s WHERE id = %s",
         (text, dispute_id),
@@ -373,28 +397,39 @@ def add_transporter_statement(db, user, dispute_id, statement):
     return serialize_dispute(_lock_dispute(db, dispute_id))
 
 
-def _resolve_common(db, admin_user, dispute_id, notes):
+def _lock_for_resolution(db, dispute_id, notes):
+    """Acquire the canonical lock order shipment -> trip -> dispute for an admin
+    resolution, revalidating everything under the locks. Returns (order, trip,
+    dispute, notes). Never trusts the initial non-locking id read."""
     notes = (notes or "").strip()
     if not notes:
         raise CheckoutError("Admin notes are required to resolve a dispute.", 400, "notes_required")
-    dispute = _lock_dispute(db, dispute_id)
-    return dispute, notes
+    ids = _read_dispute_ids(db, dispute_id)          # discovery only, no lock
+    order, trip = _lock_order_trip(db, ids["shipment_id"], ids["trip_id"])  # 1) shipment 2) trip
+    dispute = _lock_dispute(db, dispute_id)          # 3) dispute
+    # Revalidate the dispute against the freshly locked shipment/trip.
+    if dispute["shipment_id"] != order["id"] or dispute["trip_id"] != trip["id"]:
+        raise CheckoutError("Dispute does not match this order/trip.", 409, "dispute_mismatch")
+    return order, trip, dispute, notes
 
 
 def resolve_dispute_transporter_win(db, admin_user, dispute_id, notes, now=None):
     """Admin resolves in the transporter's favour: release via the SAME canonical
-    payout service as Client-Yes, complete the trip/shipment. Idempotent."""
+    payout service as Client-Yes, complete the trip/shipment. Idempotent. Locks
+    in the canonical order shipment -> trip -> dispute -> payment -> wallet."""
     now = _utcnow(now)
-    dispute, notes = _resolve_common(db, admin_user, dispute_id, notes)
+    order, trip, dispute, notes = _lock_for_resolution(db, dispute_id, notes)
     if dispute["status"] == "resolved_transporter":
         return {"already": True, "dispute": serialize_dispute(dispute)}
     if dispute["status"] != "open":
         raise CheckoutError("This dispute is already resolved.", 409, "dispute_closed")
+    if not dispute["payment_id"]:
+        raise CheckoutError("This dispute has no payment to release.", 409, "no_payment")
 
-    order, trip = _lock_order_trip(db, dispute["shipment_id"], dispute["trip_id"])
-    release_one_time_payment(db, dispute["payment_id"], now_iso=now.isoformat())
+    release_one_time_payment(db, dispute["payment_id"], now_iso=now.isoformat())  # 4) payment 5) wallet
+    # Admin transporter-win is a genuine completion: stamp both timestamps.
     _set_trip_and_shipment(db, trip["id"], order["id"], COMPLETED,
-                           trip_extra={"delivery_confirmed_at": now})
+                           trip_extra={"delivery_confirmed_at": now, "trip_completed_at": now})
     db.execute(
         "UPDATE shipment_disputes SET status = 'resolved_transporter', resolution = 'transporter_win', "
         "admin_user_id = %s, admin_notes = %s, resolved_at = %s WHERE id = %s",
@@ -411,16 +446,19 @@ def resolve_dispute_transporter_win(db, admin_user, dispute_id, notes, now=None)
 
 def resolve_dispute_client_win(db, admin_user, dispute_id, notes, now=None):
     """Admin resolves in the client's favour: refund via the canonical refund
-    service (no payout), mark the trip/shipment resolved_client. Idempotent."""
+    service (no payout), mark the trip/shipment resolved_client (NOT completed,
+    so trip_completed_at stays NULL). Idempotent. Locks in the canonical order
+    shipment -> trip -> dispute -> payment -> wallet."""
     now = _utcnow(now)
-    dispute, notes = _resolve_common(db, admin_user, dispute_id, notes)
+    order, trip, dispute, notes = _lock_for_resolution(db, dispute_id, notes)
     if dispute["status"] == "resolved_client":
         return {"already": True, "dispute": serialize_dispute(dispute)}
     if dispute["status"] != "open":
         raise CheckoutError("This dispute is already resolved.", 409, "dispute_closed")
+    if not dispute["payment_id"]:
+        raise CheckoutError("This dispute has no payment to refund.", 409, "no_payment")
 
-    order, trip = _lock_order_trip(db, dispute["shipment_id"], dispute["trip_id"])
-    refund = refund_one_time_payment(db, dispute["payment_id"], now_iso=now.isoformat())
+    refund = refund_one_time_payment(db, dispute["payment_id"], now_iso=now.isoformat())  # 4) payment 5) wallet
     _set_trip_and_shipment(db, trip["id"], order["id"], RESOLVED_CLIENT)
     db.execute(
         "UPDATE shipment_disputes SET status = 'resolved_client', resolution = 'client_win', "

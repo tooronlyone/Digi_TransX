@@ -82,33 +82,29 @@ def ensure_one_time_thread(db, shipment_id, trip_id, client_user_id, transporter
     """Create (or reuse) the single chat thread for an accepted one-time order.
 
     One thread per accepted one-time shipment (uniq_chat_thread_one_time). Safe
-    to call repeatedly and concurrently — a race falls back to the existing row.
-    Does NOT commit. Returns the thread id.
+    to call repeatedly and concurrently: the INSERT uses ON CONFLICT DO NOTHING
+    against that exact partial unique index, so a race is a no-op rather than a
+    unique-violation — the caller's transaction is never aborted and no fallback
+    runs inside a broken transaction. Does NOT commit. Returns the thread id.
     """
-    from shared.db import IntegrityError
-
+    inserted = db.execute(
+        """
+        INSERT INTO chat_threads (
+            client_user_id, transporter_user_id, shipment_id, one_time_trip_id, created_at
+        ) VALUES (%s, %s, %s, %s, now())
+        ON CONFLICT (shipment_id) WHERE shipment_id IS NOT NULL DO NOTHING
+        RETURNING id
+        """,
+        (client_user_id, transporter_user_id, shipment_id, trip_id),
+    ).fetchone()
+    if inserted:
+        return inserted["id"]
+    # The row already existed (either pre-existing or a concurrent, now-committed
+    # creator) — read it back. The transaction is still healthy.
     existing = db.execute(
         "SELECT id FROM chat_threads WHERE shipment_id = %s", (shipment_id,)
     ).fetchone()
-    if existing:
-        return existing["id"]
-    try:
-        row = db.execute(
-            """
-            INSERT INTO chat_threads (
-                client_user_id, transporter_user_id, shipment_id, one_time_trip_id, created_at
-            ) VALUES (%s, %s, %s, %s, now())
-            RETURNING id
-            """,
-            (client_user_id, transporter_user_id, shipment_id, trip_id),
-        ).fetchone()
-        return row["id"]
-    except IntegrityError:
-        # Concurrent creator won the unique index — reuse their row.
-        existing = db.execute(
-            "SELECT id FROM chat_threads WHERE shipment_id = %s", (shipment_id,)
-        ).fetchone()
-        return existing["id"] if existing else None
+    return existing["id"] if existing else None
 
 
 def build_thread_order_summary(row):

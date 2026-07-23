@@ -103,7 +103,7 @@ export default function OrderTracking() {
   const startTrip = () =>
     postAction(
       `/api/orders/${orderId}/trips/${trip.id}/start`, null,
-      'Start this trip? The payment is held in escrow until the client confirms delivery.',
+      'Start this trip? The payment is held by the platform in test mode until the client confirms delivery.',
       'start', 'Trip started.',
     )
 
@@ -123,7 +123,8 @@ export default function OrderTracking() {
     setStatement('')
   }
 
-  const openChat = () => navigate('/transporter/messages')
+  const openChat = () =>
+    navigate(chatThreadId ? `/transporter/messages?thread=${chatThreadId}` : '/transporter/messages')
 
   if (loading) {
     return (
@@ -197,7 +198,7 @@ export default function OrderTracking() {
               <div className="detail-row">
                 <span className="detail-label">Payment</span>
                 <span className="detail-value">
-                  {paymentHeld ? 'Held in escrow' : (payment.status || '').toUpperCase()}
+                  {paymentHeld ? 'Held by platform (test mode)' : (payment.status || '').toUpperCase()}
                 </span>
               </div>
             )}
@@ -239,7 +240,7 @@ export default function OrderTracking() {
             <>
               {paymentHeld && (
                 <p className="order-tracking-hint">
-                  <i className="fas fa-lock" aria-hidden="true"></i> Payment is held in escrow. Start the trip to begin.
+                  <i className="fas fa-lock" aria-hidden="true"></i> Payment is held by the platform in test mode until delivery confirmation. Start the trip to begin.
                 </p>
               )}
               <button

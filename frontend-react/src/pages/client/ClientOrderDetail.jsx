@@ -134,7 +134,8 @@ export default function ClientOrderDetail() {
     }
   }
 
-  const openChat = () => navigate(`${base}/messages`)
+  const openChat = () =>
+    navigate(chatThreadId ? `${base}/messages?thread=${chatThreadId}` : `${base}/messages`)
 
   const orderOpen = order?.status === 'open'
   const budget = order?.estimated_budget ? Number(order.estimated_budget) : null
@@ -301,8 +302,8 @@ export default function ClientOrderDetail() {
             <div className="odp-confirm">
               <p className="odp-confirm__lead">
                 <i className="fas fa-lock" aria-hidden="true"></i>{' '}
-                Your payment is held safely. The transporter marked the delivery complete —
-                please confirm within the window below.
+                Your payment is held by the platform in test mode until delivery confirmation.
+                The transporter marked the delivery complete — please confirm within the window below.
               </p>
               <Countdown deadline={trip.confirmation_deadline_at} />
               <div className="odp-confirm__actions">

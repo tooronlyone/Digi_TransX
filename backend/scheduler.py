@@ -1,11 +1,27 @@
 """
-Digi_TransX Payment Scheduler
-Runs automatically when Flask app starts.
-- Daily at 00:05 AM: process pending payments due today or earlier
-- Every 30 minutes: apply Rs 5,000 penalty to failed payments
+Digi_TransX in-process background scheduler.
+
+Jobs (all idempotent; each wraps a single production service):
+- Daily 00:05  : process due agreement payments
+- Every 30 min : apply the late penalty to overdue failed agreement payments
+- Every 10 min : escalate one-time deliveries past their 6-hour confirmation window
+
+Ownership / safety (see start_scheduler):
+- ONE scheduler instance per process (module-level singleton); repeated
+  start_scheduler() calls reuse the running instance instead of adding a second
+  set of jobs.
+- Gated by the DIGITRANSX_ENABLE_SCHEDULER env switch (default on).
+- Skipped in the Werkzeug debug-reloader PARENT process so the reloader can't
+  run two schedulers.
+
+PRODUCTION must run exactly ONE scheduler owner: either a single app process
+with DIGITRANSX_ENABLE_SCHEDULER=1 (all other web workers set it to 0), OR the
+external worker `python -m scripts.process_overdue_confirmations` on a cron with
+the in-process scheduler disabled everywhere. Never both, or jobs double-fire.
 """
 
 import logging
+import os
 from datetime import date
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -14,6 +30,22 @@ from apscheduler.triggers.interval import IntervalTrigger
 
 logger = logging.getLogger(__name__)
 logging.basicConfig(level=logging.INFO)
+
+# The single per-process scheduler instance (None until started).
+_scheduler = None
+
+
+def scheduler_enabled():
+    """The scheduler runs unless DIGITRANSX_ENABLE_SCHEDULER is a falsy value."""
+    return os.environ.get("DIGITRANSX_ENABLE_SCHEDULER", "1").strip().lower() not in (
+        "0", "false", "no", "off", ""
+    )
+
+
+def _in_reloader_parent():
+    """True in the Werkzeug debug-reloader PARENT (which re-execs a child that
+    actually serves). Starting jobs there would double them."""
+    return bool(os.environ.get("FLASK_DEBUG")) and os.environ.get("WERKZEUG_RUN_MAIN") != "true"
 
 
 def run_process_payments():
@@ -61,7 +93,21 @@ def run_process_overdue_confirmations():
 
 
 def start_scheduler():
-    """Initialize and start the background scheduler. Call once at app startup."""
+    """Start the single background scheduler for this process, or reuse it.
+
+    Idempotent: repeated calls return the already-running instance (no duplicate
+    jobs). Returns None when the scheduler is disabled by env or when called in
+    the debug-reloader parent."""
+    global _scheduler
+    if _scheduler is not None and _scheduler.running:
+        return _scheduler
+    if not scheduler_enabled():
+        logger.info("[Scheduler] Disabled via DIGITRANSX_ENABLE_SCHEDULER.")
+        return None
+    if _in_reloader_parent():
+        logger.info("[Scheduler] Skipped in the debug-reloader parent process.")
+        return None
+
     scheduler = BackgroundScheduler(daemon=True)
 
     # Every 10 minutes - escalate overdue one-time delivery confirmations.
@@ -92,6 +138,7 @@ def start_scheduler():
     )
 
     scheduler.start()
+    _scheduler = scheduler
     logger.info(
         "[Scheduler] Started - process_payments daily 00:05, apply_penalties every 30 min, "
         "process_overdue_confirmations every 10 min"

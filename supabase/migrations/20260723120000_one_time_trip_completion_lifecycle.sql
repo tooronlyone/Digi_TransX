@@ -139,17 +139,23 @@ begin
         raise exception 'Aborting: % held payment(s) reference an unmappable trip status', v_bad;
     end if;
 
-    -- Legacy trip -> canonical trip status.
+    -- Legacy trip -> canonical trip status. A legacy "delivery_claimed" trip is
+    -- only a transporter claim awaiting the client, NOT a completed trip: reuse
+    -- its old trip_completed_at as the completion-REQUEST time and the 6-hour
+    -- window anchor, then clear trip_completed_at (only a genuine client Yes /
+    -- admin transporter-win sets it under the new semantics).
     update public.shipment_trips
        set status = 'awaiting_client_confirmation',
            delivery_completion_requested_at = coalesce(delivery_completion_requested_at, trip_completed_at, v_now),
            confirmation_deadline_at = coalesce(confirmation_deadline_at,
                                                coalesce(trip_completed_at, v_now) + interval '6 hours'),
+           trip_completed_at = null,
            updated_at = v_now
      where status in ('delivery_claimed', 'first_response_pending');
 
+    -- Legacy dispute -> admin_review: not a completed trip either.
     update public.shipment_trips
-       set status = 'admin_review', updated_at = v_now
+       set status = 'admin_review', trip_completed_at = null, updated_at = v_now
      where status = 'dispute_pending';
 
     -- Mirror onto shipments that have such a trip (only when the shipment is

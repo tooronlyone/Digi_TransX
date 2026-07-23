@@ -780,3 +780,163 @@ def test_no_raw_pan_or_cvc_in_db(env):
         """
     ).fetchone()["c"]
     assert hits == 0
+
+
+# ===========================================================================
+# Correction pass (FIX 1/2/3): ON CONFLICT, canonical lock order, timestamps
+# ===========================================================================
+
+def _trip_completed_at(db, trip_id):
+    return db.execute("SELECT trip_completed_at AS t FROM shipment_trips WHERE id = %s",
+                      (trip_id,)).fetchone()["t"]
+
+
+# ---- FIX 3: trip_completed_at semantics -----------------------------------
+
+def test_completion_claim_does_not_set_trip_completed_at(env):
+    s = seed_ready_order(env.db, client_kind="everyday")
+    _completed(env.db, s)
+    assert _trip_completed_at(env.db, s["trip_id"]) is None
+
+
+def test_client_yes_sets_trip_completed_at(env):
+    from orders.lifecycle import perform_client_confirm
+    s = seed_ready_order(env.db, client_kind="everyday")
+    _completed(env.db, s)
+    perform_client_confirm(env.db, s["client"], s["order_id"], s["trip_id"], "yes")
+    env.db.commit()
+    assert _trip_completed_at(env.db, s["trip_id"]) is not None
+
+
+def test_client_no_leaves_trip_completed_at_null(env):
+    from orders.lifecycle import perform_client_confirm
+    s = seed_ready_order(env.db, client_kind="everyday")
+    _completed(env.db, s)
+    perform_client_confirm(env.db, s["client"], s["order_id"], s["trip_id"], "no")
+    env.db.commit()
+    assert _trip_completed_at(env.db, s["trip_id"]) is None
+
+
+def test_timeout_leaves_trip_completed_at_null(env):
+    from orders.lifecycle import process_overdue_delivery_confirmations
+    s = seed_ready_order(env.db, client_kind="everyday")
+    _completed(env.db, s, now=_now())
+    process_overdue_delivery_confirmations(env.db, now=_now() + timedelta(hours=7))
+    env.db.commit()
+    assert _trip_completed_at(env.db, s["trip_id"]) is None
+
+
+def test_admin_transporter_win_sets_trip_completed_at(env):
+    from orders.lifecycle import resolve_dispute_transporter_win
+    s = seed_ready_order(env.db, client_kind="everyday")
+    dispute_id = _open_dispute(env.db, s, "no")
+    resolve_dispute_transporter_win(env.db, s["admin"], dispute_id, "verified")
+    env.db.commit()
+    assert _trip_completed_at(env.db, s["trip_id"]) is not None
+
+
+def test_admin_client_win_leaves_trip_completed_at_null(env):
+    from orders.lifecycle import resolve_dispute_client_win
+    s = seed_ready_order(env.db, client_kind="everyday")
+    dispute_id = _open_dispute(env.db, s, "no")
+    resolve_dispute_client_win(env.db, s["admin"], dispute_id, "refunded")
+    env.db.commit()
+    assert _trip_completed_at(env.db, s["trip_id"]) is None
+    assert _status(env.db, "shipment_trips", s["trip_id"]) == "resolved_client"
+
+
+# ---- FIX 1: ON CONFLICT chat/dispute — concurrency, reuse, txn stays usable
+
+def test_chat_thread_conflict_concurrent_reuse_txn_usable(env):
+    import psycopg2
+    from chat.helpers import ensure_one_time_thread
+    s = seed_ready_order(env.db)
+    a = env.new_db()
+    b = env.new_db(lock_timeout_ms=600)
+    args = (s["order_id"], s["trip_id"], s["client"]["id"], s["transporter"]["id"])
+    tid_a = ensure_one_time_thread(a, *args)          # created, uncommitted
+    # A concurrent creator blocks on the partial unique index -> serialized.
+    with pytest.raises(psycopg2.errors.LockNotAvailable):
+        ensure_one_time_thread(b, *args)
+    b.rollback()
+    a.commit()
+    # b now reuses via ON CONFLICT DO NOTHING -> fallback SELECT; NO aborted txn.
+    tid_b = ensure_one_time_thread(b, *args)
+    b.execute("SELECT count(*) FROM chat_threads")    # would raise if txn were aborted
+    b.commit()
+    assert tid_a == tid_b
+    assert env.db.execute("SELECT count(*) AS c FROM chat_threads WHERE shipment_id = %s",
+                          (s["order_id"],)).fetchone()["c"] == 1
+
+
+def test_dispute_conflict_concurrent_reuse_txn_usable(env):
+    import psycopg2
+    from orders.lifecycle import _open_or_reuse_dispute
+    s = seed_ready_order(env.db, client_kind="everyday")
+    order = {"id": s["order_id"], "client_user_id": s["client"]["id"]}
+    trip = {"id": s["trip_id"], "transporter_user_id": s["transporter"]["id"]}
+    payment = {"id": s["payment_id"]}
+    a = env.new_db()
+    b = env.new_db(lock_timeout_ms=600)
+    d_a, created_a = _open_or_reuse_dispute(a, order, trip, payment, "client_no", None)  # uncommitted
+    with pytest.raises(psycopg2.errors.LockNotAvailable):
+        _open_or_reuse_dispute(b, order, trip, payment, "confirmation_timeout", None)
+    b.rollback()
+    a.commit()
+    d_b, created_b = _open_or_reuse_dispute(b, order, trip, payment, "confirmation_timeout", None)
+    b.execute("SELECT count(*) FROM shipment_disputes")   # txn still usable
+    b.commit()
+    assert created_a is True and created_b is False
+    assert d_a["id"] == d_b["id"]
+    assert env.db.execute("SELECT count(*) AS c FROM shipment_disputes WHERE trip_id = %s AND status = 'open'",
+                          (s["trip_id"],)).fetchone()["c"] == 1
+
+
+# ---- FIX 2: canonical lock order shipment->trip->dispute->payment->wallet --
+
+def test_admin_resolve_vs_replay_one_terminal_payout_once(env):
+    import psycopg2
+    from orders.lifecycle import resolve_dispute_transporter_win
+    s = seed_ready_order(env.db, client_kind="everyday")
+    dispute_id = _open_dispute(env.db, s, "no")
+    a = env.new_db()
+    b = env.new_db(lock_timeout_ms=600)
+    resolve_dispute_transporter_win(a, s["admin"], dispute_id, "release")   # holds shipment->...->wallet
+    # A concurrent second resolution blocks at the FIRST lock (shipment) -> times
+    # out cleanly. No deadlock (both acquire shipment first).
+    with pytest.raises(psycopg2.errors.LockNotAvailable):
+        resolve_dispute_transporter_win(b, s["admin"], dispute_id, "release again")
+    b.rollback()
+    a.commit()
+    r_b = resolve_dispute_transporter_win(b, s["admin"], dispute_id, "release again")
+    b.commit()
+    assert r_b["already"] is True                                            # one terminal result
+    assert _status(env.db, "payments", s["payment_id"]) == "released"
+    assert env.db.execute("SELECT count(*) AS c FROM wallet_transactions WHERE reference_id = %s",
+                          (f"payout:trip:{s['trip_id']}",)).fetchone()["c"] == 1   # payout once
+
+
+def test_admin_resolve_vs_transporter_statement_no_deadlock(env):
+    import psycopg2
+    from orders.lifecycle import resolve_dispute_transporter_win, add_transporter_statement
+    s = seed_ready_order(env.db, client_kind="everyday")
+    dispute_id = _open_dispute(env.db, s, "no")
+    a = env.new_db()
+    b = env.new_db(lock_timeout_ms=600)
+    add_transporter_statement(a, s["transporter"], dispute_id, "delivered on time")  # holds ONLY the dispute
+    # Admin resolution locks shipment+trip fine, then waits on the dispute the
+    # statement holds -> lock_timeout (55P03), NOT a deadlock (40P01).
+    with pytest.raises(psycopg2.errors.LockNotAvailable) as exc:
+        resolve_dispute_transporter_win(b, s["admin"], dispute_id, "release")
+    assert exc.value.pgcode == "55P03"
+    b.rollback()
+    a.commit()
+    resolve_dispute_transporter_win(b, s["admin"], dispute_id, "release")
+    b.commit()
+    d = env.db.execute("SELECT status, transporter_statement FROM shipment_disputes WHERE id = %s",
+                       (dispute_id,)).fetchone()
+    assert d["status"] == "resolved_transporter"
+    assert d["transporter_statement"] == "delivered on time"        # statement preserved
+    assert _status(env.db, "payments", s["payment_id"]) == "released"
+    assert env.db.execute("SELECT count(*) AS c FROM wallet_transactions WHERE reference_id = %s",
+                          (f"payout:trip:{s['trip_id']}",)).fetchone()["c"] == 1

@@ -4,6 +4,7 @@ import { getTransporterAllowedPaths, isTransporterPathAllowed } from './accessCo
 import { NAV_ITEMS } from './navItems'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
+import NotificationBell from '../common/NotificationBell'
 
 function getTransporterDisplayName(u = {}) {
   const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
@@ -44,7 +45,7 @@ export default function TransporterLayout({ children }) {
 
     const stored = sessionStorage.getItem('user')
     if (stored) {
-      try { applyUser(JSON.parse(stored)) } catch (_) {}
+      try { applyUser(JSON.parse(stored)) } catch { /* ignore malformed cached user */ }
     }
 
     apiGet('/api/profile')
@@ -62,7 +63,7 @@ export default function TransporterLayout({ children }) {
       }
       const latest = sessionStorage.getItem('user')
       if (!latest) return
-      try { applyUser(JSON.parse(latest)) } catch (_) {}
+      try { applyUser(JSON.parse(latest)) } catch { /* ignore malformed cached user */ }
     }
 
     window.addEventListener('dtx:user-updated', handleUserUpdate)
@@ -78,7 +79,7 @@ export default function TransporterLayout({ children }) {
         if (!mounted) return
         const total = (json.threads || []).reduce((sum, thread) => sum + Number(thread.unread_count || 0), 0)
         setUnreadTotal(total)
-      } catch (_) {}
+      } catch { /* ignore transient errors; next poll retries */ }
     }
 
     loadUnread()
@@ -93,7 +94,7 @@ export default function TransporterLayout({ children }) {
     try {
       const csrf = await getCsrfToken()
       await fetch('/auth/logout', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': csrf } })
-    } catch (_) {}
+    } catch { /* logout is best-effort */ }
     sessionStorage.clear()
     navigate('/login')
   }
@@ -144,6 +145,7 @@ export default function TransporterLayout({ children }) {
         </div>
 
         <div className="navbar-right">
+          <NotificationBell orderPath={(id) => `/transporter/order/${id}`} />
           <div className="user-info">
             <div className="user-avatar">{initials}</div>
             <div className="user-details">

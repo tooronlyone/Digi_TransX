@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
+import NotificationBell from '../common/NotificationBell'
 import '../../styles/pages/client.css'
 
 // Everyday users get the simple one-time-order flow only: NO wallet, NO
@@ -119,6 +120,7 @@ export default function EverydayLayout({ children }) {
         </div>
 
         <div className="navbar-right">
+          <NotificationBell orderPath={(id) => `/everyday/order/${id}`} />
           <div className="user-info">
             <div className="user-avatar">{initials}</div>
             <div className="user-details">
