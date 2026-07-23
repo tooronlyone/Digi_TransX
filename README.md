@@ -210,7 +210,7 @@ Main table groups:
 
 - **Identity**: `users` (core identity only, linked to Supabase Auth) + per-role profile tables — `customers` (business = daily service seekers with history, individual = occasional everyday users), `transporter_profiles` (fleet, withdrawal tier, payout card), `fuel_station_profiles` & `shopkeeper_profiles` (future features, clean from day one) — plus `login_activity`, `password_reset_otps`, `reset_tokens`, `trusted_devices`, `user_action_logs`
 - **Fleet**: `vehicles` (40+ columns: specs, pricing, documents, status, GPS), `drivers`
-- **Marketplace**: `shipments`, `shipment_bids`, `shipment_trips`, `shipment_trip_verification`, `shipment_no_show_tracking`, `shipment_cancellations`, `shipment_notifications`, `shipment_status_history` (automatic audit trail), `payments`
+- **Marketplace**: `shipments`, `shipment_bids`, `shipment_trips`, `shipment_disputes` (one-time delivery disputes), `shipment_no_show_tracking`, `shipment_cancellations`, `shipment_notifications`, `shipment_status_history` (automatic audit trail), `payments`
 - **Agreements**: `agreement_posts`, `agreement_post_trucks`, `agreement_bids`, `agreement_bid_trucks`, `agreements`, `agreement_trucks`, `agreement_trips`, `agreement_monthly_payments`, `agreement_payment_penalties`
 - **Money**: `wallets`, `wallet_transactions`, `wallet_withdrawal_requests`
 - **Communication**: `chat_threads`, `chat_messages`

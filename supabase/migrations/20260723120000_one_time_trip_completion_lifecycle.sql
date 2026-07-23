@@ -169,3 +169,189 @@ begin
                         'first_response_pending', 'dispute_pending');
 end
 $backfill$;
+
+-- ============================================================================
+-- 10. Legacy shipment_trip_verification cleanup (guarded; row-safe)
+-- ============================================================================
+-- The one-time lifecycle/dispute system replaced the old two-response
+-- verification record; a full source scan found ZERO runtime references to
+-- public.shipment_trip_verification. Drop it ONLY when empty; abort (never
+-- delete history) if it still holds rows. Idempotent (no-op once gone).
+do $verif$
+declare
+    v_rows integer;
+begin
+    if to_regclass('public.shipment_trip_verification') is null then
+        return;                                   -- already dropped (reapply)
+    end if;
+    execute 'select count(*) from public.shipment_trip_verification' into v_rows;
+    if v_rows > 0 then
+        raise exception
+            'Aborting: shipment_trip_verification still has % row(s). Refusing to '
+            'drop legacy verification history - resolve/migrate those rows first.', v_rows;
+    end if;
+    -- CASCADE removes its index (idx_trip_verification_trip), its RLS policy
+    -- (admin_all_shipment_trip_verification) and its updated_at trigger.
+    execute 'drop table public.shipment_trip_verification cascade';
+end
+$verif$;
+
+-- ============================================================================
+-- 11. Anomaly precheck: fail loudly (precise diagnostic) if ANY existing row
+--     already violates the integrity/arithmetic invariants, BEFORE adding the
+--     constraints. Never rounds or "repairs" financial history.
+-- ============================================================================
+do $precheck$
+declare
+    v integer;
+    msg text := '';
+begin
+    -- one-time payment arithmetic (equality invariants apply only to rows the
+    -- new checkout created, i.e. funding_source is not null; legacy 'paid' rows
+    -- with NULL funding_source are intentionally exempt).
+    select count(*) into v from public.payments
+      where bid_price < 0 or company_fee < 0 or transporter_amount < 0;
+    if v > 0 then msg := msg || format('[negative_amounts=%s] ', v); end if;
+
+    select count(*) into v from public.payments
+      where funding_source is not null
+        and (wallet_funded_amount + card_funded_amount) <> bid_price;
+    if v > 0 then msg := msg || format('[funding_split<>bid=%s] ', v); end if;
+
+    select count(*) into v from public.payments
+      where funding_source is not null
+        and (company_fee + transporter_amount) <> bid_price;
+    if v > 0 then msg := msg || format('[commission_split<>bid=%s] ', v); end if;
+
+    select count(*) into v from public.payments
+      where total_card_charge is not null
+        and total_card_charge <> (card_funded_amount + processing_fee_amount);
+    if v > 0 then msg := msg || format('[total_card_charge<>card+fee=%s] ', v); end if;
+
+    select count(*) into v from public.payments
+      where processing_fee_percent is not null
+        and (processing_fee_percent < 0 or processing_fee_percent >= 100);
+    if v > 0 then msg := msg || format('[processing_percent_out_of_range=%s] ', v); end if;
+
+    select count(*) into v from public.payments
+      where company_share_percent is not null and transporter_share_percent is not null
+        and (company_share_percent + transporter_share_percent) <> 100;
+    if v > 0 then msg := msg || format('[payment_snapshot_sum<>100=%s] ', v); end if;
+
+    select count(*) into v from public.shipments
+      where company_share_percent_snapshot is not null
+        and transporter_share_percent_snapshot is not null
+        and (company_share_percent_snapshot + transporter_share_percent_snapshot) <> 100;
+    if v > 0 then msg := msg || format('[shipment_snapshot_sum<>100=%s] ', v); end if;
+
+    -- relationship integrity
+    select count(*) into v from public.shipments s
+      join public.shipment_bids b on b.id = s.accepted_bid_id
+      where s.accepted_bid_id is not null and b.order_id <> s.id;
+    if v > 0 then msg := msg || format('[accepted_bid_wrong_order=%s] ', v); end if;
+
+    select count(*) into v from public.shipment_trips t
+      join public.shipment_bids b on b.id = t.accepted_bid_id
+      where b.order_id <> t.order_id
+         or b.transporter_user_id <> t.transporter_user_id
+         or b.truck_id <> t.truck_id;
+    if v > 0 then msg := msg || format('[trip_bid_mismatch=%s] ', v); end if;
+
+    select count(*) into v from public.payments p
+      join public.shipment_trips t on t.id = p.trip_id
+      where p.transporter_user_id <> t.transporter_user_id
+         or (p.shipment_id is not null and p.shipment_id <> t.order_id);
+    if v > 0 then msg := msg || format('[payment_trip_mismatch=%s] ', v); end if;
+
+    select count(*) into v from public.payments p
+      join public.shipments s on s.id = p.shipment_id
+      where p.shipment_id is not null and p.client_user_id <> s.client_user_id;
+    if v > 0 then msg := msg || format('[payment_client_mismatch=%s] ', v); end if;
+
+    select count(*) into v from public.chat_threads c
+      join public.shipment_trips t on t.id = c.one_time_trip_id
+      where c.one_time_trip_id is not null and c.shipment_id is not null
+        and t.order_id <> c.shipment_id;
+    if v > 0 then msg := msg || format('[chat_trip_wrong_shipment=%s] ', v); end if;
+
+    if length(msg) > 0 then
+        raise exception 'Integrity precheck failed - existing rows violate: %', msg;
+    end if;
+end
+$precheck$;
+
+-- ============================================================================
+-- 12. Supporting UNIQUE INDEXES (composite-FK targets). id is the PK, so each
+--     is trivially unique; a FK may reference a unique index directly.
+-- ============================================================================
+create unique index if not exists uq_bids_order_id
+    on public.shipment_bids (order_id, id);
+create unique index if not exists uq_bids_id_order_transp_truck
+    on public.shipment_bids (id, order_id, transporter_user_id, truck_id);
+create unique index if not exists uq_trips_id_order
+    on public.shipment_trips (id, order_id);
+create unique index if not exists uq_trips_id_transporter
+    on public.shipment_trips (id, transporter_user_id);
+create unique index if not exists uq_shipments_id_client
+    on public.shipments (id, client_user_id);
+create unique index if not exists uq_payments_id_trip
+    on public.payments (id, trip_id);
+create unique index if not exists uq_chat_threads_id_shipment
+    on public.chat_threads (id, shipment_id);
+
+-- ============================================================================
+-- 13. Composite relationship FKs + arithmetic CHECK constraints. ADD CONSTRAINT
+--     has no IF NOT EXISTS, so each is guarded on pg_constraint for idempotency.
+--     Nullable referencing columns use MATCH SIMPLE (skipped when null), so
+--     legacy NULL paths stay valid. All protect INSERT and UPDATE.
+-- ============================================================================
+do $integrity$
+declare
+    c record;
+begin
+    for c in
+        select * from (values
+            ('fk_shipments_accepted_bid_same_order',
+             'alter table public.shipments add constraint fk_shipments_accepted_bid_same_order foreign key (id, accepted_bid_id) references public.shipment_bids (order_id, id)'),
+            ('fk_trips_bid_matches',
+             'alter table public.shipment_trips add constraint fk_trips_bid_matches foreign key (accepted_bid_id, order_id, transporter_user_id, truck_id) references public.shipment_bids (id, order_id, transporter_user_id, truck_id)'),
+            ('fk_payments_trip_transporter',
+             'alter table public.payments add constraint fk_payments_trip_transporter foreign key (trip_id, transporter_user_id) references public.shipment_trips (id, transporter_user_id)'),
+            ('fk_payments_trip_shipment',
+             'alter table public.payments add constraint fk_payments_trip_shipment foreign key (trip_id, shipment_id) references public.shipment_trips (id, order_id)'),
+            ('fk_payments_shipment_client',
+             'alter table public.payments add constraint fk_payments_shipment_client foreign key (shipment_id, client_user_id) references public.shipments (id, client_user_id)'),
+            ('fk_disputes_trip_shipment',
+             'alter table public.shipment_disputes add constraint fk_disputes_trip_shipment foreign key (trip_id, shipment_id) references public.shipment_trips (id, order_id)'),
+            ('fk_disputes_trip_transporter',
+             'alter table public.shipment_disputes add constraint fk_disputes_trip_transporter foreign key (trip_id, transporter_user_id) references public.shipment_trips (id, transporter_user_id)'),
+            ('fk_disputes_shipment_client',
+             'alter table public.shipment_disputes add constraint fk_disputes_shipment_client foreign key (shipment_id, client_user_id) references public.shipments (id, client_user_id)'),
+            ('fk_disputes_payment_trip',
+             'alter table public.shipment_disputes add constraint fk_disputes_payment_trip foreign key (payment_id, trip_id) references public.payments (id, trip_id)'),
+            ('fk_disputes_chat_shipment',
+             'alter table public.shipment_disputes add constraint fk_disputes_chat_shipment foreign key (chat_thread_id, shipment_id) references public.chat_threads (id, shipment_id)'),
+            ('fk_chat_trip_shipment',
+             'alter table public.chat_threads add constraint fk_chat_trip_shipment foreign key (one_time_trip_id, shipment_id) references public.shipment_trips (id, order_id)'),
+            ('ck_payments_amounts_nonneg',
+             'alter table public.payments add constraint ck_payments_amounts_nonneg check (bid_price >= 0 and company_fee >= 0 and transporter_amount >= 0)'),
+            ('ck_payments_funding_split',
+             'alter table public.payments add constraint ck_payments_funding_split check (funding_source is null or (wallet_funded_amount + card_funded_amount = bid_price))'),
+            ('ck_payments_commission_split',
+             'alter table public.payments add constraint ck_payments_commission_split check (funding_source is null or (company_fee + transporter_amount = bid_price))'),
+            ('ck_payments_total_card_charge',
+             'alter table public.payments add constraint ck_payments_total_card_charge check (total_card_charge is null or (total_card_charge = card_funded_amount + processing_fee_amount))'),
+            ('ck_payments_processing_percent_range',
+             'alter table public.payments add constraint ck_payments_processing_percent_range check (processing_fee_percent is null or (processing_fee_percent >= 0 and processing_fee_percent < 100))'),
+            ('ck_payments_snapshot_sum',
+             'alter table public.payments add constraint ck_payments_snapshot_sum check (company_share_percent is null or transporter_share_percent is null or (company_share_percent + transporter_share_percent = 100))'),
+            ('ck_shipments_snapshot_sum',
+             'alter table public.shipments add constraint ck_shipments_snapshot_sum check (company_share_percent_snapshot is null or transporter_share_percent_snapshot is null or (company_share_percent_snapshot + transporter_share_percent_snapshot = 100))')
+        ) as t(conname, ddl)
+    loop
+        if not exists (select 1 from pg_constraint where conname = c.conname) then
+            execute c.ddl;
+        end if;
+    end loop;
+end
+$integrity$;
