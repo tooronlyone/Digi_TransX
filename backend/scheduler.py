@@ -1,28 +1,37 @@
 """
 Digi_TransX in-process background scheduler.
 
-Jobs (all idempotent; each wraps a single production service):
+Jobs (each wraps a single production service):
 - Daily 00:05  : process due agreement payments
 - Every 30 min : apply the late penalty to overdue failed agreement payments
 - Every 10 min : escalate one-time deliveries past their 6-hour confirmation window
 
-Ownership / safety (see start_scheduler):
-- ONE scheduler instance per process (module-level singleton); repeated
-  start_scheduler() calls reuse the running instance instead of adding a second
-  set of jobs.
-- Gated by the DIGITRANSX_ENABLE_SCHEDULER env switch (default on).
-- Skipped in the Werkzeug debug-reloader PARENT process so the reloader can't
-  run two schedulers.
+CONCURRENCY WARNING: the two agreement jobs are NOT safe to run in more than one
+process at a time. run_process_payments selects due payments without distributed
+ownership, and run_apply_penalties can charge a second Rs 5,000 penalty if two
+processes run the same interval. Only the one-time overdue-confirmation sweep is
+idempotent/concurrency-safe. Exactly ONE process must own these jobs.
 
-PRODUCTION must run exactly ONE scheduler owner: either a single app process
-with DIGITRANSX_ENABLE_SCHEDULER=1 (all other web workers set it to 0), OR the
-external worker `python -m scripts.process_overdue_confirmations` on a cron with
-the in-process scheduler disabled everywhere. Never both, or jobs double-fire.
+DEPLOYMENT CONTRACT (single owner):
+- Every WEB worker sets DIGITRANSX_ENABLE_SCHEDULER=0 (the default is also OFF —
+  an absent flag never starts financial jobs on a web worker at import time).
+- Exactly ONE dedicated scheduler worker owns ALL THREE jobs. Start it with:
+      cd backend && python -m scripts.run_scheduler
+  (that entry point calls start_scheduler(force=True)).
+- Local development: run the scheduler worker as a SEPARATE process from the app.
+- scripts.process_overdue_confirmations is a one-off command for the one-time
+  confirmation-deadline sweep ONLY; it is NOT a replacement for the agreement
+  payment/penalty jobs.
+
+Safety layers:
+- Auto-start is disabled by default and gated by DIGITRANSX_ENABLE_SCHEDULER.
+- A per-process singleton (module-level _scheduler) is kept as a SECOND safety
+  layer so repeated start_scheduler() calls in one process never add a second
+  set of jobs. It does NOT protect across processes — the contract above does.
 """
 
 import logging
 import os
-from datetime import date
 
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
@@ -34,18 +43,43 @@ logging.basicConfig(level=logging.INFO)
 # The single per-process scheduler instance (None until started).
 _scheduler = None
 
+_TRUE_VALUES = {"1", "true", "yes", "on"}
+_FALSE_VALUES = {"0", "false", "no", "off", ""}
+
+
+def env_flag(name, default=False):
+    """Parse an environment variable as a boolean truth value.
+
+    Accepted (case-insensitive, trimmed):
+      true  -> 1, true, yes, on
+      false -> 0, false, no, off, empty
+    Absent variable -> `default`. An unrecognized value -> `default` (never a
+    silent surprise-enable of financial jobs)."""
+    raw = os.environ.get(name)
+    if raw is None:
+        return default
+    value = raw.strip().lower()
+    if value in _TRUE_VALUES:
+        return True
+    if value in _FALSE_VALUES:
+        return False
+    return default
+
 
 def scheduler_enabled():
-    """The scheduler runs unless DIGITRANSX_ENABLE_SCHEDULER is a falsy value."""
-    return os.environ.get("DIGITRANSX_ENABLE_SCHEDULER", "1").strip().lower() not in (
-        "0", "false", "no", "off", ""
-    )
+    """Auto-start gate for the in-process scheduler.
+
+    DISABLED BY DEFAULT: when DIGITRANSX_ENABLE_SCHEDULER is absent, importing
+    the web app must NOT silently start financial background jobs. Only an
+    explicit true value (1/true/yes/on) enables the auto-start path."""
+    return env_flag("DIGITRANSX_ENABLE_SCHEDULER", default=False)
 
 
 def _in_reloader_parent():
-    """True in the Werkzeug debug-reloader PARENT (which re-execs a child that
-    actually serves). Starting jobs there would double them."""
-    return bool(os.environ.get("FLASK_DEBUG")) and os.environ.get("WERKZEUG_RUN_MAIN") != "true"
+    """True only in the Werkzeug debug-reloader PARENT (which re-execs a serving
+    child). Uses proper truth parsing so FLASK_DEBUG=0/false/no/off is NOT
+    treated as debug. In the serving child WERKZEUG_RUN_MAIN == 'true'."""
+    return env_flag("FLASK_DEBUG", default=False) and os.environ.get("WERKZEUG_RUN_MAIN") != "true"
 
 
 def run_process_payments():
@@ -92,21 +126,27 @@ def run_process_overdue_confirmations():
         return {"processed_count": 0, "processed_trip_ids": [], "error": str(exc)}
 
 
-def start_scheduler():
+def start_scheduler(force=False):
     """Start the single background scheduler for this process, or reuse it.
 
-    Idempotent: repeated calls return the already-running instance (no duplicate
-    jobs). Returns None when the scheduler is disabled by env or when called in
-    the debug-reloader parent."""
+    `force=True` is used ONLY by the dedicated scheduler worker
+    (scripts.run_scheduler): it bypasses the env gate and the reloader check
+    because that process is the explicit single owner. The web-app auto-start
+    path calls start_scheduler() (force=False), which starts nothing unless
+    DIGITRANSX_ENABLE_SCHEDULER is explicitly true.
+
+    Idempotent within the process: repeated calls return the already-running
+    instance (no duplicate jobs). Returns None when disabled/skipped."""
     global _scheduler
     if _scheduler is not None and _scheduler.running:
         return _scheduler
-    if not scheduler_enabled():
-        logger.info("[Scheduler] Disabled via DIGITRANSX_ENABLE_SCHEDULER.")
-        return None
-    if _in_reloader_parent():
-        logger.info("[Scheduler] Skipped in the debug-reloader parent process.")
-        return None
+    if not force:
+        if not scheduler_enabled():
+            logger.info("[Scheduler] Auto-start disabled (DIGITRANSX_ENABLE_SCHEDULER not true).")
+            return None
+        if _in_reloader_parent():
+            logger.info("[Scheduler] Skipped in the debug-reloader parent process.")
+            return None
 
     scheduler = BackgroundScheduler(daemon=True)
 

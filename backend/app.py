@@ -45,6 +45,11 @@ app.register_blueprint(wallet_blueprint)
 
 # Schema lives in Supabase (supabase/schema.sql) — just verify connectivity.
 check_connection()
+# Background jobs do NOT auto-start on a web worker by default: start_scheduler()
+# is gated by DIGITRANSX_ENABLE_SCHEDULER (default OFF). Production runs the
+# financial jobs in exactly one dedicated worker: `python -m scripts.run_scheduler`
+# (see scheduler.py's deployment contract). This call is a no-op unless the flag
+# is explicitly enabled.
 from scheduler import start_scheduler
 start_scheduler()
 

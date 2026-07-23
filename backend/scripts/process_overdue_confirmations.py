@@ -1,17 +1,18 @@
-"""CLI/worker entry point for the 6-hour delivery-confirmation deadline sweep.
+"""One-off CLI for the 6-hour delivery-confirmation deadline sweep ONLY.
 
-Runs the single production function once and exits, printing the processed
-count/IDs as JSON. Safe to run repeatedly (idempotent) and concurrently
-(FOR UPDATE SKIP LOCKED). Uses the app database via shared.db — no secrets are
-read or printed here.
+Runs the single production function `process_overdue_delivery_confirmations`
+once and exits, printing the processed count/IDs as JSON. Safe to run repeatedly
+(idempotent) and concurrently (FOR UPDATE SKIP LOCKED). Uses the app database via
+shared.db — no secrets are read or printed here.
 
-Production scheduling: the Flask app already runs this every 10 minutes in-process
-(scheduler.run_process_overdue_confirmations). To run it as an external cron/worker
-instead (e.g. a container or systemd timer), invoke from the backend directory:
+SCOPE: this command processes the one-time order confirmation timeouts ONLY. It
+does NOT run the agreement due-payment or agreement penalty jobs. The full set of
+background jobs is owned by the dedicated scheduler worker:
 
-    python -m scripts.process_overdue_confirmations
+    cd backend && python -m scripts.run_scheduler
 
-e.g. a crontab line every 10 minutes:
+Use THIS one-off command only for the delivery-confirmation sweep, e.g. a crontab
+line every 10 minutes on a host where run_scheduler is not the owner:
 
     */10 * * * * cd /path/to/Digi_TransX/backend && python -m scripts.process_overdue_confirmations
 """

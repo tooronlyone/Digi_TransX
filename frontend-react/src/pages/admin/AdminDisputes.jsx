@@ -1,6 +1,7 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminRequest, dateText, money } from './adminApi'
+import { detailMatchesSelection, shouldAcceptDetail } from './disputeGuards'
 
 const S = {
   heading:  { fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0 },
@@ -51,24 +52,54 @@ export default function AdminDisputes() {
   const [otDetail, setOtDetail] = useState(null)
   const [otDetailLoading, setOtDetailLoading] = useState(false)
   const [otDetailError, setOtDetailError] = useState('')
+  // Race-safety: a monotonic token identifies the latest detail request, an
+  // AbortController cancels the in-flight one, and mountedRef stops any
+  // setState after unmount.
+  const otReqRef = useRef(0)
+  const otAbortRef = useRef(null)
+  const mountedRef = useRef(true)
+
+  useEffect(() => {
+    return () => {
+      mountedRef.current = false
+      otReqRef.current += 1              // invalidate any pending response
+      otAbortRef.current?.abort()
+    }
+  }, [])
 
   async function openOneTimeDispute(item) {
-    // Admins must review the full evidence before resolving — load the detail
-    // endpoint first and keep resolution disabled until it arrives.
+    // Admins must review the full evidence before resolving. Opening a new case
+    // invalidates the previous request (token bump) and aborts its fetch, so a
+    // late response for dispute A can never populate the modal for dispute B.
+    const token = ++otReqRef.current
+    otAbortRef.current?.abort()
+    const controller = new AbortController()
+    otAbortRef.current = controller
+
     setOtSelected(item); setOtResolution('transporter_win'); setOtNotes('')
     setOtDetail(null); setOtDetailError(''); setOtDetailLoading(true)
     try {
-      const json = await adminRequest(`/api/admin/one-time-disputes/${item.id}`)
+      const json = await adminRequest(`/api/admin/one-time-disputes/${item.id}`, {
+        signal: controller.signal,
+      })
+      // Apply ONLY if this is still the latest request AND the response is for
+      // the dispute the admin currently has open.
+      if (!mountedRef.current) return
+      if (!shouldAcceptDetail(json.dispute?.id, item.id, token, otReqRef.current)) return
       setOtDetail(json.dispute || null)
+      setOtDetailLoading(false)
     } catch (err) {
+      if (err?.name === 'AbortError') return          // superseded/closed — ignore
+      if (!mountedRef.current || token !== otReqRef.current) return
       setOtDetailError(err.message || 'Unable to load dispute details.')
-    } finally {
       setOtDetailLoading(false)
     }
   }
 
   function closeOneTimeDispute() {
-    setOtSelected(null); setOtDetail(null); setOtDetailError(''); setOtNotes('')
+    otReqRef.current += 1                 // invalidate any pending response
+    otAbortRef.current?.abort()
+    setOtSelected(null); setOtDetail(null); setOtDetailError(''); setOtDetailLoading(false); setOtNotes('')
   }
 
   async function load() {
@@ -86,16 +117,28 @@ export default function AdminDisputes() {
 
   async function resolveOneTime() {
     if (!otSelected) return
+    // The loaded evidence must belong to the currently selected dispute — never
+    // resolve against stale/mismatched detail. Checked before confirming...
+    if (!detailMatchesSelection(otDetail, otSelected)) {
+      setError('Dispute evidence is not loaded for this case. Reopen the dispute and try again.')
+      return
+    }
     if (!otNotes.trim()) { setError('Admin notes are required to resolve a delivery dispute.'); return }
     if (!window.confirm(
       otResolution === 'transporter_win'
         ? 'Release the held payment to the transporter and complete this order?'
         : 'Refund the client and mark this order resolved in their favour?'
     )) return
+    // ...and again right before posting (state may have changed during confirm).
+    if (!detailMatchesSelection(otDetail, otSelected)) {
+      setError('Dispute selection changed. No action was taken.')
+      return
+    }
+    const disputeId = otSelected.id
     setOtBusy(true)
     setError('')
     try {
-      await adminRequest(`/api/admin/one-time-disputes/${otSelected.id}/resolve`, {
+      await adminRequest(`/api/admin/one-time-disputes/${disputeId}/resolve`, {
         method: 'POST',
         body: JSON.stringify({ resolution: otResolution, notes: otNotes.trim() }),
       })
@@ -353,7 +396,7 @@ export default function AdminDisputes() {
 
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 16 }}>
               <button onClick={closeOneTimeDispute} style={S.btnOutline}>Cancel</button>
-              <button onClick={resolveOneTime} disabled={otBusy || !otDetail || !otNotes.trim()} style={S.btnPrimary}>
+              <button onClick={resolveOneTime} disabled={otBusy || !detailMatchesSelection(otDetail, otSelected) || !otNotes.trim()} style={S.btnPrimary}>
                 <i className="fas fa-gavel" style={{ marginRight: 8 }} />Resolve Dispute
               </button>
             </div>
