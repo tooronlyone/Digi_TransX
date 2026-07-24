@@ -64,13 +64,19 @@ def _has_constraint(conn, name):
         return cur.fetchone() is not None
 
 
+def _has_index(conn, name):
+    with conn.cursor() as cur:
+        cur.execute("select to_regclass(%s)", (f"public.{name}",))
+        return cur.fetchone()[0] is not None
+
+
 COMPOSITE_FKS = (
     "fk_shipments_accepted_bid_same_order", "fk_trips_bid_matches",
     "fk_payments_trip_transporter", "fk_payments_trip_shipment",
     "fk_payments_shipment_client", "fk_disputes_trip_shipment",
     "fk_disputes_trip_transporter", "fk_disputes_shipment_client",
-    "fk_disputes_payment_trip", "fk_disputes_chat_shipment",
-    "fk_disputes_chat_exact_trip", "fk_chat_trip_shipment",
+    "fk_disputes_payment_trip", "fk_disputes_chat_exact_trip",
+    "fk_chat_trip_shipment",
 )
 CHECK_CONSTRAINTS = (
     "ck_payments_amounts_nonneg", "ck_payments_funding_split",
@@ -78,6 +84,9 @@ CHECK_CONSTRAINTS = (
     "ck_payments_processing_percent_range", "ck_payments_snapshot_sum",
     "ck_shipments_snapshot_sum",
 )
+ABSENT_CONSTRAINTS = ("fk_disputes_chat_shipment",)
+PRESENT_INDEXES = ("uq_chat_threads_id_shipment_trip",)
+ABSENT_INDEXES = ("uq_chat_threads_id_shipment",)
 
 
 # ---------------------------------------------------------------------------
@@ -174,16 +183,55 @@ def test_migration_applies_and_is_idempotent(main_conn):
 
     for name in COMPOSITE_FKS + CHECK_CONSTRAINTS:
         assert _has_constraint(conn, name), f"{name} missing after migration"
+    for name in ABSENT_CONSTRAINTS:
+        assert not _has_constraint(conn, name), f"{name} should be absent after migration"
+    for name in PRESENT_INDEXES:
+        assert _has_index(conn, name), f"{name} missing after migration"
+    for name in ABSENT_INDEXES:
+        assert not _has_index(conn, name), f"{name} should be absent after migration"
 
     # Reapply: idempotent, no duplicate constraints or errors.
     _run_migration(conn)
     for name in COMPOSITE_FKS + CHECK_CONSTRAINTS:
         assert _has_constraint(conn, name), f"{name} lost after reapply"
+    for name in ABSENT_CONSTRAINTS:
+        assert not _has_constraint(conn, name), f"{name} recreated after reapply"
+    for name in PRESENT_INDEXES:
+        assert _has_index(conn, name), f"{name} lost after reapply"
+    for name in ABSENT_INDEXES:
+        assert not _has_index(conn, name), f"{name} recreated after reapply"
     with conn.cursor() as cur:
         cur.execute(
             "select conname, count(*) from pg_constraint where conname = any(%s) group by conname having count(*) > 1",
             (list(COMPOSITE_FKS + CHECK_CONSTRAINTS),))
         assert cur.fetchall() == [], "duplicate constraints after reapply"
+
+
+def test_reapply_removes_intermediate_weak_chat_fk_and_anchor(main_conn):
+    conn = main_conn
+    _run_migration(conn)
+
+    with conn.cursor() as cur:
+        cur.execute(
+            "create unique index uq_chat_threads_id_shipment "
+            "on public.chat_threads (id, shipment_id)"
+        )
+        cur.execute(
+            "alter table public.shipment_disputes "
+            "add constraint fk_disputes_chat_shipment "
+            "foreign key (chat_thread_id, shipment_id) "
+            "references public.chat_threads (id, shipment_id)"
+        )
+    conn.commit()
+    assert _has_constraint(conn, "fk_disputes_chat_shipment")
+    assert _has_index(conn, "uq_chat_threads_id_shipment")
+
+    _run_migration(conn)
+
+    assert not _has_constraint(conn, "fk_disputes_chat_shipment")
+    assert not _has_index(conn, "uq_chat_threads_id_shipment")
+    assert _has_constraint(conn, "fk_disputes_chat_exact_trip")
+    assert _has_index(conn, "uq_chat_threads_id_shipment_trip")
 
 
 # ===========================================================================

@@ -391,7 +391,7 @@ def test_dispute_with_foreign_thread_rejected(db):
     )
     db.commit()
     expect_violation(
-        db, "fk_disputes_chat_shipment",
+        db, "fk_disputes_chat_exact_trip",
         lambda: insert_dispute(
             db, shipment_id=a["order_id"], trip_id=a["trip_id"], payment_id=None,
             client_id=a["client_id"], transporter_id=a["transporter_id"], chat_thread_id=b_thread,

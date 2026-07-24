@@ -1046,8 +1046,6 @@ create unique index uq_shipments_id_client
     on public.shipments (id, client_user_id);
 create unique index uq_payments_id_trip
     on public.payments (id, trip_id);
-create unique index uq_chat_threads_id_shipment
-    on public.chat_threads (id, shipment_id);
 create unique index uq_chat_threads_id_shipment_trip
     on public.chat_threads (id, shipment_id, one_time_trip_id);
 
@@ -1096,10 +1094,6 @@ alter table public.shipment_disputes
     add constraint fk_disputes_payment_trip
     foreign key (payment_id, trip_id)
     references public.payments (id, trip_id);
-alter table public.shipment_disputes
-    add constraint fk_disputes_chat_shipment
-    foreign key (chat_thread_id, shipment_id)
-    references public.chat_threads (id, shipment_id);
 alter table public.shipment_disputes
     add constraint fk_disputes_chat_exact_trip
     foreign key (chat_thread_id, shipment_id, trip_id)

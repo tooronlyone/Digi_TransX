@@ -303,6 +303,14 @@ begin
 end
 $precheck$;
 
+-- Remove the intermediate same-shipment-only dispute/chat FK and its anchor.
+-- The exact-trip FK below covers (chat_thread_id, shipment_id, trip_id), so it
+-- also proves the same shipment. No CASCADE: an unexpected dependency should
+-- fail this migration instead of silently removing another object.
+alter table public.shipment_disputes
+    drop constraint if exists fk_disputes_chat_shipment;
+drop index if exists public.uq_chat_threads_id_shipment;
+
 -- ============================================================================
 -- 12. Supporting UNIQUE INDEXES (composite-FK targets). id is the PK, so each
 --     is trivially unique; a FK may reference a unique index directly.
@@ -319,8 +327,6 @@ create unique index if not exists uq_shipments_id_client
     on public.shipments (id, client_user_id);
 create unique index if not exists uq_payments_id_trip
     on public.payments (id, trip_id);
-create unique index if not exists uq_chat_threads_id_shipment
-    on public.chat_threads (id, shipment_id);
 create unique index if not exists uq_chat_threads_id_shipment_trip
     on public.chat_threads (id, shipment_id, one_time_trip_id);
 
@@ -354,8 +360,6 @@ begin
              'alter table public.shipment_disputes add constraint fk_disputes_shipment_client foreign key (shipment_id, client_user_id) references public.shipments (id, client_user_id)'),
             ('fk_disputes_payment_trip',
              'alter table public.shipment_disputes add constraint fk_disputes_payment_trip foreign key (payment_id, trip_id) references public.payments (id, trip_id)'),
-            ('fk_disputes_chat_shipment',
-             'alter table public.shipment_disputes add constraint fk_disputes_chat_shipment foreign key (chat_thread_id, shipment_id) references public.chat_threads (id, shipment_id)'),
             ('fk_disputes_chat_exact_trip',
              'alter table public.shipment_disputes add constraint fk_disputes_chat_exact_trip foreign key (chat_thread_id, shipment_id, trip_id) references public.chat_threads (id, shipment_id, one_time_trip_id)'),
             ('fk_chat_trip_shipment',
