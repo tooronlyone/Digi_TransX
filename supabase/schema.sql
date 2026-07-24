@@ -1048,6 +1048,8 @@ create unique index uq_payments_id_trip
     on public.payments (id, trip_id);
 create unique index uq_chat_threads_id_shipment
     on public.chat_threads (id, shipment_id);
+create unique index uq_chat_threads_id_shipment_trip
+    on public.chat_threads (id, shipment_id, one_time_trip_id);
 
 -- 1. shipments.accepted_bid_id (when set) must belong to this same shipment.
 alter table public.shipments
@@ -1098,6 +1100,10 @@ alter table public.shipment_disputes
     add constraint fk_disputes_chat_shipment
     foreign key (chat_thread_id, shipment_id)
     references public.chat_threads (id, shipment_id);
+alter table public.shipment_disputes
+    add constraint fk_disputes_chat_exact_trip
+    foreign key (chat_thread_id, shipment_id, trip_id)
+    references public.chat_threads (id, shipment_id, one_time_trip_id);
 
 -- 5. When a chat thread carries both shipment_id and one_time_trip_id, the trip
 --    must belong to that shipment.
@@ -1106,21 +1112,33 @@ alter table public.chat_threads
     foreign key (one_time_trip_id, shipment_id)
     references public.shipment_trips (id, order_id);
 
--- Arithmetic backstops for one-time checkout / lifecycle payment rows. Equality
--- invariants are gated on funding_source (set only by the new checkout), so
--- legacy immediate-payout 'paid' rows with NULL funding_source stay valid.
--- numeric arithmetic only (no binary floats).
+-- Arithmetic backstops for one-time checkout / lifecycle payment rows. The
+-- lifecycle discriminator is (shipment_id, trip_id, status) for processing /
+-- held / released / refunded / disputed one-time payments, so funding_source
+-- NULL cannot bypass those rows while legacy immediate-payout 'paid' rows stay
+-- valid. PostgreSQL numeric accepts 'NaN', so finite checks are explicit.
 alter table public.payments
     add constraint ck_payments_amounts_nonneg
-    check (bid_price >= 0 and company_fee >= 0 and transporter_amount >= 0);
+    check (bid_price >= 0 and bid_price <> 'NaN'::numeric
+           and company_fee >= 0 and company_fee <> 'NaN'::numeric
+           and transporter_amount >= 0 and transporter_amount <> 'NaN'::numeric
+           and wallet_funded_amount >= 0 and wallet_funded_amount <> 'NaN'::numeric
+           and card_funded_amount >= 0 and card_funded_amount <> 'NaN'::numeric
+           and processing_fee_amount >= 0 and processing_fee_amount <> 'NaN'::numeric
+           and (total_card_charge is null
+                or (total_card_charge >= 0 and total_card_charge <> 'NaN'::numeric)));
 alter table public.payments
     add constraint ck_payments_funding_split
-    check (funding_source is null
-           or (wallet_funded_amount + card_funded_amount = bid_price));
+    check (shipment_id is null or trip_id is null
+           or status not in ('processing', 'held', 'released', 'refunded', 'disputed')
+           or (funding_source is not null
+               and wallet_funded_amount + card_funded_amount = bid_price));
 alter table public.payments
     add constraint ck_payments_commission_split
-    check (funding_source is null
-           or (company_fee + transporter_amount = bid_price));
+    check (shipment_id is null or trip_id is null
+           or status not in ('processing', 'held', 'released', 'refunded', 'disputed')
+           or (funding_source is not null
+               and company_fee + transporter_amount = bid_price));
 alter table public.payments
     add constraint ck_payments_total_card_charge
     check (total_card_charge is null

@@ -206,20 +206,36 @@ declare
     v integer;
     msg text := '';
 begin
-    -- one-time payment arithmetic (equality invariants apply only to rows the
-    -- new checkout created, i.e. funding_source is not null; legacy 'paid' rows
-    -- with NULL funding_source are intentionally exempt).
+    -- one-time payment arithmetic. PostgreSQL numeric accepts 'NaN', and NaN
+    -- compares greater than ordinary numbers, so finite checks must be explicit.
+    -- Lifecycle rows are the one-time checkout/payment states tied to both a
+    -- shipment and trip; legacy immediate-payout 'paid' rows stay exempt.
     select count(*) into v from public.payments
-      where bid_price < 0 or company_fee < 0 or transporter_amount < 0;
-    if v > 0 then msg := msg || format('[negative_amounts=%s] ', v); end if;
+      where bid_price < 0 or bid_price = 'NaN'::numeric
+         or company_fee < 0 or company_fee = 'NaN'::numeric
+         or transporter_amount < 0 or transporter_amount = 'NaN'::numeric
+         or wallet_funded_amount < 0 or wallet_funded_amount = 'NaN'::numeric
+         or card_funded_amount < 0 or card_funded_amount = 'NaN'::numeric
+         or processing_fee_amount < 0 or processing_fee_amount = 'NaN'::numeric
+         or (total_card_charge is not null
+             and (total_card_charge < 0 or total_card_charge = 'NaN'::numeric));
+    if v > 0 then msg := msg || format('[invalid_monetary_amounts=%s] ', v); end if;
 
     select count(*) into v from public.payments
-      where funding_source is not null
+      where shipment_id is not null and trip_id is not null
+        and status in ('processing', 'held', 'released', 'refunded', 'disputed')
+        and funding_source is null;
+    if v > 0 then msg := msg || format('[lifecycle_funding_source_null=%s] ', v); end if;
+
+    select count(*) into v from public.payments
+      where shipment_id is not null and trip_id is not null
+        and status in ('processing', 'held', 'released', 'refunded', 'disputed')
         and (wallet_funded_amount + card_funded_amount) <> bid_price;
     if v > 0 then msg := msg || format('[funding_split<>bid=%s] ', v); end if;
 
     select count(*) into v from public.payments
-      where funding_source is not null
+      where shipment_id is not null and trip_id is not null
+        and status in ('processing', 'held', 'released', 'refunded', 'disputed')
         and (company_fee + transporter_amount) <> bid_price;
     if v > 0 then msg := msg || format('[commission_split<>bid=%s] ', v); end if;
 
@@ -274,6 +290,13 @@ begin
         and t.order_id <> c.shipment_id;
     if v > 0 then msg := msg || format('[chat_trip_wrong_shipment=%s] ', v); end if;
 
+    select count(*) into v from public.shipment_disputes d
+      join public.chat_threads c on c.id = d.chat_thread_id
+      where d.chat_thread_id is not null
+        and (c.shipment_id <> d.shipment_id
+             or c.one_time_trip_id is distinct from d.trip_id);
+    if v > 0 then msg := msg || format('[dispute_chat_wrong_trip=%s] ', v); end if;
+
     if length(msg) > 0 then
         raise exception 'Integrity precheck failed - existing rows violate: %', msg;
     end if;
@@ -298,6 +321,8 @@ create unique index if not exists uq_payments_id_trip
     on public.payments (id, trip_id);
 create unique index if not exists uq_chat_threads_id_shipment
     on public.chat_threads (id, shipment_id);
+create unique index if not exists uq_chat_threads_id_shipment_trip
+    on public.chat_threads (id, shipment_id, one_time_trip_id);
 
 -- ============================================================================
 -- 13. Composite relationship FKs + arithmetic CHECK constraints. ADD CONSTRAINT
@@ -331,14 +356,16 @@ begin
              'alter table public.shipment_disputes add constraint fk_disputes_payment_trip foreign key (payment_id, trip_id) references public.payments (id, trip_id)'),
             ('fk_disputes_chat_shipment',
              'alter table public.shipment_disputes add constraint fk_disputes_chat_shipment foreign key (chat_thread_id, shipment_id) references public.chat_threads (id, shipment_id)'),
+            ('fk_disputes_chat_exact_trip',
+             'alter table public.shipment_disputes add constraint fk_disputes_chat_exact_trip foreign key (chat_thread_id, shipment_id, trip_id) references public.chat_threads (id, shipment_id, one_time_trip_id)'),
             ('fk_chat_trip_shipment',
              'alter table public.chat_threads add constraint fk_chat_trip_shipment foreign key (one_time_trip_id, shipment_id) references public.shipment_trips (id, order_id)'),
             ('ck_payments_amounts_nonneg',
-             'alter table public.payments add constraint ck_payments_amounts_nonneg check (bid_price >= 0 and company_fee >= 0 and transporter_amount >= 0)'),
+             'alter table public.payments add constraint ck_payments_amounts_nonneg check (bid_price >= 0 and bid_price <> ''NaN''::numeric and company_fee >= 0 and company_fee <> ''NaN''::numeric and transporter_amount >= 0 and transporter_amount <> ''NaN''::numeric and wallet_funded_amount >= 0 and wallet_funded_amount <> ''NaN''::numeric and card_funded_amount >= 0 and card_funded_amount <> ''NaN''::numeric and processing_fee_amount >= 0 and processing_fee_amount <> ''NaN''::numeric and (total_card_charge is null or (total_card_charge >= 0 and total_card_charge <> ''NaN''::numeric)))'),
             ('ck_payments_funding_split',
-             'alter table public.payments add constraint ck_payments_funding_split check (funding_source is null or (wallet_funded_amount + card_funded_amount = bid_price))'),
+             'alter table public.payments add constraint ck_payments_funding_split check (shipment_id is null or trip_id is null or status not in (''processing'', ''held'', ''released'', ''refunded'', ''disputed'') or (funding_source is not null and wallet_funded_amount + card_funded_amount = bid_price))'),
             ('ck_payments_commission_split',
-             'alter table public.payments add constraint ck_payments_commission_split check (funding_source is null or (company_fee + transporter_amount = bid_price))'),
+             'alter table public.payments add constraint ck_payments_commission_split check (shipment_id is null or trip_id is null or status not in (''processing'', ''held'', ''released'', ''refunded'', ''disputed'') or (funding_source is not null and company_fee + transporter_amount = bid_price))'),
             ('ck_payments_total_card_charge',
              'alter table public.payments add constraint ck_payments_total_card_charge check (total_card_charge is null or (total_card_charge = card_funded_amount + processing_fee_amount))'),
             ('ck_payments_processing_percent_range',

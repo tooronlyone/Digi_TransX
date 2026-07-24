@@ -69,7 +69,8 @@ COMPOSITE_FKS = (
     "fk_payments_trip_transporter", "fk_payments_trip_shipment",
     "fk_payments_shipment_client", "fk_disputes_trip_shipment",
     "fk_disputes_trip_transporter", "fk_disputes_shipment_client",
-    "fk_disputes_payment_trip", "fk_disputes_chat_shipment", "fk_chat_trip_shipment",
+    "fk_disputes_payment_trip", "fk_disputes_chat_shipment",
+    "fk_disputes_chat_exact_trip", "fk_chat_trip_shipment",
 )
 CHECK_CONSTRAINTS = (
     "ck_payments_amounts_nonneg", "ck_payments_funding_split",
@@ -89,7 +90,7 @@ def _one(cur, sql, params=()):
     return cur.fetchone()[0]
 
 
-def seed_order(conn, *, funding_ok=True, commission_ok=True):
+def seed_order(conn, *, funding_ok=True, commission_ok=True, funding_source="wallet"):
     """A consistent client/transporter + shipment + truck + accepted bid + trip +
     held payment. When funding_ok/commission_ok are False the payment's split is
     deliberately broken (only possible because the equality checks do not exist
@@ -127,8 +128,9 @@ def seed_order(conn, *, funding_ok=True, commission_ok=True):
         "bid_price, company_fee, transporter_amount, company_share_percent, transporter_share_percent, "
         "wallet_funded_amount, card_funded_amount, processing_fee_percent, processing_fee_amount, "
         "total_card_charge, funding_source, payment_method, status, held_at) "
-        "VALUES (%s,%s,%s,%s,%s,10000,%s,%s,20,80,%s,0,2.5,0,NULL,'wallet','wallet','held',now()) RETURNING id",
-        (trip, order, f"INV-{tok}", client, transporter, company_fee, transporter_amount, wallet_funded))
+        "VALUES (%s,%s,%s,%s,%s,10000,%s,%s,20,80,%s,0,2.5,0,NULL,%s,'wallet','held',now()) RETURNING id",
+        (trip, order, f"INV-{tok}", client, transporter, company_fee, transporter_amount,
+         wallet_funded, funding_source))
     conn.commit()
     return {"order": order, "trip": trip, "bid": bid, "payment": payment,
             "client": client, "transporter": transporter, "truck": truck}
@@ -250,6 +252,19 @@ def test_precheck_aborts_on_bad_commission_split(main_conn):
         _run_migration(conn)
     conn.rollback()
     assert "Integrity precheck failed" in str(ei.value)
+
+
+def test_precheck_aborts_on_lifecycle_null_funding_source(main_conn):
+    conn = main_conn
+    seed_order(conn, funding_source=None)
+
+    import psycopg2
+    with pytest.raises(psycopg2.Error) as ei:
+        _run_migration(conn)
+    conn.rollback()
+    msg = str(ei.value)
+    assert "Integrity precheck failed" in msg
+    assert "lifecycle_funding_source_null" in msg
 
 
 # ===========================================================================

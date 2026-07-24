@@ -205,7 +205,12 @@ def expect_violation(db, constraint, fn):
         db._conn.rollback()
         cname = getattr(getattr(exc, "diag", None), "constraint_name", None) or ""
         haystack = cname or str(exc)
-        assert constraint in haystack, f"expected {constraint}, got: {haystack}"
+        if isinstance(constraint, (tuple, list, set)):
+            assert any(c in haystack for c in constraint), (
+                f"expected one of {constraint}, got: {haystack}"
+            )
+        else:
+            assert constraint in haystack, f"expected {constraint}, got: {haystack}"
         return
     db._conn.rollback()
     raise AssertionError(f"expected {constraint} violation but the statement succeeded")
@@ -394,6 +399,28 @@ def test_dispute_with_foreign_thread_rejected(db):
     )
 
 
+def test_dispute_chat_must_match_exact_trip_not_only_shipment(db):
+    seed = seed_order(db)
+    trip_b = db.execute(
+        "INSERT INTO shipment_trips (order_id, accepted_bid_id, transporter_user_id, truck_id, status) "
+        "VALUES (%s, %s, %s, %s, 'ready_to_start') RETURNING id",
+        (seed["order_id"], seed["bid_id"], seed["transporter_id"], seed["truck_id"]),
+    ).fetchone()["id"]
+    thread_b = insert_thread(
+        db, shipment_id=seed["order_id"], trip_id=trip_b,
+        client_id=seed["client_id"], transporter_id=seed["transporter_id"],
+    )
+    db.commit()
+    expect_violation(
+        db, "fk_disputes_chat_exact_trip",
+        lambda: insert_dispute(
+            db, shipment_id=seed["order_id"], trip_id=seed["trip_id"], payment_id=None,
+            client_id=seed["client_id"], transporter_id=seed["transporter_id"],
+            chat_thread_id=thread_b,
+        ),
+    )
+
+
 # ===========================================================================
 # 6. Chat thread with a trip from another shipment is rejected.
 # ===========================================================================
@@ -503,15 +530,76 @@ def test_invalid_shipment_snapshot_sum_rejected(db):
     )
 
 
-def test_negative_amount_rejected(db):
+@pytest.mark.parametrize(
+    "field, overrides",
+    [
+        ("wallet_funded_amount", {
+            "wallet_funded_amount": Decimal("-1000"),
+            "card_funded_amount": Decimal("11000"),
+            "processing_fee_amount": Decimal("25"),
+            "total_card_charge": Decimal("11025"),
+            "funding_source": "wallet_card",
+            "payment_method": "wallet_card",
+        }),
+        ("card_funded_amount", {
+            "wallet_funded_amount": Decimal("11000"),
+            "card_funded_amount": Decimal("-1000"),
+            "processing_fee_amount": Decimal("25"),
+            "total_card_charge": Decimal("-975"),
+            "funding_source": "wallet_card",
+            "payment_method": "wallet_card",
+        }),
+        ("processing_fee_amount", {
+            "wallet_funded_amount": Decimal("0"),
+            "card_funded_amount": Decimal("10000"),
+            "processing_fee_amount": Decimal("-25"),
+            "total_card_charge": Decimal("9975"),
+            "funding_source": "card",
+            "payment_method": "card",
+        }),
+        ("total_card_charge", {
+            "wallet_funded_amount": Decimal("11025"),
+            "card_funded_amount": Decimal("-25"),
+            "processing_fee_amount": Decimal("0"),
+            "total_card_charge": Decimal("-25"),
+            "funding_source": "wallet_card",
+            "payment_method": "wallet_card",
+        }),
+        ("company_fee", {
+            "company_fee": Decimal("-1"),
+            "transporter_amount": Decimal("10001"),
+        }),
+    ],
+)
+def test_negative_monetary_components_rejected_even_when_sums_offset(db, field, overrides):
+    seed = seed_order(db)
+    expect_violation(
+        db, ("ck_payments_amounts_nonneg", "wallet_funded_amount_check",
+             "card_funded_amount_check", "processing_fee_amount_check",
+             "total_card_charge_check"),
+        lambda: insert_payment(db, seed, **overrides),
+    )
+
+
+def test_postgresql_numeric_nan_is_rejected_explicitly(db):
     seed = seed_order(db)
     expect_violation(
         db, "ck_payments_amounts_nonneg",
+        lambda: insert_payment(db, seed, wallet_funded_amount=Decimal("NaN")),
+    )
+
+
+@pytest.mark.parametrize("status", ["processing", "held", "released", "refunded", "disputed"])
+def test_lifecycle_payment_cannot_bypass_arithmetic_with_null_funding_source(db, status):
+    seed = seed_order(db)
+    expect_violation(
+        db, ("ck_payments_funding_split", "ck_payments_commission_split"),
         lambda: insert_payment(
             db, seed,
-            company_fee=Decimal("-1"),
-            transporter_amount=Decimal("10001"),
-            funding_source=None,  # dodge commission-split check; test non-negativity only
+            funding_source=None,
+            wallet_funded_amount=Decimal("0"),
+            card_funded_amount=Decimal("0"),
+            status=status,
         ),
     )
 
