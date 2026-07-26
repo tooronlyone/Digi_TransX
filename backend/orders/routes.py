@@ -15,6 +15,10 @@ from .goods_taxonomy import (
     FIELD_ANIMAL_COUNT,
 )
 from shared.roles import normalize_client_kind
+from shared.coordinates import (
+    CoordinateValidationError,
+    parse_optional_coordinate_pair,
+)
 from shared.payments import (
     CheckoutError,
     build_payment_quote,
@@ -83,17 +87,15 @@ def create_order():
     data["pickup_city"] = pickup_location
     data["dropoff_city"] = dropoff_location
 
-    def _coord(key):
-        try:
-            v = data.get(key)
-            return float(v) if v not in (None, "") else None
-        except (TypeError, ValueError):
-            return None
-
-    pickup_lat = _coord("pickup_lat")
-    pickup_lng = _coord("pickup_lng")
-    dropoff_lat = _coord("dropoff_lat")
-    dropoff_lng = _coord("dropoff_lng")
+    try:
+        pickup_lat, pickup_lng = parse_optional_coordinate_pair(
+            data, "pickup_lat", "pickup_lng", label="Pickup"
+        )
+        dropoff_lat, dropoff_lng = parse_optional_coordinate_pair(
+            data, "dropoff_lat", "dropoff_lng", label="Drop-off"
+        )
+    except CoordinateValidationError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
 
     # ---- Goods taxonomy: derive category / commodity / required trucks ----
     commodity_key = (data.get("goods_commodity") or "").strip()

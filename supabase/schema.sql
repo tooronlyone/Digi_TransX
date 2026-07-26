@@ -346,6 +346,32 @@ create table public.vehicles (
             (current_lat is null and current_lng is null)
             or (current_lat is not null and current_lng is not null)
         ),
+    constraint vehicles_current_lat_finite_range
+        check (
+            current_lat is null
+            or (
+                current_lat not in (
+                    'NaN'::double precision,
+                    'Infinity'::double precision,
+                    '-Infinity'::double precision
+                )
+                and current_lat between -90::double precision
+                                   and 90::double precision
+            )
+        ),
+    constraint vehicles_current_lng_finite_range
+        check (
+            current_lng is null
+            or (
+                current_lng not in (
+                    'NaN'::double precision,
+                    'Infinity'::double precision,
+                    '-Infinity'::double precision
+                )
+                and current_lng between -180::double precision
+                                   and 180::double precision
+            )
+        ),
     constraint vehicles_service_radius_km_bounds
         check (service_radius_km > 0 and service_radius_km <= 150)
 );
@@ -404,7 +430,69 @@ create table public.shipments (
     commission_policy_id bigint references public.commission_policies (id),
     terms_version_id     bigint references public.terms_versions (id),
     created_at      timestamptz not null default now(),
-    updated_at      timestamptz not null default now()
+    updated_at      timestamptz not null default now(),
+    constraint shipments_pickup_coords_pair
+        check (
+            (pickup_lat is null and pickup_lng is null)
+            or (pickup_lat is not null and pickup_lng is not null)
+        ),
+    constraint shipments_pickup_lat_finite_range
+        check (
+            pickup_lat is null
+            or (
+                pickup_lat not in (
+                    'NaN'::double precision,
+                    'Infinity'::double precision,
+                    '-Infinity'::double precision
+                )
+                and pickup_lat between -90::double precision
+                                  and 90::double precision
+            )
+        ),
+    constraint shipments_pickup_lng_finite_range
+        check (
+            pickup_lng is null
+            or (
+                pickup_lng not in (
+                    'NaN'::double precision,
+                    'Infinity'::double precision,
+                    '-Infinity'::double precision
+                )
+                and pickup_lng between -180::double precision
+                                  and 180::double precision
+            )
+        ),
+    constraint shipments_dropoff_coords_pair
+        check (
+            (dropoff_lat is null and dropoff_lng is null)
+            or (dropoff_lat is not null and dropoff_lng is not null)
+        ),
+    constraint shipments_dropoff_lat_finite_range
+        check (
+            dropoff_lat is null
+            or (
+                dropoff_lat not in (
+                    'NaN'::double precision,
+                    'Infinity'::double precision,
+                    '-Infinity'::double precision
+                )
+                and dropoff_lat between -90::double precision
+                                   and 90::double precision
+            )
+        ),
+    constraint shipments_dropoff_lng_finite_range
+        check (
+            dropoff_lng is null
+            or (
+                dropoff_lng not in (
+                    'NaN'::double precision,
+                    'Infinity'::double precision,
+                    '-Infinity'::double precision
+                )
+                and dropoff_lng between -180::double precision
+                                   and 180::double precision
+            )
+        )
 );
 
 -- 2.6 SHIPMENT BIDS (was: order_bids) ---------------------------------------

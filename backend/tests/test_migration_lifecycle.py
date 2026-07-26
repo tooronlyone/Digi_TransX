@@ -24,7 +24,7 @@ import pytest
 from tests._life_helpers import (
     require_test_db_url,
     make_disposable,
-    origin_main_schema_or_skip,
+    schema_before_migration_or_skip,
     run_sql,
     STUBS,
     MIGRATION_SQL,
@@ -36,7 +36,7 @@ def main_conn():
     """A fresh disposable database loaded with the origin/main pre-lifecycle
     schema. Function-scoped: the migration is one-way, so each test starts clean."""
     url = require_test_db_url()
-    schema = origin_main_schema_or_skip()
+    schema = schema_before_migration_or_skip(MIGRATION_SQL)
     child_url, cleanup = make_disposable(url, STUBS, schema)
     import psycopg2
 

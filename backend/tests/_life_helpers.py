@@ -144,3 +144,62 @@ def origin_main_schema_or_skip():
             f"({proc.stderr.decode('utf-8', 'replace').strip()})"
         )
     return proc.stdout.decode("utf-8")
+
+
+def schema_before_migration_or_skip(migration_path):
+    """Return ``schema.sql`` from the parent of the commit that introduced a
+    migration.
+
+    Lifecycle migration tests must exercise the schema that existed before
+    that migration. Pointing them at today's ``origin/main`` becomes invalid as
+    soon as the migration is merged and its final state is mirrored there.
+    """
+
+    import subprocess
+
+    relative = Path(migration_path).resolve().relative_to(REPO_ROOT).as_posix()
+    added = subprocess.run(
+        [
+            "git",
+            "log",
+            "--diff-filter=A",
+            "--format=%H",
+            "--",
+            relative,
+        ],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+    )
+    commits = added.stdout.decode("utf-8", "replace").splitlines()
+    if added.returncode != 0:
+        pytest.fail(f"cannot inspect history for {relative}", pytrace=False)
+    if commits:
+        baseline_ref = f"{commits[0]}^:supabase/schema.sql"
+    else:
+        status = subprocess.run(
+            ["git", "status", "--porcelain", "--", relative],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+        )
+        state = status.stdout.decode("utf-8", "replace")[:2]
+        if status.returncode != 0 or state not in {"??", "A ", " A"}:
+            pytest.fail(
+                f"cannot find the introducing commit for {relative}",
+                pytrace=False,
+            )
+        # Before a brand-new migration has its first commit, origin/main is its
+        # only possible historical baseline. Once committed, the branch above
+        # always selects the introducing commit's parent instead.
+        baseline_ref = "origin/main:supabase/schema.sql"
+    shown = subprocess.run(
+        ["git", "show", baseline_ref],
+        cwd=str(REPO_ROOT),
+        capture_output=True,
+    )
+    if shown.returncode != 0:
+        pytest.fail(
+            f"pre-migration schema {baseline_ref} is unavailable "
+            f"({shown.stderr.decode('utf-8', 'replace').strip()})",
+            pytrace=False,
+        )
+    return shown.stdout.decode("utf-8")

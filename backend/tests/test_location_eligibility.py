@@ -95,9 +95,11 @@ def test_3_exact_radius_boundary_is_accepted():
 
 def test_4_pickup_just_outside_radius_is_rejected():
     lat, lng = GUJRANWALA
-    outside_lat = lat + math.degrees(100.5 / 6371.0)  # ~100.5 km, beyond the 0.05 km epsilon
+    outside_lat = lat + math.degrees(100.1 / 6371.0)  # ~100.1 km, beyond the 0.05 km epsilon
     reason = truck_pickup_location_mismatch(_truck(lat, lng, radius=100), _order((outside_lat, lng)))
     assert reason is not None and "service radius" in reason
+    assert "100.1 km" in reason
+    assert "100.0 km service radius" in reason
 
 
 def test_5_gujranwala_truck_does_not_see_karachi_pickup():

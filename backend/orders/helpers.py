@@ -348,8 +348,8 @@ def truck_pickup_location_mismatch(truck, order):
         distance = haversine_distance_km(truck_pos[0], truck_pos[1], pickup_pos[0], pickup_pos[1])
         if distance > radius + _RADIUS_EPS_KM:
             return (
-                f"This truck is {distance:.0f} km from the pickup, beyond its "
-                f"{radius:g} km service radius. Please choose a nearer order."
+                f"This truck is {distance:.1f} km from the pickup, beyond its "
+                f"{radius:.1f} km service radius. Please choose a nearer order."
             )
         return None
 

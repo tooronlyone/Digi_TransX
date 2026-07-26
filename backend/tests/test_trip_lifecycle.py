@@ -403,11 +403,14 @@ def test_client_yes_releases_payout_once(env):
     assert _status(env.db, "shipment_trips", s["trip_id"]) == "completed"
     assert _status(env.db, "shipments", s["order_id"]) == "completed"
     assert _wallet_balance(env.db, s["transporter"]["id"]) == s["transporter_amount"]
-    payouts = env.db.execute(
-        "SELECT count(*) AS c FROM wallet_transactions WHERE type = 'order_payout' "
-        "AND reference_id = %s", (f"payout:trip:{s['trip_id']}",),
-    ).fetchone()["c"]
-    assert payouts == 1
+    payout = env.db.execute(
+        "SELECT count(*) AS c, coalesce(sum(amount),0) AS amount "
+        "FROM wallet_transactions WHERE user_id=%s AND type='order_payout' "
+        "AND reference_id=%s",
+        (s["transporter"]["id"], f"payout:trip:{s['trip_id']}"),
+    ).fetchone()
+    assert payout["c"] == 1
+    assert Decimal(str(payout["amount"])) == s["transporter_amount"]
 
 
 def test_client_yes_uses_snapshot_and_excludes_processing_fee(env):

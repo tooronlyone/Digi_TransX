@@ -1,7 +1,13 @@
 import json
+import math
 import re
 import time
 from pathlib import Path
+
+from shared.coordinates import (
+    CoordinateValidationError,
+    parse_optional_coordinate_pair,
+)
 
 from auth.helpers import normalize_cnic
 from shared.db import BASE_DIR
@@ -95,28 +101,29 @@ def parse_truck_location(form):
     so the same rules are enforced on the server regardless of the client.
     """
     city = parse_optional_text(form.get("current_city"))
-    lat_raw = (form.get("current_lat") or "").strip()
-    lng_raw = (form.get("current_lng") or "").strip()
     try:
-        lat = float(lat_raw) if lat_raw else None
-        lng = float(lng_raw) if lng_raw else None
-    except (TypeError, ValueError):
-        return None, "Operating location coordinates must be valid numbers."
-    if (lat is None) != (lng is None):
-        return None, "Operating location needs both latitude and longitude, or neither."
-    if lat is not None and not (-90 <= lat <= 90):
-        return None, "Latitude must be between -90 and 90."
-    if lng is not None and not (-180 <= lng <= 180):
-        return None, "Longitude must be between -180 and 180."
+        lat, lng = parse_optional_coordinate_pair(
+            form,
+            "current_lat",
+            "current_lng",
+            label="Operating location",
+        )
+    except CoordinateValidationError as exc:
+        return None, str(exc)
 
-    radius_raw = (form.get("service_radius_km") or "").strip()
-    if radius_raw:
+    radius_value = form.get("service_radius_km")
+    radius_raw = radius_value.strip() if isinstance(radius_value, str) else radius_value
+    if radius_raw not in (None, ""):
         try:
+            if isinstance(radius_raw, bool):
+                raise ValueError
             radius = float(radius_raw)
-        except (TypeError, ValueError):
+        except (TypeError, ValueError, OverflowError):
             return None, "Service radius must be a valid number of kilometres."
     else:
         radius = DEFAULT_SERVICE_RADIUS_KM
+    if not math.isfinite(radius):
+        return None, "Service radius must be a valid finite number of kilometres."
     if radius <= 0:
         return None, "Service radius must be greater than 0 km."
     if radius > MAX_SERVICE_RADIUS_KM:
