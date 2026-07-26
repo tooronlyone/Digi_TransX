@@ -24,6 +24,7 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_SQL = REPO_ROOT / "supabase" / "schema.sql"
+VALID_REVIEW = {"rating": 5, "comment": "Delivered as agreed."}
 
 STUBS = """
 create extension if not exists "uuid-ossp";
@@ -46,7 +47,8 @@ create table if not exists storage.objects (
 """
 
 RESET_TABLES = (
-    "shipment_disputes", "shipment_notifications", "chat_messages", "chat_threads",
+    "shipment_trip_reviews", "shipment_disputes", "shipment_notifications",
+    "chat_messages", "chat_threads",
     "shipment_status_history", "payments", "wallet_transactions", "wallets",
     "shipment_no_show_tracking", "shipment_trips", "shipment_bids", "shipments",
     "vehicles", "users",
@@ -393,10 +395,16 @@ def test_client_yes_releases_payout_once(env):
     from orders.lifecycle import perform_client_confirm
     s = seed_ready_order(env.db, client_kind="everyday")
     _completed(env.db, s)
-    perform_client_confirm(env.db, s["client"], s["order_id"], s["trip_id"], "yes")
+    perform_client_confirm(
+        env.db, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )
     env.db.commit()
     # Replay is a no-op.
-    r2 = perform_client_confirm(env.db, s["client"], s["order_id"], s["trip_id"], "yes")
+    r2 = perform_client_confirm(
+        env.db, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )
     env.db.commit()
     assert r2["already"] is True
     assert _status(env.db, "payments", s["payment_id"]) == "released"
@@ -419,7 +427,10 @@ def test_client_yes_uses_snapshot_and_excludes_processing_fee(env):
     s = seed_ready_order(env.db, client_kind="everyday", bid=Decimal("10000"),
                          company_fee=Decimal("2000"), fee=Decimal("250"))
     _completed(env.db, s)
-    res = perform_client_confirm(env.db, s["client"], s["order_id"], s["trip_id"], "yes")
+    res = perform_client_confirm(
+        env.db, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )
     env.db.commit()
     assert res["payout_amount"] == 8000.0
     assert _wallet_balance(env.db, s["transporter"]["id"]) == Decimal("8000")
@@ -435,13 +446,22 @@ def test_concurrent_yes_credits_once(env):
     _completed(env.db, s)
     a = env.new_db()
     b = env.new_db(lock_timeout_ms=600)
-    perform_client_confirm(a, s["client"], s["order_id"], s["trip_id"], "yes")  # holds lock
+    perform_client_confirm(
+        a, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )  # holds lock
     with pytest.raises(psycopg2.errors.LockNotAvailable):
-        perform_client_confirm(b, s["client"], s["order_id"], s["trip_id"], "yes")
+        perform_client_confirm(
+            b, s["client"], s["order_id"], s["trip_id"], "yes",
+            review_payload=VALID_REVIEW,
+        )
     b.rollback()
     a.commit()
     # b now sees 'completed' -> idempotent replay, no second credit.
-    r_b = perform_client_confirm(b, s["client"], s["order_id"], s["trip_id"], "yes")
+    r_b = perform_client_confirm(
+        b, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )
     b.commit()
     assert r_b["already"] is True
     assert _wallet_balance(env.db, s["transporter"]["id"]) == s["transporter_amount"]
@@ -459,7 +479,10 @@ def test_yes_vs_no_one_winner(env):
     _completed(env.db, s)
     a = env.new_db()
     b = env.new_db(lock_timeout_ms=600)
-    perform_client_confirm(a, s["client"], s["order_id"], s["trip_id"], "yes")  # holds lock
+    perform_client_confirm(
+        a, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )  # holds lock
     # Concurrent No is blocked out by the row lock.
     with pytest.raises(psycopg2.errors.LockNotAvailable):
         perform_client_confirm(b, s["client"], s["order_id"], s["trip_id"], "no")
@@ -481,7 +504,10 @@ def test_yes_vs_timeout_one_winner(env):
     past = _now() + timedelta(hours=7)  # deadline already passed
     a, b = env.new_db(), env.new_db()
     # a (client Yes) locks shipment first.
-    perform_client_confirm(a, s["client"], s["order_id"], s["trip_id"], "yes")
+    perform_client_confirm(
+        a, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )
     # b (sweep) tries the same shipment with SKIP LOCKED -> skips it this round.
     swept = process_overdue_delivery_confirmations(b, now=past)
     b.commit()
@@ -575,7 +601,10 @@ def test_client_cannot_confirm_after_escalation(env):
     process_overdue_delivery_confirmations(env.db, now=_now() + timedelta(hours=7))
     env.db.commit()
     with pytest.raises(CheckoutError) as exc:
-        perform_client_confirm(env.db, s["client"], s["order_id"], s["trip_id"], "yes")
+        perform_client_confirm(
+            env.db, s["client"], s["order_id"], s["trip_id"], "yes",
+            review_payload=VALID_REVIEW,
+        )
     assert exc.value.code == "not_awaiting_confirmation"
 
 
@@ -755,7 +784,10 @@ def test_status_history_contains_every_transition(env):
     from orders.lifecycle import perform_client_confirm
     s = seed_ready_order(env.db, client_kind="everyday")
     _completed(env.db, s)
-    perform_client_confirm(env.db, s["client"], s["order_id"], s["trip_id"], "yes")
+    perform_client_confirm(
+        env.db, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )
     env.db.commit()
     hist = [r["new_status"] for r in env.db.execute(
         "SELECT new_status FROM shipment_status_history WHERE shipment_id = %s ORDER BY id",
@@ -769,7 +801,10 @@ def test_no_raw_pan_or_cvc_in_db(env):
     from orders.lifecycle import perform_client_confirm
     s = seed_ready_order(env.db, client_kind="everyday", card_funded=Decimal("10000"), fee=Decimal("250"))
     _completed(env.db, s)
-    perform_client_confirm(env.db, s["client"], s["order_id"], s["trip_id"], "yes")
+    perform_client_confirm(
+        env.db, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )
     env.db.commit()
     hits = env.db.execute(
         """
@@ -806,7 +841,10 @@ def test_client_yes_sets_trip_completed_at(env):
     from orders.lifecycle import perform_client_confirm
     s = seed_ready_order(env.db, client_kind="everyday")
     _completed(env.db, s)
-    perform_client_confirm(env.db, s["client"], s["order_id"], s["trip_id"], "yes")
+    perform_client_confirm(
+        env.db, s["client"], s["order_id"], s["trip_id"], "yes",
+        review_payload=VALID_REVIEW,
+    )
     env.db.commit()
     assert _trip_completed_at(env.db, s["trip_id"]) is not None
 

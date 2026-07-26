@@ -36,6 +36,14 @@ from .lifecycle import (
     perform_complete_delivery,
     serialize_dispute,
 )
+from .reviews import (
+    REVIEW_REQUIRED,
+    fetch_pending_reviews,
+    first_pending_review,
+    get_review_for_trip,
+    submit_pending_review,
+    validate_review_payload,
+)
 from wallet.helpers import round_money
 from agreements.helpers import require_client_role, require_transporter_role
 from .helpers import (
@@ -191,6 +199,17 @@ def create_order():
 
     stamp = timestamp_bundle()["display"]
     with open_db() as db:
+        pending = first_pending_review(db, request.current_user["id"])
+        if pending:
+            return json_response(
+                {
+                    "success": False,
+                    "code": REVIEW_REQUIRED,
+                    "message": "Please submit your pending transporter review before posting another one-time order.",
+                    "pending_review": pending,
+                },
+                409,
+            )
         order_id = db.execute(
             """
             INSERT INTO shipments (
@@ -458,12 +477,14 @@ def get_order_details(order_id):
         # thread so both parties get an Open Chat action and dispute state.
         dispute = None
         chat_thread_id = None
+        review = None
         if trip:
             dispute_row = db.execute(
                 "SELECT * FROM shipment_disputes WHERE trip_id = %s ORDER BY id DESC LIMIT 1",
                 (trip["id"],),
             ).fetchone()
             dispute = serialize_dispute(dict(dispute_row)) if dispute_row else None
+            review = get_review_for_trip(db, request.current_user, order_id, trip["id"])
         thread_row = db.execute(
             "SELECT id FROM chat_threads WHERE shipment_id = %s", (order_id,)
         ).fetchone()
@@ -477,6 +498,7 @@ def get_order_details(order_id):
         "trip": serialize_trip(trip) if trip else None,
         "payment": payment_summary,
         "dispute": dispute,
+        "review": review,
         "chat_thread_id": chat_thread_id,
     })
 
@@ -686,11 +708,17 @@ def confirm_delivery(order_id, trip_id):
     data = request.get_json(silent=True) or {}
     decision = (data.get("decision") or data.get("response") or "").strip().lower()
     reason = data.get("reason")
+    review_payload = None
+    if decision == "yes":
+        try:
+            review_payload = validate_review_payload(data)
+        except CheckoutError as exc:
+            return _checkout_error_response(exc)
 
     with open_db() as db:
         try:
             result = perform_client_confirm(
-                db, request.current_user, order_id, trip_id, decision, reason=reason
+                db, request.current_user, order_id, trip_id, decision, reason=reason, review_payload=review_payload
             )
         except CheckoutError as exc:
             db.rollback()
@@ -704,12 +732,66 @@ def confirm_delivery(order_id, trip_id):
         "trip": serialize_trip(result["trip"]),
     }
     if result["decision"] == "yes":
-        payload["message"] = "Delivery confirmed. Payment released to the transporter."
+        payload["message"] = "Delivery confirmed. Payment released to the transporter and your review was submitted."
         payload["payout_amount"] = result.get("payout_amount")
+        payload["review"] = result.get("review")
     else:
         payload["message"] = "We recorded that there is a problem. An admin will review this delivery."
         payload["dispute"] = result.get("dispute")
     return json_response(payload)
+
+
+@orders_blueprint.get("/api/reviews/pending")
+@login_required
+def list_pending_reviews():
+    role_error = require_client_role(request.current_user)
+    if role_error:
+        return role_error
+    with open_db() as db:
+        pending = fetch_pending_reviews(db, request.current_user["id"])
+    return json_response({"success": True, "pending_reviews": pending})
+
+
+@orders_blueprint.post("/api/orders/<int:order_id>/trips/<int:trip_id>/review")
+@login_required
+def submit_trip_review(order_id, trip_id):
+    role_error = require_client_role(request.current_user)
+    if role_error:
+        return role_error
+    err = csrf_error()
+    if err:
+        return err
+    try:
+        payload = validate_review_payload(request.get_json(silent=True) or {})
+    except CheckoutError as exc:
+        return _checkout_error_response(exc)
+
+    with open_db() as db:
+        try:
+            result = submit_pending_review(db, request.current_user, order_id, trip_id, payload)
+        except CheckoutError as exc:
+            db.rollback()
+            return _checkout_error_response(exc)
+        db.commit()
+    return json_response(
+        {
+            "success": True,
+            "already": result["already"],
+            "message": "Review already submitted." if result["already"] else "Review submitted successfully.",
+            "review": result["review"],
+        }
+    )
+
+
+@orders_blueprint.get("/api/orders/<int:order_id>/trips/<int:trip_id>/review")
+@login_required
+def fetch_trip_review(order_id, trip_id):
+    with open_db() as db:
+        try:
+            review = get_review_for_trip(db, request.current_user, order_id, trip_id)
+        except CheckoutError as exc:
+            return _checkout_error_response(exc)
+    return json_response({"success": True, "review": review})
 
 
 @orders_blueprint.post("/api/disputes/<int:dispute_id>/statement")

@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
+import PendingTransporterReviewGate from '../common/PendingTransporterReviewGate'
 import '../../styles/pages/client.css'
 
 // Everyday users get the simple one-time-order flow only: NO wallet, NO
@@ -139,6 +140,7 @@ export default function EverydayLayout({ children }) {
 
       <main className="main-content">
         <TermsUpdateNotice termsPath="/everyday/terms" />
+        <PendingTransporterReviewGate basePath="/everyday" />
         <div>{children}</div>
         <footer className="footer">
           <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>

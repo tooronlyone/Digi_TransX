@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
+import PendingTransporterReviewGate from '../common/PendingTransporterReviewGate'
 import '../../styles/pages/client.css'
 
 const NAV_ITEMS = [
@@ -171,6 +172,7 @@ export default function ClientLayout({ children }) {
 
       <main className="main-content">
         <TermsUpdateNotice termsPath="/client/terms" />
+        <PendingTransporterReviewGate basePath="/client" />
         <div>{children}</div>
         <footer className="footer">
           <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>

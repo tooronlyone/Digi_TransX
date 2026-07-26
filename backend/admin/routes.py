@@ -774,11 +774,14 @@ def _one_time_dispute_row(db, dispute_id):
         SELECT d.*,
                COALESCE(NULLIF(trim(c.full_name), ''), c.email, 'Client') AS client_name,
                COALESCE(NULLIF(trim(t.full_name), ''), t.email, 'Transporter') AS transporter_name,
-               s.pickup_city, s.dropoff_city, s.status AS shipment_status
+               s.pickup_city, s.dropoff_city, s.status AS shipment_status,
+               tra.rating_average,
+               COALESCE(tra.rating_count, 0) AS rating_count
         FROM shipment_disputes d
         JOIN users c ON c.id = d.client_user_id
         JOIN users t ON t.id = d.transporter_user_id
         JOIN shipments s ON s.id = d.shipment_id
+        LEFT JOIN transporter_review_aggregates tra ON tra.transporter_user_id = d.transporter_user_id
         WHERE d.id = %s
         """,
         (dispute_id,),
@@ -868,6 +871,8 @@ def one_time_dispute_detail(dispute_id):
     detail = serialize_dispute(row) | {
         "client_name": row.get("client_name"),
         "transporter_name": row.get("transporter_name"),
+        "transporter_rating_average": row.get("rating_average"),
+        "transporter_rating_count": int(row.get("rating_count") or 0),
         "pickup_city": row.get("pickup_city"),
         "dropoff_city": row.get("dropoff_city"),
         "shipment_status": row.get("shipment_status"),

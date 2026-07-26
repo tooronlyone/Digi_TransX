@@ -17,6 +17,7 @@ import {
 } from '../../lib/goodsTaxonomy'
 import { FALLBACK_TRUCK_TYPES } from '../../lib/truckCatalog'
 import LocationPicker from '../../components/common/LocationPicker'
+import { openPendingReviewModal } from '../../components/common/reviewEvents'
 import useClientBasePath from '../../hooks/useClientBasePath'
 
 const TRUCK_LABELS = Object.fromEntries(FALLBACK_TRUCK_TYPES.map((t) => [t.type_key, t.display_name]))
@@ -157,6 +158,9 @@ export default function PostOrder() {
       setDropoff(EMPTY_LOCATION)
       setTimeout(() => navigate(`${base}/orders`), 900)
     } catch (submitError) {
+      if (submitError.code === 'review_required' && submitError.payload?.pending_review) {
+        openPendingReviewModal(submitError.payload.pending_review)
+      }
       setError(submitError.message || 'Unable to post order right now.')
     } finally {
       setSubmitting(false)

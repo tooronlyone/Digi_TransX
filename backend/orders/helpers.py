@@ -453,6 +453,8 @@ _BID_COMPARISON_SQL = """
         COALESCE(NULLIF(trim(u.full_name), ''), 'Transporter') AS transporter_display_name,
         tp.company_name       AS transporter_company_name,
         COALESCE(ct.completed_trips, 0) AS completed_trips,
+        ra.rating_average     AS rating_average,
+        COALESCE(ra.rating_count, 0) AS rating_count,
         v.id                  AS truck_row_id,
         v.owner_user_id       AS truck_owner_user_id,
         v.truck_number        AS truck_number,
@@ -485,6 +487,13 @@ _BID_COMPARISON_SQL = """
         WHERE status = 'completed'
         GROUP BY transporter_user_id
     ) ct ON ct.transporter_user_id = b.transporter_user_id
+    LEFT JOIN (
+        SELECT transporter_user_id,
+               ROUND(AVG(rating)::numeric, 1) AS rating_average,
+               COUNT(*) AS rating_count
+        FROM shipment_trip_reviews
+        GROUP BY transporter_user_id
+    ) ra ON ra.transporter_user_id = b.transporter_user_id
     WHERE b.order_id = %s AND b.status != 'withdrawn'
 """
 
@@ -548,6 +557,8 @@ def serialize_enriched_bid(row, order):
         "display_name": row.get("transporter_display_name") or "Transporter",
         "company_name": row.get("transporter_company_name"),
         "completed_trips": int(row.get("completed_trips") or 0),
+        "rating_average": _to_float(row.get("rating_average")),
+        "rating_count": int(row.get("rating_count") or 0),
     }
     truck = None
     if truck_present:

@@ -17,6 +17,8 @@ CONFIRMATION_OVERDUE = "confirmation_overdue"
 DELIVERY_CONFIRMED = "delivery_confirmed"
 DISPUTE_RESOLVED_TRANSPORTER = "dispute_resolved_transporter"
 DISPUTE_RESOLVED_CLIENT = "dispute_resolved_client"
+REVIEW_REQUIRED = "review_required"
+REVIEW_SUBMITTED = "review_submitted"
 
 
 def notify(db, order_id, trip_id, user_id, notification_type, message):

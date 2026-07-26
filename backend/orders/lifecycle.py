@@ -33,6 +33,11 @@ from shared.payments import (
     release_one_time_payment,
 )
 from shared import notifications as notif
+from .reviews import (
+    create_review_for_locked_trip,
+    serialize_review,
+    validate_review_payload,
+)
 
 CONFIRMATION_WINDOW = timedelta(hours=6)
 
@@ -228,7 +233,7 @@ def perform_complete_delivery(db, user, order_id, trip_id, now=None):
 # Phase F — client confirms (Yes) or denies (No)
 # ---------------------------------------------------------------------------
 
-def perform_client_confirm(db, user, order_id, trip_id, decision, reason=None, now=None):
+def perform_client_confirm(db, user, order_id, trip_id, decision, reason=None, review_payload=None, now=None):
     """Client answers the delivery-completion request. decision in {'yes','no'}.
     'yes' releases the payout once; 'no' opens a dispute. Caller commits."""
     if decision not in ("yes", "no"):
@@ -240,7 +245,20 @@ def perform_client_confirm(db, user, order_id, trip_id, decision, reason=None, n
 
     # Idempotent replays of a decision already applied.
     if decision == "yes" and trip["status"] == COMPLETED:
-        return {"decision": "yes", "already": True, "trip": trip}
+        review_result = create_review_for_locked_trip(
+            db,
+            order,
+            trip,
+            user,
+            validate_review_payload(review_payload),
+            allow_create=False,
+        )
+        return {
+            "decision": "yes",
+            "already": True,
+            "trip": trip,
+            "review": serialize_review(review_result["review"]),
+        }
     if decision == "no" and trip["status"] == DELIVERY_DISPUTED:
         dispute = _get_open_dispute(db, trip_id)
         return {"decision": "no", "already": True, "trip": trip,
@@ -258,6 +276,14 @@ def perform_client_confirm(db, user, order_id, trip_id, decision, reason=None, n
         raise CheckoutError("Payment for this order is not held.", 409, "payment_not_held")
 
     if decision == "yes":
+        review_result = create_review_for_locked_trip(
+            db,
+            order,
+            trip,
+            user,
+            validate_review_payload(review_payload),
+            allow_awaiting_confirmation=True,
+        )
         release = release_one_time_payment(db, payment["id"], now_iso=now.isoformat())
         # Genuine completion: stamp both the client-confirmation time and the
         # trip completion time.
@@ -270,8 +296,13 @@ def perform_client_confirm(db, user, order_id, trip_id, decision, reason=None, n
         notif.notify(db, order_id, trip_id, trip["transporter_user_id"],
                      notif.DELIVERY_CONFIRMED, "The client confirmed delivery. Your payout has been released.")
         updated = dict(db.execute("SELECT * FROM shipment_trips WHERE id = %s", (trip_id,)).fetchone())
-        return {"decision": "yes", "already": False, "trip": updated,
-                "payout_amount": release.get("payout_amount")}
+        return {
+            "decision": "yes",
+            "already": False,
+            "trip": updated,
+            "payout_amount": release.get("payout_amount"),
+            "review": serialize_review(review_result["review"]),
+        }
 
     # decision == "no": open a dispute, keep the money held, no payout/refund.
     thread_id = _ensure_thread(db, order, trip)
@@ -438,6 +469,9 @@ def resolve_dispute_transporter_win(db, admin_user, dispute_id, notes, now=None)
     notif.notify(db, order["id"], trip["id"], order["client_user_id"],
                  notif.DISPUTE_RESOLVED_TRANSPORTER,
                  "An admin resolved the dispute in the transporter's favour; the payment was released.")
+    notif.notify(db, order["id"], trip["id"], order["client_user_id"],
+                 notif.REVIEW_REQUIRED,
+                 "Your delivery was completed by admin resolution. Please submit the mandatory transporter rating.")
     notif.notify(db, order["id"], trip["id"], trip["transporter_user_id"],
                  notif.DISPUTE_RESOLVED_TRANSPORTER,
                  "An admin resolved the dispute in your favour; your payout has been released.")

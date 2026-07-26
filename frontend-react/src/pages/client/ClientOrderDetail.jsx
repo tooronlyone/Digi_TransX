@@ -8,6 +8,7 @@ import {
   formatDate,
   getCsrfToken,
 } from './clientUtils'
+import TransporterReviewModal from '../../components/common/TransporterReviewModal'
 import useClientBasePath from '../../hooks/useClientBasePath'
 import '../../styles/pages/order-detail.css'
 
@@ -73,6 +74,7 @@ export default function ClientOrderDetail() {
   const [chatThreadId, setChatThreadId] = useState(null)
   const [actionLoading, setActionLoading] = useState('')
   const [actionMsg, setActionMsg] = useState('')
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
 
   async function loadOrder({ silent = false } = {}) {
     if (silent) setRefreshing(true)
@@ -103,9 +105,9 @@ export default function ClientOrderDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
-  async function confirmDelivery(decision) {
+  async function confirmDelivery(decision, review = null) {
     const prompt = decision === 'yes'
-      ? 'Confirm delivery? This releases the held payment to the transporter and cannot be undone.'
+      ? 'Submit this review and confirm delivery? This releases the held payment to the transporter and cannot be undone.'
       : 'Report a problem with this delivery? The payment stays held and an admin will review the case.'
     if (!window.confirm(prompt)) return
     let reason
@@ -121,11 +123,12 @@ export default function ClientOrderDetail() {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision, reason }),
+        body: JSON.stringify({ decision, reason, rating: review?.rating, comment: review?.comment }),
       })
       const json = await response.json().catch(() => ({}))
       if (!response.ok || json.success === false) throw new Error(json.message || 'Unable to submit your response.')
       setActionMsg(json.message || 'Response recorded.')
+      setReviewModalOpen(false)
       await loadOrder({ silent: true })
     } catch (confirmError) {
       setError(confirmError.message || 'Unable to submit your response.')
@@ -150,6 +153,22 @@ export default function ClientOrderDetail() {
     const rank = (b) => (b.status === 'accepted' ? 0 : b.status === 'rejected' ? 2 : 1)
     return sortBids(bids, sortKey).sort((a, b) => rank(a) - rank(b))
   }, [bids, sortKey])
+  const acceptedBid = useMemo(() => bids.find((bid) => bid.status === 'accepted') || bids[0] || null, [bids])
+  const reviewTarget = useMemo(() => (
+    trip
+      ? {
+          shipment_id: order?.id,
+          trip_id: trip.id,
+          transporter_name:
+            acceptedBid?.transporter?.company_name ||
+            acceptedBid?.transporter?.display_name ||
+            'Transporter',
+          pickup_city: order?.pickup_city,
+          dropoff_city: order?.dropoff_city,
+          goods_type: order?.goods_type,
+        }
+      : null
+  ), [acceptedBid, order, trip])
 
   if (loading) {
     return (
@@ -311,7 +330,7 @@ export default function ClientOrderDetail() {
                   type="button"
                   className="odp-btn odp-btn--yes"
                   disabled={!!actionLoading}
-                  onClick={() => confirmDelivery('yes')}
+                  onClick={() => setReviewModalOpen(true)}
                 >
                   <i className={`fas ${actionLoading === 'yes' ? 'fa-spinner fa-spin' : 'fa-check'}`} aria-hidden="true"></i>
                   Yes, delivery completed
@@ -433,6 +452,11 @@ export default function ClientOrderDetail() {
                           {bid.transporter.completed_trips} completed trip{bid.transporter.completed_trips === 1 ? '' : 's'}
                         </span>
                       )}
+                      <span className="bid-transporter__sub">
+                        {bid.transporter?.rating_count
+                          ? `${Number(bid.transporter.rating_average || 0).toFixed(1)} / 5 • ${bid.transporter.rating_count} review${bid.transporter.rating_count === 1 ? '' : 's'}`
+                          : 'New transporter'}
+                      </span>
                     </div>
                   </div>
 
@@ -507,6 +531,21 @@ export default function ClientOrderDetail() {
           Back to Orders
         </Link>
       </div>
+
+      <TransporterReviewModal
+        key={reviewTarget ? `${reviewTarget.shipment_id}-${reviewTarget.trip_id}-${reviewModalOpen ? 'open' : 'closed'}` : 'delivery-review'}
+        open={reviewModalOpen}
+        reviewTarget={reviewTarget}
+        submitLabel="Confirm Delivery & Submit Review"
+        submitting={actionLoading === 'yes'}
+        error={error}
+        onClose={() => {
+          if (actionLoading) return
+          setReviewModalOpen(false)
+          setError('')
+        }}
+        onSubmit={(review) => confirmDelivery('yes', review)}
+      />
     </>
   )
 }

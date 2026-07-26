@@ -1,3 +1,5 @@
+/* eslint-disable react-refresh/only-export-components */
+
 export const TRUCK_TYPES = [
   'Milk Tanker',
   'Refrigerated Truck',
@@ -76,7 +78,7 @@ export function formatDate(value, options) {
       month: 'short',
       year: 'numeric',
     })
-  } catch (_) {
+  } catch {
     return String(value)
   }
 }
@@ -108,7 +110,10 @@ export async function getCsrfToken() {
 async function unwrapResponse(response) {
   const json = await response.json().catch(() => ({}))
   if (!response.ok || !json || json.success === false) {
-    throw new Error(json?.message || 'Request failed. Please try again.')
+    const error = new Error(json?.message || 'Request failed. Please try again.')
+    error.code = json?.code
+    error.payload = json
+    throw error
   }
   if (json.csrf_token) {
     cachedCsrfToken = String(json.csrf_token)
