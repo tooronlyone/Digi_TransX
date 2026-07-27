@@ -73,6 +73,7 @@ export default function EverydayLayout({ children }) {
               <Link
                 to={item.path}
                 className={`nav-link${active ? ' active' : ''}`}
+                aria-label={item.label}
               >
                 <i className={`fas ${item.icon}`} aria-hidden="true"></i>
                 <span className="nav-text">{item.label}</span>
@@ -85,7 +86,7 @@ export default function EverydayLayout({ children }) {
   )
 
   return (
-    <div className="transporter-page service-seeker-page">
+    <div className="transporter-page service-seeker-page everyday-page">
       <nav className="navbar">
         <div className="navbar-left">
           <Link to="/everyday/dashboard" className="navbar-logo">
@@ -97,7 +98,9 @@ export default function EverydayLayout({ children }) {
         </div>
 
         <div className="navbar-right">
-          <NotificationBell orderPath={(id) => `/everyday/order/${id}`} />
+          <div className="everyday-notifications">
+            <NotificationBell orderPath={(id) => `/everyday/order/${id}`} />
+          </div>
           <div className="user-info">
             <div className="user-avatar">{initials}</div>
             <div className="user-details">
@@ -105,7 +108,7 @@ export default function EverydayLayout({ children }) {
               <p>{user.role}</p>
             </div>
           </div>
-          <button type="button" onClick={handleLogout} className="logout-btn" title="Logout">
+          <button type="button" onClick={handleLogout} className="logout-btn" title="Logout" aria-label="Logout">
             <i className="fas fa-sign-out-alt" aria-hidden="true"></i>
           </button>
         </div>

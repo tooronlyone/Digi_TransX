@@ -510,6 +510,27 @@ a:hover {
   }
 
   .transporter-page .sidebar {
+    top: 74px;
+    width: 72px;
+    padding-top: 18px;
+  }
+
+  .transporter-page .nav-menu {
+    gap: 10px;
+  }
+
+  .transporter-page .nav-link {
+    width: 48px;
+    height: 48px;
+    border-radius: 14px;
+  }
+
+  .transporter-page .main-content {
+    margin-left: 72px;
+    padding: 98px 16px 15px;
+  }
+
+  .everyday-page .sidebar {
     left: 0;
     right: 0;
     top: auto;
@@ -523,54 +544,50 @@ a:hover {
     transition: none;
   }
 
-  .transporter-page .sidebar:hover {
+  .everyday-page .sidebar:hover {
     width: auto;
     box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.08);
   }
 
-  .transporter-page .nav-menu {
+  .everyday-page .nav-menu {
     flex-direction: row;
     justify-content: space-between;
     gap: 6px;
   }
 
-  .transporter-page .nav-link {
-    width: 48px;
-    height: 48px;
-    border-radius: 14px;
+  .everyday-page .nav-link {
     justify-content: center;
     padding: 0;
     transition: background-color var(--transition-fast), color var(--transition-fast);
   }
 
-  .transporter-page .sidebar:hover .nav-link {
+  .everyday-page .sidebar:hover .nav-link {
     width: 48px;
   }
 
-  .transporter-page .nav-link:hover {
+  .everyday-page .nav-link:hover {
     transform: none;
   }
 
-  .transporter-page .nav-link i {
+  .everyday-page .nav-link i {
     font-size: 20px;
   }
 
-  .transporter-page .nav-text {
+  .everyday-page .nav-text {
     display: none;
   }
 
-  .transporter-page .sidebar:hover .nav-text {
+  .everyday-page .sidebar:hover .nav-text {
     opacity: 0;
     transform: none;
   }
 
-  .transporter-page .main-content {
+  .everyday-page .main-content {
     margin-left: 0;
     padding: 98px 16px 82px;
   }
 
-  .transporter-page:has(.sidebar:hover) .main-content,
-  .transporter-page--messages:has(.sidebar:hover) .main-content--messages {
+  .everyday-page:has(.sidebar:hover) .main-content {
     margin-left: 0;
   }
 
@@ -580,11 +597,70 @@ a:hover {
 }
 
 @media (max-width: 576px) {
+  .everyday-page .navbar {
+    padding: 0 10px;
+  }
+
+  .everyday-page .navbar-logo {
+    gap: 8px;
+  }
+
+  .everyday-page .logo-icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .everyday-page .navbar-brand {
+    font-size: 18px;
+  }
+
+  .everyday-page .navbar-right {
+    gap: 6px;
+  }
+
+  .everyday-notifications > div {
+    margin-right: 0 !important;
+  }
+
+  .everyday-notifications > div > button + div {
+    position: fixed !important;
+    top: 68px !important;
+    right: 8px !important;
+    left: 8px !important;
+    width: auto !important;
+    max-height: calc(100vh - 156px) !important;
+  }
+
+  .everyday-page .user-info {
+    padding: 2px;
+  }
+
+  .everyday-page .user-avatar {
+    width: 36px;
+    height: 36px;
+    font-size: 13px;
+  }
+
+  .everyday-page .logout-btn {
+    padding: 6px;
+    font-size: 18px;
+  }
+
   .transporter-page .sidebar {
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    height: 68px;
     padding: 8px 10px;
+    border-right: 0;
+    border-top: 1px solid var(--border-subtle);
   }
 
   .transporter-page .nav-menu {
+    flex-direction: row;
+    justify-content: space-between;
     gap: 4px;
   }
 
@@ -593,12 +669,26 @@ a:hover {
     height: 42px;
   }
 
-  .transporter-page .sidebar:hover .nav-link {
+  .everyday-page .sidebar:hover {
+    width: auto;
+    box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.08);
+  }
+
+  .everyday-page .sidebar:hover .nav-link {
     width: 42px;
   }
 
+  .transporter-page .nav-text {
+    display: none;
+  }
+
   .transporter-page .main-content {
+    margin-left: 0;
     padding: 94px 12px 68px;
+  }
+
+  .everyday-page:has(.sidebar:hover) .main-content {
+    margin-left: 0;
   }
 
   .transporter-page .footer {
@@ -848,7 +938,7 @@ a:hover {
 }
 
 @media (max-width: 768px) {
-  .ai-assistant-widget {
+  body:has(.everyday-page) .ai-assistant-widget {
     bottom: 88px;
   }
 }
