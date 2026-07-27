@@ -25,8 +25,10 @@ from orders.helpers import (
     truck_order_eligibility_mismatch,
     truck_pickup_location_mismatch,
     truck_distance_to_pickup_km,
+    validate_bid_truck,
     serialize_enriched_bid,
 )
+from orders.goods_taxonomy import required_truck_types
 
 # --- Real Pakistani coordinates (also used by the fixtures) -----------------
 GUJRANWALA = (32.1877, 74.1945)
@@ -67,6 +69,7 @@ def _order(pickup, dropoff=None, required=None, weight=10, **extra):
 
 
 REQUIRED = ["flatbed_trailer_open_semi_trailer"]
+MILK_REQUIRED = required_truck_types("milk")
 
 
 # ---------------------------------------------------------------------------
@@ -134,6 +137,81 @@ def test_8_nearby_truck_wrong_type_still_cannot_bid():
     truck = _truck(*GUJRANWALA)  # nearby, but a flatbed — wrong required type
     reason = truck_order_eligibility_mismatch(truck, order["required_truck_types"], order)
     assert reason is not None and "truck type" in reason.lower()
+
+
+def test_8b_milk_tanker_capacity_type_status_location_and_volume_boundaries():
+    order = {
+        "status": "open",
+        "goods_commodity": "milk",
+        "goods_weight_tons": 11,
+        "volume_liters": 12000,
+        "required_truck_types": MILK_REQUIRED,
+        "pickup_lat": GUJRANWALA[0],
+        "pickup_lng": GUJRANWALA[1],
+    }
+
+    def milk_truck(capacity, **overrides):
+        truck = {
+            "id": int(capacity * 10),
+            "owner_user_id": 201,
+            "status": "active",
+            "catalog_type_key": "milk_tanker",
+            "truck_type": "milk_tanker",
+            "capacity_tons": capacity,
+            "payload_max_tons": capacity,
+            "volume_max_cbm": 12,
+            "bed_length_ft": 20,
+            "bed_width_ft": 8,
+            "bed_height_ft": 8,
+            "current_lat": GUJRANWALA[0],
+            "current_lng": GUJRANWALA[1],
+            "service_radius_km": 100,
+        }
+        truck.update(overrides)
+        return truck
+
+    assert truck_order_eligibility_mismatch(milk_truck(10), MILK_REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(milk_truck(11), MILK_REQUIRED, order) is None
+    assert truck_order_eligibility_mismatch(milk_truck(12), MILK_REQUIRED, order) is None
+    assert truck_order_eligibility_mismatch(milk_truck(15), MILK_REQUIRED, order) is None
+
+    for wrong_type in (
+        "heavy_rigid_truck_9_15_ton",
+        "fuel_oil_tanker",
+        "chemical_tanker",
+    ):
+        reason = truck_order_eligibility_mismatch(
+            milk_truck(12, catalog_type_key=wrong_type, truck_type=wrong_type),
+            MILK_REQUIRED,
+            order,
+        )
+        assert reason is not None and "truck type" in reason.lower()
+
+    assert validate_bid_truck(order, 201, milk_truck(12, status="inactive")) is not None
+    assert validate_bid_truck(order, 999, milk_truck(12)) is not None
+    assert truck_order_eligibility_mismatch(
+        milk_truck(12, current_lat=KARACHI[0], current_lng=KARACHI[1]),
+        MILK_REQUIRED,
+        order,
+    ) is not None
+
+    assert truck_order_eligibility_mismatch(milk_truck(12, volume_max_cbm=11.999), MILK_REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(milk_truck(12, volume_max_cbm=12), MILK_REQUIRED, order) is None
+    assert truck_order_eligibility_mismatch(milk_truck(12, volume_max_cbm=13), MILK_REQUIRED, order) is None
+
+
+def test_8c_dimension_boundaries_still_use_the_same_matching_helper():
+    order = _order(
+        GUJRANWALA,
+        required=REQUIRED,
+        weight=10,
+        length_cm=609.6,
+        width_cm=213.36,
+        height_cm=243.84,
+    )
+    assert truck_order_eligibility_mismatch(_truck(*GUJRANWALA, bed_length_ft=19.99), REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(_truck(*GUJRANWALA, bed_length_ft=20), REQUIRED, order) is None
+    assert truck_order_eligibility_mismatch(_truck(*GUJRANWALA, bed_length_ft=21), REQUIRED, order) is None
 
 
 # ---------------------------------------------------------------------------

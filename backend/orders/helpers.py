@@ -232,8 +232,13 @@ def truck_order_mismatch(truck, required_types, order):
             "Please use a higher-capacity truck."
         )
 
-    # 3) Volume capacity
+    # 3) Volume capacity. Bulk/gas orders store CBM directly; liquid orders
+    # collect litres, so convert litres -> CBM when no explicit CBM exists.
     volume = _to_float(order.get("goods_volume_cbm")) or 0
+    if volume <= 0:
+        volume_liters = _to_float(order.get("volume_liters")) or 0
+        if volume_liters > 0:
+            volume = volume_liters / 1000.0
     volume_max = _to_float(truck.get("volume_max_cbm"))
     if volume > 0 and volume_max is not None and volume_max > 0 and volume > volume_max + _CAP_EPS:
         return (
