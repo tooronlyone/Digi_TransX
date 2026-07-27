@@ -1,4 +1,5 @@
 import json
+import math
 
 from auth.helpers import json_response
 from wallet.helpers import round_money
@@ -176,6 +177,15 @@ _CAP_EPS = 1e-6
 _FT_TO_CM = 30.48
 
 
+def required_order_volume_cbm(order):
+    """Normalize all positive order-volume inputs to one required CBM value."""
+    explicit_cbm = _to_float(order.get("goods_volume_cbm"))
+    liters = _to_float(order.get("volume_liters"))
+    explicit_cbm = explicit_cbm if explicit_cbm is not None and math.isfinite(explicit_cbm) and explicit_cbm > 0 else 0
+    liters_cbm = liters / 1000.0 if liters is not None and math.isfinite(liters) and liters > 0 else 0
+    return max(explicit_cbm, liters_cbm)
+
+
 def _fits_on_bed(order, truck):
     """Return None if the goods fit the truck bed, else a human message.
 
@@ -211,9 +221,10 @@ def truck_order_mismatch(truck, required_types, order):
     Checks, in order:
       1. Truck TYPE is one of the order's suitable/required truck types.
       2. Truck WEIGHT capacity (capacity_tons / payload_max_tons) >= order weight.
-      3. Truck VOLUME capacity (volume_max_cbm) >= order volume, when both known.
-    Capacity checks are skipped when the relevant figure is missing or zero
-    (0 acts as "not specified", e.g. flatbeds/livestock carriers).
+      3. Truck VOLUME capacity (volume_max_cbm) >= the greatest positive volume
+         supplied as CBM or litres converted to CBM.
+    A missing volume capacity is allowed only when the order has no positive
+    volume requirement.
     """
     # 1) Type
     if required_types:
@@ -232,19 +243,21 @@ def truck_order_mismatch(truck, required_types, order):
             "Please use a higher-capacity truck."
         )
 
-    # 3) Volume capacity. Bulk/gas orders store CBM directly; liquid orders
-    # collect litres, so convert litres -> CBM when no explicit CBM exists.
-    volume = _to_float(order.get("goods_volume_cbm")) or 0
-    if volume <= 0:
-        volume_liters = _to_float(order.get("volume_liters")) or 0
-        if volume_liters > 0:
-            volume = volume_liters / 1000.0
-    volume_max = _to_float(truck.get("volume_max_cbm"))
-    if volume > 0 and volume_max is not None and volume_max > 0 and volume > volume_max + _CAP_EPS:
-        return (
-            f"This truck holds up to {volume_max:g} cbm, but the load needs {volume:g} cbm. "
-            "Please use a larger truck."
-        )
+    # 3) Volume capacity. Neither a CBM field nor a litres field may reduce the
+    # other, and a required volume must fail closed when truck capacity is unknown.
+    volume = required_order_volume_cbm(order)
+    if volume > 0:
+        volume_max = _to_float(truck.get("volume_max_cbm"))
+        if volume_max is None or not math.isfinite(volume_max) or volume_max <= 0:
+            return (
+                "This truck does not have a valid volume capacity for this load. "
+                "Please use a truck with a confirmed volume capacity."
+            )
+        if volume > volume_max + _CAP_EPS:
+            return (
+                f"This truck holds up to {volume_max:g} cbm, but the load needs {volume:g} cbm. "
+                "Please use a larger truck."
+            )
 
     # 4) Physical dimensions (length/width/height) fit on the cargo bed.
     dim_error = _fits_on_bed(order, truck)

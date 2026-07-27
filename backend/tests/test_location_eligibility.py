@@ -15,6 +15,7 @@ no second matching algorithm anywhere in these tests.
 """
 
 import math
+from datetime import datetime, timedelta
 
 import pytest
 
@@ -70,6 +71,27 @@ def _order(pickup, dropoff=None, required=None, weight=10, **extra):
 
 REQUIRED = ["flatbed_trailer_open_semi_trailer"]
 MILK_REQUIRED = required_truck_types("milk")
+
+
+def _milk_truck(capacity=12, **overrides):
+    truck = {
+        "id": int(capacity * 10),
+        "owner_user_id": 201,
+        "status": "active",
+        "catalog_type_key": "milk_tanker",
+        "truck_type": "milk_tanker",
+        "capacity_tons": capacity,
+        "payload_max_tons": capacity,
+        "volume_max_cbm": 12,
+        "bed_length_ft": 20,
+        "bed_width_ft": 8,
+        "bed_height_ft": 8,
+        "current_lat": GUJRANWALA[0],
+        "current_lng": GUJRANWALA[1],
+        "service_radius_km": 100,
+    }
+    truck.update(overrides)
+    return truck
 
 
 # ---------------------------------------------------------------------------
@@ -150,30 +172,10 @@ def test_8b_milk_tanker_capacity_type_status_location_and_volume_boundaries():
         "pickup_lng": GUJRANWALA[1],
     }
 
-    def milk_truck(capacity, **overrides):
-        truck = {
-            "id": int(capacity * 10),
-            "owner_user_id": 201,
-            "status": "active",
-            "catalog_type_key": "milk_tanker",
-            "truck_type": "milk_tanker",
-            "capacity_tons": capacity,
-            "payload_max_tons": capacity,
-            "volume_max_cbm": 12,
-            "bed_length_ft": 20,
-            "bed_width_ft": 8,
-            "bed_height_ft": 8,
-            "current_lat": GUJRANWALA[0],
-            "current_lng": GUJRANWALA[1],
-            "service_radius_km": 100,
-        }
-        truck.update(overrides)
-        return truck
-
-    assert truck_order_eligibility_mismatch(milk_truck(10), MILK_REQUIRED, order) is not None
-    assert truck_order_eligibility_mismatch(milk_truck(11), MILK_REQUIRED, order) is None
-    assert truck_order_eligibility_mismatch(milk_truck(12), MILK_REQUIRED, order) is None
-    assert truck_order_eligibility_mismatch(milk_truck(15), MILK_REQUIRED, order) is None
+    assert truck_order_eligibility_mismatch(_milk_truck(10), MILK_REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(_milk_truck(11), MILK_REQUIRED, order) is None
+    assert truck_order_eligibility_mismatch(_milk_truck(12), MILK_REQUIRED, order) is None
+    assert truck_order_eligibility_mismatch(_milk_truck(15), MILK_REQUIRED, order) is None
 
     for wrong_type in (
         "heavy_rigid_truck_9_15_ton",
@@ -181,26 +183,80 @@ def test_8b_milk_tanker_capacity_type_status_location_and_volume_boundaries():
         "chemical_tanker",
     ):
         reason = truck_order_eligibility_mismatch(
-            milk_truck(12, catalog_type_key=wrong_type, truck_type=wrong_type),
+            _milk_truck(12, catalog_type_key=wrong_type, truck_type=wrong_type),
             MILK_REQUIRED,
             order,
         )
         assert reason is not None and "truck type" in reason.lower()
 
-    assert validate_bid_truck(order, 201, milk_truck(12, status="inactive")) is not None
-    assert validate_bid_truck(order, 999, milk_truck(12)) is not None
+    assert validate_bid_truck(order, 201, _milk_truck(12, status="inactive")) is not None
+    assert validate_bid_truck(order, 999, _milk_truck(12)) is not None
     assert truck_order_eligibility_mismatch(
-        milk_truck(12, current_lat=KARACHI[0], current_lng=KARACHI[1]),
+        _milk_truck(12, current_lat=KARACHI[0], current_lng=KARACHI[1]),
         MILK_REQUIRED,
         order,
     ) is not None
 
-    assert truck_order_eligibility_mismatch(milk_truck(12, volume_max_cbm=11.999), MILK_REQUIRED, order) is not None
-    assert truck_order_eligibility_mismatch(milk_truck(12, volume_max_cbm=12), MILK_REQUIRED, order) is None
-    assert truck_order_eligibility_mismatch(milk_truck(12, volume_max_cbm=13), MILK_REQUIRED, order) is None
+    assert truck_order_eligibility_mismatch(_milk_truck(12, volume_max_cbm=11.999), MILK_REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(_milk_truck(12, volume_max_cbm=12), MILK_REQUIRED, order) is None
+    assert truck_order_eligibility_mismatch(_milk_truck(12, volume_max_cbm=13), MILK_REQUIRED, order) is None
 
 
-def test_8c_dimension_boundaries_still_use_the_same_matching_helper():
+@pytest.mark.parametrize(
+    ("goods_volume_cbm", "truck_volume_cbm", "eligible"),
+    (
+        (1, 11.999, False),
+        (1, 12, True),
+        (13, 12, False),
+        (13, 13, True),
+    ),
+)
+def test_8c_conflicting_liquid_and_cbm_requirements_use_the_larger_value(
+    goods_volume_cbm, truck_volume_cbm, eligible
+):
+    order = _order(
+        GUJRANWALA,
+        required=MILK_REQUIRED,
+        weight=11,
+        goods_commodity="milk",
+        volume_liters=12000,
+        goods_volume_cbm=goods_volume_cbm,
+    )
+    reason = truck_order_eligibility_mismatch(
+        _milk_truck(volume_max_cbm=truck_volume_cbm),
+        MILK_REQUIRED,
+        order,
+    )
+    assert (reason is None) is eligible
+
+
+@pytest.mark.parametrize("truck_volume_cbm", (None, 0, -1, float("nan"), float("inf"), "invalid"))
+def test_8d_required_volume_rejects_missing_or_invalid_truck_capacity(truck_volume_cbm):
+    order = _order(
+        GUJRANWALA,
+        required=MILK_REQUIRED,
+        weight=11,
+        goods_commodity="milk",
+        volume_liters=12000,
+    )
+    reason = truck_order_eligibility_mismatch(
+        _milk_truck(volume_max_cbm=truck_volume_cbm),
+        MILK_REQUIRED,
+        order,
+    )
+    assert reason is not None and "valid volume capacity" in reason.lower()
+
+
+def test_8e_no_volume_requirement_does_not_require_truck_volume_capacity():
+    order = _order(GUJRANWALA, required=REQUIRED, weight=11)
+    assert truck_order_eligibility_mismatch(
+        _truck(*GUJRANWALA, volume_max_cbm=None),
+        REQUIRED,
+        order,
+    ) is None
+
+
+def test_8f_dimension_boundaries_still_use_the_same_matching_helper():
     order = _order(
         GUJRANWALA,
         required=REQUIRED,
@@ -372,6 +428,17 @@ def _make_flatbed(db, owner_id, lat, lng, city, radius=100, status="active"):
     ).fetchone()["id"]
 
 
+def _make_milk_tanker(db, owner_id, volume_max_cbm):
+    return db.execute(
+        "INSERT INTO vehicles (owner_user_id, truck_number, truck_type, catalog_type_key, "
+        "capacity_tons, payload_max_tons, volume_max_cbm, bed_length_ft, bed_width_ft, bed_height_ft, "
+        "current_city, current_lat, current_lng, service_radius_km, status) "
+        "VALUES (%s, %s, 'Milk tanker', 'milk_tanker', 12, 12, %s, 20, 8, 8, "
+        "'Gujranwala', %s, %s, 100, 'active') RETURNING id",
+        (owner_id, f"MILK-{owner_id}", volume_max_cbm, GUJRANWALA[0], GUJRANWALA[1]),
+    ).fetchone()["id"]
+
+
 def _make_open_order(db, client_id, pickup, dropoff=KARACHI):
     return db.execute(
         "INSERT INTO shipments (client_user_id, status, goods_type, goods_weight_tons, "
@@ -380,6 +447,60 @@ def _make_open_order(db, client_id, pickup, dropoff=KARACHI):
         "'Gujranwala', %s, %s, %s, %s) RETURNING id",
         (client_id, pickup[0], pickup[1], dropoff[0], dropoff[1]),
     ).fetchone()["id"]
+
+
+def test_order_api_conflicting_volume_fields_cannot_bypass_discovery_or_bid(client):
+    db = client.db
+    seeker_id = _make_user(db, "service_seeker", "liquid-seeker@test")
+    transporter_id = _make_user(db, "transporter", "liquid-carrier@test")
+    db.commit()
+
+    pickup = datetime.now() + timedelta(days=1)
+    client.login({"id": seeker_id, "role": "service_seeker"})
+    create_response = client.post(
+        "/api/orders",
+        json={
+            "pickup_location": "Gujranwala",
+            "dropoff_location": "Lahore",
+            "pickup_lat": GUJRANWALA[0],
+            "pickup_lng": GUJRANWALA[1],
+            "dropoff_lat": LAHORE[0],
+            "dropoff_lng": LAHORE[1],
+            "pickup_date": pickup.date().isoformat(),
+            "pickup_time": "12:00",
+            "goods_commodity": "milk",
+            "goods_weight_tons": 11,
+            "volume_liters": 12000,
+            "goods_volume_cbm": 1,
+        },
+        headers={"X-CSRF-Token": "test-csrf-token"},
+    )
+    assert create_response.status_code == 200, create_response.get_data(as_text=True)
+    order_id = create_response.get_json()["order"]["id"]
+    persisted = db.execute(
+        "SELECT volume_liters, goods_volume_cbm FROM shipments WHERE id = %s",
+        (order_id,),
+    ).fetchone()
+    assert float(persisted["volume_liters"]) == 12000
+    assert float(persisted["goods_volume_cbm"]) == 1
+
+    truck_id = _make_milk_tanker(db, transporter_id, 11.999)
+    db.commit()
+    client.login({"id": transporter_id, "role": "transporter"})
+
+    available = client.get("/api/orders/available").get_json()
+    assert all(order["id"] != order_id for order in available["orders"])
+
+    bid_response = client.post(
+        f"/api/orders/{order_id}/bids",
+        json={"truck_id": truck_id, "bid_price": 50000},
+        headers={"X-CSRF-Token": "test-csrf-token"},
+    )
+    assert bid_response.status_code == 400, bid_response.get_data(as_text=True)
+    assert db.execute(
+        "SELECT count(*) AS count FROM shipment_bids WHERE order_id = %s",
+        (order_id,),
+    ).fetchone()["count"] == 0
 
 
 def test_available_orders_filters_by_location(client):
