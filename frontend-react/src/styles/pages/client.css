@@ -642,3 +642,867 @@
     display: none;
   }
 }
+
+/* ============================================
+   EVERYDAY ONE-TIME ORDER DASHBOARD
+   ============================================ */
+.everyday-dashboard {
+  --everyday-ink: #0b1f3a;
+  --everyday-blue: #1769e0;
+  --everyday-blue-dark: #0f4fb8;
+  --everyday-sky: #dff3ff;
+  --everyday-mint: #dff8ed;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+  padding-bottom: 8px;
+}
+
+.everyday-hero {
+  position: relative;
+  isolation: isolate;
+  min-height: 300px;
+  overflow: hidden;
+  display: grid;
+  grid-template-columns: minmax(0, 1.25fr) minmax(320px, .75fr);
+  align-items: center;
+  gap: 36px;
+  padding: 44px 48px;
+  border-radius: 28px;
+  color: #fff;
+  background:
+    radial-gradient(circle at 85% 18%, rgba(125, 211, 252, .38), transparent 24%),
+    linear-gradient(125deg, #071b35 0%, #0d3f87 58%, #1277c9 100%);
+  box-shadow: 0 24px 60px rgba(7, 35, 78, .2);
+}
+
+.everyday-hero::before,
+.everyday-hero::after {
+  content: '';
+  position: absolute;
+  z-index: -1;
+  border: 1px solid rgba(255, 255, 255, .12);
+  border-radius: 50%;
+}
+
+.everyday-hero::before {
+  width: 310px;
+  height: 310px;
+  right: -85px;
+  top: -150px;
+}
+
+.everyday-hero::after {
+  width: 190px;
+  height: 190px;
+  right: 22%;
+  bottom: -140px;
+}
+
+.everyday-hero__content {
+  max-width: 680px;
+}
+
+.everyday-hero__eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  margin-bottom: 18px;
+  color: #dbeafe;
+  font-size: 12px;
+  font-weight: 800;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.everyday-hero__eyebrow-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #5eead4;
+  box-shadow: 0 0 0 6px rgba(94, 234, 212, .14);
+}
+
+.everyday-hero h1 {
+  max-width: 620px;
+  margin: 0;
+  color: #fff;
+  font-size: 54px;
+  line-height: 1.02;
+  letter-spacing: 0;
+}
+
+.everyday-hero p {
+  max-width: 610px;
+  margin-top: 18px;
+  color: rgba(239, 246, 255, .82);
+  font-size: 16px;
+  line-height: 1.7;
+}
+
+.everyday-hero__actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-top: 28px;
+}
+
+.everyday-btn {
+  min-height: 48px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 0 20px;
+  border-radius: 13px;
+  font-size: 14px;
+  font-weight: 800;
+  transition: transform .2s ease, box-shadow .2s ease, background .2s ease;
+}
+
+.everyday-btn:hover {
+  transform: translateY(-2px);
+}
+
+.everyday-btn--primary {
+  color: #082346;
+  background: #fff;
+  box-shadow: 0 10px 28px rgba(4, 22, 48, .24);
+}
+
+.everyday-btn--primary:hover {
+  color: #082346;
+  box-shadow: 0 15px 34px rgba(4, 22, 48, .32);
+}
+
+.everyday-btn--ghost {
+  color: #fff;
+  border: 1px solid rgba(255, 255, 255, .25);
+  background: rgba(255, 255, 255, .09);
+  backdrop-filter: blur(8px);
+}
+
+.everyday-btn--ghost:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, .16);
+}
+
+.everyday-hero__visual {
+  display: flex;
+  justify-content: flex-end;
+}
+
+.everyday-route-card {
+  width: min(100%, 390px);
+  padding: 24px;
+  border: 1px solid rgba(255, 255, 255, .2);
+  border-radius: 22px;
+  background: rgba(255, 255, 255, .12);
+  box-shadow: 0 18px 40px rgba(2, 21, 50, .2);
+  backdrop-filter: blur(18px);
+}
+
+.everyday-route-card__top,
+.everyday-route-card__labels,
+.everyday-route-card__path {
+  display: flex;
+  align-items: center;
+}
+
+.everyday-route-card__top {
+  justify-content: space-between;
+  margin-bottom: 30px;
+  font-weight: 800;
+}
+
+.everyday-route-card__live {
+  padding: 5px 9px;
+  border-radius: 999px;
+  color: #d1fae5;
+  background: rgba(16, 185, 129, .22);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: .08em;
+}
+
+.everyday-route-card__path {
+  justify-content: center;
+}
+
+.everyday-route-card__pin,
+.everyday-route-card__truck {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  color: #fff;
+}
+
+.everyday-route-card__pin--start {
+  background: #06b6d4;
+}
+
+.everyday-route-card__pin--finish {
+  color: #082346;
+  background: #5eead4;
+}
+
+.everyday-route-card__truck {
+  width: 48px;
+  height: 48px;
+  color: var(--everyday-blue);
+  background: #fff;
+  box-shadow: 0 8px 20px rgba(2, 21, 50, .26);
+}
+
+.everyday-route-card__line {
+  flex: 1;
+  height: 1px;
+  margin: 0 7px;
+  border-top: 1px dashed rgba(255, 255, 255, .5);
+}
+
+.everyday-route-card__labels {
+  justify-content: space-between;
+  margin-top: 12px;
+  color: rgba(239, 246, 255, .72);
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.everyday-stats {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.everyday-stat {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 18px;
+  border: 1px solid #e5edf6;
+  border-radius: 18px;
+  background: #fff;
+  box-shadow: 0 9px 26px rgba(15, 23, 42, .055);
+  animation: everyday-rise .45s ease both;
+}
+
+.everyday-stat:nth-child(2) { animation-delay: .05s; }
+.everyday-stat:nth-child(3) { animation-delay: .1s; }
+.everyday-stat:nth-child(4) { animation-delay: .15s; }
+
+.everyday-stat__icon {
+  flex: 0 0 auto;
+  width: 46px;
+  height: 46px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  font-size: 18px;
+}
+
+.everyday-stat--blue .everyday-stat__icon { color: #1769e0; background: #eaf2ff; }
+.everyday-stat--amber .everyday-stat__icon { color: #b45309; background: #fff4d9; }
+.everyday-stat--cyan .everyday-stat__icon { color: #0e7490; background: #e1f7fb; }
+.everyday-stat--green .everyday-stat__icon { color: #047857; background: #e4f8ef; }
+
+.everyday-stat div {
+  min-width: 0;
+}
+
+.everyday-stat strong,
+.everyday-stat span {
+  display: block;
+}
+
+.everyday-stat strong {
+  color: var(--everyday-ink);
+  font-size: 25px;
+  line-height: 1.05;
+}
+
+.everyday-stat div span {
+  margin-top: 4px;
+  color: #6b7c93;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.everyday-dashboard__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1.65fr) minmax(285px, .65fr);
+  gap: 22px;
+  align-items: start;
+}
+
+.everyday-panel {
+  overflow: hidden;
+  border: 1px solid #e3eaf3;
+  border-radius: 22px;
+  background: #fff;
+  box-shadow: 0 12px 36px rgba(15, 23, 42, .055);
+}
+
+.everyday-panel--orders {
+  min-height: 420px;
+}
+
+.everyday-panel__header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-end;
+  gap: 16px;
+  padding: 25px 26px 20px;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.everyday-panel__kicker {
+  display: block;
+  margin-bottom: 3px;
+  color: var(--everyday-blue);
+  font-size: 10px;
+  font-weight: 900;
+  letter-spacing: .14em;
+  text-transform: uppercase;
+}
+
+.everyday-panel h2,
+.everyday-panel__header h2 {
+  margin: 0;
+  color: var(--everyday-ink);
+  font-size: 22px;
+  letter-spacing: 0;
+}
+
+.everyday-panel__link {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  color: var(--everyday-blue);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.everyday-panel__state {
+  padding: 20px 24px;
+}
+
+.everyday-panel__state .t-page-card {
+  box-shadow: none;
+}
+
+.everyday-order-list {
+  padding: 6px 18px 14px;
+}
+
+.everyday-order {
+  position: relative;
+  display: grid;
+  grid-template-columns: 100px minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 20px;
+  padding: 20px 8px;
+  border-bottom: 1px solid #edf1f6;
+}
+
+.everyday-order:last-child {
+  border-bottom: 0;
+}
+
+.everyday-order__identity {
+  display: flex;
+  align-items: flex-start;
+  flex-direction: column;
+  gap: 7px;
+}
+
+.everyday-order__number {
+  color: var(--everyday-ink);
+  font-size: 15px;
+  font-weight: 900;
+}
+
+.everyday-order__status {
+  max-width: 100%;
+  overflow: hidden;
+  padding: 4px 8px;
+  border-radius: 999px;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.everyday-order__status--open { color: #1d4ed8; background: #e8f0ff; }
+.everyday-order__status--active { color: #0e7490; background: #dff7fb; }
+.everyday-order__status--complete { color: #047857; background: #ddf7ea; }
+.everyday-order__status--attention { color: #b45309; background: #fff0cf; }
+.everyday-order__status--muted { color: #64748b; background: #edf1f5; }
+
+.everyday-order__route {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 42px minmax(0, 1fr);
+  align-items: center;
+  gap: 8px;
+}
+
+.everyday-order__stop {
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 10px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+}
+
+.everyday-order__stop small,
+.everyday-order__stop strong {
+  display: block;
+}
+
+.everyday-order__stop small {
+  margin-bottom: 2px;
+  color: #8a98aa;
+  font-size: 9px;
+  font-weight: 900;
+  letter-spacing: .1em;
+  text-transform: uppercase;
+}
+
+.everyday-order__stop strong {
+  overflow: hidden;
+  color: #23344d;
+  font-size: 12px;
+  font-weight: 800;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.everyday-order__dot {
+  width: 10px;
+  height: 10px;
+  border: 2px solid #fff;
+  border-radius: 50%;
+  box-shadow: 0 0 0 3px;
+}
+
+.everyday-order__dot--pickup {
+  color: #38bdf8;
+  background: #0284c7;
+}
+
+.everyday-order__dot--dropoff {
+  color: #6ee7b7;
+  background: #059669;
+}
+
+.everyday-order__connector {
+  display: flex;
+  align-items: center;
+  color: #a8b5c5;
+}
+
+.everyday-order__connector span {
+  flex: 1;
+  border-top: 1px dashed #bdc8d5;
+}
+
+.everyday-order__connector i {
+  font-size: 8px;
+}
+
+.everyday-order__meta {
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+  color: #6f8095;
+  font-size: 11px;
+  white-space: nowrap;
+}
+
+.everyday-order__meta span {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.everyday-order__meta i {
+  width: 12px;
+  color: var(--everyday-blue);
+  text-align: center;
+}
+
+.everyday-order__view {
+  width: 38px;
+  height: 38px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 12px;
+  color: var(--everyday-blue);
+  background: #edf4ff;
+}
+
+.everyday-order__view span {
+  display: none;
+}
+
+.everyday-order__view:hover {
+  color: #fff;
+  background: var(--everyday-blue);
+}
+
+.everyday-empty {
+  min-height: 340px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  padding: 42px 24px;
+  text-align: center;
+}
+
+.everyday-empty__icon {
+  width: 68px;
+  height: 68px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  margin-bottom: 16px;
+  border-radius: 22px;
+  color: var(--everyday-blue);
+  background: #eaf2ff;
+  font-size: 25px;
+}
+
+.everyday-empty h3 {
+  margin-bottom: 6px;
+  color: var(--everyday-ink);
+}
+
+.everyday-empty p {
+  margin-bottom: 18px;
+  color: #718096;
+}
+
+.everyday-empty .everyday-btn--primary {
+  color: #fff;
+  background: var(--everyday-blue);
+}
+
+.everyday-dashboard__sidebar {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.everyday-quick-panel {
+  padding: 25px 22px 18px;
+}
+
+.everyday-quick-panel h2 {
+  margin-bottom: 16px;
+}
+
+.everyday-quick-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.everyday-quick {
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto;
+  align-items: center;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid transparent;
+  border-radius: 15px;
+  color: #243650;
+  transition: background .2s ease, border-color .2s ease, transform .2s ease;
+}
+
+.everyday-quick:hover {
+  transform: translateX(3px);
+  color: #17345e;
+  border-color: #dce7f5;
+  background: #f5f8fc;
+}
+
+.everyday-quick--featured {
+  color: #fff;
+  background: linear-gradient(135deg, var(--everyday-blue-dark), var(--everyday-blue));
+  box-shadow: 0 10px 24px rgba(23, 105, 224, .2);
+}
+
+.everyday-quick--featured:hover {
+  color: #fff;
+  border-color: transparent;
+  background: linear-gradient(135deg, #0d459e, #1560d0);
+}
+
+.everyday-quick__icon {
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 13px;
+  color: var(--everyday-blue);
+  background: #eaf2ff;
+}
+
+.everyday-quick--featured .everyday-quick__icon {
+  color: #fff;
+  background: rgba(255, 255, 255, .16);
+}
+
+.everyday-quick strong,
+.everyday-quick small {
+  display: block;
+}
+
+.everyday-quick strong {
+  font-size: 13px;
+}
+
+.everyday-quick small {
+  margin-top: 2px;
+  color: #7b8ba0;
+  font-size: 10px;
+}
+
+.everyday-quick--featured small {
+  color: rgba(255, 255, 255, .72);
+}
+
+.everyday-quick__arrow {
+  color: #a3b1c2;
+  font-size: 10px;
+}
+
+.everyday-quick--featured .everyday-quick__arrow {
+  color: #fff;
+}
+
+.everyday-assurance {
+  display: flex;
+  align-items: flex-start;
+  gap: 13px;
+  padding: 20px;
+  border: 1px solid #cceee0;
+  border-radius: 20px;
+  background: linear-gradient(145deg, #ecfbf5, #f7fffc);
+}
+
+.everyday-assurance__icon {
+  flex: 0 0 auto;
+  width: 42px;
+  height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 14px;
+  color: #047857;
+  background: #d4f5e7;
+}
+
+.everyday-assurance strong {
+  color: #124c3b;
+  font-size: 13px;
+}
+
+.everyday-assurance p {
+  margin-top: 4px;
+  color: #52776c;
+  font-size: 10px;
+  line-height: 1.55;
+}
+
+@keyframes everyday-rise {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@media (max-width: 1180px) {
+  .everyday-hero {
+    grid-template-columns: minmax(0, 1fr) 320px;
+    padding: 40px;
+  }
+
+  .everyday-dashboard__grid {
+    grid-template-columns: minmax(0, 1fr) 285px;
+  }
+
+  .everyday-order {
+    grid-template-columns: 84px minmax(0, 1fr) auto;
+  }
+
+  .everyday-order__meta {
+    display: none;
+  }
+}
+
+@media (max-width: 960px) {
+  .everyday-hero {
+    min-height: auto;
+    grid-template-columns: 1fr;
+  }
+
+  .everyday-hero h1 {
+    font-size: 46px;
+  }
+
+  .everyday-hero__content {
+    max-width: 760px;
+  }
+
+  .everyday-hero__visual {
+    display: none;
+  }
+
+  .everyday-stats {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .everyday-dashboard__grid {
+    grid-template-columns: 1fr;
+  }
+
+  .everyday-dashboard__sidebar {
+    display: grid;
+    grid-template-columns: minmax(0, 1.4fr) minmax(240px, .6fr);
+  }
+}
+
+@media (max-width: 680px) {
+  .everyday-dashboard {
+    gap: 16px;
+  }
+
+  .everyday-hero {
+    padding: 30px 24px;
+    border-radius: 22px;
+  }
+
+  .everyday-hero h1 {
+    font-size: 34px;
+  }
+
+  .everyday-hero p {
+    font-size: 14px;
+  }
+
+  .everyday-hero__actions {
+    flex-direction: column;
+  }
+
+  .everyday-btn {
+    width: 100%;
+  }
+
+  .everyday-stats {
+    gap: 10px;
+  }
+
+  .everyday-stat {
+    padding: 14px;
+  }
+
+  .everyday-stat__icon {
+    width: 40px;
+    height: 40px;
+  }
+
+  .everyday-stat strong {
+    font-size: 21px;
+  }
+
+  .everyday-panel__header {
+    padding: 21px 18px 17px;
+  }
+
+  .everyday-order-list {
+    padding: 4px 14px 10px;
+  }
+
+  .everyday-order {
+    grid-template-columns: 1fr auto;
+    gap: 14px;
+    padding: 18px 4px;
+  }
+
+  .everyday-order__identity {
+    grid-column: 1 / -1;
+    flex-direction: row;
+    align-items: center;
+  }
+
+  .everyday-order__route {
+    grid-template-columns: 1fr;
+  }
+
+  .everyday-order__connector {
+    display: none;
+  }
+
+  .everyday-order__stop + .everyday-order__stop {
+    margin-top: 8px;
+  }
+
+  .everyday-order__view {
+    width: auto;
+    min-height: 40px;
+    gap: 8px;
+    padding: 0 13px;
+  }
+
+  .everyday-order__view span {
+    display: inline;
+    font-size: 11px;
+    font-weight: 800;
+  }
+
+  .everyday-dashboard__sidebar {
+    display: flex;
+  }
+}
+
+@media (max-width: 420px) {
+  .everyday-hero h1 {
+    font-size: 31px;
+  }
+
+  .everyday-stats {
+    grid-template-columns: 1fr;
+  }
+
+  .everyday-stat {
+    min-height: 68px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .everyday-stat {
+    animation: none;
+  }
+
+  .everyday-btn,
+  .everyday-quick {
+    transition: none;
+  }
+}

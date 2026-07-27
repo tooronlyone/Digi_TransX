@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
@@ -33,20 +33,7 @@ function readUser() {
 export default function EverydayLayout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
   const [user] = useState(readUser)
-
-  useEffect(() => {
-    function checkViewport() {
-      const mobile = window.innerWidth < 768
-      setIsMobile(mobile)
-      if (!mobile) setMenuOpen(false)
-    }
-    checkViewport()
-    window.addEventListener('resize', checkViewport)
-    return () => window.removeEventListener('resize', checkViewport)
-  }, [])
 
   const initials = useMemo(() => {
     return user.name
@@ -77,7 +64,7 @@ export default function EverydayLayout({ children }) {
   }
 
   const sidebar = (
-    <nav className="sidebar">
+    <nav className="sidebar" aria-label="Everyday navigation">
       <ul className="nav-menu">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item)
@@ -86,7 +73,6 @@ export default function EverydayLayout({ children }) {
               <Link
                 to={item.path}
                 className={`nav-link${active ? ' active' : ''}`}
-                onClick={() => setMenuOpen(false)}
               >
                 <i className={`fas ${item.icon}`} aria-hidden="true"></i>
                 <span className="nav-text">{item.label}</span>
@@ -102,16 +88,6 @@ export default function EverydayLayout({ children }) {
     <div className="transporter-page service-seeker-page">
       <nav className="navbar">
         <div className="navbar-left">
-          {isMobile && (
-            <button
-              type="button"
-              className="logout-btn"
-              onClick={() => setMenuOpen((open) => !open)}
-              aria-label="Toggle navigation"
-            >
-              <i className={`fas ${menuOpen ? 'fa-times' : 'fa-bars'}`} aria-hidden="true"></i>
-            </button>
-          )}
           <Link to="/everyday/dashboard" className="navbar-logo">
             <div className="logo-icon">
               <i className="fas fa-truck" aria-hidden="true"></i>
@@ -135,8 +111,7 @@ export default function EverydayLayout({ children }) {
         </div>
       </nav>
 
-      {!isMobile && sidebar}
-      {isMobile && menuOpen && sidebar}
+      {sidebar}
 
       <main className="main-content">
         <TermsUpdateNotice termsPath="/everyday/terms" />

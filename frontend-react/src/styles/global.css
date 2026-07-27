@@ -510,28 +510,68 @@ a:hover {
   }
 
   .transporter-page .sidebar {
-    top: 74px;
-    width: 72px;
-    padding-top: 18px;
+    left: 0;
+    right: 0;
+    top: auto;
+    bottom: 0;
+    width: auto;
+    height: 68px;
+    padding: 8px 14px;
+    border-right: 0;
+    border-top: 1px solid var(--border-subtle);
+    box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.08);
+    transition: none;
+  }
+
+  .transporter-page .sidebar:hover {
+    width: auto;
+    box-shadow: 0 -8px 22px rgba(15, 23, 42, 0.08);
   }
 
   .transporter-page .nav-menu {
-    gap: 10px;
+    flex-direction: row;
+    justify-content: space-between;
+    gap: 6px;
   }
 
   .transporter-page .nav-link {
     width: 48px;
     height: 48px;
     border-radius: 14px;
+    justify-content: center;
+    padding: 0;
+    transition: background-color var(--transition-fast), color var(--transition-fast);
+  }
+
+  .transporter-page .sidebar:hover .nav-link {
+    width: 48px;
+  }
+
+  .transporter-page .nav-link:hover {
+    transform: none;
   }
 
   .transporter-page .nav-link i {
     font-size: 20px;
   }
 
+  .transporter-page .nav-text {
+    display: none;
+  }
+
+  .transporter-page .sidebar:hover .nav-text {
+    opacity: 0;
+    transform: none;
+  }
+
   .transporter-page .main-content {
-    margin-left: 72px;
-    padding: 98px 16px 15px;
+    margin-left: 0;
+    padding: 98px 16px 82px;
+  }
+
+  .transporter-page:has(.sidebar:hover) .main-content,
+  .transporter-page--messages:has(.sidebar:hover) .main-content--messages {
+    margin-left: 0;
   }
 
   .transporter-page .footer {
@@ -541,20 +581,10 @@ a:hover {
 
 @media (max-width: 576px) {
   .transporter-page .sidebar {
-    left: 0;
-    right: 0;
-    top: auto;
-    bottom: 0;
-    width: auto;
-    height: 68px;
     padding: 8px 10px;
-    border-right: 0;
-    border-top: 1px solid var(--border-subtle);
   }
 
   .transporter-page .nav-menu {
-    flex-direction: row;
-    justify-content: space-between;
     gap: 4px;
   }
 
@@ -563,12 +593,11 @@ a:hover {
     height: 42px;
   }
 
-  .transporter-page .nav-text {
-    display: none;
+  .transporter-page .sidebar:hover .nav-link {
+    width: 42px;
   }
 
   .transporter-page .main-content {
-    margin-left: 0;
     padding: 94px 12px 68px;
   }
 
@@ -816,6 +845,12 @@ a:hover {
   border: 1px solid var(--border-subtle);
   border-radius: 8px;
   padding: 0 10px;
+}
+
+@media (max-width: 768px) {
+  .ai-assistant-widget {
+    bottom: 88px;
+  }
 }
 
 @media (max-width: 576px) {
