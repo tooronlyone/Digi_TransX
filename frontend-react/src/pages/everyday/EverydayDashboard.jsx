@@ -1,75 +1,299 @@
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
-import { PageTitle, SectionCard, StateMessage } from '../client/clientUtils'
+import {
+  apiGet,
+  formatDate,
+  formatStatus,
+  StateMessage,
+} from '../client/clientUtils'
 
-// A deliberately simple everyday dashboard: quick actions + recent orders.
-// No wallet, agreements, or business widgets (those endpoints 403 for everyday).
-const QUICK_ACTIONS = [
-  { to: '/everyday/post-order', icon: 'fa-shipping-fast', title: 'Post an Order', subtitle: 'Request a one-time delivery' },
-  { to: '/everyday/orders', icon: 'fa-clipboard-list', title: 'My Orders', subtitle: 'Track your requests and bids' },
-  { to: '/everyday/terms', icon: 'fa-file-lines', title: 'Terms & Fees', subtitle: 'How payment and fees work' },
-]
+const TERMINAL_STATUSES = new Set([
+  'cancelled',
+  'completed',
+  'delivered',
+  'refunded',
+  'resolved_client',
+])
+
+const OPEN_STATUSES = new Set(['open', 'pending', 'bidding'])
+
+function normalizedStatus(value) {
+  return String(value || 'open').trim().toLowerCase()
+}
+
+function locationLabel(order, side) {
+  return order[`${side}_location`] || order[`${side}_city`] || 'Location pending'
+}
+
+function statusTone(status) {
+  const value = normalizedStatus(status)
+  if (['completed', 'delivered'].includes(value)) return 'complete'
+  if (['delivery_disputed', 'admin_review', 'disputed'].includes(value)) return 'attention'
+  if (['cancelled', 'refunded', 'resolved_client'].includes(value)) return 'muted'
+  if (OPEN_STATUSES.has(value)) return 'open'
+  return 'active'
+}
 
 export default function EverydayDashboard() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState('')
 
   useEffect(() => {
     let mounted = true
-    fetch('/api/orders/my-orders', { credentials: 'same-origin' })
-      .then((r) => r.json())
-      .then((json) => { if (mounted) setOrders(json.orders || []) })
-      .catch(() => {})
-      .finally(() => { if (mounted) setLoading(false) })
-    return () => { mounted = false }
+    apiGet('/api/orders/my-orders')
+      .then((json) => {
+        if (mounted) setOrders(json.orders || [])
+      })
+      .catch((error) => {
+        if (mounted) setLoadError(error.message || 'Could not load your orders.')
+      })
+      .finally(() => {
+        if (mounted) setLoading(false)
+      })
+    return () => {
+      mounted = false
+    }
   }, [])
 
   const recent = orders.slice(0, 5)
+  const openOrders = orders.filter((order) => OPEN_STATUSES.has(normalizedStatus(order.status))).length
+  const activeOrders = orders.filter((order) => !TERMINAL_STATUSES.has(normalizedStatus(order.status))).length
+  const completedOrders = orders.filter((order) => ['completed', 'delivered'].includes(normalizedStatus(order.status))).length
+  const totalBids = orders.reduce((sum, order) => sum + Number(order.bid_count || 0), 0)
 
   return (
-    <>
-      <PageTitle title="Welcome" subtitle="Post a delivery and compare transporter bids — pay the one you pick by card." />
-
-      <div className="grid gap-4 sm:grid-cols-3">
-        {QUICK_ACTIONS.map((a) => (
-          <Link key={a.to} to={a.to} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition hover:shadow-md">
-            <span className="inline-flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-              <i className={`fas ${a.icon}`} aria-hidden="true"></i>
-            </span>
-            <h3 className="mt-3 text-base font-bold text-slate-900">{a.title}</h3>
-            <p className="text-sm text-slate-500">{a.subtitle}</p>
-          </Link>
-        ))}
-      </div>
-
-      <SectionCard title="Recent Orders" icon="fa-clock" className="mt-6">
-        {loading && <StateMessage type="loading">Loading your orders...</StateMessage>}
-        {!loading && recent.length === 0 && (
-          <StateMessage type="empty">
-            <p>You haven't posted any orders yet.</p>
-            <Link to="/everyday/post-order" className="mt-3 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-              Post Your First Order
+    <div className="everyday-dashboard">
+      <section className="everyday-hero">
+        <div className="everyday-hero__content">
+          <div className="everyday-hero__eyebrow">
+            <span className="everyday-hero__eyebrow-dot"></span>
+            One-time delivery
+          </div>
+          <h1>Your next delivery starts here.</h1>
+          <p>
+            Post your route once, compare verified transporter bids, and choose
+            the offer that works for you.
+          </p>
+          <div className="everyday-hero__actions">
+            <Link to="/everyday/post-order" className="everyday-btn everyday-btn--primary">
+              <i className="fas fa-plus" aria-hidden="true"></i>
+              Post a new order
             </Link>
-          </StateMessage>
-        )}
-        {!loading && recent.length > 0 && (
-          <ul className="divide-y divide-slate-100">
-            {recent.map((o) => (
-              <li key={o.id} className="flex items-center justify-between gap-3 py-3">
-                <div className="min-w-0">
-                  <p className="truncate text-sm font-semibold text-slate-900">
-                    {(o.pickup_location || o.pickup_city)} → {(o.dropoff_location || o.dropoff_city)}
-                  </p>
-                  <p className="text-xs text-slate-500">Order #{o.id} · {o.bid_count} bids · {o.status.replace(/_/g, ' ')}</p>
-                </div>
-                <Link to={`/everyday/order/${o.id}`} className="shrink-0 text-sm font-semibold text-blue-600 hover:text-blue-700">
-                  View
-                </Link>
-              </li>
-            ))}
-          </ul>
-        )}
-      </SectionCard>
-    </>
+            <Link to="/everyday/orders" className="everyday-btn everyday-btn--ghost">
+              View my orders
+              <i className="fas fa-arrow-right" aria-hidden="true"></i>
+            </Link>
+          </div>
+        </div>
+
+        <div className="everyday-hero__visual" aria-hidden="true">
+          <div className="everyday-route-card">
+            <div className="everyday-route-card__top">
+              <span>Simple booking</span>
+              <span className="everyday-route-card__live">3 steps</span>
+            </div>
+            <div className="everyday-route-card__path">
+              <span className="everyday-route-card__pin everyday-route-card__pin--start">
+                <i className="fas fa-box"></i>
+              </span>
+              <span className="everyday-route-card__line"></span>
+              <span className="everyday-route-card__truck">
+                <i className="fas fa-truck-fast"></i>
+              </span>
+              <span className="everyday-route-card__line"></span>
+              <span className="everyday-route-card__pin everyday-route-card__pin--finish">
+                <i className="fas fa-location-dot"></i>
+              </span>
+            </div>
+            <div className="everyday-route-card__labels">
+              <span>Post route</span>
+              <span>Compare bids</span>
+              <span>Book safely</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="everyday-stats" aria-label="Order summary">
+        <article className="everyday-stat everyday-stat--blue">
+          <span className="everyday-stat__icon"><i className="fas fa-boxes-stacked"></i></span>
+          <div>
+            <strong>{orders.length}</strong>
+            <span>Total orders</span>
+          </div>
+        </article>
+        <article className="everyday-stat everyday-stat--amber">
+          <span className="everyday-stat__icon"><i className="fas fa-satellite-dish"></i></span>
+          <div>
+            <strong>{openOrders}</strong>
+            <span>Open for bids</span>
+          </div>
+        </article>
+        <article className="everyday-stat everyday-stat--cyan">
+          <span className="everyday-stat__icon"><i className="fas fa-gavel"></i></span>
+          <div>
+            <strong>{totalBids}</strong>
+            <span>Bids received</span>
+          </div>
+        </article>
+        <article className="everyday-stat everyday-stat--green">
+          <span className="everyday-stat__icon"><i className="fas fa-circle-check"></i></span>
+          <div>
+            <strong>{completedOrders}</strong>
+            <span>Completed</span>
+          </div>
+        </article>
+      </section>
+
+      <div className="everyday-dashboard__grid">
+        <section className="everyday-panel everyday-panel--orders">
+          <header className="everyday-panel__header">
+            <div>
+              <span className="everyday-panel__kicker">Latest activity</span>
+              <h2>Recent orders</h2>
+            </div>
+            <Link to="/everyday/orders" className="everyday-panel__link">
+              View all <i className="fas fa-arrow-right" aria-hidden="true"></i>
+            </Link>
+          </header>
+
+          {loading && (
+            <div className="everyday-panel__state">
+              <StateMessage type="loading">Loading your orders...</StateMessage>
+            </div>
+          )}
+
+          {!loading && loadError && (
+            <div className="everyday-panel__state">
+              <StateMessage type="error" title="Orders unavailable">
+                {loadError}
+              </StateMessage>
+            </div>
+          )}
+
+          {!loading && !loadError && recent.length === 0 && (
+            <div className="everyday-empty">
+              <span className="everyday-empty__icon"><i className="fas fa-route"></i></span>
+              <h3>No delivery requests yet</h3>
+              <p>Post your first route and start receiving transporter bids.</p>
+              <Link to="/everyday/post-order" className="everyday-btn everyday-btn--primary">
+                Post your first order
+              </Link>
+            </div>
+          )}
+
+          {!loading && !loadError && recent.length > 0 && (
+            <div className="everyday-order-list">
+              {recent.map((order) => {
+                const tone = statusTone(order.status)
+                return (
+                  <article className="everyday-order" key={order.id}>
+                    <div className="everyday-order__identity">
+                      <span className="everyday-order__number">#{order.id}</span>
+                      <span className={`everyday-order__status everyday-order__status--${tone}`}>
+                        {formatStatus(order.status)}
+                      </span>
+                    </div>
+
+                    <div className="everyday-order__route">
+                      <div className="everyday-order__stop">
+                        <span className="everyday-order__dot everyday-order__dot--pickup"></span>
+                        <div>
+                          <small>Pickup</small>
+                          <strong title={locationLabel(order, 'pickup')}>
+                            {locationLabel(order, 'pickup')}
+                          </strong>
+                        </div>
+                      </div>
+                      <div className="everyday-order__connector" aria-hidden="true">
+                        <span></span>
+                        <i className="fas fa-chevron-right"></i>
+                      </div>
+                      <div className="everyday-order__stop">
+                        <span className="everyday-order__dot everyday-order__dot--dropoff"></span>
+                        <div>
+                          <small>Dropoff</small>
+                          <strong title={locationLabel(order, 'dropoff')}>
+                            {locationLabel(order, 'dropoff')}
+                          </strong>
+                        </div>
+                      </div>
+                    </div>
+
+                    <div className="everyday-order__meta">
+                      <span>
+                        <i className="fas fa-gavel" aria-hidden="true"></i>
+                        {Number(order.bid_count || 0)} {Number(order.bid_count || 0) === 1 ? 'bid' : 'bids'}
+                      </span>
+                      {order.created_at && (
+                        <span>
+                          <i className="far fa-calendar" aria-hidden="true"></i>
+                          {formatDate(order.created_at)}
+                        </span>
+                      )}
+                    </div>
+
+                    <Link to={`/everyday/order/${order.id}`} className="everyday-order__view" aria-label={`View order ${order.id}`}>
+                      <span>View details</span>
+                      <i className="fas fa-arrow-right" aria-hidden="true"></i>
+                    </Link>
+                  </article>
+                )
+              })}
+            </div>
+          )}
+        </section>
+
+        <aside className="everyday-dashboard__sidebar">
+          <section className="everyday-panel everyday-quick-panel">
+            <span className="everyday-panel__kicker">Shortcuts</span>
+            <h2>Quick actions</h2>
+            <div className="everyday-quick-list">
+              <Link to="/everyday/post-order" className="everyday-quick everyday-quick--featured">
+                <span className="everyday-quick__icon"><i className="fas fa-truck-fast"></i></span>
+                <span>
+                  <strong>Post an order</strong>
+                  <small>Request a new delivery</small>
+                </span>
+                <i className="fas fa-arrow-right everyday-quick__arrow"></i>
+              </Link>
+              <Link to="/everyday/orders" className="everyday-quick">
+                <span className="everyday-quick__icon"><i className="fas fa-clipboard-list"></i></span>
+                <span>
+                  <strong>My orders</strong>
+                  <small>{activeOrders} currently active</small>
+                </span>
+                <i className="fas fa-arrow-right everyday-quick__arrow"></i>
+              </Link>
+              <Link to="/everyday/messages" className="everyday-quick">
+                <span className="everyday-quick__icon"><i className="fas fa-comments"></i></span>
+                <span>
+                  <strong>Messages</strong>
+                  <small>Talk to your transporter</small>
+                </span>
+                <i className="fas fa-arrow-right everyday-quick__arrow"></i>
+              </Link>
+              <Link to="/everyday/terms" className="everyday-quick">
+                <span className="everyday-quick__icon"><i className="fas fa-file-shield"></i></span>
+                <span>
+                  <strong>Terms & fees</strong>
+                  <small>Understand secure payments</small>
+                </span>
+                <i className="fas fa-arrow-right everyday-quick__arrow"></i>
+              </Link>
+            </div>
+          </section>
+
+          <section className="everyday-assurance">
+            <span className="everyday-assurance__icon"><i className="fas fa-shield-halved"></i></span>
+            <div>
+              <strong>Choose with confidence</strong>
+              <p>Compare bid price, transporter profile, and rating before booking.</p>
+            </div>
+          </section>
+        </aside>
+      </div>
+    </div>
   )
 }
