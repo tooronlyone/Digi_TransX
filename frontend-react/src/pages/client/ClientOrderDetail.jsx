@@ -226,7 +226,7 @@ export default function ClientOrderDetail() {
       />
 
       <div className="order-detail-grid">
-        <SectionCard title="Order Details" icon="fa-box">
+        <SectionCard title="Order Details" icon="fa-box" className="odp-section">
           <div className="detail-grid">
             <div className="detail-item">
               <span className="detail-label">Pickup Location</span>
@@ -261,7 +261,7 @@ export default function ClientOrderDetail() {
           </div>
         </SectionCard>
 
-        <SectionCard title="Bid Summary" icon="fa-chart-bar">
+        <SectionCard title="Bid Summary" icon="fa-chart-bar" className="odp-section">
           <div className="summary-box">
             <div className="summary-item">
               <span className="summary-label">Total Bids</span>
@@ -285,7 +285,7 @@ export default function ClientOrderDetail() {
 
       {/* Post-payment status: accepted transporter, held payment, trip state. */}
       {!orderOpen && payment && (
-        <SectionCard title="Payment &amp; Trip" icon="fa-shield-halved">
+        <SectionCard title="Payment &amp; Trip" icon="fa-shield-halved" className="odp-section">
           <div className="payment-summary">
             <div className="payment-summary__row">
               <span className="detail-label">Payment status</span>
@@ -386,6 +386,7 @@ export default function ClientOrderDetail() {
       )}
 
       <SectionCard
+        className="odp-section"
         title={`${orderOpen ? 'Compare Bids' : 'Bids'} (${bids.length})`}
         icon="fa-gavel"
         actions={

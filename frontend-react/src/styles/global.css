@@ -949,6 +949,23 @@ a:hover {
     bottom: 82px;
   }
 
+  body:has(.everyday-page) .ai-assistant-widget.mode-hidden .ai-assistant-shell,
+  body:has(.everyday-page) .ai-assistant-widget.mode-minimized .ai-assistant-shell {
+    transform: translateY(8px) scale(0.98);
+  }
+
+  body:has(.everyday-page) .ai-assistant-header {
+    flex-wrap: wrap;
+  }
+
+  body:has(.everyday-page) .ai-assistant-controls {
+    width: 100%;
+    min-width: 0;
+    margin-left: 0;
+    flex-wrap: wrap;
+    justify-content: flex-end;
+  }
+
   .ai-assistant-mini {
     width: 52px;
     height: 52px;

@@ -194,14 +194,14 @@ export function SectionCard({ title, icon, actions, children, className = '' }) 
   return (
     <section className={`t-page-card ${className}`} style={{ marginBottom: 28 }}>
       {(title || actions) && (
-        <div style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center', marginBottom: 18 }}>
+        <div className="t-page-card__heading" style={{ display: 'flex', justifyContent: 'space-between', gap: 14, alignItems: 'center', marginBottom: 18 }}>
           {title && (
             <h2 style={{ margin: 0 }}>
               {icon && <i className={`fas ${icon}`} style={{ marginRight: 10, color: 'var(--accent-primary)' }} aria-hidden="true"></i>}
               {title}
             </h2>
           )}
-          {actions && <div style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>{actions}</div>}
+          {actions && <div className="t-page-card__actions" style={{ display: 'flex', flexWrap: 'wrap', gap: 10 }}>{actions}</div>}
         </div>
       )}
       {children}

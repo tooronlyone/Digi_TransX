@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { adminRequest, dateText, money } from './adminApi'
-import { detailMatchesSelection, shouldAcceptDetail } from './disputeGuards'
+import {
+  detailMatchesSelection,
+  detailRequestError,
+  disputeDetailFromResponse,
+  shouldAcceptDetail,
+} from './disputeGuards'
 
 const S = {
   heading:  { fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0 },
@@ -60,6 +65,9 @@ export default function AdminDisputes() {
   const mountedRef = useRef(true)
 
   useEffect(() => {
+    // StrictMode runs setup -> cleanup -> setup in development. Restore the
+    // mounted flag on every setup so valid responses are not discarded.
+    mountedRef.current = true
     return () => {
       mountedRef.current = false
       otReqRef.current += 1              // invalidate any pending response
@@ -82,16 +90,24 @@ export default function AdminDisputes() {
       const json = await adminRequest(`/api/admin/one-time-disputes/${item.id}`, {
         signal: controller.signal,
       })
+      const detail = disputeDetailFromResponse(json)
       // Apply ONLY if this is still the latest request AND the response is for
       // the dispute the admin currently has open.
       if (!mountedRef.current) return
-      if (!shouldAcceptDetail(json.dispute?.id, item.id, token, otReqRef.current)) return
-      setOtDetail(json.dispute || null)
+      if (!shouldAcceptDetail(detail?.id, item.id, token, otReqRef.current)) {
+        if (token === otReqRef.current) {
+          setOtDetailError('The returned evidence did not match the selected dispute.')
+          setOtDetailLoading(false)
+        }
+        return
+      }
+      setOtDetail(detail)
       setOtDetailLoading(false)
     } catch (err) {
       if (err?.name === 'AbortError') return          // superseded/closed — ignore
-      if (!mountedRef.current || token !== otReqRef.current) return
-      setOtDetailError(err.message || 'Unable to load dispute details.')
+      const message = detailRequestError(err, mountedRef.current, token, otReqRef.current)
+      if (!message) return
+      setOtDetailError(message)
       setOtDetailLoading(false)
     }
   }

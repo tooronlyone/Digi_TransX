@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   PageTitle,
@@ -7,6 +7,7 @@ import {
   formatMoney,
 } from './clientUtils'
 import useClientBasePath from '../../hooks/useClientBasePath'
+import { fetchMyOrders, shouldApplyOrdersResult } from './myOrdersLoader'
 
 function statusBadgeClass(status) {
   const baseClass = 'rounded-full px-3 py-1 text-xs font-semibold'
@@ -34,25 +35,40 @@ export default function MyOrders() {
   const [orders, setOrders] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [loadVersion, setLoadVersion] = useState(0)
+  const requestRef = useRef(0)
 
-  async function loadOrders() {
+  function refreshOrders() {
     setLoading(true)
     setError('')
-    try {
-      const response = await fetch('/api/orders/my-orders', { credentials: 'same-origin' })
-      const json = await response.json().catch(() => ({}))
-      if (!response.ok || json.success === false) throw new Error(json.message || 'Unable to load orders.')
-      setOrders(json.orders || [])
-    } catch (loadError) {
-      setError(loadError.message || 'Unable to load your orders.')
-    } finally {
-      setLoading(false)
-    }
+    setLoadVersion((version) => version + 1)
   }
 
   useEffect(() => {
-    loadOrders()
-  }, [])
+    const requestId = ++requestRef.current
+    const controller = new AbortController()
+
+    fetchMyOrders({ signal: controller.signal })
+      .then((nextOrders) => {
+        if (!shouldApplyOrdersResult(requestId, requestRef.current, controller.signal)) return
+        setOrders(nextOrders)
+      })
+      .catch((loadError) => {
+        if (loadError?.name === 'AbortError') return
+        if (!shouldApplyOrdersResult(requestId, requestRef.current, controller.signal)) return
+        setError(loadError.message || 'Unable to load your orders.')
+      })
+      .finally(() => {
+        if (shouldApplyOrdersResult(requestId, requestRef.current, controller.signal)) {
+          setLoading(false)
+        }
+      })
+
+    return () => {
+      controller.abort()
+      requestRef.current += 1
+    }
+  }, [loadVersion])
 
   return (
     <>
@@ -60,10 +76,21 @@ export default function MyOrders() {
         title="My Orders"
         subtitle="Track all your shipment orders and manage bids from transporters."
         actions={
-          <Link to={`${base}/post-order`} className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-            <i className="fas fa-plus-circle mr-2" aria-hidden="true"></i>
-            Post New Order
-          </Link>
+          <>
+            <button
+              type="button"
+              onClick={refreshOrders}
+              disabled={loading}
+              className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+            >
+              <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-rotate-right'} mr-2`} aria-hidden="true"></i>
+              Refresh
+            </button>
+            <Link to={`${base}/post-order`} className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+              <i className="fas fa-plus-circle mr-2" aria-hidden="true"></i>
+              Post New Order
+            </Link>
+          </>
         }
       />
 

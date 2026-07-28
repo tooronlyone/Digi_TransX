@@ -485,6 +485,60 @@
   }
 }
 
+@media (max-width: 480px) {
+  .everyday-page .order-detail-grid,
+  .everyday-page .order-detail-grid > *,
+  .everyday-page .odp-section,
+  .everyday-page .bids-grid,
+  .everyday-page .bid-card {
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .everyday-page .t-page-card__heading:has(.odp-sort) {
+    align-items: flex-start !important;
+    flex-wrap: wrap;
+  }
+
+  .everyday-page .t-page-card__heading:has(.odp-sort) .t-page-card__actions,
+  .everyday-page .odp-sort {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .everyday-page .odp-sort__select {
+    flex: 1 1 auto;
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .everyday-page .bid-header {
+    align-items: flex-start;
+    flex-wrap: wrap;
+  }
+
+  .everyday-page .bid-badges {
+    justify-content: flex-start;
+  }
+
+  .everyday-page .detail-value,
+  .everyday-page .detail-notes,
+  .everyday-page .bid-message,
+  .everyday-page .bid-transporter,
+  .everyday-page .bid-transporter__meta,
+  .everyday-page .bid-transporter__name,
+  .everyday-page .bid-transporter__sub,
+  .everyday-page .bid-truck,
+  .everyday-page .bid-truck__specs,
+  .everyday-page .bid-truck__title,
+  .everyday-page .bid-truck__number {
+    min-width: 0;
+    max-width: 100%;
+    overflow-wrap: anywhere;
+  }
+}
+
 /* One-time delivery confirmation (client Yes/No) */
 .odp-confirm { margin-top: 16px; padding: 16px; border-radius: 12px; background: #f8fafc; border: 1px solid #e2e8f0; }
 .odp-confirm__lead { display: flex; align-items: flex-start; gap: 8px; color: #334155; font-size: 14px; margin: 0 0 8px; }

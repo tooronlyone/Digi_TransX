@@ -182,7 +182,7 @@ export default function PostOrder() {
         )}
         {success && <StateMessage type="success">{success}</StateMessage>}
 
-        <form className="grid gap-5" onSubmit={handleSubmit}>
+        <form className="everyday-order-form grid gap-5" onSubmit={handleSubmit}>
           {/* ---- Route: single detailed location + map picker ---- */}
           <div className="grid gap-5 md:grid-cols-2">
             <LocationPicker

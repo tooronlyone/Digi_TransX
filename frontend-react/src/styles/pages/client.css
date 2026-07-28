@@ -570,6 +570,17 @@
   border: none;
 }
 
+/* The one-time form can be narrower than an input's intrinsic width at 320px. */
+.everyday-page .everyday-order-form,
+.everyday-page .everyday-order-form > *,
+.everyday-page .everyday-order-form .lp-field,
+.everyday-page .everyday-order-form .lp-input-row,
+.everyday-page .everyday-order-form .lp-input,
+.everyday-page .everyday-order-form .lp-map {
+  min-width: 0;
+  max-width: 100%;
+}
+
 /* ============================================
    RESPONSIVE
    ============================================ */
