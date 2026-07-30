@@ -1,4 +1,5 @@
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import './TransporterReviewModal.css'
 
 const MAX_COMMENT_LENGTH = 1000
 
@@ -92,19 +93,16 @@ export default function TransporterReviewModal({
           )}
         </div>
 
-        <div style={{ marginTop: 20 }}>
-          <div style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Required star rating</div>
-          <div role="radiogroup" aria-label="Transporter rating" style={{ display: 'flex', gap: 10, marginTop: 12, flexWrap: 'wrap' }}>
+        <fieldset style={{ margin: '20px 0 0', padding: 0, border: 0, minWidth: 0 }}>
+          <legend style={{ padding: 0, fontSize: 14, fontWeight: 700, color: '#0f172a' }}>
+            Required star rating
+          </legend>
+          <div className="transporter-review-rating-group">
             {[1, 2, 3, 4, 5].map((value) => (
               <label
                 key={value}
+                className="transporter-review-rating-control"
                 style={{
-                  display: 'inline-flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  width: 48,
-                  height: 48,
-                  borderRadius: 14,
                   border: rating === value ? '2px solid #2563eb' : '1px solid #cbd5e1',
                   background: rating === value ? '#eff6ff' : '#fff',
                   color: rating >= value ? '#f59e0b' : '#94a3b8',
@@ -118,17 +116,21 @@ export default function TransporterReviewModal({
                   checked={rating === value}
                   disabled={submitting}
                   onChange={() => setRating(value)}
-                  style={{ position: 'absolute', opacity: 0, pointerEvents: 'none' }}
+                  className="transporter-review-rating-input"
                   aria-label={starsLabel(value)}
                 />
-                <i className="fas fa-star" aria-hidden="true"></i>
+                <span className="transporter-review-rating-visual">
+                  <i className="fas fa-star" aria-hidden="true"></i>
+                </span>
               </label>
             ))}
           </div>
           {!rating && (
-            <div style={{ marginTop: 10, color: '#b91c1c', fontSize: 13 }}>Please select a rating from 1 to 5 stars.</div>
+            <div style={{ marginTop: 10, color: '#b91c1c', fontSize: 13 }}>
+              Please select a rating from 1 to 5 stars.
+            </div>
           )}
-        </div>
+        </fieldset>
 
         <label style={{ display: 'grid', gap: 8, marginTop: 20 }}>
           <span style={{ fontSize: 14, fontWeight: 700, color: '#0f172a' }}>Optional written review</span>

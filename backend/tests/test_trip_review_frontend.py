@@ -38,10 +38,20 @@ def test_both_everyday_and_business_layouts_use_the_same_pending_gate():
 
 def test_review_modal_is_keyboard_accessible_and_never_renders_raw_html():
     modal = _source("components/common/TransporterReviewModal.jsx")
+    styles = _source("components/common/TransporterReviewModal.css")
 
     assert 'type="radio"' in modal
+    assert "<fieldset" in modal
+    assert "<legend" in modal
     assert 'aria-label={starsLabel(value)}' in modal
     assert "out of 5 stars" in modal
+    assert 'name="transporter-rating"' in modal
+    assert "checked={rating === value}" in modal
+    assert "onChange={() => setRating(value)}" in modal
+    assert "pointerEvents: 'none'" not in modal
+    assert "display: none" not in styles
+    assert "visibility: hidden" not in styles
+    assert ".transporter-review-rating-input:focus-visible" in styles
     assert 'role="dialog"' in modal
     assert "dialogRef.current.focus()" in modal
     assert "Please select a rating from 1 to 5 stars." in modal
@@ -49,6 +59,19 @@ def test_review_modal_is_keyboard_accessible_and_never_renders_raw_html():
     assert ".innerHTML" not in modal
     assert "<textarea" in modal
 
+
+def test_review_modal_keeps_one_rating_owner_and_one_submission_path():
+    modal = _source("components/common/TransporterReviewModal.jsx")
+
+    assert modal.count("const [rating, setRating] = useState(0)") == 1
+    assert modal.count("onSubmit?.({ rating, comment })") == 1
+    assert "disabled={submitting || !rating}" in modal
+    assert modal.count('type="radio"') == 1
+    assert "[1, 2, 3, 4, 5].map" in modal
+    assert "onClick={onClose}" in modal
+    assert "event.key === 'Escape'" in modal
+    assert "ArrowLeft" not in modal
+    assert "ArrowRight" not in modal
 
 def test_pending_notice_is_mandatory_for_order_creation_but_not_a_navigation_trap():
     gate = _source("components/common/PendingTransporterReviewGate.jsx")
