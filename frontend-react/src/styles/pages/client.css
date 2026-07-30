@@ -928,8 +928,14 @@
 }
 
 .everyday-stat strong,
-.everyday-stat span {
+.everyday-stat > div > span {
   display: block;
+}
+
+.everyday-stat__icon > i {
+  display: block;
+  font-size: 20px;
+  line-height: 1;
 }
 
 .everyday-stat strong {

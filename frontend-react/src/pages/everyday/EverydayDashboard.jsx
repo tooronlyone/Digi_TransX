@@ -117,28 +117,28 @@ export default function EverydayDashboard() {
 
       <section className="everyday-stats" aria-label="Order summary">
         <article className="everyday-stat everyday-stat--blue">
-          <span className="everyday-stat__icon"><i className="fas fa-boxes-stacked"></i></span>
+          <span className="everyday-stat__icon"><i className="fas fa-boxes-stacked" aria-hidden="true"></i></span>
           <div>
             <strong>{orders.length}</strong>
             <span>Total orders</span>
           </div>
         </article>
         <article className="everyday-stat everyday-stat--amber">
-          <span className="everyday-stat__icon"><i className="fas fa-satellite-dish"></i></span>
+          <span className="everyday-stat__icon"><i className="fas fa-satellite-dish" aria-hidden="true"></i></span>
           <div>
             <strong>{openOrders}</strong>
             <span>Open for bids</span>
           </div>
         </article>
         <article className="everyday-stat everyday-stat--cyan">
-          <span className="everyday-stat__icon"><i className="fas fa-gavel"></i></span>
+          <span className="everyday-stat__icon"><i className="fas fa-gavel" aria-hidden="true"></i></span>
           <div>
             <strong>{totalBids}</strong>
             <span>Bids received</span>
           </div>
         </article>
         <article className="everyday-stat everyday-stat--green">
-          <span className="everyday-stat__icon"><i className="fas fa-circle-check"></i></span>
+          <span className="everyday-stat__icon"><i className="fas fa-circle-check" aria-hidden="true"></i></span>
           <div>
             <strong>{completedOrders}</strong>
             <span>Completed</span>
