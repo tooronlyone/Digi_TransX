@@ -3,6 +3,7 @@
 import json
 import os
 from pathlib import Path
+import re
 import subprocess
 import threading
 from urllib.parse import urlsplit
@@ -64,6 +65,8 @@ EVENT_MIGRATION = (
 )
 EXPECTED_BASE_DATABASE = "dtx_schema_trigger_rls_baseline"
 EVENT_TABLES = ("security_events", "business_audit_events")
+CATALOG_PROJECTION = "canonical_event_catalog_projection"
+FOUNDATION_TABLES = (*EVENT_TABLES, CATALOG_PROJECTION)
 
 
 def _local_test_url():
@@ -96,7 +99,7 @@ def _locked_main_schema():
 def _foundation_metadata(conn):
     result = {}
     with conn.cursor() as cursor:
-        for table in EVENT_TABLES:
+        for table in FOUNDATION_TABLES:
             cursor.execute(
                 """
                 SELECT column_name, data_type, udt_name, is_nullable, column_default
@@ -160,6 +163,33 @@ def _foundation_metadata(conn):
                 (table,),
             )
             result[(table, "policies")] = cursor.fetchall()
+            cursor.execute(
+                """
+                SELECT relrowsecurity, relforcerowsecurity
+                FROM pg_class AS relation
+                JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+                WHERE namespace.nspname = 'public' AND relation.relname = %s
+                """,
+                (table,),
+            )
+            result[(table, "rls")] = cursor.fetchall()
+            cursor.execute(
+                """
+                SELECT grantee.rolname, privilege.privilege_type,
+                       privilege.is_grantable
+                FROM pg_class AS relation
+                JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+                CROSS JOIN LATERAL aclexplode(
+                    coalesce(relation.relacl, acldefault('r', relation.relowner))
+                ) AS privilege
+                JOIN pg_roles AS grantee ON grantee.oid = privilege.grantee
+                WHERE namespace.nspname = 'public' AND relation.relname = %s
+                  AND privilege.grantee <> relation.relowner
+                ORDER BY grantee.rolname, privilege.privilege_type
+                """,
+                (table,),
+            )
+            result[(table, "privileges")] = cursor.fetchall()
         cursor.execute(
             """
             SELECT p.proname, pg_get_function_identity_arguments(p.oid),
@@ -167,12 +197,67 @@ def _foundation_metadata(conn):
             FROM pg_proc AS p
             JOIN pg_namespace AS n ON n.oid = p.pronamespace
             WHERE n.nspname = 'public'
-              AND p.proname IN ('is_bounded_event_json', 'prevent_canonical_event_update')
+              AND p.proname IN (
+                  'is_bounded_event_json', 'prevent_canonical_event_update',
+                  'enforce_canonical_event_contract'
+              )
             ORDER BY p.proname
             """
         )
         result[("functions",)] = cursor.fetchall()
     return result
+
+
+def _catalog_projection(conn):
+    with conn.cursor() as cursor:
+        cursor.execute(
+            """
+            SELECT event_name, event_version, category, ownership_domain,
+                   retention_class, lifecycle_status, writable, integrated
+            FROM public.canonical_event_catalog_projection
+            ORDER BY event_name
+            """
+        )
+        return cursor.fetchall()
+
+
+def _expected_catalog_projection():
+    return sorted(
+        (
+            definition.name,
+            definition.version,
+            definition.category,
+            definition.ownership_domain,
+            definition.retention_class,
+            definition.lifecycle_status,
+            definition.writable,
+            definition.integrated,
+        )
+        for definition in CATALOG.values()
+    )
+
+
+def _committed_projection_rows(path):
+    text = path.read_text(encoding="utf-8")
+    start = text.index("insert into public.canonical_event_catalog_projection")
+    end = text.index("on conflict (event_name) do nothing;", start)
+    pattern = re.compile(
+        r"\('([^']+)', (\d+), '([^']+)', '([^']+)', '([^']+)', "
+        r"'([^']+)', (true|false), (true|false)\)"
+    )
+    return sorted(
+        (
+            match.group(1),
+            int(match.group(2)),
+            match.group(3),
+            match.group(4),
+            match.group(5),
+            match.group(6),
+            match.group(7) == "true",
+            match.group(8) == "true",
+        )
+        for match in pattern.finditer(text[start:end])
+    )
 
 
 def _event_counts(conn):
@@ -213,6 +298,51 @@ def _data(**changes):
     return EventData(**values)
 
 
+def _direct_insert(
+    cursor,
+    table,
+    *,
+    event_name,
+    event_version,
+    category,
+    retention_class,
+    request_id,
+    actor_type="system",
+    actor_id=None,
+    actor_role=None,
+    idempotency_scope=None,
+    idempotency_key=None,
+    fingerprint=None,
+):
+    cursor.execute(
+        sql.SQL(
+            """
+            INSERT INTO public.{} (
+                event_name, event_version, category, actor_type, actor_id,
+                actor_role, request_id, source, provider_mode, environment,
+                retention_class, idempotency_scope, idempotency_key, fingerprint
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, 'test', 'none', 'test',
+                      %s, %s, %s, %s)
+            RETURNING event_id
+            """
+        ).format(sql.Identifier(table)),
+        (
+            event_name,
+            event_version,
+            category,
+            actor_type,
+            actor_id,
+            actor_role,
+            request_id,
+            retention_class,
+            idempotency_scope,
+            idempotency_key,
+            fingerprint,
+        ),
+    )
+    return cursor.fetchone()[0]
+
+
 def test_catalog_is_single_locked_owner_and_deferred_names_are_not_writable():
     assert len(CATALOG) == 157
     assert len(PLANNED_EVENT_NAMES) == 149
@@ -231,6 +361,15 @@ def test_catalog_is_single_locked_owner_and_deferred_names_are_not_writable():
         get_writable_event_definition(DEFERRED_EVENT_NAMES[0])
     with pytest.raises(UnknownEventName):
         get_writable_event_definition("admin.withdrawal.approved")
+
+
+def test_committed_database_projection_matches_python_catalog_exactly():
+    expected = _expected_catalog_projection()
+    migration_rows = _committed_projection_rows(EVENT_MIGRATION)
+    schema_rows = _committed_projection_rows(SCHEMA_SQL)
+    assert len(expected) == len(migration_rows) == len(schema_rows) == 157
+    assert migration_rows == expected
+    assert schema_rows == expected
 
 
 def test_envelope_is_strict_and_server_owned(monkeypatch):
@@ -381,6 +520,9 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
     try:
         assert _foundation_metadata(sequence) == _foundation_metadata(corrected)
         assert _foundation_metadata(corrected) == _foundation_metadata(fresh)
+        assert _catalog_projection(sequence) == _expected_catalog_projection()
+        assert _catalog_projection(corrected) == _expected_catalog_projection()
+        assert _catalog_projection(fresh) == _expected_catalog_projection()
         assert _event_counts(sequence) == _event_counts(corrected) == _event_counts(fresh) == (0, 0)
         with sequence.cursor() as cursor:
             cursor.execute(
@@ -418,7 +560,118 @@ def test_migration_reapplication_is_safe_and_creates_no_rows():
             with conn.cursor() as cursor:
                 cursor.execute(event_sql)
         assert _foundation_metadata(conn) == before
+        assert _catalog_projection(conn) == _expected_catalog_projection()
         assert _event_counts(conn) == (0, 0)
+    finally:
+        conn.close()
+        cleanup()
+
+
+def test_exactly_one_event_table_aborts_atomically_without_repair():
+    event_sql = EVENT_MIGRATION.read_text(encoding="utf-8")
+    url, cleanup = _disposable(
+        STUBS,
+        "CREATE TABLE public.security_events (sentinel text); "
+        "INSERT INTO public.security_events VALUES ('preserve-me')",
+    )
+    conn = psycopg2.connect(url)
+    try:
+        with conn.cursor() as cursor:
+            with pytest.raises(psycopg2.Error) as raised:
+                cursor.execute(event_sql)
+            assert raised.value.pgcode == "55000"
+        conn.rollback()
+        with conn.cursor() as cursor:
+            cursor.execute("SELECT sentinel FROM public.security_events")
+            assert cursor.fetchall() == [("preserve-me",)]
+            cursor.execute(
+                """
+                SELECT count(*) FROM pg_class AS relation
+                JOIN pg_namespace AS namespace ON namespace.oid = relation.relnamespace
+                WHERE namespace.nspname='public'
+                  AND relation.relname IN (
+                    'security_events', 'business_audit_events',
+                    'canonical_event_catalog_projection'
+                  )
+                """
+            )
+            assert cursor.fetchone()[0] == 1
+    finally:
+        conn.close()
+        cleanup()
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "ALTER TABLE public.security_events RENAME COLUMN agreement_id TO agreement_id_wrong",
+        "ALTER TABLE public.security_events ALTER COLUMN agreement_id TYPE integer",
+        "ALTER TABLE public.security_events ALTER COLUMN request_id DROP NOT NULL",
+        "ALTER TABLE public.security_events ALTER COLUMN before_state "
+        "SET DEFAULT '{\"status\":\"changed\"}'::jsonb",
+        "ALTER TABLE public.security_events DROP CONSTRAINT security_events_category_check; "
+        "ALTER TABLE public.security_events ADD CONSTRAINT security_events_category_check CHECK (true)",
+        "DROP INDEX public.idx_security_events_occurred",
+        "DROP TRIGGER trg_security_events_no_update ON public.security_events",
+        "ALTER TABLE public.security_events DISABLE ROW LEVEL SECURITY",
+        "DROP POLICY security_events_service_role_all ON public.security_events",
+        "GRANT SELECT ON public.canonical_event_catalog_projection TO service_role",
+        "CREATE OR REPLACE FUNCTION public.is_bounded_event_json(event_value jsonb, value_kind text) "
+        "RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,public AS $$ SELECT true $$",
+    ],
+    ids=[
+        "wrong-column-name",
+        "wrong-type",
+        "wrong-nullability",
+        "wrong-default",
+        "weakened-check",
+        "missing-index",
+        "missing-append-trigger",
+        "wrong-rls",
+        "missing-policy",
+        "wrong-grant",
+        "wrong-helper-definition",
+    ],
+)
+def test_incompatible_complete_foundation_aborts_and_preserves_state(mutation):
+    event_sql = EVENT_MIGRATION.read_text(encoding="utf-8")
+    url, cleanup = _disposable(STUBS, _locked_main_schema(), event_sql)
+    conn = psycopg2.connect(url)
+    try:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    """
+                    INSERT INTO public.business_audit_events (
+                        event_name, event_version, category, actor_type, request_id,
+                        source, provider_mode, environment, retention_class
+                    ) VALUES (
+                        'one_time.order.created', 1, 'business_audit', 'system',
+                        'request.preserve.1', 'test', 'none', 'test',
+                        'business_24_months'
+                    )
+                    """
+                )
+                cursor.execute(mutation)
+        before_metadata = _foundation_metadata(conn)
+        before_catalog = _catalog_projection(conn)
+        before_counts = _event_counts(conn)
+
+        with conn.cursor() as cursor:
+            with pytest.raises(psycopg2.Error) as raised:
+                cursor.execute(event_sql)
+            assert raised.value.pgcode == "55000"
+        conn.rollback()
+
+        assert _foundation_metadata(conn) == before_metadata
+        assert _catalog_projection(conn) == before_catalog
+        assert _event_counts(conn) == before_counts == (0, 1)
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "SELECT request_id FROM public.business_audit_events "
+                "WHERE request_id='request.preserve.1'"
+            )
+            assert cursor.fetchall() == [("request.preserve.1",)]
     finally:
         conn.close()
         cleanup()
@@ -484,6 +737,206 @@ def test_unknown_deferred_and_wrong_category_fail_before_insert(
             "(SELECT count(*) FROM business_audit_events) AS business_count"
         )
         assert cursor.fetchone() == {"security_count": 0, "business_count": 0}
+
+
+def test_database_projection_matches_python_bidirectionally(event_connection):
+    assert _catalog_projection(event_connection) == _expected_catalog_projection()
+
+
+def test_every_writable_definition_is_accepted_only_by_its_category_table(
+    event_connection,
+):
+    writable = sorted(
+        (definition for definition in CATALOG.values() if definition.writable),
+        key=lambda definition: definition.name,
+    )
+    assert len(writable) == 143
+    expected_security = sum(definition.category == SECURITY for definition in writable)
+    expected_business = sum(
+        definition.category == BUSINESS_AUDIT for definition in writable
+    )
+    with event_connection.cursor() as cursor:
+        cursor.execute("SET LOCAL ROLE service_role")
+        cursor.execute("SAVEPOINT projection_denied")
+        with pytest.raises(errors.InsufficientPrivilege):
+            cursor.execute("SELECT * FROM public.canonical_event_catalog_projection")
+        cursor.execute("ROLLBACK TO SAVEPOINT projection_denied")
+
+        for index, definition in enumerate(writable, start=1):
+            correct_table = (
+                "security_events"
+                if definition.category == SECURITY
+                else "business_audit_events"
+            )
+            wrong_table = (
+                "business_audit_events"
+                if correct_table == "security_events"
+                else "security_events"
+            )
+            _direct_insert(
+                cursor,
+                correct_table,
+                event_name=definition.name,
+                event_version=definition.version,
+                category=definition.category,
+                retention_class=definition.retention_class,
+                request_id=f"request.catalog.{index}",
+            )
+            cursor.execute("SAVEPOINT wrong_category_table")
+            with pytest.raises((errors.CheckViolation, errors.RaiseException)):
+                _direct_insert(
+                    cursor,
+                    wrong_table,
+                    event_name=definition.name,
+                    event_version=definition.version,
+                    category=definition.category,
+                    retention_class=definition.retention_class,
+                    request_id=f"request.wrong_table.{index}",
+                )
+            cursor.execute("ROLLBACK TO SAVEPOINT wrong_category_table")
+
+        cursor.execute("RESET ROLE")
+        assert _event_counts(event_connection) == (
+            expected_security,
+            expected_business,
+        )
+
+
+@pytest.mark.parametrize(
+    (
+        "table",
+        "event_name",
+        "event_version",
+        "category",
+        "retention_class",
+        "actor_type",
+        "actor_id",
+        "actor_role",
+    ),
+    [
+        (
+            "security_events",
+            "security.login.unregistered",
+            1,
+            SECURITY,
+            "security_12_months",
+            "system",
+            None,
+            None,
+        ),
+        (
+            "security_events",
+            "security.login.succeeded",
+            2,
+            SECURITY,
+            "security_12_months",
+            "system",
+            None,
+            None,
+        ),
+        (
+            "security_events",
+            "security.login.succeeded",
+            1,
+            SECURITY,
+            "security_24_months",
+            "system",
+            None,
+            None,
+        ),
+        (
+            "security_events",
+            "security.login.succeeded",
+            1,
+            BUSINESS_AUDIT,
+            "security_12_months",
+            "system",
+            None,
+            None,
+        ),
+        (
+            "business_audit_events",
+            "system.job.started",
+            1,
+            OPERATIONS,
+            "operations_90_days",
+            "system",
+            None,
+            None,
+        ),
+        (
+            "business_audit_events",
+            DEFERRED_EVENT_NAMES[0],
+            1,
+            BUSINESS_AUDIT,
+            "business_24_months",
+            "system",
+            None,
+            None,
+        ),
+        (
+            "business_audit_events",
+            "one_time.order.created",
+            1,
+            BUSINESS_AUDIT,
+            "business_24_months",
+            "user",
+            None,
+            "customer",
+        ),
+        (
+            "business_audit_events",
+            "one_time.order.created",
+            1,
+            BUSINESS_AUDIT,
+            "business_24_months",
+            "admin",
+            9,
+            None,
+        ),
+    ],
+    ids=[
+        "unknown-name",
+        "wrong-version",
+        "wrong-retention",
+        "wrong-category",
+        "operations-nonwritable",
+        "deferred-nonwritable",
+        "user-missing-id",
+        "admin-missing-role",
+    ],
+)
+def test_direct_sql_contract_mismatches_reject_without_rows(
+    event_connection,
+    table,
+    event_name,
+    event_version,
+    category,
+    retention_class,
+    actor_type,
+    actor_id,
+    actor_role,
+):
+    before = _event_counts(event_connection)
+    with event_connection.cursor() as cursor:
+        cursor.execute("SET LOCAL ROLE service_role")
+        cursor.execute("SAVEPOINT invalid_direct_contract")
+        with pytest.raises((errors.CheckViolation, errors.RaiseException)):
+            _direct_insert(
+                cursor,
+                table,
+                event_name=event_name,
+                event_version=event_version,
+                category=category,
+                retention_class=retention_class,
+                request_id="request.direct.rejected",
+                actor_type=actor_type,
+                actor_id=actor_id,
+                actor_role=actor_role,
+            )
+        cursor.execute("ROLLBACK TO SAVEPOINT invalid_direct_contract")
+        cursor.execute("RESET ROLE")
+    assert _event_counts(event_connection) == before
 
 
 def test_database_rejects_wrong_version_category_and_untyped_json(event_connection):
