@@ -332,8 +332,8 @@ def test_invalid_tracking_event_cannot_update_matching_coordinates(monkeypatch):
     response = app.test_client().post(
         "/api/track", json={"latitude": 999, "longitude": 999}
     )
-    assert response.status_code == 200
-    assert statements
+    assert response.status_code == 401
+    assert not statements
     assert all("vehicles" not in statement.lower() for statement in statements)
 
 

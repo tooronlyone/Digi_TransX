@@ -10,10 +10,12 @@ This registry is the human-readable source for the current architecture, verifie
 | Verification date | 2026-07-31 |
 | Repository | `tooronlyone/Digi_TransX` |
 | Branch used for this registry | `chore/tracking-architecture-registry` |
+| Phase 1A implementation branch | `security/phase-1a-legacy-tracking-containment` |
+| Phase 1A starting SHA | `68177dbcc2b891a0f5360e693755dead26b8d67d` |
 | Environment inspected | Authorized Supabase TEST project `fysu…goev` |
 | Database inspection mode | Read-only transactions; every inspection ended with `ROLLBACK` |
 | Scheduler state during inspection | Disabled with `DIGITRANSX_ENABLE_SCHEDULER=0`; no scheduler process active |
-| Phase | Phase 0 — inventory and registry |
+| Phase | Phase 0 registry; Phase 1A legacy tracking containment implemented |
 
 > **Planning/documentation only.** This file creates no routes, tables, views, functions, triggers, policies, jobs, dashboards, providers, or runtime behavior. Any object or event marked Planned or Deferred does not exist merely because it appears here.
 
@@ -55,7 +57,7 @@ The database also has the expected Auth-to-profile trigger on `auth.users`. Supa
 - Full signup/login GPS, mandatory full-login Email OTP, risk scoring, device/session management, security cases, and security dashboards are **not implemented**.
 - Current Flask authentication uses a signed cookie session, not the planned short-lived access token plus rotating refresh-token model.
 - Current `trusted_devices` stores a long-lived raw device cookie token and enables MPIN fast login. It is not the planned non-invasive device registry.
-- Current `ActivityTracker` captures broad request/response and form data and trusts frontend identity/event fields. It is **not** an acceptable standardized analytics, audit, security, or monitoring system.
+- Historical `ActivityTracker` behavior captured broad request/response and form data and trusted frontend identity/event fields. Phase 1A contains the current client to one authenticated safe page-visit contract, but historical rows remain unclassified and the legacy table is still not the planned analytics foundation.
 - Email is direct SMTP with no delivery ledger or provider abstraction. SMS is absent and remains deferred.
 - Payment processing uses `DummyCardProvider`; Raast QR and a real card/payment provider are deferred.
 - There is no dedicated operational telemetry, health/readiness suite, incident store, outbox, or delivery ledger.
@@ -116,15 +118,62 @@ Security-sensitive current facts:
 
 | Mechanism | Status | Writer/consumer | Finding |
 | --- | --- | --- | --- |
-| `POST /api/track` | Verified existing but unstandardized | [`api_track()`](../backend/tracking/routes.py#L13) | Unauthenticated; accepts arbitrary frontend identity, event names, page URL, and metadata; commits directly to `user_action_logs`. |
-| `ActivityTracker` | Verified existing but unstandardized | [`ActivityTracker.jsx`](../frontend-react/src/components/ActivityTracker.jsx) mounted in [`App.jsx`](../frontend-react/src/App.jsx#L352) | Globally patches `window.fetch`, captures up to 2,000 characters of request bodies and response bodies, captures form fields with only name-based redaction, and captures button/link text. |
-| `useTracker` | Verified existing but unstandardized | [`useTracker.js`](../frontend-react/src/hooks/useTracker.js) | Sends session-stored user email/role/id and places the CSRF token into a field called `session_id`; event names and details are arbitrary. |
-| `user_action_logs` | Verified existing but unstandardized | `/api/track` and the admin commission route | Mixes general analytics and one admin audit use. TEST has 1,899 rows, five action types, 138 action names, payload JSON on every row, and a `session_id` key on every payload. |
+| `POST /api/track` | Phase 1A containment implemented; still legacy | [`api_track()`](../backend/tracking/routes.py) plus the centralized [`contract.py`](../backend/tracking/contract.py) | Requires a verified Flask session and CSRF, does not refresh genuine user activity, accepts only the fixed `page_visit`/`page_view` contract, derives user ID/role server-side, stores no analytics email/IP/User-Agent/session token, and rejects malformed, unknown, sensitive, or oversized payloads before opening the database. |
+| `ActivityTracker` | Phase 1A containment implemented; still legacy | [`ActivityTracker.jsx`](../frontend-react/src/components/ActivityTracker.jsx) mounted in [`App.jsx`](../frontend-react/src/App.jsx#L352) | Emits authenticated router page visits only. It no longer patches `window.fetch`, reads request/response bodies, observes form values, or installs click/form listeners. |
+| Legacy tracking client | Phase 1A containment implemented; still legacy | [`useTracker.js`](../frontend-react/src/hooks/useTracker.js) | Builds one fixed page-visit payload, removes query strings/fragments, sends CSRF only as a request header, and sends no claimed browser identity. No arbitrary `useTracker()` event API remains. |
+| `user_action_logs` | Verified existing but unstandardized; writes contained | `/api/track` and the unchanged admin commission route | Historical TEST evidence remains 1,899 rows/five action types/138 names with broad payloads. New analytics writes are sanitized page visits only. The separate admin audit writer remains temporarily mixed until an explicitly authorized Phase 1B migration. |
 | `login_activity` | Verified existing but unstandardized | Auth helper and settings security-activity route | Transitional security evidence only; must not become general audit/analytics storage. |
 | `shipment_status_history` | Verified existing and standardized for its narrow purpose | `trg_shipments_status_history` / `log_shipment_status_change()` | Reliable shipment-status transition history, but not a general business event ledger and not sufficient for monetary or non-status changes. |
 | Domain tables | Verified existing and standardized for state | Payment, wallet, lifecycle, dispute, review, chat, notification, policy, and Terms services | Authoritative business state. They are not an append-only common audit envelope. |
 
 The four event domains defined later must not be collapsed into `user_action_logs`.
+
+#### Phase 1A implemented legacy contract
+
+Phase 1A is a bounded containment, not the canonical event foundation:
+
+- allowed anonymous events: none; the client defines no anonymous event contract, and direct anonymous calls receive `401`;
+- allowed authenticated event: `action_type=page_visit`, `action_name=page_view`;
+- required safe fields: sanitized relative `page_url` and `metadata.navigation_source=router`;
+- `page_url` is at most 255 characters, uses a restricted path character set, and has query strings/fragments removed;
+- request body limit: 2,048 bytes; generic strings: at most 512 characters; object depth: at most two; object keys: at most eight; arrays are rejected;
+- unknown event names, fields, metadata keys/values, non-object JSON, malformed JSON, wrong content type, and sensitive keys at any depth are rejected with a safe `4xx`;
+- user ID and role come from the verified Flask session/user lookup; analytics email, IP, User-Agent, session ID, and CSRF value are not stored;
+- rejected requests perform no tracking insert or commit, leave no partial analytics row, and do not log submitted values;
+- endpoint authentication uses the existing session owner without refreshing `last_active_at`, so passive page analytics cannot create genuine user activity;
+- the analytics sanitizer is endpoint-local and does not alter the existing admin commission audit writer.
+
+Implementation files:
+
+- `backend/tracking/contract.py`
+- `backend/tracking/routes.py`
+- `backend/auth/helpers.py`
+- `frontend-react/src/hooks/useTracker.js`
+- `frontend-react/src/components/ActivityTracker.jsx`
+
+Focused tests:
+
+- `backend/tests/test_tracking_containment.py`
+- `backend/tests/test_coordinate_integrity.py`
+- `frontend-react/tests/legacyTracking.test.mjs`
+
+Phase 1A validation evidence:
+
+- read-only TEST reinspection confirmed `transaction_read_only=on` and ended with `ROLLBACK`; no row values were selected;
+- `user_action_logs` retained its existing nine-column shape, RLS-enabled/non-forced status, public insert/admin-all policies, and broad effective `anon`/`authenticated` grants;
+- safe aggregates remained 1,899 rows, five action types, 138 action names, 1,899 payloads/session-ID keys, 1,738 input-data keys, 1,600 output-result/API-endpoint keys, 113 element-text keys, and a maximum observed payload size of 1,850 bytes;
+- focused backend containment validation passed 47 tests;
+- the complete backend run passed 275 tests and safely skipped 295 PostgreSQL tests because `TEST_SUPABASE_DB_URL` was not configured; the suite did not fall back to the shared application URL;
+- all 14 frontend Node tests passed, changed-file ESLint was clean, and the production build completed with only bundle-size/plugin-timing warnings;
+- Python compileall, `git diff --check`, duplicate route/contract/writer scans, broad-capture scans, sensitive-value scans, local-link/heading validation, catalog reconciliation, and SQLite/legacy-dialect scans passed.
+
+Remaining legacy limitations:
+
+- historical `user_action_logs` rows are preserved unchanged pending separately authorized classification/retention work;
+- the table still mixes contained analytics with the existing admin commission audit writer;
+- effective TEST grants remain broader than the application endpoint contract;
+- no distributed rate limiter was added; authentication, CSRF, strict request size, and schema validation are the bounded abuse controls;
+- Phase 1B envelope schemas, canonical writer registry, outbox decision, environment separation, and contract tests remain **Planned**.
 
 ### 3.3 Notifications, email, scheduler, logging, and health
 
@@ -792,7 +841,7 @@ Explicitly prohibited:
 - exact background GPS;
 - invasive cross-site fingerprinting.
 
-Current `ActivityTracker` does not meet this contract and must not simply be redirected to `analytics_events`. Phase 4 must replace or constrain it behind allowlists, consent, schemas, redaction, size limits, and client-event idempotency.
+Phase 1A contains `ActivityTracker` to the temporary authenticated page-visit contract; it is not the planned consent-aware analytics system and must not simply be redirected to `analytics_events`. Phase 4 must replace it with the full allowlisted, consent-aware, idempotent analytics design.
 
 Retention baselines:
 
@@ -907,7 +956,7 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
 | Sessions | Flask cookie | None | No `user_sessions` | Not reusable as durable session store | Add server session/token-family model behind disabled state | Cannot distinguish polling from genuine activity |
 | OTP | Auth/profile helpers | `password_reset_otps` | Has hashed OTP, attempts, purpose | Partial reuse; 10-minute expiry/text timestamps/no device binding/HMAC | New challenge contract; preserve reset flow until cutover | Provider/domain controls or replay/resend controls absent |
 | Risk/security cases | None | None | Absent | Missing | Disabled → shadow foundation first | Any enforcement before shadow validation |
-| Generic tracking | ActivityTracker/API | `user_action_logs` | Present; arbitrary JSON | Incompatible for all four canonical domains | Stop broad capture; allowlisted analytics replacement; retain/administer legacy data | Sensitive-field inventory or retention unknown |
+| Generic tracking | Contained ActivityTracker/API | `user_action_logs` | Historical arbitrary JSON retained; new writes restricted to one safe page-visit shape | Phase 1A containment implemented; table remains incompatible for the four canonical domains | Keep endpoint-local sanitizer; future consent-aware analytics replacement; retain/administer legacy data | Sensitive-field inventory or retention unknown |
 | Shipment status history | DB trigger | `shipment_status_history` | Present and consistent | Reuse as status evidence; not full audit | Reference from business events; avoid duplicate generic events | Trigger semantics drift or missing actor context not addressed |
 | Business event transactionality | Domain services | Domain tables only | Strong transaction boundaries in key flows | Missing append-only business envelope/outbox | Add within existing transactions after writer map/locks are proven | Any mutation has multiple uncoordinated writers |
 | Checkout/payment | `shared/payments.py` | Payment/wallet/trip tables | Constraints and anomalies clean | High-value reuse | Emit from canonical service only | Dummy/real provider ambiguity or provider crash reconciliation unresolved |
@@ -916,17 +965,17 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
 | Matching | `orders/helpers.py` and order routes | Shipment/bid/vehicle state | Current decisions consistent; no anomaly | Helper reusable; no policy version/evidence snapshot | Version rule set and snapshot decisive evidence only | Code and SQL policy disagree |
 | Notifications | Shared helper | `shipment_notifications` | In-app idempotency for trip events | Reuse in-app intent; no delivery ledger | Separate notification intent from provider deliveries | Multiple provider sends without idempotency |
 | Email | Direct SMTP helper | None | No delivery state | Incompatible for security OTP reliability | Provider abstraction plus delivery ledger before Email OTP | SPF/DKIM/DMARC/mailbox/provider not complete |
-| Admin audit | Admin routes | `user_action_logs` plus domain state | One commission audit writer only | Mixed owner and incomplete coverage | Domain business events + separate admin security actions | Admin mutation lacks re-auth/reason |
+| Admin audit | Admin routes | `user_action_logs` plus domain state | One commission audit writer only; unchanged by Phase 1A | Mixed owner and incomplete coverage; deliberately bypasses the analytics sanitizer | Domain business events + separate admin security actions in a later authorized phase | Admin mutation lacks re-auth/reason |
 | Commission/Terms | Shared commission service | Versioned tables | Immutable and capability-complete | Reuse | Add content hash/role acknowledgment contract forward-only | Existing snapshots could be rewritten |
 | Saved methods/preferences | Payment service/routes | Tokenized tables/safe view | Present; cross-user anomaly zero | Reuse; re-auth/events missing | Add sensitive-action re-auth and events | Effective RLS/grants not proven under client roles |
 | Operational monitoring | Basic scheduler logging | None | No incident/telemetry objects | Missing | Structured redacted telemetry and health contracts | Body/header/secret collection cannot be excluded |
-| Analytics | ActivityTracker | `user_action_logs` | Broad legacy capture | Existing data may support limited historical aggregates only | New consent-aware allowlisted pipeline | Attempt to migrate arbitrary payloads without classification |
+| Analytics | Contained ActivityTracker | `user_action_logs` | One authenticated safe page-visit write shape; broad historical rows retained | Existing data may support limited historical aggregates only | New consent-aware allowlisted pipeline | Attempt to migrate arbitrary payloads without classification |
 | Agreemental tracking | Agreement routes/helpers/scheduler | Agreement tables | Workflow exists; tables empty in TEST | Future extension | Reuse shared infrastructure, separate Agreemental event rules | Any change alters One-Time contract |
 
 ## 14. Architecture and rollout
 
 0. **Inventory and registry** — this file only.
-1. **Phase 1A — Legacy tracking containment (Planned)** — the first runtime phase, before broader event-foundation work:
+1. **Phase 1A — Legacy tracking containment (Implemented)** — completed as the first runtime phase, before broader event-foundation work:
    - stop logging request and response bodies;
    - stop generic form-field capture;
    - stop placing CSRF/token-shaped values in analytics payloads;
@@ -975,15 +1024,15 @@ Agreemental tracking remains a clearly marked future extension. It may reuse com
 - Raw stack traces in user responses, database URLs, or credentials in any telemetry.
 - Arbitrary frontend event names or arbitrary metadata.
 
-The current `ActivityTracker` violates the spirit of several of these prohibitions by capturing broad bodies/responses and a CSRF token-shaped `session_id`; it is explicitly classified as legacy/unstandardized and must not be treated as approved precedent.
+Historical `ActivityTracker` rows may reflect broad bodies/responses and a CSRF token-shaped `session_id`. Phase 1A removes those capture paths from current runtime behavior, preserves existing rows, and keeps the legacy system explicitly separate from the future approved analytics precedent.
 
 ## 17. Phase 1A/1B blockers and mandatory stop conditions
 
-Stop implementation if any of the following is unresolved:
+Stop any work beyond the bounded Phase 1A containment if any of the following is unresolved:
 
 1. The exact writer registry for payment, wallet, admin, shipment, and notification mutations is incomplete.
 2. Effective `anon`/`authenticated` privileges and RLS behavior are not proven in disposable PostgreSQL/Supabase-compatible tests.
-3. Existing `user_action_logs` sensitive-field classification, retention, and access plan is not approved.
+3. Any migration, reuse, or retention change for existing `user_action_logs` lacks an approved sensitive-field classification and access plan.
 4. Polling/genuine-activity separation is not designed before inactivity enforcement.
 5. Device/session credential hashing, rotation, replay, revocation, and migration behavior is not specified.
 6. Email mailbox, DNS authentication, provider, delivery/retry, and abuse controls are incomplete.

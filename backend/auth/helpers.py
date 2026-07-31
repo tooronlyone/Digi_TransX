@@ -283,21 +283,34 @@ def serialize_user(user):
     }
 
 
-def login_required(view):
-    @wraps(view)
-    def wrapped(*args, **kwargs):
-        user_id = session.get("user_id")
-        if not user_id:
-            return json_response({"success": False, "message": "Authentication required."}, 401)
-        user = get_user_by_id(user_id)
-        if not user:
-            session.clear()
-            return json_response({"success": False, "message": "Session expired."}, 401)
-        session["last_active_at"] = timestamp_bundle()["display"]
-        request.current_user = user
-        return view(*args, **kwargs)
+def login_required(view=None, *, refresh_activity=True):
+    """Require a verified Flask session.
 
-    return wrapped
+    Passive telemetry may opt out of refreshing genuine user activity while
+    still deriving identity from the same server-owned session/user lookup.
+    Existing ``@login_required`` callers retain their current behavior.
+    """
+
+    def decorator(target):
+        @wraps(target)
+        def wrapped(*args, **kwargs):
+            user_id = session.get("user_id")
+            if not user_id:
+                return json_response({"success": False, "message": "Authentication required."}, 401)
+            user = get_user_by_id(user_id)
+            if not user:
+                session.clear()
+                return json_response({"success": False, "message": "Session expired."}, 401)
+            if refresh_activity:
+                session["last_active_at"] = timestamp_bundle()["display"]
+            request.current_user = user
+            return target(*args, **kwargs)
+
+        return wrapped
+
+    if view is None:
+        return decorator
+    return decorator(view)
 
 
 def require_admin_role(user):
