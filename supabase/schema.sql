@@ -1310,6 +1310,55 @@ as $$
     select coalesce(public.current_app_role() = 'admin', false);
 $$;
 
+-- Boolean-only authorization bridge used by the shipment SELECT policy.
+-- SECURITY DEFINER avoids evaluating shipment_trips RLS while shipments RLS
+-- is already active, breaking the shipments <-> shipment_trips policy cycle.
+create or replace function public.is_transporter_assigned_to_shipment(
+    shipment_id bigint
+)
+returns boolean
+language sql
+stable
+security definer
+set search_path = pg_catalog
+as $$
+    select case
+        when public.current_app_role()
+             is distinct from 'transporter'::public.app_role
+            then false
+        else exists (
+            select 1
+            from public.shipment_trips as trip
+            where trip.order_id = shipment_id
+              and trip.transporter_user_id = public.current_app_user_id()
+        )
+    end;
+$$;
+
+revoke all
+    on function public.is_transporter_assigned_to_shipment(bigint)
+    from public;
+
+do $$
+declare
+    client_role text;
+begin
+    foreach client_role in array array['anon', 'authenticated'] loop
+        if exists (
+            select 1
+            from pg_catalog.pg_roles
+            where rolname = client_role
+        ) then
+            execute format(
+                'grant execute on function '
+                'public.is_transporter_assigned_to_shipment(bigint) to %I',
+                client_role
+            );
+        end if;
+    end loop;
+end
+$$;
+
 -- ---------------------------------------------------------------------------
 -- 6. TRIGGERS
 -- ---------------------------------------------------------------------------
@@ -1483,8 +1532,7 @@ create policy shipments_transporter_read on public.shipments
         public.current_app_role() = 'transporter'
         and (
             status = 'open'
-            or id in (select order_id from public.shipment_trips
-                      where transporter_user_id = public.current_app_user_id())
+            or public.is_transporter_assigned_to_shipment(id)
         )
     );
 

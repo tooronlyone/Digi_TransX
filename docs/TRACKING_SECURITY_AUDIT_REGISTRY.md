@@ -12,10 +12,11 @@ This registry is the human-readable source for the current architecture, verifie
 | Branch used for this registry | `chore/tracking-architecture-registry` |
 | Phase 1A implementation branch | `security/phase-1a-legacy-tracking-containment` |
 | Phase 1A starting SHA | `68177dbcc2b891a0f5360e693755dead26b8d67d` |
+| Baseline correction branch | `fix/schema-trigger-rls-baseline` |
 | Environment inspected | Authorized Supabase TEST project `fysu…goev` |
 | Database inspection mode | Read-only transactions; every inspection ended with `ROLLBACK` |
 | Scheduler state during inspection | Disabled with `DIGITRANSX_ENABLE_SCHEDULER=0`; no scheduler process active |
-| Phase | Phase 0 registry; Phase 1A legacy tracking containment implemented |
+| Phase | Phase 0 registry; Phase 1A legacy tracking containment implemented; schema-trigger/RLS baseline correction implemented in the repository but not applied to shared TEST |
 
 > **Planning/documentation only.** This file creates no routes, tables, views, functions, triggers, policies, jobs, dashboards, providers, or runtime behavior. Any object or event marked Planned or Deferred does not exist merely because it appears here.
 
@@ -275,9 +276,9 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 ### 3.9 Schema, migrations, and test mirrors
 
 - [`supabase/schema.sql`](../supabase/schema.sql) is the canonical fresh-install mirror.
-- Ten forward migrations exist under [`supabase/migrations`](../supabase/migrations).
+- Eleven forward migrations exist under [`supabase/migrations`](../supabase/migrations), including the bounded schema-trigger/RLS baseline correction.
 - PostgreSQL integration mirrors in [`backend/tests/conftest.py`](../backend/tests/conftest.py) and `test_migration*.py` use isolated/disposable PostgreSQL databases or schemas and never fall back from `TEST_SUPABASE_DB_URL` to the shared application URL.
-- Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, and review concurrency/integrity.
+- Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, review concurrency/integrity, schema-trigger convergence, and effective shipment/trip role visibility.
 - No tracking-registry contract tests exist yet; those are Phase 1B.
 
 ## 4. Actual TEST database capability inventory
@@ -296,6 +297,8 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 | Public enum | 1 | `app_role`: `admin`, `customer`, `transporter`, `fuel_station_manager`, `shopkeeper`; no dispatcher. |
 
 The Auth trigger `auth.users.trg_on_auth_user_created` is present. The Storage bucket `shipment-documents` is private and contained zero objects. The only Storage object policy found was `shipment_docs_admin_all`.
+
+The read-only baseline-correction audit found that shared TEST is missing exactly `trg_transporter_profiles_updated_at`, `trg_fuel_station_profiles_updated_at`, and `trg_shopkeeper_profiles_updated_at`, although all three tables, `set_updated_at()`, and the canonical fresh-schema trigger definitions exist. No previously applied migration creates those three triggers. Migration `20260731220000_schema_trigger_rls_baseline.sql` corrects the drift forward-only, but it was deliberately not applied to shared TEST in this task.
 
 ### 4.2 Tables, views, and safe aggregate row counts
 
@@ -358,7 +361,11 @@ Important verified integrity capabilities include:
 - private provider-token base tables with a token-free `saved_payment_methods_safe` view;
 - `transporter_review_aggregates`, which exposes aggregate rating/count only.
 
-All current public tables have RLS enabled. Owner/party/admin policies exist for the major business tables. Base-table privileges for `saved_payment_methods` and `user_payment_preferences` are restricted to server roles, while the safe view is available to client roles. Because broad Supabase default grants exist on many objects and the safe view reports more grant types than SELECT, Phase 1B must prove effective privileges under `anon` and `authenticated` roles rather than inferring safety from grant names alone.
+All current public tables have RLS enabled. Owner/party/admin policies exist for the major business tables. Base-table privileges for `saved_payment_methods` and `user_payment_preferences` are restricted to server roles, while the safe view is available to client roles. Broad Supabase default grants still exist on many legacy objects, so effective role behavior must be tested rather than inferred from grant names.
+
+The baseline audit reproduced PostgreSQL `42P17` under real `anon` and `authenticated` roles. `shipments_transporter_read` queried RLS-protected `shipment_trips`, while `trips_client_read` queried RLS-protected `shipments`, forming a policy cycle. The repository correction replaces the first cross-table policy subquery with the single boolean-only `is_transporter_assigned_to_shipment(bigint)` authorization helper. It is `STABLE`, `SECURITY DEFINER`, has `search_path=pg_catalog`, uses qualified relations and no dynamic SQL, returns no row content, is revoked from `PUBLIC`, and among client roles is executable only by `anon` and `authenticated`.
+
+Disposable PostgreSQL tests prove that the correction produces no `42P17`: anonymous and unrelated authenticated users see no protected shipment/trip rows; an owning client sees only its shipment/trip; an assigned transporter sees its related protected shipment/trip plus the pre-existing legitimate open-order surface; another transporter cannot see those protected rows; and a platform admin retains full access. The helper returns false outside a genuine transporter identity and cannot be used to enumerate another user's assignments. Shared TEST retains the pre-correction policy until a separately authorized migration application.
 
 ### 4.5 Capability-based migration assessment
 
@@ -374,8 +381,9 @@ All current public tables have RLS enabled. Owner/party/admin policies exist for
 | `20260723120000_one_time_trip_completion_lifecycle.sql` | Lifecycle/dispute columns, exact relationship constraints, payment checks, unique indexes | Verified present |
 | `20260724190000_one_time_coordinate_integrity.sql` | Pair/range/finite coordinate constraints | Verified present |
 | `20260726200000_shipment_trip_reviews.sql` | Review table, exact FKs, one-per-trip uniqueness, view, RLS | Verified present |
+| `20260731220000_schema_trigger_rls_baseline.sql` | Three missing profile `updated_at` triggers plus non-recursive shipment/trip authorization helper and policy | Implemented and proven on disposable PostgreSQL; not applied to shared TEST |
 
-No partial or out-of-order capability was detected. Stop if a future inspection finds a named capability missing, an unexpected extra application table/column, a migration only partially represented, or a migration ledger that conflicts with observed capability.
+Apart from the three-trigger drift and recursive policy defect corrected by the new forward migration, no partial or out-of-order capability was detected. Stop if a future inspection finds a named capability missing, an unexpected extra application table/column, a migration only partially represented, or a migration ledger that conflicts with observed capability.
 
 ### 4.6 Safe anomaly and sensitive-column findings
 
@@ -958,6 +966,7 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
 | Risk/security cases | None | None | Absent | Missing | Disabled → shadow foundation first | Any enforcement before shadow validation |
 | Generic tracking | Contained ActivityTracker/API | `user_action_logs` | Historical arbitrary JSON retained; new writes restricted to one safe page-visit shape | Phase 1A containment implemented; table remains incompatible for the four canonical domains | Keep endpoint-local sanitizer; future consent-aware analytics replacement; retain/administer legacy data | Sensitive-field inventory or retention unknown |
 | Shipment status history | DB trigger | `shipment_status_history` | Present and consistent | Reuse as status evidence; not full audit | Reference from business events; avoid duplicate generic events | Trigger semantics drift or missing actor context not addressed |
+| Shipment/trip direct-client RLS | PostgreSQL policies | `shipments`, `shipment_trips` | Shared TEST still has the pre-correction recursive policy; repository migration and schema mirror are corrected | Three profile triggers were missing in migrated TEST and shipment/trip policy evaluation raised `42P17` | Apply the proven forward migration only under separate shared-TEST authorization | Any additional drift, helper privilege broadening, recursive dependency, or role-visibility regression |
 | Business event transactionality | Domain services | Domain tables only | Strong transaction boundaries in key flows | Missing append-only business envelope/outbox | Add within existing transactions after writer map/locks are proven | Any mutation has multiple uncoordinated writers |
 | Checkout/payment | `shared/payments.py` | Payment/wallet/trip tables | Constraints and anomalies clean | High-value reuse | Emit from canonical service only | Dummy/real provider ambiguity or provider crash reconciliation unresolved |
 | Wallet | Shared helper plus route/admin/agreement writers | Wallet tables | Present, integrity indexes present | Writer overlap | Establish allowed-writer contract before events | Unmapped direct SQL writer |
@@ -985,14 +994,15 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
    - preserve existing `user_action_logs` rows until a separately authorized classification/retention decision;
    - do not silently redirect current arbitrary payloads into a new analytics table;
    - prove no current business route depends on unsafe tracker behavior.
-2. **Phase 1B — Canonical event foundation (Planned)** — envelope schemas, writer registry, outbox decision, environment separation, and contract tests.
-3. **Security** — observation first; risk shadow mode and alerts/cases; later Email OTP after provider/domain readiness. Device/session and raw-token migration is a later dedicated security workstream and must preserve or deliberately migrate MPIN compatibility.
-4. **One-Time Business Audit** — attach same-transaction events to canonical One-Time services and prove idempotency/lock behavior.
-5. **General Analytics** — replace broad tracker with consent-aware, allowlisted, idempotent analytics.
-6. **Operational Monitoring** — structured errors/latency/health/provider/scheduler/release telemetry and incident lifecycle.
-7. **Dashboards and retention** — user/admin security surfaces, KPI/funnel views, deletion/aggregation jobs, access audits.
-8. **Final audit and freeze** — drift, privilege, retention, volume, performance, privacy, and integrity review.
-9. **GPS tracking architecture afterward** — separate bounded architecture after the event foundations are stable.
+2. **Schema-trigger/RLS baseline correction (Implemented in repository; shared TEST application pending separate authorization)** — forward-only convergence for three profile timestamp triggers and non-recursive shipment/trip role visibility.
+3. **Phase 1B — Canonical event foundation (Planned)** — envelope schemas, writer registry, outbox decision, environment separation, and contract tests.
+4. **Security** — observation first; risk shadow mode and alerts/cases; later Email OTP after provider/domain readiness. Device/session and raw-token migration is a later dedicated security workstream and must preserve or deliberately migrate MPIN compatibility.
+5. **One-Time Business Audit** — attach same-transaction events to canonical One-Time services and prove idempotency/lock behavior.
+6. **General Analytics** — replace broad tracker with consent-aware, allowlisted, idempotent analytics.
+7. **Operational Monitoring** — structured errors/latency/health/provider/scheduler/release telemetry and incident lifecycle.
+8. **Dashboards and retention** — user/admin security surfaces, KPI/funnel views, deletion/aggregation jobs, access audits.
+9. **Final audit and freeze** — drift, privilege, retention, volume, performance, privacy, and integrity review.
+10. **GPS tracking architecture afterward** — separate bounded architecture after the event foundations are stable.
 
 Agreemental tracking remains a clearly marked future extension. It may reuse common security, analytics, operations, envelope, outbox, and delivery infrastructure, but must add separate Agreemental business rules only after Agreemental workflow implementation is reviewed. It must never overwrite One-Time behavior.
 
