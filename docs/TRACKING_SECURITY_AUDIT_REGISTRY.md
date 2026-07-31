@@ -6,7 +6,7 @@ This registry is the human-readable source for the current architecture, verifie
 
 | Field | Verified value |
 | --- | --- |
-| Current verified base SHA | `0d1b5b2de4b92ec642f39cfec26b09b3aefce571` |
+| Inventory base SHA | `0d1b5b2de4b92ec642f39cfec26b09b3aefce571` |
 | Verification date | 2026-07-31 |
 | Repository | `tooronlyone/Digi_TransX` |
 | Branch used for this registry | `chore/tracking-architecture-registry` |
@@ -17,7 +17,9 @@ This registry is the human-readable source for the current architecture, verifie
 
 > **Planning/documentation only.** This file creates no routes, tables, views, functions, triggers, policies, jobs, dashboards, providers, or runtime behavior. Any object or event marked Planned or Deferred does not exist merely because it appears here.
 
-Runtime implementation remains authoritative when this registry and code disagree. A disagreement is a defect: every future tracking-related change must update this file in the same commit. Phase 1 must add contract tests that detect code/document drift, including event-name, event-version, schema, writer-ownership, metadata-schema, and prohibited-field drift.
+The Inventory base SHA identifies the code/database state inspected during Phase 0. It is not the SHA of the documentation commit that introduced or later corrected this registry.
+
+Runtime implementation remains authoritative when this registry and code disagree. A disagreement is a defect: every future tracking-related change must update this file in the same commit. Phase 1B must add contract tests that detect code/document drift, including event-name, event-version, schema, writer-ownership, metadata-schema, and prohibited-field drift.
 
 ### Status vocabulary
 
@@ -156,7 +158,7 @@ Current duplication/overlap:
 - `/complete-delivery` and `/mark-completed` are aliases for one transition; `/confirm-delivery` and `/verify-delivery` are aliases for another.
 - `/accept-bid` and `/process-payment` remain as compatibility endpoints that refuse the legacy flow and direct callers to checkout.
 - `shipment_status_history` records generic status changes while lifecycle tables record richer state. Future specific business events must own semantic transitions; generic duplicate `status_changed` events are discouraged.
-- Payment state ownership is mostly centralized in `shared/payments.py`, but wallet mutations also exist in `wallet/helpers.py`, `wallet/routes.py`, `agreements/helpers.py`, and admin routes. Phase 1 contracts must identify allowed writers before any event outbox is attached.
+- Payment state ownership is mostly centralized in `shared/payments.py`, but wallet mutations also exist in `wallet/helpers.py`, `wallet/routes.py`, `agreements/helpers.py`, and admin routes. Phase 1B contracts must identify allowed writers before any event outbox is attached.
 - The four `rejected` bid rows in TEST are competing bids changed to rejected after a successful checkout; they are not rejected bid attempts. A future `matching.bid_attempt_rejected` event must not create a `shipment_bids` row.
 
 ### 3.5 Trip, delivery, disputes, chat, reviews, and notifications
@@ -227,7 +229,7 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 - Ten forward migrations exist under [`supabase/migrations`](../supabase/migrations).
 - PostgreSQL integration mirrors in [`backend/tests/conftest.py`](../backend/tests/conftest.py) and `test_migration*.py` use isolated/disposable PostgreSQL databases or schemas and never fall back from `TEST_SUPABASE_DB_URL` to the shared application URL.
 - Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, and review concurrency/integrity.
-- No tracking-registry contract tests exist yet; those are Phase 1.
+- No tracking-registry contract tests exist yet; those are Phase 1B.
 
 ## 4. Actual TEST database capability inventory
 
@@ -307,7 +309,7 @@ Important verified integrity capabilities include:
 - private provider-token base tables with a token-free `saved_payment_methods_safe` view;
 - `transporter_review_aggregates`, which exposes aggregate rating/count only.
 
-All current public tables have RLS enabled. Owner/party/admin policies exist for the major business tables. Base-table privileges for `saved_payment_methods` and `user_payment_preferences` are restricted to server roles, while the safe view is available to client roles. Because broad Supabase default grants exist on many objects and the safe view reports more grant types than SELECT, Phase 1 must prove effective privileges under `anon` and `authenticated` roles rather than inferring safety from grant names alone.
+All current public tables have RLS enabled. Owner/party/admin policies exist for the major business tables. Base-table privileges for `saved_payment_methods` and `user_payment_preferences` are restricted to server roles, while the safe view is available to client roles. Because broad Supabase default grants exist on many objects and the safe view reports more grant types than SELECT, Phase 1B must prove effective privileges under `anon` and `authenticated` roles rather than inferring safety from grant names alone.
 
 ### 4.5 Capability-based migration assessment
 
@@ -365,7 +367,7 @@ Planned logical objects, all **Not implemented** in TEST:
 
 `security_events`, `user_devices`, `user_sessions`, `otp_challenges`, `security_cases`, `security_case_events`, `security_alert_deliveries`, `admin_security_actions`, `business_audit_events`, `analytics_events`, `operational_incidents`, `event_outbox`, and `notification_deliveries`.
 
-These names describe logical responsibilities, not a mandate to create thirteen exact tables. Phase 1 must first prove compatibility, reuse opportunities, RLS, retention, expected volume, and transactional ownership.
+These names describe logical responsibilities, not a mandate to create thirteen exact tables. Phase 1B must first prove compatibility, reuse opportunities, RLS, retention, expected volume, and transactional ownership.
 
 ## 6. Planned common event envelope
 
@@ -374,7 +376,7 @@ This envelope is **Planned**, not implemented:
 | Field | Contract |
 | --- | --- |
 | Event ID | Server-assigned globally unique ID; supports idempotency. |
-| Canonical event name | Allowlisted namespace and transition; no arbitrary frontend names. |
+| Canonical event name | Allowlisted stable name following `<domain>.<aggregate>.<past-tense action>`; no arbitrary frontend names. |
 | Event version | Positive schema version tied to contract tests. |
 | Category | One of security, business audit, analytics, or operations; never ambiguous. |
 | Actor | Server-derived user ID and role, or explicit system/provider actor. |
@@ -390,6 +392,10 @@ This envelope is **Planned**, not implemented:
 | Timestamp | Server UTC timestamp; client time may be auxiliary and untrusted. |
 | Retention class | Required class mapped to deletion/aggregation rules. |
 | Consent category | Required where analytics/optional processing depends on consent. |
+
+Canonical names are stable, lowercase, and dot-separated. Multiword aggregates or actions use lowercase snake case inside their segment. Examples are `one_time.payment.released`, `wallet.withdrawal.approved`, and `security.login.succeeded`. A rename requires an explicit versioned transition; do not silently invent aliases. The exact locked compact families `matching.<compound-past-tense-action>` and `notification.<past-tense-action>` are the only catalog exceptions to the three-segment form. The required Deferred outcome `one_time.qr_payment.amount_mismatch` is the sole noun-outcome exception to the past-tense action segment. These explicit names remain stable contracts and must not acquire invented aliases; every new family must follow the three-segment rule.
+
+One committed business action has exactly one canonical domain owner even when an admin, scheduler, or provider performs it. The actor/source fields record that a platform admin, job, or provider caused the action; wrapper events must not restate the same outcome under another namespace. A separate admin-security event is allowed only when no more specific security or business event owns the action.
 
 Arbitrary frontend event names and arbitrary metadata are forbidden. The server must derive identity, role, environment, session/device reference, and authoritative timestamps.
 
@@ -535,9 +541,17 @@ Planned events:
 - `wallet.withdrawal.rejected`
 - `wallet.security_lock.enabled`
 - `wallet.security_lock.disabled`
-- `commission.policy.published`
+- `commission.policy.created`
+- `commission.policy.scheduled`
+- `commission.policy.activated`
+- `commission.policy.deactivated`
+- `commission.policy.activation_cancelled`
+- `terms.version.created`
 - `terms.version.published`
-- `terms.version.acknowledged`
+- `terms.version.retired`
+- `terms.version.publication_cancelled`
+- `terms.acknowledgement.recorded`
+- `terms.acknowledgement.reconfirmed`
 
 Locked equations and invariants:
 
@@ -565,10 +579,10 @@ Planned events:
 - `one_time.trip.completed`
 - `one_time.trip.resolved_client`
 - `one_time.dispute.opened`
-- `one_time.dispute.transporter_statement_added`
+- `one_time.dispute.transporter_statement_submitted`
 - `one_time.dispute.admin_reviewed`
-- `one_time.dispute.resolved_transporter`
-- `one_time.dispute.resolved_client`
+- `one_time.dispute.resolved_transporter_win`
+- `one_time.dispute.resolved_client_win`
 - `one_time.dispute.evidence_accessed`
 - `one_time.chat.thread_created`
 - `one_time.chat.message_sent`
@@ -595,10 +609,39 @@ Locked behavior:
 
 Planned transporter-operation families:
 
-- `transporter.profile.created`, `transporter.profile.updated`, `transporter.profile.status_changed`;
-- `transporter.truck.created`, `transporter.truck.updated`, `transporter.truck.status_changed`, `transporter.truck.location_updated`;
-- `transporter.driver.created`, `transporter.driver.updated`, `transporter.driver.status_changed`;
-- `transporter.document.uploaded`, `transporter.document.replaced`, `transporter.document.status_changed`, `transporter.document.accessed`.
+- `transporter.profile.created`
+- `transporter.profile.updated`
+- `transporter.profile.status_changed`
+- `transporter.profile.verification_submitted`
+- `transporter.profile.verified`
+- `transporter.profile.verification_rejected`
+- `transporter.profile.payout_method_changed`
+- `transporter.truck.created`
+- `transporter.truck.updated`
+- `transporter.truck.activated`
+- `transporter.truck.deactivated`
+- `transporter.truck.location_updated`
+- `transporter.truck.document_linked`
+- `transporter.truck.archived`
+- `transporter.truck.verification_changed`
+- `transporter.driver.created`
+- `transporter.driver.updated`
+- `transporter.driver.activated`
+- `transporter.driver.deactivated`
+- `transporter.driver.assigned_to_truck`
+- `transporter.driver.unassigned_from_truck`
+- `transporter.driver.document_linked`
+- `transporter.driver.verification_changed`
+- `transporter.document.uploaded`
+- `transporter.document.replaced`
+- `transporter.document.verification_requested`
+- `transporter.document.verified`
+- `transporter.document.rejected`
+- `transporter.document.expired`
+- `transporter.document.archived`
+- `transporter.document.accessed`
+
+All transporter-operation events above are **Planned**. The current profile, truck, driver, and document capabilities described in section 3.6 remain unchanged and must not be interpreted as implementing this catalog.
 
 Planned matching events:
 
@@ -621,13 +664,31 @@ Locked matching principles:
 
 ### 8.5 Admin, commission, Terms, notifications, and scheduler
 
-Planned domain-specific admin families include:
+The only planned admin fallback event is:
 
-- `admin.user.blocked` and `admin.user.unblocked`;
-- `admin.withdrawal.approved` and `admin.withdrawal.rejected`;
-- `admin.dispute.resolved`;
-- `admin.commission_policy.published`;
-- `admin.security_action.performed` in the security domain, not the general business table.
+- `admin.security_action.performed`
+
+It applies only to a genuine admin-security action for which no more specific canonical security or business event exists. Admin account lock/unlock uses `security.account.locked` or `security.account.unlocked`. Wallet withdrawal decisions use the wallet withdrawal events. One-Time dispute decisions use the two specific dispute-resolution events. Commission actions use the commission-policy family. The actor envelope records the platform admin; competing `admin.withdrawal.*`, `admin.dispute.*`, and `admin.commission_policy.*` wrapper events are forbidden.
+
+Planned notification family:
+
+- `notification.created`
+- `notification.delivery_attempted`
+- `notification.sent`
+- `notification.delivered`
+- `notification.failed`
+- `notification.retry_scheduled`
+- `notification.failed_final`
+- `notification.action_completed`
+
+Planned scheduler/worker run family:
+
+- `system.job.started`
+- `system.job.completed`
+- `system.job.failed`
+- `system.job.skipped`
+- `system.job.lock_not_acquired`
+- `system.job.manual_triggered`
 
 Contract:
 
@@ -641,6 +702,8 @@ Contract:
 - scheduler job events are separate from business transition events;
 - exactly one scheduler owner; web-process scheduler remains default-off.
 
+Scheduler/worker run events describe execution, failure, skip, and ownership outcomes. They never replace or duplicate the canonical business transition caused by a successful job.
+
 Current Terms acknowledgements link user and version but do not store actor role or content hash, so the locked contract is only Partially implemented.
 
 ### 8.6 Business profile, wallet preferences, and saved methods
@@ -648,8 +711,18 @@ Current Terms acknowledgements link user and version but do not store actor role
 Planned events:
 
 - `business.profile.created`, `business.profile.updated`, `business.profile.status_changed`;
-- `business.payment_method.saved`, `business.payment_method.default_changed`, `business.payment_method.deactivated`;
-- `business.payment_preference.updated`, `business.payment_preference.auto_shortfall_changed`.
+- `business.payment_method.added`
+- `business.payment_method.default_changed`
+- `business.payment_method.deactivated`
+- `business.payment_method.expired`
+- `business.payment_method.provider_revoked`
+- `business.payment_preference.created`
+- `business.payment_preference.updated`
+- `business.payment_preference.auto_shortfall_enabled`
+- `business.payment_preference.auto_shortfall_disabled`
+- `business.payment_preference.default_method_changed`
+
+These events are **Planned**. Current tokenized saved-method and preference routes remain Verified existing but unstandardized; listing this family does not promote them to an implemented event contract.
 
 Contract:
 
@@ -677,7 +750,18 @@ Contract:
 - QR fee policy remains pending provider contract and then-current regulation.
 - Card processing fee must not be copied automatically to QR.
 
-Candidate Deferred provider events must be finalized with the provider contract: `raast.intent.created`, `raast.qr.issued`, `raast.payment.confirmed`, `raast.payment.mismatched`, `raast.payment.late`, `raast.payment.reconciled`, `raast.webhook.applied`, and `raast.webhook.rejected`.
+Deferred One-Time QR-payment outcomes:
+
+- `one_time.qr_payment.intent_created`
+- `one_time.qr_payment.confirmed`
+- `one_time.qr_payment.expired`
+- `one_time.qr_payment.cancelled`
+- `one_time.qr_payment.failed`
+- `one_time.qr_payment.amount_mismatch`
+- `one_time.qr_payment.refunded`
+- `one_time.qr_payment.webhook_applied`
+
+These events remain **Deferred**. Provider-specific sub-events may be added only after a real merchant contract defines authoritative provider states; they must not replace or compete with these One-Time business-domain outcomes.
 
 ## 9. General Analytics locked contract
 
@@ -842,14 +926,24 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
 ## 14. Architecture and rollout
 
 0. **Inventory and registry** — this file only.
-1. **Event foundation** — contracts, allowlists, envelope schemas, writer registry, outbox decision, contract tests, redaction, environment separation.
-2. **Security** — observation first; device/session model; risk shadow mode; alerts/cases; later Email OTP after provider/domain readiness.
-3. **One-Time Business Audit** — attach same-transaction events to canonical One-Time services and prove idempotency/lock behavior.
-4. **General Analytics** — replace broad tracker with consent-aware, allowlisted, idempotent analytics.
-5. **Operational Monitoring** — structured errors/latency/health/provider/scheduler/release telemetry and incident lifecycle.
-6. **Dashboards and retention** — user/admin security surfaces, KPI/funnel views, deletion/aggregation jobs, access audits.
-7. **Final audit and freeze** — drift, privilege, retention, volume, performance, privacy, and integrity review.
-8. **GPS tracking architecture afterward** — separate bounded architecture after the event foundations are stable.
+1. **Phase 1A — Legacy tracking containment (Planned)** — the first runtime phase, before broader event-foundation work:
+   - stop logging request and response bodies;
+   - stop generic form-field capture;
+   - stop placing CSRF/token-shaped values in analytics payloads;
+   - stop trusting frontend-supplied user identity;
+   - restrict event names and metadata;
+   - add size and redaction guards;
+   - preserve existing `user_action_logs` rows until a separately authorized classification/retention decision;
+   - do not silently redirect current arbitrary payloads into a new analytics table;
+   - prove no current business route depends on unsafe tracker behavior.
+2. **Phase 1B — Canonical event foundation (Planned)** — envelope schemas, writer registry, outbox decision, environment separation, and contract tests.
+3. **Security** — observation first; risk shadow mode and alerts/cases; later Email OTP after provider/domain readiness. Device/session and raw-token migration is a later dedicated security workstream and must preserve or deliberately migrate MPIN compatibility.
+4. **One-Time Business Audit** — attach same-transaction events to canonical One-Time services and prove idempotency/lock behavior.
+5. **General Analytics** — replace broad tracker with consent-aware, allowlisted, idempotent analytics.
+6. **Operational Monitoring** — structured errors/latency/health/provider/scheduler/release telemetry and incident lifecycle.
+7. **Dashboards and retention** — user/admin security surfaces, KPI/funnel views, deletion/aggregation jobs, access audits.
+8. **Final audit and freeze** — drift, privilege, retention, volume, performance, privacy, and integrity review.
+9. **GPS tracking architecture afterward** — separate bounded architecture after the event foundations are stable.
 
 Agreemental tracking remains a clearly marked future extension. It may reuse common security, analytics, operations, envelope, outbox, and delivery infrastructure, but must add separate Agreemental business rules only after Agreemental workflow implementation is reviewed. It must never overwrite One-Time behavior.
 
@@ -883,7 +977,7 @@ Agreemental tracking remains a clearly marked future extension. It may reuse com
 
 The current `ActivityTracker` violates the spirit of several of these prohibitions by capturing broad bodies/responses and a CSRF token-shaped `session_id`; it is explicitly classified as legacy/unstandardized and must not be treated as approved precedent.
 
-## 17. Phase 1 blockers and mandatory stop conditions
+## 17. Phase 1A/1B blockers and mandatory stop conditions
 
 Stop implementation if any of the following is unresolved:
 
@@ -915,7 +1009,7 @@ Stop implementation if any of the following is unresolved:
 - [ ] Add safe aggregate anomaly checks and rollback/failure tests.
 - [ ] Re-run secret, PII, PAN/CVC, token, URL, and raw-body scans.
 - [ ] Verify no unrelated files or behavior changed.
-- [ ] Record verification date, base SHA, environment, limitations, and deferred work.
+- [ ] Record verification date, Inventory base SHA, environment, limitations, and deferred work.
 
 ## 19. Registry catalog counts
 
@@ -923,13 +1017,15 @@ At this verification point the registry explicitly names:
 
 - 24 planned Security authentication/session/device/account events;
 - 14 planned One-Time order/bid/checkout events;
-- 19 planned payment/wallet/commission/Terms events;
+- 27 planned payment/wallet/commission/Terms events;
 - 21 planned trip/delivery/dispute/chat/review events;
-- 14 planned transporter profile/truck/driver/document events;
+- 31 planned transporter profile/truck/driver/document events;
 - 4 planned matching events;
-- 7 planned domain-admin events (including the security-domain admin action);
-- 8 planned business-profile/payment-method/preference events;
-- 8 Deferred Raast provider events;
+- 1 planned admin-security fallback event;
+- 13 planned business-profile/payment-method/preference events;
+- 8 planned notification events;
+- 6 planned scheduler/worker run events;
+- 8 Deferred One-Time QR-payment events;
 - 13 planned logical data objects, all currently absent.
 
-Counts describe registry entries, not implemented capabilities.
+The canonical catalog therefore contains 149 Planned events plus 8 Deferred QR-payment events. Deferred events are reported separately and excluded from the Planned total. Counts describe registry entries, not implemented capabilities.
