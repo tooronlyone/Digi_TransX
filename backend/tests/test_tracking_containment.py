@@ -67,6 +67,57 @@ def tracking_env(monkeypatch):
     return client, fake_db, open_count, login
 
 
+@pytest.fixture
+def postgres_tracking_env(db, pg_session_info, monkeypatch):
+    """Wire the containment route to the existing isolated PostgreSQL schema."""
+    import psycopg2
+
+    from shared.db import Db
+
+    schema = pg_session_info["schema"]
+    url = pg_session_info["url"]
+
+    @contextmanager
+    def test_open_db():
+        conn = psycopg2.connect(url)
+        try:
+            with conn.cursor() as cur:
+                cur.execute(f'set search_path to "{schema}"')
+            yield Db(conn)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    monkeypatch.setattr(tracking_routes, "open_db", test_open_db)
+    monkeypatch.setattr(
+        auth_helpers,
+        "get_user_by_id",
+        lambda user_id: {
+            "id": 42,
+            "email": "server-owned@example.invalid",
+            "role": "client",
+        }
+        if str(user_id) == "42"
+        else None,
+    )
+
+    app = Flask(__name__)
+    app.config.update(SECRET_KEY="tracking-postgres-test", TESTING=True)
+    app.register_blueprint(tracking_routes.tracking_blueprint)
+    client = app.test_client()
+
+    def login():
+        with client.session_transaction() as sess:
+            sess["user_id"] = 42
+            sess["csrf_token"] = CSRF
+            sess["last_active_at"] = "original-user-activity"
+
+    return client, db, login
+
+
 def valid_payload(page_url="/client/orders"):
     return {
         "action_type": "page_visit",
@@ -152,6 +203,76 @@ def test_default_login_required_still_refreshes_genuine_user_activity(monkeypatc
     response = client.get("/protected")
 
     assert response.status_code == 200
+    with client.session_transaction() as sess:
+        assert sess["last_active_at"] != "original-user-activity"
+
+
+def test_postgresql_contained_insert_shape_and_passive_activity(
+    postgres_tracking_env,
+):
+    client, db, login = postgres_tracking_env
+    login()
+
+    response = post(client, valid_payload("/client/orders?token=secret#private"))
+
+    assert response.status_code == 200
+    row = db.execute(
+        """
+        SELECT user_id, user_email, user_role, action_type, action_name,
+               page_url, payload_json
+        FROM user_action_logs
+        """
+    ).fetchone()
+    payload_json = json.loads(row.pop("payload_json"))
+    assert row == {
+        "user_id": "42",
+        "user_email": "",
+        "user_role": "client",
+        "action_type": "page_visit",
+        "action_name": "page_view",
+        "page_url": "/client/orders",
+    }
+    assert payload_json == {
+        "navigation_source": "router",
+        "page_url": "/client/orders",
+    }
+    with client.session_transaction() as sess:
+        assert sess["last_active_at"] == "original-user-activity"
+
+
+def test_postgresql_rejected_spoofed_and_oversized_requests_insert_zero_rows(
+    postgres_tracking_env,
+):
+    client, db, login = postgres_tracking_env
+    login()
+
+    rejected = valid_payload()
+    rejected["action_name"] = "unapproved_event"
+    assert post(client, rejected).status_code == 400
+
+    spoofed = valid_payload()
+    spoofed["user_id"] = "attacker-claimed-user"
+    assert post(client, spoofed).status_code == 400
+
+    oversized = valid_payload()
+    oversized["padding"] = "x" * tracking_contract.MAX_TRACKING_REQUEST_BYTES
+    assert post(client, oversized).status_code == 413
+
+    count = db.execute(
+        "SELECT count(*) AS count FROM user_action_logs"
+    ).fetchone()["count"]
+    assert count == 0
+
+
+def test_postgresql_representative_authenticated_route_refreshes_activity(client):
+    client.login({"id": 9001, "role": "transporter"})
+    with client.session_transaction() as sess:
+        sess["last_active_at"] = "original-user-activity"
+
+    response = client.get("/api/orders/available")
+
+    assert response.status_code == 200
+    assert response.get_json()["success"] is True
     with client.session_transaction() as sess:
         assert sess["last_active_at"] != "original-user-activity"
 
