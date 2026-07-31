@@ -13,16 +13,17 @@ This registry is the human-readable source for the current architecture, verifie
 | Phase 1A implementation branch | `security/phase-1a-legacy-tracking-containment` |
 | Phase 1A starting SHA | `68177dbcc2b891a0f5360e693755dead26b8d67d` |
 | Baseline correction branch | `fix/schema-trigger-rls-baseline` |
+| Phase 1B-1 implementation branch | `feature/phase-1b-canonical-event-foundation` |
 | Environment inspected | Authorized Supabase TEST project `fysu…goev` |
 | Database inspection mode | Read-only transactions; every inspection ended with `ROLLBACK` |
 | Scheduler state during inspection | Disabled with `DIGITRANSX_ENABLE_SCHEDULER=0`; no scheduler process active |
-| Phase | Phase 0 registry; Phase 1A legacy tracking containment implemented; schema-trigger/RLS baseline correction implemented in the repository but not applied to shared TEST |
+| Phase | Phase 0 registry; Phase 1A legacy tracking containment implemented; schema-trigger/RLS baseline corrected in repository and shared TEST; Phase 1B-1 canonical event foundation implemented in repository but not applied to shared TEST or connected to runtime routes |
 
 > **Planning/documentation only.** This file creates no routes, tables, views, functions, triggers, policies, jobs, dashboards, providers, or runtime behavior. Any object or event marked Planned or Deferred does not exist merely because it appears here.
 
 The Inventory base SHA identifies the code/database state inspected during Phase 0. It is not the SHA of the documentation commit that introduced or later corrected this registry.
 
-Runtime implementation remains authoritative when this registry and code disagree. A disagreement is a defect: every future tracking-related change must update this file in the same commit. Phase 1B must add contract tests that detect code/document drift, including event-name, event-version, schema, writer-ownership, metadata-schema, and prohibited-field drift.
+Runtime implementation remains authoritative when this registry and code disagree. A disagreement is a defect: every future tracking-related change must update this file in the same commit. Phase 1B-1 adds contract tests for event names/counts, versions, schema convergence, writer ownership, metadata shape, prohibited fields, RLS, idempotency, and absence of runtime integration.
 
 ### Status vocabulary
 
@@ -38,7 +39,7 @@ Runtime implementation remains authoritative when this registry and code disagre
 
 ### Last-verified migration and capability summary
 
-The TEST database has 43 public tables and two public views. Its public table names and column sets match [`supabase/schema.sql`](../supabase/schema.sql). All ten repository migrations have their expected capabilities present, assessed by objects and constraints rather than by a migration-history table:
+The TEST database has 43 public tables and two public views. It contains the capabilities through the schema-trigger/RLS baseline migration, assessed by objects and constraints rather than by a migration-history table:
 
 1. commission policies and Terms;
 2. one-time payment foundation;
@@ -49,7 +50,10 @@ The TEST database has 43 public tables and two public views. Its public table na
 7. dispatcher-role removal;
 8. one-time trip completion lifecycle;
 9. coordinate integrity;
-10. shipment trip reviews.
+10. shipment trip reviews;
+11. schema-trigger/RLS baseline correction.
+
+The repository also contains the forward-only Phase 1B-1 migration `20260731230000_canonical_event_foundation.sql`. It follows the applied `20260731220000` baseline migration, has never been applied to shared TEST, and creates no rows when proven on disposable PostgreSQL.
 
 The database also has the expected Auth-to-profile trigger on `auth.users`. Supabase-owned migration records exist in service schemas, but there is no application-owned public migration ledger; capability inspection is therefore mandatory.
 
@@ -174,7 +178,7 @@ Remaining legacy limitations:
 - the table still mixes contained analytics with the existing admin commission audit writer;
 - effective TEST grants remain broader than the application endpoint contract;
 - no distributed rate limiter was added; authentication, CSRF, strict request size, and schema validation are the bounded abuse controls;
-- Phase 1B envelope schemas, canonical writer registry, outbox decision, environment separation, and contract tests remain **Planned**.
+- Phase 1B-1 envelope schemas, canonical catalog/writers, explicit environment separation, RLS, idempotency, and contract tests are **Implemented in the repository**. The migration is not applied to shared TEST, and all runtime event integrations remain **Planned**.
 
 ### 3.3 Notifications, email, scheduler, logging, and health
 
@@ -276,10 +280,9 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 ### 3.9 Schema, migrations, and test mirrors
 
 - [`supabase/schema.sql`](../supabase/schema.sql) is the canonical fresh-install mirror.
-- Eleven forward migrations exist under [`supabase/migrations`](../supabase/migrations), including the bounded schema-trigger/RLS baseline correction.
+- Twelve forward migrations exist under [`supabase/migrations`](../supabase/migrations), including the applied baseline correction and the repository-only Phase 1B-1 event foundation.
 - PostgreSQL integration mirrors in [`backend/tests/conftest.py`](../backend/tests/conftest.py) and `test_migration*.py` use isolated/disposable PostgreSQL databases or schemas and never fall back from `TEST_SUPABASE_DB_URL` to the shared application URL.
-- Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, review concurrency/integrity, schema-trigger convergence, and effective shipment/trip role visibility.
-- No tracking-registry contract tests exist yet; those are Phase 1B.
+- Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, review concurrency/integrity, schema-trigger convergence, effective shipment/trip role visibility, the 149 + 8 catalog, strict envelopes, migration convergence, caller-owned writers, idempotency/concurrency, append-only enforcement, and event-table privileges.
 
 ## 4. Actual TEST database capability inventory
 
@@ -291,14 +294,16 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 | Public views | 2 | `saved_payment_methods_safe`, `transporter_review_aggregates` |
 | Constraints | 218 | Includes primary, foreign, unique, and CHECK constraints. |
 | Indexes | 122 | Includes lifecycle and financial idempotency/uniqueness indexes. |
-| Non-internal public triggers | 21 | Includes updated-at, immutable-version, profile-separation, and shipment-history triggers. |
-| Public functions | 9 | `current_app_role`, `current_app_user_id`, `enforce_single_client_profile`, `handle_new_auth_user`, `is_admin`, `log_shipment_status_change`, `prevent_version_mutation`, `rls_auto_enable`, `set_updated_at` |
+| Non-internal public triggers | 24 | Includes all updated-at triggers, immutable-version, profile-separation, and shipment-history triggers. |
+| Public functions | 10 | The previous nine functions plus the boolean-only `is_transporter_assigned_to_shipment(bigint)` authorization helper. |
 | RLS policies | 94 | Admin and party/owner policies cover current tables. |
 | Public enum | 1 | `app_role`: `admin`, `customer`, `transporter`, `fuel_station_manager`, `shopkeeper`; no dispatcher. |
 
 The Auth trigger `auth.users.trg_on_auth_user_created` is present. The Storage bucket `shipment-documents` is private and contained zero objects. The only Storage object policy found was `shipment_docs_admin_all`.
 
-The read-only baseline-correction audit found that shared TEST is missing exactly `trg_transporter_profiles_updated_at`, `trg_fuel_station_profiles_updated_at`, and `trg_shopkeeper_profiles_updated_at`, although all three tables, `set_updated_at()`, and the canonical fresh-schema trigger definitions exist. No previously applied migration creates those three triggers. Migration `20260731220000_schema_trigger_rls_baseline.sql` corrects the drift forward-only, but it was deliberately not applied to shared TEST in this task.
+The baseline application added exactly `trg_transporter_profiles_updated_at`, `trg_fuel_station_profiles_updated_at`, and `trg_shopkeeper_profiles_updated_at` to shared TEST by reusing `set_updated_at()`. It also installed the non-recursive shipment authorization helper/policy. Post-application reconciliation retained 43 tables, two views, 218 constraints, 122 indexes, and 94 policies; function count became 10 and non-internal trigger count became 24. All business row counts, safe financial totals, and existing profile `updated_at` values remained unchanged.
+
+Shared TEST still contains no `security_events`, `business_audit_events`, `event_outbox`, Phase 1B JSON validator, or Phase 1B append-only trigger. That absence is intentional: `20260731230000_canonical_event_foundation.sql` is repository-only in this phase.
 
 ### 4.2 Tables, views, and safe aggregate row counts
 
@@ -365,7 +370,7 @@ All current public tables have RLS enabled. Owner/party/admin policies exist for
 
 The baseline audit reproduced PostgreSQL `42P17` under real `anon` and `authenticated` roles. `shipments_transporter_read` queried RLS-protected `shipment_trips`, while `trips_client_read` queried RLS-protected `shipments`, forming a policy cycle. The repository correction replaces the first cross-table policy subquery with the single boolean-only `is_transporter_assigned_to_shipment(bigint)` authorization helper. It is `STABLE`, `SECURITY DEFINER`, has `search_path=pg_catalog`, uses qualified relations and no dynamic SQL, returns no row content, is revoked from `PUBLIC`, and among client roles is executable only by `anon` and `authenticated`.
 
-Disposable PostgreSQL tests prove that the correction produces no `42P17`: anonymous and unrelated authenticated users see no protected shipment/trip rows; an owning client sees only its shipment/trip; an assigned transporter sees its related protected shipment/trip plus the pre-existing legitimate open-order surface; another transporter cannot see those protected rows; and a platform admin retains full access. The helper returns false outside a genuine transporter identity and cannot be used to enumerate another user's assignments. Shared TEST retains the pre-correction policy until a separately authorized migration application.
+Disposable PostgreSQL tests and post-application real-role probes prove that the correction produces no `42P17`: anonymous and unrelated authenticated users see no protected shipment/trip rows; an owning client sees only its shipment/trip; an assigned transporter sees its related protected shipment/trip plus the pre-existing legitimate open-order surface; another transporter cannot see those protected rows; and a platform admin retains full access. The helper returns false outside a genuine transporter identity and cannot be used to enumerate another user's assignments. Shared TEST now has this corrected policy/helper state.
 
 ### 4.5 Capability-based migration assessment
 
@@ -381,9 +386,10 @@ Disposable PostgreSQL tests prove that the correction produces no `42P17`: anony
 | `20260723120000_one_time_trip_completion_lifecycle.sql` | Lifecycle/dispute columns, exact relationship constraints, payment checks, unique indexes | Verified present |
 | `20260724190000_one_time_coordinate_integrity.sql` | Pair/range/finite coordinate constraints | Verified present |
 | `20260726200000_shipment_trip_reviews.sql` | Review table, exact FKs, one-per-trip uniqueness, view, RLS | Verified present |
-| `20260731220000_schema_trigger_rls_baseline.sql` | Three missing profile `updated_at` triggers plus non-recursive shipment/trip authorization helper and policy | Implemented and proven on disposable PostgreSQL; not applied to shared TEST |
+| `20260731220000_schema_trigger_rls_baseline.sql` | Three profile `updated_at` triggers plus non-recursive shipment/trip authorization helper and policy | Verified present in shared TEST; row/timestamp/financial reconciliation unchanged |
+| `20260731230000_canonical_event_foundation.sql` | Two append-only event tables, bounded JSON validator, UPDATE guard, indexes, RLS/service policy and grants | Implemented and proven on disposable PostgreSQL; deliberately absent from shared TEST |
 
-Apart from the three-trigger drift and recursive policy defect corrected by the new forward migration, no partial or out-of-order capability was detected. Stop if a future inspection finds a named capability missing, an unexpected extra application table/column, a migration only partially represented, or a migration ledger that conflicts with observed capability.
+No partial or out-of-order capability was detected. The former three-trigger/RLS drift is corrected, while the later event foundation is wholly absent from TEST as required. Stop if a future inspection finds a named capability missing, an unexpected extra application table/column, a migration only partially represented, or a migration ledger that conflicts with observed capability.
 
 ### 4.6 Safe anomaly and sensitive-column findings
 
@@ -413,29 +419,29 @@ There are no public columns named as raw PAN/card-number/CVC/CVV storage. This i
 
 ## 5. Four separate event domains
 
-| Domain | Purpose | Planned logical owner | Must not contain |
+| Domain | Purpose | Foundation owner/status | Must not contain |
 | --- | --- | --- | --- |
-| Security events | Authentication, verification, device/session, risk, account protection, security administration | `security_events` plus security-specific supporting objects | General product clicks, business state history, raw secrets |
-| Business audit events | Committed domain changes and immutable business evidence | `business_audit_events`, transactionally paired with the mutation via `event_outbox` as needed | Failed attempts presented as successful history, chat bodies, arbitrary frontend events |
+| Security events | Authentication, verification, device/session, risk, account protection, security administration | `security_events` implemented in repository; runtime integration and TEST application remain Planned | General product clicks, business state history, raw secrets |
+| Business audit events | Committed domain changes and immutable business evidence | `business_audit_events` implemented in repository; caller transaction pairs future mutations/events without an outbox today | Failed attempts presented as successful history, chat bodies, arbitrary frontend events |
 | General analytics | Consent-aware product usage, attribution, funnels, and aggregate behavior | `analytics_events` | Passwords/OTP/payment secrets, private content, exact background GPS |
 | Operational monitoring | Reliability, performance, failures, dependency health, incidents, release monitoring | Operational telemetry and `operational_incidents` | Business payload bodies, auth headers, DB URLs, user-visible raw stack traces |
 
-Planned logical objects, all **Not implemented** in TEST:
+Logical objects, all still absent from shared TEST:
 
 `security_events`, `user_devices`, `user_sessions`, `otp_challenges`, `security_cases`, `security_case_events`, `security_alert_deliveries`, `admin_security_actions`, `business_audit_events`, `analytics_events`, `operational_incidents`, `event_outbox`, and `notification_deliveries`.
 
-These names describe logical responsibilities, not a mandate to create thirteen exact tables. Phase 1B must first prove compatibility, reuse opportunities, RLS, retention, expected volume, and transactional ownership.
+Only `security_events` and `business_audit_events` are implemented in the repository in Phase 1B-1. The other eleven logical objects remain **Not implemented**. These names describe responsibilities, not a mandate to create thirteen tables.
 
-## 6. Planned common event envelope
+## 6. Phase 1B-1 common event envelope foundation
 
-This envelope is **Planned**, not implemented:
+The strict envelope is **Implemented in the repository** for the two canonical writers. Event emission from auth/business routes remains **Planned**:
 
 | Field | Contract |
 | --- | --- |
 | Event ID | Server-assigned globally unique ID; supports idempotency. |
 | Canonical event name | Allowlisted stable name following `<domain>.<aggregate>.<past-tense action>`; no arbitrary frontend names. |
 | Event version | Positive schema version tied to contract tests. |
-| Category | One of security, business audit, analytics, or operations; never ambiguous. |
+| Category | `security` or `business_audit` for current persistence; operations names are catalogued but non-writable until their separate store exists. |
 | Actor | Server-derived user ID and role, or explicit system/provider actor. |
 | Subject user | Optional affected user, distinct from actor. |
 | Related entities | Typed IDs for order, bid, trip, payment, wallet transaction, dispute, chat, review, policy, notification, etc. |
@@ -448,13 +454,33 @@ This envelope is **Planned**, not implemented:
 | Metadata | Strict event-version schema; reject unknown keys, excessive size, and sensitive fields. |
 | Timestamp | Server UTC timestamp; client time may be auxiliary and untrusted. |
 | Retention class | Required class mapped to deletion/aggregation rules. |
-| Consent category | Required where analytics/optional processing depends on consent. |
+| Consent category | Null for security/business evidence; future analytics consent remains a separate contract. |
 
 Canonical names are stable, lowercase, and dot-separated. Multiword aggregates or actions use lowercase snake case inside their segment. Examples are `one_time.payment.released`, `wallet.withdrawal.approved`, and `security.login.succeeded`. A rename requires an explicit versioned transition; do not silently invent aliases. The exact locked compact families `matching.<compound-past-tense-action>` and `notification.<past-tense-action>` are the only catalog exceptions to the three-segment form. The required Deferred outcome `one_time.qr_payment.amount_mismatch` is the sole noun-outcome exception to the past-tense action segment. These explicit names remain stable contracts and must not acquire invented aliases; every new family must follow the three-segment rule.
 
 One committed business action has exactly one canonical domain owner even when an admin, scheduler, or provider performs it. The actor/source fields record that a platform admin, job, or provider caused the action; wrapper events must not restate the same outcome under another namespace. A separate admin-security event is allowed only when no more specific security or business event owns the action.
 
-Arbitrary frontend event names and arbitrary metadata are forbidden. The server must derive identity, role, environment, session/device reference, and authoritative timestamps.
+Arbitrary frontend event names and arbitrary metadata are forbidden. The server derives identity, role, environment, session/device reference, and authoritative timestamps.
+
+### 6.1 Implemented Phase 1B-1 objects and writers
+
+- [`backend/events/catalog.py`](../backend/events/catalog.py) is the only machine-readable catalog owner: 149 Planned names plus 8 Deferred QR names. All definitions remain `integrated=False`; Deferred QR and the six operations names are non-writable in this phase.
+- [`backend/events/contract.py`](../backend/events/contract.py) owns the shared typed envelope. The maximum encoded envelope is 8,192 bytes; metadata is 2,048 bytes; each before/after object is 1,024 bytes; objects are flat, have at most 16 keys, use explicit type maps, and permit strings of at most 128 contract characters.
+- [`backend/events/environment.py`](../backend/events/environment.py) derives only `local`, `test`, `staging`, or `production` from server configuration and fails closed when configuration is absent/unknown.
+- [`backend/events/writer.py`](../backend/events/writer.py) exposes one security writer and one business-audit writer. Each accepts the caller's existing production `Db` transaction executor or native cursor, opens no connection, and never commits or rolls back. The database supplies `occurred_at`; catalog/context supply category/version/actor/retention/environment.
+- Scoped `(idempotency_scope, idempotency_key)` uniqueness uses a SHA-256 envelope fingerprint. Same-key/same-fingerprint calls replay the existing row; same-key/different-fingerprint calls fail without aborting the transaction; concurrent duplicates create one row.
+- `security_events` and `business_audit_events` each have 43 columns, a UUID primary key, 16 named CHECK constraints, an UPDATE-blocking trigger, and scoped idempotency uniqueness. Security has five explicit secondary/unique indexes plus its primary-key index; business audit has eleven plus its primary-key index.
+- Both tables have RLS. `anon` and `authenticated` have no table privileges or policies. The explicit `service_role` policy/grants allow server `SELECT`/`INSERT` and future authorized retention `DELETE`; UPDATE remains blocked. No broad metadata view exists.
+- The migration creates zero event rows, performs no backfill, alters no legacy table, and creates no `analytics_events`, operations table, or `event_outbox`.
+
+There is no current asynchronous consumer or delivery requirement, so an outbox would be unused speculative state. `event_outbox` is deferred until a proven consumer exists; any future outbox must share the authoritative mutation transaction and must not become a second audit owner.
+
+### 6.2 Phase 1B-1 verification evidence
+
+- Full sequence `20260731220000` then `20260731230000`, application of `20260731230000` to locked corrected main, safe reapplication, and fresh `schema.sql` convergence passed on disposable PostgreSQL.
+- Migration/fresh schema produced zero event rows. Valid security/business writers, wrong name/category/version rejection, Deferred QR rejection, sensitive/oversized/nested/malformed payload rejection, server-owned fields, replay/conflict/concurrency, atomic rollback, UPDATE rejection, real-role RLS/grants, and retention-compatible DELETE were proven.
+- Focused Phase 1B-1 tests passed 21 tests; combined Phase 1A tracking/baseline/foundation regression passed 75 tests; the complete PostgreSQL backend suite passed 599 tests with zero skips; the explicit no-DB run passed 287 and skipped 312 PostgreSQL-dependent tests.
+- Repository scans prove no Flask route, scheduler, provider, payment, wallet, lifecycle, matching, notification, Agreemental, frontend, or legacy tracking surface imports/calls either canonical writer. All 149 names remain Planned and no runtime route emits them.
 
 ## 7. Security and login locked contract
 
@@ -966,8 +992,9 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
 | Risk/security cases | None | None | Absent | Missing | Disabled → shadow foundation first | Any enforcement before shadow validation |
 | Generic tracking | Contained ActivityTracker/API | `user_action_logs` | Historical arbitrary JSON retained; new writes restricted to one safe page-visit shape | Phase 1A containment implemented; table remains incompatible for the four canonical domains | Keep endpoint-local sanitizer; future consent-aware analytics replacement; retain/administer legacy data | Sensitive-field inventory or retention unknown |
 | Shipment status history | DB trigger | `shipment_status_history` | Present and consistent | Reuse as status evidence; not full audit | Reference from business events; avoid duplicate generic events | Trigger semantics drift or missing actor context not addressed |
-| Shipment/trip direct-client RLS | PostgreSQL policies | `shipments`, `shipment_trips` | Shared TEST still has the pre-correction recursive policy; repository migration and schema mirror are corrected | Three profile triggers were missing in migrated TEST and shipment/trip policy evaluation raised `42P17` | Apply the proven forward migration only under separate shared-TEST authorization | Any additional drift, helper privilege broadening, recursive dependency, or role-visibility regression |
-| Business event transactionality | Domain services | Domain tables only | Strong transaction boundaries in key flows | Missing append-only business envelope/outbox | Add within existing transactions after writer map/locks are proven | Any mutation has multiple uncoordinated writers |
+| Shipment/trip direct-client RLS | PostgreSQL policies | `shipments`, `shipment_trips` | Shared TEST has all three profile triggers and the corrected non-recursive helper/policy; role probes have no `42P17` | Former trigger/policy drift is resolved | Preserve the helper contract and role matrix | Any additional drift, helper privilege broadening, recursive dependency, or role-visibility regression |
+| Canonical event foundation | `backend/events` catalog/contract/writers | Repository-only `security_events`, `business_audit_events` | Absent from shared TEST as required; fully proven on disposable PostgreSQL | Persistence/writer foundation implemented; zero route integrations | Attach only in separately reviewed runtime phases using the existing caller transaction | Any direct route table write, client identity/time, second catalog, or migration partial state |
+| Business event transactionality | Domain services plus Phase 1B-1 writer | Domain tables; repository-only event tables | Strong transaction boundaries in key flows; writer atomic rollback proven | Writer is ready but intentionally unattached; no outbox consumer exists | Add inside existing transactions after each writer/lock owner is revalidated | Any mutation has multiple uncoordinated writers |
 | Checkout/payment | `shared/payments.py` | Payment/wallet/trip tables | Constraints and anomalies clean | High-value reuse | Emit from canonical service only | Dummy/real provider ambiguity or provider crash reconciliation unresolved |
 | Wallet | Shared helper plus route/admin/agreement writers | Wallet tables | Present, integrity indexes present | Writer overlap | Establish allowed-writer contract before events | Unmapped direct SQL writer |
 | Delivery/dispute/review | `orders/lifecycle.py`, `orders/reviews.py` | Lifecycle tables | Strong exact FKs/unique constraints | High-value reuse | Same-transaction events, canonical lock order | Any route bypasses lifecycle service |
@@ -980,6 +1007,23 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
 | Operational monitoring | Basic scheduler logging | None | No incident/telemetry objects | Missing | Structured redacted telemetry and health contracts | Body/header/secret collection cannot be excluded |
 | Analytics | Contained ActivityTracker | `user_action_logs` | One authenticated safe page-visit write shape; broad historical rows retained | Existing data may support limited historical aggregates only | New consent-aware allowlisted pipeline | Attempt to migrate arbitrary payloads without classification |
 | Agreemental tracking | Agreement routes/helpers/scheduler | Agreement tables | Workflow exists; tables empty in TEST | Future extension | Reuse shared infrastructure, separate Agreemental event rules | Any change alters One-Time contract |
+
+### 13.1 Current writer and transaction registry
+
+| Mutation family | Canonical runtime owner / compatibility aliases | Current direct persistence writers | Transaction, commit and lock owner | Future canonical event owner | Same-transaction attachment status |
+| --- | --- | --- | --- | --- | --- |
+| Signup/login/password/device | Auth/profile routes and `auth/helpers.py`; no event aliases | Supabase Auth plus direct `users`, `login_activity`, OTP/reset and `trusted_devices` writes | Individual helpers/routes commit local DB work; Supabase Auth is a separate external transaction; no common lock order | `security.*` through `write_security_event` | **Not yet safe as one atomic cross-system transaction**; observation events require a separately designed auth phase |
+| Legacy page tracking | `tracking/routes.py`; browser contract fixed to page visits | `/api/track` inserts `user_action_logs` and owns its commit | Route owns validation/insert/commit; no domain lock | Future General Analytics, not either canonical table | **Do not attach/redirect**; legacy containment remains separate |
+| Orders and bids | `orders/routes.py`; legacy accept/process-payment endpoints refuse old flow | Direct `shipments` and `shipment_bids` writes | Route owns commit; validation reads truck/order state, with checkout revalidation later | `one_time.order.*`, `one_time.bid.*`, `matching.*` | Technically caller-transaction compatible, but integration remains Planned |
+| Checkout/payment hold | `shared/payments.perform_checkout`; routes are commit owners | Shipment, bid, vehicle, wallet, wallet-transaction, payment, trip, tracking and chat writes | Existing cursor transaction; locks order, then bid, vehicle and wallet before state transitions; helper does not commit | One-Time checkout/payment plus wallet funding owners | Compatible with caller-owned writer after a dedicated integration review |
+| Release/refund | `shared/payments.release_one_time_payment` / `refund_one_time_payment` | Payment, wallet and wallet-transaction writes | Caller owns commit; payment then relevant wallet rows are locked | `one_time.payment.released/refunded`, canonical wallet credit | Compatible, not connected |
+| Delivery/dispute/review | `orders/lifecycle.py` and `orders/reviews.py`; completion/confirmation route aliases converge on these services | Shipment, trip, dispute, payment, wallet, review, notification and chat writes | Caller owns commit; canonical lock order is shipment → trip → dispute → payment → wallet | Specific One-Time trip/delivery/dispute/review events | Compatible, not connected; no generic duplicate status wrapper allowed |
+| Wallet/withdrawal | `wallet/helpers.py`, wallet routes, payments, agreements and admin routes | Wallet, wallet-transaction and withdrawal tables | Multiple current commit owners; row locks exist in payment paths but ownership remains distributed | `wallet.*` | **Stop before integration** until each direct writer is assigned and replay/lock behavior is unified |
+| Fleet/profile/documents | Profile/truck routes and shared Storage helper | Users/profile/vehicle/document tables plus Storage | Route commits DB work; Storage is external and not one DB transaction | `transporter.*`, `business.profile.*` | DB-only transitions may attach later; upload evidence needs explicit external-failure semantics |
+| Commission/Terms/admin decisions | Shared commission helpers and admin routes; actor envelope replaces wrapper aliases | Version tables/domain state; commission publication also writes legacy `user_action_logs` | Admin route owns DB transaction/commit; immutable version triggers protect published rows | `commission.*`, `terms.*`, specific business owner; `admin.security_action.performed` only as fallback | Compatible for domain rows after removing mixed legacy audit ownership in a separately authorized phase |
+| Notifications and scheduled transitions | `shared/notifications.py`, lifecycle services, scheduler/manual admin trigger | Idempotent `shipment_notifications` plus business transitions | Notification helper never commits; lifecycle/admin/scheduler caller owns transaction and locks | Business transition event plus separate `notification.*`; future `system.job.*` remains non-writable until operations persistence | Business notifications are attachable later; scheduler run evidence needs its separate operations phase |
+
+Phase 1B-1 does not change any owner in this registry. It provides the validated cursor-level writer only; every runtime attachment remains a future bounded change.
 
 ## 14. Architecture and rollout
 
@@ -994,8 +1038,8 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
    - preserve existing `user_action_logs` rows until a separately authorized classification/retention decision;
    - do not silently redirect current arbitrary payloads into a new analytics table;
    - prove no current business route depends on unsafe tracker behavior.
-2. **Schema-trigger/RLS baseline correction (Implemented in repository; shared TEST application pending separate authorization)** — forward-only convergence for three profile timestamp triggers and non-recursive shipment/trip role visibility.
-3. **Phase 1B — Canonical event foundation (Planned)** — envelope schemas, writer registry, outbox decision, environment separation, and contract tests.
+2. **Schema-trigger/RLS baseline correction (Implemented in repository and shared TEST)** — forward-only convergence for three profile timestamp triggers and non-recursive shipment/trip role visibility.
+3. **Phase 1B-1 — Canonical event foundation (Implemented in repository; not applied to shared TEST)** — two separated persistence tables, one catalog, strict envelope, caller-owned writers, scoped idempotency, environment separation, RLS/grants, outbox deferral, and PostgreSQL contract tests. No runtime route emits canonical events.
 4. **Security** — observation first; risk shadow mode and alerts/cases; later Email OTP after provider/domain readiness. Device/session and raw-token migration is a later dedicated security workstream and must preserve or deliberately migrate MPIN compatibility.
 5. **One-Time Business Audit** — attach same-transaction events to canonical One-Time services and prove idempotency/lock behavior.
 6. **General Analytics** — replace broad tracker with consent-aware, allowlisted, idempotent analytics.
@@ -1036,11 +1080,11 @@ Agreemental tracking remains a clearly marked future extension. It may reuse com
 
 Historical `ActivityTracker` rows may reflect broad bodies/responses and a CSRF token-shaped `session_id`. Phase 1A removes those capture paths from current runtime behavior, preserves existing rows, and keeps the legacy system explicitly separate from the future approved analytics precedent.
 
-## 17. Phase 1A/1B blockers and mandatory stop conditions
+## 17. Post-foundation integration blockers and mandatory stop conditions
 
-Stop any work beyond the bounded Phase 1A containment if any of the following is unresolved:
+Stop any runtime event integration if any of the following is unresolved:
 
-1. The exact writer registry for payment, wallet, admin, shipment, and notification mutations is incomplete.
+1. A mutation's current writer/commit/lock owner differs from the registry, or distributed wallet/admin writers have not been reconciled for that event.
 2. Effective `anon`/`authenticated` privileges and RLS behavior are not proven in disposable PostgreSQL/Supabase-compatible tests.
 3. Any migration, reuse, or retention change for existing `user_action_logs` lacks an approved sensitive-field classification and access plan.
 4. Polling/genuine-activity separation is not designed before inactivity enforcement.
@@ -1085,6 +1129,6 @@ At this verification point the registry explicitly names:
 - 8 planned notification events;
 - 6 planned scheduler/worker run events;
 - 8 Deferred One-Time QR-payment events;
-- 13 planned logical data objects, all currently absent.
+- 13 logical data objects: 2 event tables implemented in the repository but absent from shared TEST, and 11 still Not implemented.
 
-The canonical catalog therefore contains 149 Planned events plus 8 Deferred QR-payment events. Deferred events are reported separately and excluded from the Planned total. Counts describe registry entries, not implemented capabilities.
+The canonical catalog therefore contains 149 Planned events plus 8 Deferred QR-payment events. Deferred events are reported separately and excluded from the Planned total. The catalog/envelope/writer foundation is implemented, but these counts still describe unintegrated event contracts: no runtime route emits any of the 149 names.
