@@ -14,10 +14,11 @@ This registry is the human-readable source for the current architecture, verifie
 | Phase 1A starting SHA | `68177dbcc2b891a0f5360e693755dead26b8d67d` |
 | Baseline correction branch | `fix/schema-trigger-rls-baseline` |
 | Phase 1B-1 implementation branch | `feature/phase-1b-canonical-event-foundation` |
+| Phase 1B-1 ACL correction branch | `fix/phase-1b-service-role-event-acl` |
 | Environment inspected | Authorized Supabase TEST project `fysu…goev` |
 | Database inspection mode | Read-only transactions; every inspection ended with `ROLLBACK` |
 | Scheduler state during inspection | Disabled with `DIGITRANSX_ENABLE_SCHEDULER=0`; no scheduler process active |
-| Phase | Phase 0 registry; Phase 1A legacy tracking containment implemented; schema-trigger/RLS baseline corrected in repository and shared TEST; Phase 1B-1 canonical event foundation implemented in repository but not applied to shared TEST or connected to runtime routes |
+| Phase | Phase 0 registry; Phase 1A legacy tracking containment implemented; schema-trigger/RLS baseline corrected in repository and shared TEST; Phase 1B-1 canonical event foundation applied to shared TEST but not fully complete until the forward ACL correction is merged and applied; no canonical event writer is connected to runtime routes |
 
 > **Planning/documentation only.** This file creates no routes, tables, views, functions, triggers, policies, jobs, dashboards, providers, or runtime behavior. Any object or event marked Planned or Deferred does not exist merely because it appears here.
 
@@ -39,7 +40,7 @@ Runtime implementation remains authoritative when this registry and code disagre
 
 ### Last-verified migration and capability summary
 
-The TEST database has 43 public tables and two public views. It contains the capabilities through the schema-trigger/RLS baseline migration, assessed by objects and constraints rather than by a migration-history table:
+The TEST database has 46 public tables and two public views. It contains the capabilities through the Phase 1B-1 canonical event foundation migration, assessed by objects and constraints rather than by a migration-history table:
 
 1. commission policies and Terms;
 2. one-time payment foundation;
@@ -51,9 +52,10 @@ The TEST database has 43 public tables and two public views. It contains the cap
 8. one-time trip completion lifecycle;
 9. coordinate integrity;
 10. shipment trip reviews;
-11. schema-trigger/RLS baseline correction.
+11. schema-trigger/RLS baseline correction;
+12. canonical event foundation.
 
-The repository also contains the forward-only Phase 1B-1 migration `20260731230000_canonical_event_foundation.sql`. It follows the applied `20260731220000` baseline migration, has never been applied to shared TEST, and creates no rows when proven on disposable PostgreSQL.
+The forward-only Phase 1B-1 migration `20260731230000_canonical_event_foundation.sql` is applied to shared TEST and created no event rows. Read-only verification found that its additive `GRANT` statements did not remove pre-existing Supabase `service_role` default privileges. The repository correction `20260731240000_canonical_event_acl_hardening.sql` fails closed on any foundation drift, revokes the direct event-table grant before restoring only `SELECT`, `INSERT`, and `DELETE`, and is not applied to shared TEST during this implementation task.
 
 The database also has the expected Auth-to-profile trigger on `auth.users`. Supabase-owned migration records exist in service schemas, but there is no application-owned public migration ledger; capability inspection is therefore mandatory.
 
@@ -178,7 +180,7 @@ Remaining legacy limitations:
 - the table still mixes contained analytics with the existing admin commission audit writer;
 - effective TEST grants remain broader than the application endpoint contract;
 - no distributed rate limiter was added; authentication, CSRF, strict request size, and schema validation are the bounded abuse controls;
-- Phase 1B-1 envelope schemas, canonical catalog/writers, explicit environment separation, RLS, idempotency, and contract tests are **Implemented in the repository**. The migration is not applied to shared TEST, and all runtime event integrations remain **Planned**.
+- Phase 1B-1 envelope schemas, canonical catalog/writers, explicit environment separation, RLS, idempotency, and contract tests are **Implemented in the repository**, and the foundation migration is applied to shared TEST. Phase 1B-1 remains incomplete until the bounded `service_role` ACL correction is merged and applied; all runtime event integrations remain **Planned**.
 
 ### 3.3 Notifications, email, scheduler, logging, and health
 
@@ -280,7 +282,7 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 ### 3.9 Schema, migrations, and test mirrors
 
 - [`supabase/schema.sql`](../supabase/schema.sql) is the canonical fresh-install mirror.
-- Twelve forward migrations exist under [`supabase/migrations`](../supabase/migrations), including the applied baseline correction and the repository-only Phase 1B-1 event foundation.
+- Thirteen forward migrations exist under [`supabase/migrations`](../supabase/migrations), including the applied Phase 1B-1 foundation and its repository-only forward ACL correction.
 - PostgreSQL integration mirrors in [`backend/tests/conftest.py`](../backend/tests/conftest.py) and `test_migration*.py` use isolated/disposable PostgreSQL databases or schemas and never fall back from `TEST_SUPABASE_DB_URL` to the shared application URL.
 - Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, review concurrency/integrity, schema-trigger convergence, effective shipment/trip role visibility, the 149 + 8 catalog, strict envelopes, migration convergence, caller-owned writers, idempotency/concurrency, append-only enforcement, and event-table privileges.
 
@@ -290,20 +292,20 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 
 | Object kind | Count | Notes |
 | --- | ---: | --- |
-| Public tables | 43 | Every table has RLS enabled; `FORCE ROW LEVEL SECURITY` is not enabled. |
+| Public tables | 46 | Every table has RLS enabled; `FORCE ROW LEVEL SECURITY` is not enabled. |
 | Public views | 2 | `saved_payment_methods_safe`, `transporter_review_aggregates` |
-| Constraints | 218 | Includes primary, foreign, unique, and CHECK constraints. |
-| Indexes | 122 | Includes lifecycle and financial idempotency/uniqueness indexes. |
-| Non-internal public triggers | 24 | Includes all updated-at triggers, immutable-version, profile-separation, and shipment-history triggers. |
-| Public functions | 10 | The previous nine functions plus the boolean-only `is_transporter_assigned_to_shipment(bigint)` authorization helper. |
-| RLS policies | 94 | Admin and party/owner policies cover current tables. |
+| Constraints | 261 | Includes primary, foreign, unique, and CHECK constraints. |
+| Indexes | 141 | Includes lifecycle, financial, and canonical-event idempotency/uniqueness indexes. |
+| Non-internal public triggers | 28 | Includes updated-at, immutable-version, profile-separation, shipment-history, and canonical-event contract/append-only triggers. |
+| Public functions | 13 | Includes the baseline authorization helper and three canonical-event validator/enforcement functions. |
+| RLS policies | 96 | Admin and party/owner policies cover current tables; the two event tables have server-writer policies. |
 | Public enum | 1 | `app_role`: `admin`, `customer`, `transporter`, `fuel_station_manager`, `shopkeeper`; no dispatcher. |
 
 The Auth trigger `auth.users.trg_on_auth_user_created` is present. The Storage bucket `shipment-documents` is private and contained zero objects. The only Storage object policy found was `shipment_docs_admin_all`.
 
 The baseline application added exactly `trg_transporter_profiles_updated_at`, `trg_fuel_station_profiles_updated_at`, and `trg_shopkeeper_profiles_updated_at` to shared TEST by reusing `set_updated_at()`. It also installed the non-recursive shipment authorization helper/policy. Post-application reconciliation retained 43 tables, two views, 218 constraints, 122 indexes, and 94 policies; function count became 10 and non-internal trigger count became 24. All business row counts, safe financial totals, and existing profile `updated_at` values remained unchanged.
 
-Shared TEST still contains no `security_events`, `business_audit_events`, `canonical_event_catalog_projection`, `event_outbox`, Phase 1B validator/enforcement function, or Phase 1B event trigger. That absence is intentional: `20260731230000_canonical_event_foundation.sql` is repository-only in this phase.
+Shared TEST contains empty `security_events` and `business_audit_events` tables plus the 157-row `canonical_event_catalog_projection`; all definitions remain `integrated=false`, with 149 Planned and 8 Deferred definitions and exactly 143 writable definitions. `event_outbox` remains absent. The foundation signature is `0d926c9d84e427883defe37fb1c257be` only because `service_role` currently retains additive `UPDATE`, `TRUNCATE`, `REFERENCES`, `TRIGGER`, and `MAINTAIN` event-table privileges in addition to intended `SELECT`, `INSERT`, and `DELETE`. The forward correction targets the exact narrow signature `772212260b85fd6b5cd4aa35ca9ffdfb`; it is not applied to shared TEST in this task.
 
 ### 4.2 Tables, views, and safe aggregate row counts
 
@@ -387,9 +389,10 @@ Disposable PostgreSQL tests and post-application real-role probes prove that the
 | `20260724190000_one_time_coordinate_integrity.sql` | Pair/range/finite coordinate constraints | Verified present |
 | `20260726200000_shipment_trip_reviews.sql` | Review table, exact FKs, one-per-trip uniqueness, view, RLS | Verified present |
 | `20260731220000_schema_trigger_rls_baseline.sql` | Three profile `updated_at` triggers plus non-recursive shipment/trip authorization helper and policy | Verified present in shared TEST; row/timestamp/financial reconciliation unchanged |
-| `20260731230000_canonical_event_foundation.sql` | Two append-only event tables, bounded JSON validator, UPDATE guard, indexes, RLS/service policy and grants | Implemented and proven on disposable PostgreSQL; deliberately absent from shared TEST |
+| `20260731230000_canonical_event_foundation.sql` | Two append-only event tables, catalog projection, bounded JSON validator, contract/UPDATE guards, indexes, RLS/service policy and grants | Verified present in shared TEST with zero event rows; additive `service_role` default-table privileges require the forward ACL correction |
+| `20260731240000_canonical_event_acl_hardening.sql` | Fail-closed foundation/signature validation followed only by event-table `service_role` revoke and narrow re-grant | Implemented and proven on disposable PostgreSQL; not applied to shared TEST in this task |
 
-No partial or out-of-order capability was detected. The former three-trigger/RLS drift is corrected, while the later event foundation is wholly absent from TEST as required. Stop if a future inspection finds a named capability missing, an unexpected extra application table/column, a migration only partially represented, or a migration ledger that conflicts with observed capability.
+No partial or out-of-order foundation capability was detected. The former three-trigger/RLS drift is corrected. The only known Phase 1B-1 mismatch is the additive `service_role` event-table ACL described above; the correction must fail closed if any other mismatch appears. Stop if a future inspection finds a named capability missing, an unexpected extra application table/column, a migration only partially represented, or a migration ledger that conflicts with observed capability.
 
 ### 4.6 Safe anomaly and sensitive-column findings
 
@@ -421,16 +424,16 @@ There are no public columns named as raw PAN/card-number/CVC/CVV storage. This i
 
 | Domain | Purpose | Foundation owner/status | Must not contain |
 | --- | --- | --- | --- |
-| Security events | Authentication, verification, device/session, risk, account protection, security administration | `security_events` implemented in repository; runtime integration and TEST application remain Planned | General product clicks, business state history, raw secrets |
-| Business audit events | Committed domain changes and immutable business evidence | `business_audit_events` implemented in repository; caller transaction pairs future mutations/events without an outbox today | Failed attempts presented as successful history, chat bodies, arbitrary frontend events |
+| Security events | Authentication, verification, device/session, risk, account protection, security administration | `security_events` implemented in repository and present empty in shared TEST; runtime integration remains Planned and ACL correction is pending | General product clicks, business state history, raw secrets |
+| Business audit events | Committed domain changes and immutable business evidence | `business_audit_events` implemented in repository and present empty in shared TEST; caller transaction pairs future mutations/events without an outbox today | Failed attempts presented as successful history, chat bodies, arbitrary frontend events |
 | General analytics | Consent-aware product usage, attribution, funnels, and aggregate behavior | `analytics_events` | Passwords/OTP/payment secrets, private content, exact background GPS |
 | Operational monitoring | Reliability, performance, failures, dependency health, incidents, release monitoring | Operational telemetry and `operational_incidents` | Business payload bodies, auth headers, DB URLs, user-visible raw stack traces |
 
-Logical objects, all still absent from shared TEST:
+The logical object plan is:
 
 `security_events`, `user_devices`, `user_sessions`, `otp_challenges`, `security_cases`, `security_case_events`, `security_alert_deliveries`, `admin_security_actions`, `business_audit_events`, `analytics_events`, `operational_incidents`, `event_outbox`, and `notification_deliveries`.
 
-Only `security_events` and `business_audit_events` are implemented in the repository in Phase 1B-1. The other eleven logical objects remain **Not implemented**. These names describe responsibilities, not a mandate to create thirteen tables.
+Only `security_events` and `business_audit_events` are implemented in the repository and present in shared TEST in Phase 1B-1. The other eleven logical objects remain **Not implemented** and absent from shared TEST. These names describe responsibilities, not a mandate to create thirteen tables.
 
 ## 6. Phase 1B-1 common event envelope foundation
 
@@ -471,7 +474,7 @@ Arbitrary frontend event names and arbitrary metadata are forbidden. The server 
 - `canonical_event_catalog_projection` is migration-owned enforcement metadata generated from the Python catalog, not a third event store or a second semantic owner. Its 157 rows project the exact name/version/category/domain/retention/lifecycle/writable/integrated tuple; deterministic bidirectional tests reject missing, extra, duplicate, or drifted definitions. The six Operations and eight Deferred QR definitions are represented but non-writable, and all definitions remain `integrated=False`.
 - Scoped `(idempotency_scope, idempotency_key)` uniqueness uses a SHA-256 envelope fingerprint. Same-key/same-fingerprint calls replay the existing row; same-key/different-fingerprint calls fail without aborting the transaction; concurrent duplicates create one row.
 - `security_events` and `business_audit_events` each retain 43 columns, a UUID primary key, 16 named CHECK constraints, an UPDATE-blocking trigger, a catalog-contract INSERT trigger, and scoped idempotency uniqueness. Security has five explicit secondary/unique indexes plus its primary-key index; business audit has eleven plus its primary-key index. The database rejects unknown/non-writable names, table/category, version or retention drift, and user/admin actors missing either server-owned ID or role.
-- All three Phase 1B tables have RLS. `anon` and `authenticated` have no table privileges or policies. The explicit event-table `service_role` policy/grants allow server `SELECT`/`INSERT` and future authorized retention `DELETE`; UPDATE remains blocked. `service_role` has no projection-table access, while the fixed-search-path security-definer INSERT guard performs the bounded boolean contract lookup. No broad metadata view exists.
+- All three Phase 1B tables have RLS. `anon`, `authenticated`, and `PUBLIC` have no event-table privileges or policies. The intended event-table `service_role` contract allows server `SELECT`/`INSERT` and future authorized retention `DELETE`; the discovered shared-TEST ACL additionally retains Supabase default `UPDATE`, `TRUNCATE`, `REFERENCES`, `TRIGGER`, and `MAINTAIN` privileges because the applied migration granted additively. The append-only trigger still blocks UPDATE as defence in depth, and `service_role` has no projection-table access. The forward correction first validates the exact non-ACL foundation plus either the known broad or exact narrow ACL, then revokes all direct event-table privileges from `service_role` and restores only the three intended privileges.
 - Migration reapplication first computes one OID-independent semantic signature over exact columns/types/nullability/defaults, constraints, indexes, triggers, function definitions, RLS, policies, non-owner privileges, and all projection tuples. Only zero owned objects or the exact completed foundation may proceed; every partial or incompatible state aborts before migration DDL and preserves existing rows/objects.
 - The migration creates zero event rows, performs no backfill, alters no legacy table, and creates no `analytics_events`, operations table, or `event_outbox`.
 
@@ -479,10 +482,11 @@ There is no current asynchronous consumer or delivery requirement, so an outbox 
 
 ### 6.2 Phase 1B-1 verification evidence
 
-- Full sequence `20260731220000` then `20260731230000`, application of `20260731230000` to locked corrected main, safe reapplication, and fresh `schema.sql` convergence passed on disposable PostgreSQL.
+- Full sequence `20260731220000` then `20260731230000`, safe foundation reapplication, and fresh `schema.sql` convergence passed on disposable PostgreSQL. The forward ACL correction additionally proves convergence among old migration plus new migration, corrected fresh `schema.sql`, and an already-correct narrow database.
 - Migration/fresh schema produced zero event rows. Valid security/business writers, all 143 currently writable definitions, wrong name/table/category/version/retention rejection, Operations/Deferred/non-writable rejection, sensitive/oversized/nested/malformed payload rejection, server-owned actor fields, replay/conflict/concurrency, atomic rollback, UPDATE rejection, real-role RLS/grants, and retention-compatible DELETE were proven.
-- Fresh, partial and exact-reapply migration tests prove fail-closed preservation for wrong column names/types/nullability/defaults, weakened CHECKs, missing indexes/triggers/policies, wrong RLS/grants and drifted helper definitions. Focused Phase 1B-1 tests pass 44 tests; combined Phase 1A/baseline/foundation regression passes 98; the complete PostgreSQL backend suite passes 622 with zero skips; and the explicit no-DB run passes 288 while safely skipping 334 PostgreSQL-dependent tests.
+- Fresh, partial and exact-reapply migration tests prove fail-closed preservation for wrong column names/types/nullability/defaults, weakened CHECKs, missing indexes/triggers/policies, wrong RLS/grants and drifted helper definitions. The ACL correction adds 8 focused tests; the combined Phase 1A/baseline/foundation/ACL regression passes 106; the complete PostgreSQL backend suite passes 630 with zero skips; and the explicit no-DB run passes 289 while safely skipping 341 PostgreSQL-dependent tests.
 - Repository scans prove no Flask route, scheduler, provider, payment, wallet, lifecycle, matching, notification, Agreemental, frontend, or legacy tracking surface imports/calls either canonical writer. All 149 names remain Planned and no runtime route emits them.
+- Phase 1B-1 is not fully complete until `20260731240000_canonical_event_acl_hardening.sql` is merged and applied. This implementation pass does not apply it to shared TEST. Phase 1B-2 remains **Planned**, the catalog remains 149 Planned plus 8 Deferred with every definition `integrated=false`, and no runtime writer integration is introduced.
 
 ## 7. Security and login locked contract
 
@@ -1041,14 +1045,15 @@ Phase 1B-1 does not change any owner in this registry. It provides the validated
    - do not silently redirect current arbitrary payloads into a new analytics table;
    - prove no current business route depends on unsafe tracker behavior.
 2. **Schema-trigger/RLS baseline correction (Implemented in repository and shared TEST)** — forward-only convergence for three profile timestamp triggers and non-recursive shipment/trip role visibility.
-3. **Phase 1B-1 — Canonical event foundation (Implemented in repository; not applied to shared TEST)** — two separated persistence tables, one catalog, strict envelope, caller-owned writers, scoped idempotency, environment separation, RLS/grants, outbox deferral, and PostgreSQL contract tests. No runtime route emits canonical events.
-4. **Security** — observation first; risk shadow mode and alerts/cases; later Email OTP after provider/domain readiness. Device/session and raw-token migration is a later dedicated security workstream and must preserve or deliberately migrate MPIN compatibility.
-5. **One-Time Business Audit** — attach same-transaction events to canonical One-Time services and prove idempotency/lock behavior.
-6. **General Analytics** — replace broad tracker with consent-aware, allowlisted, idempotent analytics.
-7. **Operational Monitoring** — structured errors/latency/health/provider/scheduler/release telemetry and incident lifecycle.
-8. **Dashboards and retention** — user/admin security surfaces, KPI/funnel views, deletion/aggregation jobs, access audits.
-9. **Final audit and freeze** — drift, privilege, retention, volume, performance, privacy, and integrity review.
-10. **GPS tracking architecture afterward** — separate bounded architecture after the event foundations are stable.
+3. **Phase 1B-1 — Canonical event foundation (foundation applied to shared TEST; ACL correction pending merge/application)** — two separated persistence tables, one catalog, strict envelope, caller-owned writers, scoped idempotency, environment separation, RLS/grants, outbox deferral, and PostgreSQL contract tests. No runtime route emits canonical events; Phase 1B-1 is not fully complete until the forward `service_role` ACL correction is merged and applied.
+4. **Phase 1B-2 — Runtime event integration (Planned)** — attach canonical writers only through separately reviewed domain-owner changes; no integration occurs in Phase 1B-1 or this correction.
+5. **Security** — observation first; risk shadow mode and alerts/cases; later Email OTP after provider/domain readiness. Device/session and raw-token migration is a later dedicated security workstream and must preserve or deliberately migrate MPIN compatibility.
+6. **One-Time Business Audit** — attach same-transaction events to canonical One-Time services and prove idempotency/lock behavior.
+7. **General Analytics** — replace broad tracker with consent-aware, allowlisted, idempotent analytics.
+8. **Operational Monitoring** — structured errors/latency/health/provider/scheduler/release telemetry and incident lifecycle.
+9. **Dashboards and retention** — user/admin security surfaces, KPI/funnel views, deletion/aggregation jobs, access audits.
+10. **Final audit and freeze** — drift, privilege, retention, volume, performance, privacy, and integrity review.
+11. **GPS tracking architecture afterward** — separate bounded architecture after the event foundations are stable.
 
 Agreemental tracking remains a clearly marked future extension. It may reuse common security, analytics, operations, envelope, outbox, and delivery infrastructure, but must add separate Agreemental business rules only after Agreemental workflow implementation is reviewed. It must never overwrite One-Time behavior.
 
@@ -1131,6 +1136,6 @@ At this verification point the registry explicitly names:
 - 8 planned notification events;
 - 6 planned scheduler/worker run events;
 - 8 Deferred One-Time QR-payment events;
-- 13 logical data objects: 2 event tables implemented in the repository but absent from shared TEST, and 11 still Not implemented.
+- 13 logical data objects: 2 event tables implemented in the repository and present empty in shared TEST, and 11 still Not implemented.
 
 The canonical catalog therefore contains 149 Planned events plus 8 Deferred QR-payment events. Deferred events are reported separately and excluded from the Planned total. The catalog/envelope/writer foundation is implemented, but these counts still describe unintegrated event contracts: no runtime route emits any of the 149 names.

@@ -2634,6 +2634,8 @@ begin
     end loop;
 
     if exists (select 1 from pg_roles where rolname = 'service_role') then
+        revoke all privileges on table public.security_events from service_role;
+        revoke all privileges on table public.business_audit_events from service_role;
         grant select, insert, delete on public.security_events to service_role;
         grant select, insert, delete on public.business_audit_events to service_role;
         grant execute on function public.is_bounded_event_json(jsonb, text) to service_role;
