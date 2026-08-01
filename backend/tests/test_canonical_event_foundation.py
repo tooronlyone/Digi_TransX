@@ -18,6 +18,7 @@ from events.catalog import (
     CATALOG,
     DEFERRED,
     DEFERRED_EVENT_NAMES,
+    INTEGRATED_EVENT_NAMES,
     NonWritableEventName,
     OPERATIONS,
     PLANNED,
@@ -62,6 +63,12 @@ EVENT_MIGRATION = (
     / "supabase"
     / "migrations"
     / "20260731230000_canonical_event_foundation.sql"
+)
+ACTIVATION_MIGRATION = (
+    REPO_ROOT
+    / "supabase"
+    / "migrations"
+    / "20260801100000_security_login_event_integration.sql"
 )
 EXPECTED_BASE_DATABASE = "dtx_schema_trigger_rls_baseline"
 EVENT_TABLES = ("security_events", "business_audit_events")
@@ -349,7 +356,13 @@ def test_catalog_is_single_locked_owner_and_deferred_names_are_not_writable():
     assert len(DEFERRED_EVENT_NAMES) == 8
     assert len(set(CATALOG)) == len(CATALOG)
     assert all(CATALOG[name].lifecycle_status == PLANNED for name in PLANNED_EVENT_NAMES)
-    assert all(not CATALOG[name].integrated for name in CATALOG)
+    assert {name for name, definition in CATALOG.items() if definition.integrated} == set(
+        INTEGRATED_EVENT_NAMES
+    )
+
+
+def _expected_foundation_projection():
+    return [(*row[:-1], False) for row in _expected_catalog_projection()]
     assert all(CATALOG[name].lifecycle_status == DEFERRED for name in DEFERRED_EVENT_NAMES)
     assert all(not CATALOG[name].writable for name in DEFERRED_EVENT_NAMES)
     assert all(
@@ -368,7 +381,8 @@ def test_committed_database_projection_matches_python_catalog_exactly():
     migration_rows = _committed_projection_rows(EVENT_MIGRATION)
     schema_rows = _committed_projection_rows(SCHEMA_SQL)
     assert len(expected) == len(migration_rows) == len(schema_rows) == 157
-    assert migration_rows == expected
+    assert all(not row[-1] for row in migration_rows)
+    assert [row[:-1] for row in migration_rows] == [row[:-1] for row in expected]
     assert schema_rows == expected
 
 
@@ -501,17 +515,20 @@ def test_migration_order_and_no_old_provisional_reference():
 
 def test_full_sequence_corrected_main_and_fresh_schema_converge():
     event_sql = EVENT_MIGRATION.read_text(encoding="utf-8")
+    activation_sql = ACTIVATION_MIGRATION.read_text(encoding="utf-8")
     baseline_sql = BASELINE_MIGRATION.read_text(encoding="utf-8")
     sequence_url, sequence_cleanup = _disposable(
         STUBS,
         schema_before_migration_or_skip(BASELINE_MIGRATION),
         baseline_sql,
         event_sql,
+        activation_sql,
     )
     corrected_url, corrected_cleanup = _disposable(
         STUBS,
         _locked_main_schema(),
         event_sql,
+        activation_sql,
     )
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
@@ -560,7 +577,7 @@ def test_migration_reapplication_is_safe_and_creates_no_rows():
             with conn.cursor() as cursor:
                 cursor.execute(event_sql)
         assert _foundation_metadata(conn) == before
-        assert _catalog_projection(conn) == _expected_catalog_projection()
+        assert _catalog_projection(conn) == _expected_foundation_projection()
         assert _event_counts(conn) == (0, 0)
     finally:
         conn.close()
@@ -1134,7 +1151,7 @@ def test_real_roles_rls_grants_update_block_and_retention_delete(
         assert cursor.fetchone()["count"] == 0
 
 
-def test_no_runtime_route_imports_or_emits_canonical_events():
+def test_only_the_bounded_auth_route_imports_or_emits_canonical_events():
     forbidden = (
         "write_security_event",
         "write_business_audit_event",
@@ -1148,4 +1165,4 @@ def test_no_runtime_route_imports_or_emits_canonical_events():
         text = path.read_text(encoding="utf-8", errors="replace")
         if any(token in text for token in forbidden):
             matches.append(path.relative_to(REPO_ROOT).as_posix())
-    assert matches == []
+    assert matches == ["backend/auth/routes.py"]

@@ -2,7 +2,8 @@
 
 These writers never open a database connection and never commit or roll back.
 The caller's authoritative mutation and event evidence therefore share one
-transaction. Phase 1B-1 does not call these functions from any runtime route.
+transaction. Phase 1B-2A uses the security writer only from the bounded password
+login/logout route integration.
 """
 
 from dataclasses import dataclass

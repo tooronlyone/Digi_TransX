@@ -1,8 +1,17 @@
-from flask import Blueprint, request, session
+import uuid
+
+from flask import Blueprint, current_app, request, session
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from shared.db import open_db
-from shared.supabase_client import supabase_create_user, supabase_update_password, supabase_verify_password
+from shared.supabase_client import (
+    PasswordProviderUnavailable,
+    supabase_create_user,
+    supabase_update_password,
+    supabase_verify_password,
+)
+from events.contract import EventContext, EventData
+from events.writer import write_security_event
 from .helpers import (
     _with_legacy_role,
     map_legacy_role,
@@ -42,6 +51,24 @@ from .helpers import (
 
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/auth")
+
+
+def _auth_event_context(request_id, *, user=None):
+    if user is None:
+        return EventContext(
+            request_id=request_id,
+            source="server_route",
+            actor_type="anonymous",
+        )
+    role = (user.get("role") or "").strip().lower()
+    return EventContext(
+        request_id=request_id,
+        source="server_route",
+        actor_type="admin" if role == "platform_admin" else "user",
+        actor_id=user["id"],
+        actor_role=role,
+        subject_user_id=user["id"],
+    )
 
 
 @auth_blueprint.get("/csrf-token")
@@ -192,29 +219,136 @@ def signup():
 
 @auth_blueprint.post("/login")
 def login():
-    data = request.get_json(silent=True) or {}
+    request_id = f"auth.{uuid.uuid4().hex}"
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
     login_id = data.get("loginId") or ""
     password = data.get("password") or ""
     if not login_id.strip():
-        return json_response({"success": False, "field": "loginId", "message": "Email or CNIC is required."}, 400)
-    if not password:
-        return json_response({"success": False, "field": "password", "message": "Password is required."}, 400)
-    user, login_method, lookup_value = get_user_by_login(login_id)
-    if not user:
-        record_login_activity(None, lookup_value, login_method, "failed", "Account not found.")
-        return json_response({"success": False, "field": "loginId", "message": "Account not found."}, 401)
-    if user.get("is_blocked"):
-        record_login_activity(user["id"], lookup_value, login_method, "failed", "Account blocked.")
-        return json_response({"success": False, "field": "loginId", "message": "This account is blocked."}, 403)
-    if not supabase_verify_password(user["email"], password):
-        record_login_activity(user["id"], lookup_value, login_method, "failed", "Invalid password.")
-        return json_response({"success": False, "field": "password", "message": "Incorrect password."}, 401)
-    stamp = timestamp_bundle()
-    with open_db() as db:
-        db.execute("UPDATE users SET last_login_at = %s, updated_at = %s WHERE id = %s", (stamp["display"], stamp["display"], user["id"]))
-        db.commit()
-    user = get_user_by_id(user["id"])
-    record_login_activity(user["id"], lookup_value, login_method, "success", "")
+        validation_response = json_response(
+            {"success": False, "field": "loginId", "message": "Email or CNIC is required."},
+            400,
+        )
+    elif not password:
+        validation_response = json_response(
+            {"success": False, "field": "password", "message": "Password is required."},
+            400,
+        )
+    else:
+        validation_response = None
+
+    if validation_response is not None:
+        try:
+            with open_db() as db:
+                write_security_event(
+                    db,
+                    "security.login.failed",
+                    _auth_event_context(request_id),
+                    EventData(metadata={"result_code": "validation_failed"}),
+                    idempotency_scope="security.login.terminal",
+                    idempotency_key=request_id,
+                )
+        except Exception:
+            current_app.logger.error("Canonical login failure evidence could not be persisted.")
+        return validation_response
+
+    terminal_response = None
+    authenticated_user_id = None
+    try:
+        with open_db() as db:
+            anonymous_context = _auth_event_context(request_id)
+            write_security_event(
+                db,
+                "security.login.started",
+                anonymous_context,
+                EventData(),
+                idempotency_scope="security.login.started",
+                idempotency_key=request_id,
+            )
+            user, login_method, lookup_value = get_user_by_login(login_id)
+            failure_code = None
+            failure_reason = ""
+            if not user:
+                failure_code = "invalid_credentials"
+                failure_reason = "Account not found."
+                terminal_response = json_response(
+                    {"success": False, "field": "password", "message": "Incorrect password."}, 401
+                )
+            elif user.get("is_blocked"):
+                failure_code = "account_unavailable"
+                failure_reason = "Account blocked."
+                terminal_response = json_response(
+                    {"success": False, "field": "loginId", "message": "This account is blocked."}, 403
+                )
+            else:
+                try:
+                    password_valid = supabase_verify_password(
+                        user["email"], password, raise_provider_errors=True
+                    )
+                except PasswordProviderUnavailable:
+                    password_valid = False
+                    failure_code = "provider_unavailable"
+                    failure_reason = "Provider unavailable."
+                    terminal_response = json_response(
+                        {"success": False, "message": "Login service is temporarily unavailable."},
+                        503,
+                    )
+                if not password_valid and failure_code is None:
+                    failure_code = "invalid_credentials"
+                    failure_reason = "Invalid password."
+                    terminal_response = json_response(
+                        {"success": False, "field": "password", "message": "Incorrect password."},
+                        401,
+                    )
+
+            if failure_code is not None:
+                record_login_activity(
+                    user["id"] if user else None,
+                    lookup_value,
+                    login_method,
+                    "failed",
+                    failure_reason,
+                    executor=db,
+                )
+                write_security_event(
+                    db,
+                    "security.login.failed",
+                    anonymous_context,
+                    EventData(metadata={"result_code": failure_code}),
+                    idempotency_scope="security.login.terminal",
+                    idempotency_key=request_id,
+                )
+            else:
+                stamp = timestamp_bundle()
+                db.execute(
+                    "UPDATE users SET last_login_at = %s, updated_at = %s WHERE id = %s",
+                    (stamp["display"], stamp["display"], user["id"]),
+                )
+                record_login_activity(
+                    user["id"], lookup_value, login_method, "success", "", executor=db
+                )
+                write_security_event(
+                    db,
+                    "security.login.succeeded",
+                    _auth_event_context(request_id, user=user),
+                    EventData(metadata={"result_code": "authenticated"}),
+                    idempotency_scope="security.login.terminal",
+                    idempotency_key=request_id,
+                )
+                authenticated_user_id = user["id"]
+    except Exception:
+        if terminal_response is not None:
+            current_app.logger.error("Canonical login failure evidence could not be persisted.")
+            return terminal_response
+        current_app.logger.error("Mandatory canonical login evidence could not be persisted.")
+        return json_response(
+            {"success": False, "message": "Login service is temporarily unavailable."}, 503
+        )
+
+    if terminal_response is not None:
+        return terminal_response
+    user = get_user_by_id(authenticated_user_id)
     return build_auth_success_response(user)
 
 
@@ -242,8 +376,25 @@ def auth_me():
 
 @auth_blueprint.post("/logout")
 def logout():
-    if session.get("user_id") and not require_csrf():
+    request_id = f"auth.{uuid.uuid4().hex}"
+    user_id = session.get("user_id")
+    if user_id and not require_csrf():
         return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    if user_id:
+        try:
+            user = get_user_by_id(user_id)
+            if user is not None:
+                with open_db() as db:
+                    write_security_event(
+                        db,
+                        "security.logout.completed",
+                        _auth_event_context(request_id, user=user),
+                        EventData(metadata={"result_code": "completed"}),
+                        idempotency_scope="security.logout.completed",
+                        idempotency_key=request_id,
+                    )
+        except Exception:
+            current_app.logger.error("Canonical logout evidence could not be persisted.")
     session.clear()
     return json_response({"success": True, "message": "Logged out successfully."})
 

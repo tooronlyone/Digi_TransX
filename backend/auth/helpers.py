@@ -323,28 +323,38 @@ def generate_numeric_code(length):
     return "".join(secrets.choice("0123456789") for _ in range(length))
 
 
-def record_login_activity(user_id, login_identifier, login_method, status, failure_reason=""):
+def record_login_activity(
+    user_id,
+    login_identifier,
+    login_method,
+    status,
+    failure_reason="",
+    *,
+    executor=None,
+):
     stamp = timestamp_bundle()
     meta = get_request_meta()
+    values = (
+        user_id,
+        login_identifier,
+        login_method,
+        status,
+        failure_reason,
+        meta["ip_address"],
+        meta["user_agent"],
+        stamp["iso"],
+    )
+    statement = """
+        INSERT INTO login_activity (
+            user_id, login_identifier, login_method, status, failure_reason,
+            ip_address, user_agent, created_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    if executor is not None:
+        executor.execute(statement, values)
+        return
     with open_db() as db:
-        db.execute(
-            """
-            INSERT INTO login_activity (
-                user_id, login_identifier, login_method, status, failure_reason,
-                ip_address, user_agent, created_at
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-            """,
-            (
-                user_id,
-                login_identifier,
-                login_method,
-                status,
-                failure_reason,
-                meta["ip_address"],
-                meta["user_agent"],
-                stamp["iso"],
-            ),
-        )
+        db.execute(statement, values)
         db.commit()
 
 

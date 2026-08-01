@@ -14,6 +14,7 @@ from tests._life_helpers import SCHEMA_SQL, STUBS, make_disposable, require_test
 from tests.test_canonical_event_foundation import (
     _event_counts,
     _expected_catalog_projection,
+    _expected_foundation_projection,
     _foundation_metadata,
     _locked_main_schema,
 )
@@ -27,6 +28,10 @@ FOUNDATION_MIGRATION = (
 ACL_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations"
     / "20260731240000_canonical_event_acl_hardening.sql"
+)
+ACTIVATION_MIGRATION = (
+    REPO_ROOT / "supabase" / "migrations"
+    / "20260801100000_security_login_event_integration.sql"
 )
 EXPECTED_DATABASE = "dtx_schema_trigger_rls_baseline"
 EVENT_TABLES = ("security_events", "business_audit_events")
@@ -191,7 +196,7 @@ def test_supabase_like_additive_acl_is_narrowed_without_row_or_object_drift():
 
         assert _semantic_signature(conn) == "772212260b85fd6b5cd4aa35ca9ffdfb"
         assert _non_acl_metadata(conn) == before_metadata
-        assert _projection(conn) == before_projection == _expected_catalog_projection()
+        assert _projection(conn) == before_projection == _expected_foundation_projection()
         assert _all_public_counts(conn) == before_rows
         assert _event_counts(conn) == (0, 0)
         for table in EVENT_TABLES:
@@ -204,11 +209,13 @@ def test_supabase_like_additive_acl_is_narrowed_without_row_or_object_drift():
 
 def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
     new_sql = _migration_text(ACL_MIGRATION)
+    activation_sql = _migration_text(ACTIVATION_MIGRATION)
     migrated_url, migrated_cleanup = _disposable(
         STUBS,
         _locked_main_schema(),
         _migration_text(FOUNDATION_MIGRATION),
         new_sql,
+        activation_sql,
     )
     schema_url, schema_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     migrated = psycopg2.connect(migrated_url)
@@ -219,10 +226,10 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         assert _foundation_metadata(migrated) == expected_metadata
         assert _projection(migrated) == expected_projection == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(schema)
-        assert _semantic_signature(schema) == "772212260b85fd6b5cd4aa35ca9ffdfb"
+        assert _semantic_signature(schema) == "f5168975e0605fe0f7b84c1276a0082a"
         before = _foundation_metadata(schema), _projection(schema), _all_public_counts(schema)
-        _apply(schema, new_sql)
-        _apply(schema, new_sql)
+        _apply(schema, activation_sql)
+        _apply(schema, activation_sql)
         assert (_foundation_metadata(schema), _projection(schema), _all_public_counts(schema)) == before
     finally:
         migrated.close()
@@ -236,7 +243,6 @@ def corrected_database_url():
     url, cleanup = _disposable(
         STUBS,
         SCHEMA_SQL.read_text(encoding="utf-8"),
-        _migration_text(ACL_MIGRATION),
     )
     try:
         yield url

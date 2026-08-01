@@ -48,7 +48,11 @@ def supabase_create_user(email, password, metadata=None):
     return response.user
 
 
-def supabase_verify_password(email, password):
+class PasswordProviderUnavailable(RuntimeError):
+    """Supabase Auth could not make a credential decision."""
+
+
+def supabase_verify_password(email, password, *, raise_provider_errors=False):
     """Return True if the email/password pair is valid in Supabase Auth."""
     try:
         client = create_client(_require("SUPABASE_URL"), _require("SUPABASE_ANON_KEY"))
@@ -60,6 +64,8 @@ def supabase_verify_password(email, password):
             pass
         return ok
     except Exception:
+        if raise_provider_errors:
+            raise PasswordProviderUnavailable("Password provider unavailable.") from None
         return False
 
 

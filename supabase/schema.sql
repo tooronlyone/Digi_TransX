@@ -1725,7 +1725,7 @@ do $$
 declare
     owned_object_count integer;
     actual_signature text;
-    expected_signature constant text := '772212260b85fd6b5cd4aa35ca9ffdfb';
+    expected_signature constant text := 'f5168975e0605fe0f7b84c1276a0082a';
 begin
     -- A clean database has none of the migration-owned objects.  Any other
     -- pre-existing state must be the exact completed foundation.  The
@@ -1982,7 +1982,14 @@ create table if not exists public.canonical_event_catalog_projection (
         not writable
         or (lifecycle_status = 'planned' and category in ('security', 'business_audit'))
     ),
-    constraint canonical_event_catalog_projection_integrated_check check (not integrated)
+    constraint canonical_event_catalog_projection_integrated_check check (
+        not integrated
+        or (
+            lifecycle_status = 'planned'
+            and writable
+            and category in ('security', 'business_audit')
+        )
+    )
 );
 
 insert into public.canonical_event_catalog_projection (
@@ -1994,18 +2001,18 @@ insert into public.canonical_event_catalog_projection (
     ('security.signup.email_otp_sent', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.signup.email_otp_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.signup.completed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
-    ('security.login.started', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
-    ('security.login.failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
+    ('security.login.started', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
+    ('security.login.failed', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.login.gps_result_recorded', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.login.email_otp_sent', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.login.email_otp_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
-    ('security.login.succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
+    ('security.login.succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.login.new_device_detected', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.login.suspicious_detected', 1, 'security', 'security', 'security_24_months', 'planned', true, false),
     ('security.session.refreshed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.session.expired_inactivity', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.session.revoked', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
-    ('security.logout.completed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
+    ('security.logout.completed', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.password.changed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.password_reset.requested', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.password_reset.completed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),

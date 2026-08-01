@@ -202,6 +202,15 @@ DEFERRED_EVENT_NAMES = (
     "one_time.qr_payment.webhook_applied",
 )
 
+INTEGRATED_EVENT_NAMES = frozenset(
+    {
+        "security.login.started",
+        "security.login.failed",
+        "security.login.succeeded",
+        "security.logout.completed",
+    }
+)
+
 _HIGH_SECURITY_NAMES = {
     "security.login.suspicious_detected",
     "security.account.locked",
@@ -244,6 +253,7 @@ def _definition(name, category, status=PLANNED, writable=True):
         ownership_domain=_ownership_domain(name),
         lifecycle_status=status,
         writable=writable,
+        integrated=name in INTEGRATED_EVENT_NAMES,
     )
 
 
@@ -298,8 +308,11 @@ def _assert_catalog_integrity():
     for definition in _DEFINITIONS:
         if not _NAME_RE.fullmatch(definition.name):
             raise RuntimeError(f"Invalid canonical event name: {definition.name}")
-        if definition.version <= 0 or definition.integrated:
+        if definition.version <= 0:
             raise RuntimeError(f"Invalid foundation state for: {definition.name}")
+    integrated = {definition.name for definition in _DEFINITIONS if definition.integrated}
+    if integrated != INTEGRATED_EVENT_NAMES:
+        raise RuntimeError("Canonical event integrations do not match the locked Phase 1B-2A scope.")
 
 
 _assert_catalog_integrity()
