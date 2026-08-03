@@ -20,6 +20,7 @@ MIGRATION = (
 )
 EXPECTED_PRE_SIGNATURE = "f5168975e0605fe0f7b84c1276a0082a"
 EXPECTED_POST_SIGNATURE = "7b8157021244549cfed79416b40ab662"
+PRE_GUARD_SCHEMA_SHA = "7e6f154be7227317a83cbfbb2f088ac306cd578b"
 LOCKED_HASHES = {
     "supabase/migrations/20260731230000_canonical_event_foundation.sql": (
         "9D9C7A9AA8C674EE1A58A96C7AC5ECE831D51C0EABF4C96BD81B37EB79093151"
@@ -42,9 +43,12 @@ def _local_url():
     return url
 
 
-def _post_activation_schema():
+def _pre_guard_schema():
+    """Return the immutable Phase 1B-2A activation state, never mutable main."""
     return subprocess.check_output(
-        ["git", "show", "main:supabase/schema.sql"], cwd=REPO_ROOT, text=True
+        ["git", "show", f"{PRE_GUARD_SCHEMA_SHA}:supabase/schema.sql"],
+        cwd=REPO_ROOT,
+        text=True,
     )
 
 
@@ -79,7 +83,7 @@ def test_integrated_guard_migration_converges_and_is_idempotent_after_event_rows
     migration = MIGRATION.read_text(encoding="utf-8")
     observed = []
     for blocks, needs_migration in (
-        ((STUBS, _post_activation_schema()), True),
+        ((STUBS, _pre_guard_schema()), True),
         ((STUBS, SCHEMA_SQL.read_text(encoding="utf-8")), False),
     ):
         url, cleanup = make_disposable(_local_url(), *blocks)
@@ -112,7 +116,7 @@ def test_integrated_guard_migration_converges_and_is_idempotent_after_event_rows
 
 
 def test_integrated_guard_rejects_partial_state_without_repair():
-    url, cleanup = make_disposable(_local_url(), STUBS, _post_activation_schema())
+    url, cleanup = make_disposable(_local_url(), STUBS, _pre_guard_schema())
     try:
         conn = psycopg2.connect(url)
         try:
