@@ -33,6 +33,7 @@ ACTIVATION_MIGRATION = (
 EXPECTED_BASE_DATABASE = "dtx_schema_trigger_rls_baseline"
 EXPECTED_PRIOR_SIGNATURE = "772212260b85fd6b5cd4aa35ca9ffdfb"
 EXPECTED_FINAL_SIGNATURE = "f5168975e0605fe0f7b84c1276a0082a"
+ACTIVATION_PRE_SCHEMA_SHA = "7282d049a1bd9e0c8543c4752b5c0980dc817a68"
 EXPECTED_EVENTS = {
     "security.login.started",
     "security.login.failed",
@@ -48,6 +49,13 @@ def _local_test_url():
     assert parsed.path.lstrip("/") == EXPECTED_BASE_DATABASE
     assert url != os.environ.get("SUPABASE_DB_URL", "").strip()
     return url
+
+
+def _activation_pre_schema():
+    return subprocess.check_output(
+        ["git", "show", f"{ACTIVATION_PRE_SCHEMA_SHA}:supabase/schema.sql"],
+        cwd=REPO_ROOT,
+    ).decode("utf-8")
 
 
 @pytest.fixture(scope="module")
@@ -149,7 +157,7 @@ def test_catalog_activates_exactly_the_four_bounded_events():
     assert set(INTEGRATED_EVENT_NAMES) == EXPECTED_EVENTS
     assert {name for name, item in CATALOG.items() if item.integrated} == EXPECTED_EVENTS
     assert sum(item.integrated for item in CATALOG.values()) == 4
-    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 145
+    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 146
     assert sum(item.lifecycle_status == "deferred" and not item.integrated for item in CATALOG.values()) == 8
 
 
@@ -601,9 +609,7 @@ def test_exact_auth_event_replay_is_idempotent_and_conflict_fails(auth_database_
 
 def test_activation_migration_is_exact_idempotent_and_converges_with_schema():
     base = _local_test_url()
-    old_schema = subprocess.check_output(
-        ["git", "show", "origin/main:supabase/schema.sql"], cwd=REPO_ROOT
-    ).decode("utf-8")
+    old_schema = _activation_pre_schema()
     migration = ACTIVATION_MIGRATION.read_text(encoding="utf-8")
     observed = []
     for blocks, apply_migration in (
@@ -640,9 +646,7 @@ def test_activation_migration_is_exact_idempotent_and_converges_with_schema():
 
 def test_activation_migration_rejects_partial_state_without_repair():
     base = _local_test_url()
-    old_schema = subprocess.check_output(
-        ["git", "show", "origin/main:supabase/schema.sql"], cwd=REPO_ROOT
-    ).decode("utf-8")
+    old_schema = _activation_pre_schema()
     url, cleanup = make_disposable(base, STUBS, old_schema)
     try:
         conn = psycopg2.connect(url)

@@ -33,6 +33,7 @@ from events.contract import (
     EventData,
     decode_untrusted_event_json,
     validate_envelope_inputs,
+    validate_catalog_event_contract,
     validate_untrusted_event_payload,
 )
 from events.environment import EnvironmentConfigurationError, derive_server_environment
@@ -69,6 +70,9 @@ ACTIVATION_MIGRATION = (
     / "supabase"
     / "migrations"
     / "20260801100000_security_login_event_integration.sql"
+)
+SIGNUP_FAILED_MIGRATION = (
+    REPO_ROOT / "supabase" / "migrations" / "20260801120000_add_signup_failed_event.sql"
 )
 EXPECTED_BASE_DATABASE = "dtx_schema_trigger_rls_baseline"
 EVENT_TABLES = ("security_events", "business_audit_events")
@@ -351,8 +355,8 @@ def _direct_insert(
 
 
 def test_catalog_is_single_locked_owner_and_deferred_names_are_not_writable():
-    assert len(CATALOG) == 157
-    assert len(PLANNED_EVENT_NAMES) == 149
+    assert len(CATALOG) == 158
+    assert len(PLANNED_EVENT_NAMES) == 150
     assert len(DEFERRED_EVENT_NAMES) == 8
     assert len(set(CATALOG)) == len(CATALOG)
     assert all(CATALOG[name].lifecycle_status == PLANNED for name in PLANNED_EVENT_NAMES)
@@ -362,7 +366,11 @@ def test_catalog_is_single_locked_owner_and_deferred_names_are_not_writable():
 
 
 def _expected_foundation_projection():
-    return [(*row[:-1], False) for row in _expected_catalog_projection()]
+    return [
+        (*row[:-1], False)
+        for row in _expected_catalog_projection()
+        if row[0] != "security.signup.failed"
+    ]
     assert all(CATALOG[name].lifecycle_status == DEFERRED for name in DEFERRED_EVENT_NAMES)
     assert all(not CATALOG[name].writable for name in DEFERRED_EVENT_NAMES)
     assert all(
@@ -380,10 +388,48 @@ def test_committed_database_projection_matches_python_catalog_exactly():
     expected = _expected_catalog_projection()
     migration_rows = _committed_projection_rows(EVENT_MIGRATION)
     schema_rows = _committed_projection_rows(SCHEMA_SQL)
-    assert len(expected) == len(migration_rows) == len(schema_rows) == 157
+    assert len(migration_rows) == 157
+    assert len(expected) == len(schema_rows) == 158
     assert all(not row[-1] for row in migration_rows)
-    assert [row[:-1] for row in migration_rows] == [row[:-1] for row in expected]
     assert schema_rows == expected
+
+
+def test_signup_failed_catalog_contract_is_anonymous_and_coarse_only():
+    definition = CATALOG["security.signup.failed"]
+    assert (
+        definition.version,
+        definition.category,
+        definition.retention_class,
+        definition.lifecycle_status,
+        definition.writable,
+        definition.integrated,
+    ) == (1, SECURITY, "security_12_months", PLANNED, True, False)
+    for code in definition.allowed_result_codes:
+        _, context, data = validate_catalog_event_contract(
+            definition.name,
+            _context(actor_type="anonymous", actor_id=None, actor_role=None, subject_user_id=None),
+            EventData(metadata={"result_code": code}),
+        )
+        assert context["actor_id"] is None and context["subject_user_id"] is None
+        assert data["metadata"] == {"result_code": code}
+    for metadata in (
+        {"result_code": "raw_provider_error"},
+        {"result_code": "email@example.invalid"},
+        {"result_code": "validation_failed", "attempt_number": 1},
+        {"email": "not-permitted"},
+    ):
+        with pytest.raises(EventContractError):
+            validate_catalog_event_contract(
+                definition.name,
+                _context(actor_type="anonymous", actor_id=None, actor_role=None, subject_user_id=None),
+                EventData(metadata=metadata),
+            )
+    with pytest.raises(EventContractError):
+        validate_catalog_event_contract(
+            definition.name,
+            _context(actor_type="user", actor_id=1, actor_role="customer"),
+            EventData(metadata={"result_code": "validation_failed"}),
+        )
 
 
 def test_envelope_is_strict_and_server_owned(monkeypatch):
@@ -515,6 +561,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
     guard_sql = (
         REPO_ROOT / "supabase" / "migrations" / "20260801110000_canonical_event_integrated_guard.sql"
     ).read_text(encoding="utf-8")
+    signup_failed_sql = SIGNUP_FAILED_MIGRATION.read_text(encoding="utf-8")
     baseline_sql = BASELINE_MIGRATION.read_text(encoding="utf-8")
     sequence_url, sequence_cleanup = _disposable(
         STUBS,
@@ -523,6 +570,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         event_sql,
         activation_sql,
         guard_sql,
+        signup_failed_sql,
     )
     corrected_url, corrected_cleanup = _disposable(
         STUBS,
@@ -530,6 +578,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         event_sql,
         activation_sql,
         guard_sql,
+        signup_failed_sql,
     )
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
@@ -770,7 +819,7 @@ def test_python_writer_rejects_every_unintegrated_writable_definition_before_sql
     unintegrated = [
         definition for definition in CATALOG.values() if definition.writable and not definition.integrated
     ]
-    assert len(unintegrated) == 139
+    assert len(unintegrated) == 140
     for definition in unintegrated:
         writer = (
             write_security_event
@@ -837,7 +886,7 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
         key=lambda definition: definition.name,
     )
     assert len(integrated) == 4
-    assert len(unintegrated_writable) == 139
+    assert len(unintegrated_writable) == 140
     expected_security = sum(definition.category == SECURITY for definition in integrated)
     expected_business = sum(
         definition.category == BUSINESS_AUDIT for definition in integrated

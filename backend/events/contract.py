@@ -6,7 +6,7 @@ import math
 import re
 from typing import Mapping
 
-from .catalog import get_writable_event_definition
+from .catalog import get_event_definition, get_writable_event_definition
 
 
 MAX_ENVELOPE_BYTES = 8192
@@ -311,7 +311,7 @@ def validate_event_context(context):
     }
 
 
-def validate_event_data(data):
+def validate_event_data(data, *, definition=None):
     if data is None:
         data = EventData()
     if not isinstance(data, EventData):
@@ -323,7 +323,7 @@ def validate_event_data(data):
     reason_code = data.reason_code
     if reason_code is not None and reason_code not in REASON_CODES:
         raise EventContractError("reason_code is not allowed.")
-    return {
+    normalized = {
         "related_entities": _validate_related_entities(data.related_entities),
         "before_state": _validate_scalar_object(
             data.before_state, "before_state", STATE_KEY_TYPES, MAX_STATE_BYTES
@@ -337,17 +337,49 @@ def validate_event_data(data):
         ),
         "consent_category": None,
     }
+    if definition is not None and definition.name == "security.signup.failed":
+        if (
+            normalized["related_entities"]
+            or normalized["before_state"]
+            or normalized["after_state"]
+            or normalized["reason_code"] is not None
+            or set(normalized["metadata"]) != {"result_code"}
+            or normalized["metadata"]["result_code"] not in definition.allowed_result_codes
+        ):
+            raise EventContractError(
+                "Signup failure events require one approved coarse result_code only."
+            )
+    return normalized
+
+
+def validate_catalog_event_contract(event_name, context, data=None):
+    """Validate a catalog definition without granting runtime write eligibility."""
+    definition = get_event_definition(event_name)
+    normalized_context = validate_event_context(context)
+    if definition.name == "security.signup.failed" and (
+        normalized_context["actor_type"] != "anonymous"
+        or normalized_context["actor_id"] is not None
+        or normalized_context["actor_role"] is not None
+        or normalized_context["subject_user_id"] is not None
+    ):
+        raise EventContractError("Signup failure events must remain anonymous.")
+    return definition, normalized_context, validate_event_data(data, definition=definition)
 
 
 def validate_envelope_inputs(event_name, context, data=None):
     definition = get_writable_event_definition(event_name)
+    checked_definition, normalized_context, normalized_data = validate_catalog_event_contract(
+        event_name, context, data
+    )
+    if checked_definition != definition:
+        raise RuntimeError("Canonical catalog lookup drift.")
     normalized = {
         "event_name": definition.name,
         "event_version": definition.version,
         "category": definition.category,
         "retention_class": definition.retention_class,
-        **validate_event_context(context),
-        **validate_event_data(data),
+        **normalized_context,
+        **normalized_data,
     }
     encoded = json.dumps(
         normalized, allow_nan=False, ensure_ascii=False, separators=(",", ":"), sort_keys=True

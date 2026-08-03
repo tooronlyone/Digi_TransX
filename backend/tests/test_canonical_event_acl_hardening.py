@@ -37,6 +37,9 @@ INTEGRATED_GUARD_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations"
     / "20260801110000_canonical_event_integrated_guard.sql"
 )
+SIGNUP_FAILED_MIGRATION = (
+    REPO_ROOT / "supabase" / "migrations" / "20260801120000_add_signup_failed_event.sql"
+)
 EXPECTED_DATABASE = "dtx_schema_trigger_rls_baseline"
 EVENT_TABLES = ("security_events", "business_audit_events")
 PROJECTION = "canonical_event_catalog_projection"
@@ -215,6 +218,7 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
     new_sql = _migration_text(ACL_MIGRATION)
     activation_sql = _migration_text(ACTIVATION_MIGRATION)
     guard_sql = _migration_text(INTEGRATED_GUARD_MIGRATION)
+    signup_failed_sql = _migration_text(SIGNUP_FAILED_MIGRATION)
     migrated_url, migrated_cleanup = _disposable(
         STUBS,
         _locked_main_schema(),
@@ -222,6 +226,7 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         new_sql,
         activation_sql,
         guard_sql,
+        signup_failed_sql,
     )
     schema_url, schema_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     migrated = psycopg2.connect(migrated_url)
@@ -232,10 +237,10 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         assert _foundation_metadata(migrated) == expected_metadata
         assert _projection(migrated) == expected_projection == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(schema)
-        assert _semantic_signature(schema) == "7b8157021244549cfed79416b40ab662"
+        assert _semantic_signature(schema) == "993b1de965a1791a2a84ccff5fcfbdf9"
         before = _foundation_metadata(schema), _projection(schema), _all_public_counts(schema)
-        _apply(schema, guard_sql)
-        _apply(schema, guard_sql)
+        _apply(schema, signup_failed_sql)
+        _apply(schema, signup_failed_sql)
         assert (_foundation_metadata(schema), _projection(schema), _all_public_counts(schema)) == before
     finally:
         migrated.close()
@@ -401,4 +406,4 @@ def test_migration_is_forward_only_and_does_not_mutate_catalog_or_runtime():
     assert not re.search(r"(?im)^\s*delete\s+from\s+", text)
     assert "REVOKE ALL PRIVILEGES ON TABLE public.security_events FROM service_role" in text
     assert "GRANT SELECT, INSERT, DELETE ON TABLE public.security_events TO service_role" in text
-    assert len(CATALOG) == 157
+    assert len(CATALOG) == 158

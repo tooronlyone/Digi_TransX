@@ -28,10 +28,12 @@ class EventDefinition:
     lifecycle_status: str
     writable: bool
     integrated: bool = False
+    allowed_result_codes: frozenset[str] | None = None
 
 
 _SECURITY_NAMES = (
     "security.signup.started",
+    "security.signup.failed",
     "security.signup.gps_result_recorded",
     "security.signup.email_otp_sent",
     "security.signup.email_otp_failed",
@@ -211,6 +213,19 @@ INTEGRATED_EVENT_NAMES = frozenset(
     }
 )
 
+# Runtime event integration remains deliberately separate from catalog ownership.
+# This narrow allowlist defines the future terminal-signup failure envelope without
+# making the event writable at runtime.
+SIGNUP_FAILURE_RESULT_CODES = frozenset(
+    {
+        "validation_failed",
+        "account_conflict",
+        "provider_unavailable",
+        "persistence_failed",
+        "reconciliation_required",
+    }
+)
+
 _HIGH_SECURITY_NAMES = {
     "security.login.suspicious_detected",
     "security.account.locked",
@@ -254,6 +269,9 @@ def _definition(name, category, status=PLANNED, writable=True):
         lifecycle_status=status,
         writable=writable,
         integrated=name in INTEGRATED_EVENT_NAMES,
+        allowed_result_codes=(
+            SIGNUP_FAILURE_RESULT_CODES if name == "security.signup.failed" else None
+        ),
     )
 
 
@@ -305,7 +323,7 @@ def get_writable_event_definition(name, expected_category=None):
 def _assert_catalog_integrity():
     if len(_DEFINITIONS) != len(CATALOG):
         raise RuntimeError("Canonical event catalog contains duplicate names.")
-    if len(PLANNED_EVENT_NAMES) != 149 or len(DEFERRED_EVENT_NAMES) != 8:
+    if len(PLANNED_EVENT_NAMES) != 150 or len(DEFERRED_EVENT_NAMES) != 8:
         raise RuntimeError("Canonical event catalog totals do not match the locked registry.")
     for definition in _DEFINITIONS:
         if not _NAME_RE.fullmatch(definition.name):

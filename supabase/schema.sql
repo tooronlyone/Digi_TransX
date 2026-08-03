@@ -1997,6 +1997,7 @@ insert into public.canonical_event_catalog_projection (
     lifecycle_status, writable, integrated
 ) values
     ('security.signup.started', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
+    ('security.signup.failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.signup.gps_result_recorded', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.signup.email_otp_sent', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.signup.email_otp_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
