@@ -358,11 +358,14 @@ def record_login_activity(
         db.commit()
 
 
-def upsert_trusted_device(user_id):
+def upsert_trusted_device(user_id, *, executor=None):
     stamp = timestamp_bundle()
     device_token = request.cookies.get(DEVICE_COOKIE_NAME) or secrets.token_urlsafe(32)
-    with open_db() as db:
-        existing = db.execute("SELECT id FROM trusted_devices WHERE device_token = %s", (device_token,)).fetchone()
+
+    def persist(db):
+        existing = db.execute(
+            "SELECT id FROM trusted_devices WHERE device_token = %s", (device_token,)
+        ).fetchone()
         if existing:
             db.execute(
                 "UPDATE trusted_devices SET user_id = %s, last_seen_at = %s WHERE device_token = %s",
@@ -373,15 +376,22 @@ def upsert_trusted_device(user_id):
                 "INSERT INTO trusted_devices (device_token, user_id, created_at, last_seen_at) VALUES (%s, %s, %s, %s)",
                 (device_token, user_id, stamp["display"], stamp["display"]),
             )
+
+    if executor is not None:
+        persist(executor)
+        return device_token
+    with open_db() as db:
+        persist(db)
         db.commit()
     return device_token
 
 
-def build_auth_success_response(user):
+def build_auth_success_response(user, *, device_token=None):
+    if device_token is None:
+        device_token = upsert_trusted_device(user["id"])
     session["user_id"] = user["id"]
     session["csrf_token"] = secrets.token_urlsafe(24)
     session["last_active_at"] = timestamp_bundle()["display"]
-    device_token = upsert_trusted_device(user["id"])
     payload = {
         "success": True,
         "user": serialize_user(user),

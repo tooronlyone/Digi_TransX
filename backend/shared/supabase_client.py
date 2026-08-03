@@ -10,6 +10,7 @@ Two clients:
 import os
 
 from supabase import create_client
+from supabase_auth.errors import AuthApiError
 
 from shared.db import BASE_DIR  # noqa: F401  (ensures .env is loaded first)
 
@@ -53,16 +54,36 @@ class PasswordProviderUnavailable(RuntimeError):
 
 
 def supabase_verify_password(email, password, *, raise_provider_errors=False):
-    """Return True if the email/password pair is valid in Supabase Auth."""
+    """Return whether Supabase Auth accepted an email/password pair.
+
+    Strict callers distinguish an ordinary, structured credential rejection
+    from failures where the provider could not make a trustworthy decision.
+    The default keeps the historical boolean-only contract used elsewhere.
+    """
     try:
         client = create_client(_require("SUPABASE_URL"), _require("SUPABASE_ANON_KEY"))
         response = client.auth.sign_in_with_password({"email": email, "password": password})
         ok = bool(response and response.user)
+        if not ok and raise_provider_errors:
+            raise PasswordProviderUnavailable("Password provider unavailable.")
         try:
             client.auth.sign_out()
         except Exception:
             pass
         return ok
+    except AuthApiError as exc:
+        # GoTrue exposes credential rejection as a structured API error.  Do
+        # not trust a human-readable provider message (or a code detached from
+        # its response class): only the documented client-error shape is an
+        # ordinary failed credential check.  Every other API outcome is a
+        # provider decision failure for strict authentication callers.
+        if exc.status in {400, 401} and exc.code == "invalid_credentials":
+            return False
+        if raise_provider_errors:
+            raise PasswordProviderUnavailable("Password provider unavailable.") from None
+        return False
+    except PasswordProviderUnavailable:
+        raise
     except Exception:
         if raise_provider_errors:
             raise PasswordProviderUnavailable("Password provider unavailable.") from None

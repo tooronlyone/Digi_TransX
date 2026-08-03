@@ -45,6 +45,7 @@ from .helpers import (
     split_name,
     timestamp_bundle,
     update_user_settings,
+    upsert_trusted_device,
     validate_signup_payload,
     verify_otp_for_user,
 )
@@ -68,6 +69,13 @@ def _auth_event_context(request_id, *, user=None):
         actor_id=user["id"],
         actor_role=role,
         subject_user_id=user["id"],
+    )
+
+
+def _invalid_credentials_response():
+    return json_response(
+        {"success": False, "field": "password", "message": "Incorrect password."},
+        401,
     )
 
 
@@ -253,34 +261,45 @@ def login():
             current_app.logger.error("Canonical login failure evidence could not be persisted.")
         return validation_response
 
-    terminal_response = None
-    authenticated_user_id = None
     try:
         with open_db() as db:
-            anonymous_context = _auth_event_context(request_id)
             write_security_event(
                 db,
                 "security.login.started",
-                anonymous_context,
+                _auth_event_context(request_id),
                 EventData(),
                 idempotency_scope="security.login.started",
                 idempotency_key=request_id,
             )
-            user, login_method, lookup_value = get_user_by_login(login_id)
+    except Exception:
+        current_app.logger.error("Mandatory canonical login-start evidence could not be persisted.")
+        return json_response(
+            {"success": False, "message": "Login service is temporarily unavailable."}, 503
+        )
+
+    try:
+        user, login_method, lookup_value = get_user_by_login(login_id)
+    except Exception:
+        current_app.logger.error("Login account lookup could not be completed.")
+        return json_response(
+            {"success": False, "message": "Login service is temporarily unavailable."}, 503
+        )
+    terminal_response = None
+    authenticated_user_id = None
+    device_token = None
+    try:
+        with open_db() as db:
+            anonymous_context = _auth_event_context(request_id)
             failure_code = None
             failure_reason = ""
             if not user:
                 failure_code = "invalid_credentials"
                 failure_reason = "Account not found."
-                terminal_response = json_response(
-                    {"success": False, "field": "password", "message": "Incorrect password."}, 401
-                )
+                terminal_response = _invalid_credentials_response()
             elif user.get("is_blocked"):
                 failure_code = "account_unavailable"
                 failure_reason = "Account blocked."
-                terminal_response = json_response(
-                    {"success": False, "field": "loginId", "message": "This account is blocked."}, 403
-                )
+                terminal_response = _invalid_credentials_response()
             else:
                 try:
                     password_valid = supabase_verify_password(
@@ -297,10 +316,7 @@ def login():
                 if not password_valid and failure_code is None:
                     failure_code = "invalid_credentials"
                     failure_reason = "Invalid password."
-                    terminal_response = json_response(
-                        {"success": False, "field": "password", "message": "Incorrect password."},
-                        401,
-                    )
+                    terminal_response = _invalid_credentials_response()
 
             if failure_code is not None:
                 record_login_activity(
@@ -328,6 +344,7 @@ def login():
                 record_login_activity(
                     user["id"], lookup_value, login_method, "success", "", executor=db
                 )
+                device_token = upsert_trusted_device(user["id"], executor=db)
                 write_security_event(
                     db,
                     "security.login.succeeded",
@@ -349,7 +366,7 @@ def login():
     if terminal_response is not None:
         return terminal_response
     user = get_user_by_id(authenticated_user_id)
-    return build_auth_success_response(user)
+    return build_auth_success_response(user, device_token=device_token)
 
 
 @auth_blueprint.get("/me")
