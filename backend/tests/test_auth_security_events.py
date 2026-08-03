@@ -153,11 +153,16 @@ def _event_rows(url):
     )
 
 
-def test_catalog_activates_exactly_the_four_bounded_events():
-    assert set(INTEGRATED_EVENT_NAMES) == EXPECTED_EVENTS
-    assert {name for name, item in CATALOG.items() if item.integrated} == EXPECTED_EVENTS
-    assert sum(item.integrated for item in CATALOG.values()) == 4
-    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 146
+def test_catalog_preserves_login_events_and_adds_only_bounded_signup_events():
+    expected = EXPECTED_EVENTS | {
+        "security.signup.started",
+        "security.signup.failed",
+        "security.signup.completed",
+    }
+    assert set(INTEGRATED_EVENT_NAMES) == expected
+    assert {name for name, item in CATALOG.items() if item.integrated} == expected
+    assert sum(item.integrated for item in CATALOG.values()) == 7
+    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 143
     assert sum(item.lifecycle_status == "deferred" and not item.integrated for item in CATALOG.values()) == 8
 
 

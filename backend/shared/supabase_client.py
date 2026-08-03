@@ -10,7 +10,7 @@ Two clients:
 import os
 
 from supabase import create_client
-from supabase_auth.errors import AuthApiError
+from supabase_auth.errors import AuthApiError, AuthRetryableError, AuthWeakPasswordError
 
 from shared.db import BASE_DIR  # noqa: F401  (ensures .env is loaded first)
 
@@ -51,6 +51,79 @@ def supabase_create_user(email, password, metadata=None):
 
 class PasswordProviderUnavailable(RuntimeError):
     """Supabase Auth could not make a credential decision."""
+
+
+class SignupProviderConflict(RuntimeError):
+    """Supabase Auth reported a structured account conflict."""
+
+
+class SignupProviderValidationError(RuntimeError):
+    """Supabase Auth rejected signup input using a structured client error."""
+
+
+class SignupProviderUnavailable(RuntimeError):
+    """Supabase Auth could not safely complete a signup operation."""
+
+
+_SIGNUP_CONFLICT_CODES = frozenset(
+    {"email_exists", "identity_already_exists", "user_already_exists"}
+)
+
+
+def supabase_create_signup_user(email, password, metadata=None):
+    """Create an Auth identity and classify only structured provider outcomes.
+
+    This intentionally keeps the legacy ``supabase_create_user`` contract for
+    administrative callers.  Signup routes need a small, non-enumerating
+    outcome vocabulary, so provider messages are never inspected or surfaced.
+    """
+    try:
+        user = supabase_create_user(email, password, metadata)
+        if not user or not getattr(user, "id", None):
+            raise SignupProviderUnavailable("Signup provider unavailable.")
+        return user
+    except SignupProviderUnavailable:
+        raise
+    except AuthWeakPasswordError:
+        raise SignupProviderValidationError("Signup input was rejected.") from None
+    except AuthApiError as exc:
+        code = (getattr(exc, "code", None) or "").lower()
+        status = getattr(exc, "status", None)
+        if status == 409 or code in _SIGNUP_CONFLICT_CODES:
+            raise SignupProviderConflict("Signup account conflict.") from None
+        if status in {400, 422}:
+            raise SignupProviderValidationError("Signup input was rejected.") from None
+        raise SignupProviderUnavailable("Signup provider unavailable.") from None
+    except AuthRetryableError:
+        raise SignupProviderUnavailable("Signup provider unavailable.") from None
+    except Exception:
+        raise SignupProviderUnavailable("Signup provider unavailable.") from None
+
+
+def supabase_signup_identity_is_owned(auth_user_id, request_id):
+    """Prove that a provider identity belongs to this server-owned request."""
+    try:
+        response = get_service_client().auth.admin.get_user_by_id(str(auth_user_id))
+        user = getattr(response, "user", None)
+        metadata = getattr(user, "user_metadata", None) or {}
+        return (
+            user is not None
+            and str(getattr(user, "id", "")) == str(auth_user_id)
+            and metadata.get("signup_request_id") == request_id
+        )
+    except Exception:
+        return False
+
+
+def supabase_delete_created_signup_user(auth_user_id, request_id):
+    """Delete only a signup identity proven to belong to this request."""
+    if not supabase_signup_identity_is_owned(auth_user_id, request_id):
+        return False
+    try:
+        get_service_client().auth.admin.delete_user(str(auth_user_id), should_soft_delete=False)
+        return True
+    except Exception:
+        return False
 
 
 def supabase_verify_password(email, password, *, raise_provider_errors=False):

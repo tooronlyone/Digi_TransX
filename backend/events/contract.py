@@ -337,6 +337,15 @@ def validate_event_data(data, *, definition=None):
         ),
         "consent_category": None,
     }
+    if definition is not None and definition.name == "security.signup.started":
+        if (
+            normalized["related_entities"]
+            or normalized["before_state"]
+            or normalized["after_state"]
+            or normalized["reason_code"] is not None
+            or normalized["metadata"]
+        ):
+            raise EventContractError("Signup started events must not carry request data.")
     if definition is not None and definition.name == "security.signup.failed":
         if (
             normalized["related_entities"]
@@ -356,13 +365,13 @@ def validate_catalog_event_contract(event_name, context, data=None):
     """Validate a catalog definition without granting runtime write eligibility."""
     definition = get_event_definition(event_name)
     normalized_context = validate_event_context(context)
-    if definition.name == "security.signup.failed" and (
+    if definition.name in {"security.signup.started", "security.signup.failed"} and (
         normalized_context["actor_type"] != "anonymous"
         or normalized_context["actor_id"] is not None
         or normalized_context["actor_role"] is not None
         or normalized_context["subject_user_id"] is not None
     ):
-        raise EventContractError("Signup failure events must remain anonymous.")
+        raise EventContractError("Anonymous signup events must remain anonymous.")
     return definition, normalized_context, validate_event_data(data, definition=definition)
 
 

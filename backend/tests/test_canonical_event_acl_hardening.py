@@ -40,6 +40,9 @@ INTEGRATED_GUARD_MIGRATION = (
 SIGNUP_FAILED_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations" / "20260801120000_add_signup_failed_event.sql"
 )
+SIGNUP_INTEGRATION_MIGRATION = (
+    REPO_ROOT / "supabase" / "migrations" / "20260801130000_security_signup_event_integration.sql"
+)
 EXPECTED_DATABASE = "dtx_schema_trigger_rls_baseline"
 EVENT_TABLES = ("security_events", "business_audit_events")
 PROJECTION = "canonical_event_catalog_projection"
@@ -219,6 +222,7 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
     activation_sql = _migration_text(ACTIVATION_MIGRATION)
     guard_sql = _migration_text(INTEGRATED_GUARD_MIGRATION)
     signup_failed_sql = _migration_text(SIGNUP_FAILED_MIGRATION)
+    signup_integration_sql = _migration_text(SIGNUP_INTEGRATION_MIGRATION)
     migrated_url, migrated_cleanup = _disposable(
         STUBS,
         _locked_main_schema(),
@@ -227,6 +231,7 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         activation_sql,
         guard_sql,
         signup_failed_sql,
+        signup_integration_sql,
     )
     schema_url, schema_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     migrated = psycopg2.connect(migrated_url)
@@ -237,10 +242,10 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         assert _foundation_metadata(migrated) == expected_metadata
         assert _projection(migrated) == expected_projection == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(schema)
-        assert _semantic_signature(schema) == "993b1de965a1791a2a84ccff5fcfbdf9"
+        assert _semantic_signature(schema) == "371c7010a0553c7953708dea164ed0bc"
         before = _foundation_metadata(schema), _projection(schema), _all_public_counts(schema)
-        _apply(schema, signup_failed_sql)
-        _apply(schema, signup_failed_sql)
+        _apply(schema, signup_integration_sql)
+        _apply(schema, signup_integration_sql)
         assert (_foundation_metadata(schema), _projection(schema), _all_public_counts(schema)) == before
     finally:
         migrated.close()

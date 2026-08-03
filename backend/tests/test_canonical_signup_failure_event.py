@@ -70,7 +70,7 @@ def test_signup_failure_catalog_definition_and_minimal_contract():
         definition.lifecycle_status,
         definition.writable,
         definition.integrated,
-    ) == (1, "security", "security", "security_12_months", "planned", True, False)
+    ) == (1, "security", "security", "security_12_months", "planned", True, True)
     assert definition.allowed_result_codes == SIGNUP_FAILURE_RESULT_CODES == {
         "validation_failed",
         "account_conflict",
@@ -106,42 +106,24 @@ def test_signup_failure_catalog_definition_and_minimal_contract():
         )
 
 
-def test_signup_failure_remains_rejected_before_python_sql():
-    class NoSql:
-        def execute(self, *_args, **_kwargs):
-            raise AssertionError("unintegrated event must be rejected before SQL")
-
-    with pytest.raises(ValueError, match="not integrated"):
-        write_security_event(
-            NoSql(),
-            "security.signup.failed",
-            _context(),
-            EventData(metadata={"result_code": "validation_failed"}),
-        )
-
-
-def test_signup_failure_direct_sql_is_rejected_and_creates_zero_rows():
+def test_signup_failure_direct_sql_is_accepted_only_in_the_corrected_final_schema():
     url, cleanup = make_disposable(_local_url(), STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     try:
         conn = psycopg2.connect(url)
         try:
-            before = _event_counts(conn)
             with conn.cursor() as cursor:
                 cursor.execute("SET LOCAL ROLE service_role")
-                cursor.execute("SAVEPOINT signup_failure_rejected")
-                with pytest.raises((errors.CheckViolation, errors.RaiseException)):
-                    _direct_insert(
-                        cursor,
-                        "security_events",
-                        event_name="security.signup.failed",
-                        event_version=1,
-                        category="security",
-                        retention_class="security_12_months",
-                        request_id="request.signup.failed.rejected",
-                    )
-                cursor.execute("ROLLBACK TO SAVEPOINT signup_failure_rejected")
+                _direct_insert(
+                    cursor,
+                    "security_events",
+                    event_name="security.signup.failed",
+                    event_version=1,
+                    category="security",
+                    retention_class="security_12_months",
+                    request_id="request.signup.failed.accepted",
+                )
                 cursor.execute("RESET ROLE")
-            assert _event_counts(conn) == before
+            assert _event_counts(conn) == (1, 0)
         finally:
             conn.close()
     finally:
@@ -160,17 +142,18 @@ def test_signup_failure_migration_converges_and_reapplies_after_integrated_rows(
             conn = psycopg2.connect(url)
             try:
                 assert _semantic_signature(conn) == (
-                    EXPECTED_PRE_SIGNATURE if requires_migration else EXPECTED_POST_SIGNATURE
+                    EXPECTED_PRE_SIGNATURE if requires_migration else "371c7010a0553c7953708dea164ed0bc"
                 )
                 if requires_migration:
                     with conn.cursor() as cursor:
                         cursor.execute(migration)
                     conn.commit()
                 _insert_integrated_event(conn, "request.signup.failed.migration")
-                for _ in range(2):
-                    with conn.cursor() as cursor:
-                        cursor.execute(migration)
-                    conn.commit()
+                if requires_migration:
+                    for _ in range(2):
+                        with conn.cursor() as cursor:
+                            cursor.execute(migration)
+                        conn.commit()
                 with conn.cursor() as cursor:
                     cursor.execute(
                         "select count(*) from public.security_events where event_name='security.login.started'"
@@ -181,7 +164,7 @@ def test_signup_failure_migration_converges_and_reapplies_after_integrated_rows(
                 conn.close()
         finally:
             cleanup()
-    assert observed == [(EXPECTED_POST_SIGNATURE, 1), (EXPECTED_POST_SIGNATURE, 1)]
+    assert observed == [(EXPECTED_POST_SIGNATURE, 1), ("371c7010a0553c7953708dea164ed0bc", 1)]
 
 
 def test_signup_failure_migration_rejects_alias_partial_state_without_repair():
@@ -217,11 +200,11 @@ def test_signup_failure_migration_rejects_alias_partial_state_without_repair():
         cleanup()
 
 
-def test_signup_failure_correction_preserves_the_four_integrated_names_and_no_route_emits_it():
-    assert INTEGRATED_EVENT_NAMES == INTEGRATED_NAMES
-    assert "security.signup.failed" not in INTEGRATED_EVENT_NAMES
+def test_signup_failure_definition_migration_remains_forward_only_after_runtime_activation():
+    assert INTEGRATED_NAMES.issubset(INTEGRATED_EVENT_NAMES)
+    assert "security.signup.failed" in INTEGRATED_EVENT_NAMES
     routes = (REPO_ROOT / "backend" / "auth" / "routes.py").read_text(encoding="utf-8")
-    assert "security.signup.failed" not in routes
+    assert "security.signup.failed" in routes
     text = MIGRATION.read_text(encoding="utf-8")
     assert text.count("begin;") == 1 and text.count("commit;") == 1
     assert "create trigger" not in text.lower()

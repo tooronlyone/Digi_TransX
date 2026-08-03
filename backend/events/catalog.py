@@ -210,6 +210,9 @@ INTEGRATED_EVENT_NAMES = frozenset(
         "security.login.failed",
         "security.login.succeeded",
         "security.logout.completed",
+        "security.signup.started",
+        "security.signup.failed",
+        "security.signup.completed",
     }
 )
 
@@ -332,7 +335,7 @@ def _assert_catalog_integrity():
             raise RuntimeError(f"Invalid foundation state for: {definition.name}")
     integrated = {definition.name for definition in _DEFINITIONS if definition.integrated}
     if integrated != INTEGRATED_EVENT_NAMES:
-        raise RuntimeError("Canonical event integrations do not match the locked Phase 1B-2A scope.")
+        raise RuntimeError("Canonical event integrations do not match the locked Phase 1B scope.")
 
 
 _assert_catalog_integrity()

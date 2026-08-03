@@ -1996,12 +1996,12 @@ insert into public.canonical_event_catalog_projection (
     event_name, event_version, category, ownership_domain, retention_class,
     lifecycle_status, writable, integrated
 ) values
-    ('security.signup.started', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
-    ('security.signup.failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
+    ('security.signup.started', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
+    ('security.signup.failed', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.signup.gps_result_recorded', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.signup.email_otp_sent', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.signup.email_otp_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
-    ('security.signup.completed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
+    ('security.signup.completed', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.login.started', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.login.failed', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.login.gps_result_recorded', 1, 'security', 'security', 'security_12_months', 'planned', true, false),

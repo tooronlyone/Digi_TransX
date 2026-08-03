@@ -178,24 +178,28 @@ def _signup(client, monkeypatch, role, email, extra=None):
     import auth.routes as auth_routes
 
     def fake_create_user(em, password, metadata):
+        auth_id = "auth-" + em
         # Mimic the DB trigger that creates the public.users row on Auth signup.
         with auth_routes.open_db() as d:
             d.execute(
-                "INSERT INTO users (email, full_name, phone, cnic, role, legacy_role) "
-                "VALUES (%s, %s, %s, %s, %s, %s)",
-                (em, metadata.get("full_name", ""), metadata.get("phone", ""),
+                "INSERT INTO users (auth_id, email, full_name, phone, cnic, role, legacy_role) "
+                "VALUES (%s, %s, %s, %s, %s, %s, %s)",
+                (auth_id, em, metadata.get("full_name", ""), metadata.get("phone", ""),
                  metadata.get("cnic", ""), metadata.get("role"), metadata.get("legacy_role")),
             )
             d.commit()
-        return types.SimpleNamespace(user=types.SimpleNamespace(id="auth-" + em))
+        return types.SimpleNamespace(id=auth_id)
 
-    monkeypatch.setattr(auth_routes, "supabase_create_user", fake_create_user)
+    monkeypatch.setattr(auth_routes, "supabase_create_signup_user", fake_create_user)
+    monkeypatch.setattr(auth_routes, "_record_signup_started", lambda *_args: None)
+    monkeypatch.setattr(auth_routes, "write_security_event", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(auth_routes, "record_login_activity", lambda *a, **k: None)
+    monkeypatch.setattr(auth_routes, "upsert_trusted_device", lambda *_args, **_kwargs: "test-device")
     # The profile row is committed before the auth response is built; stub the
     # session/trusted-device machinery so the test stays focused on the profile.
     from auth.helpers import json_response as _jr
     monkeypatch.setattr(auth_routes, "build_auth_success_response",
-                        lambda user: _jr({"success": True, "user": {"id": user.get("id")}}))
+                        lambda user, **_kwargs: _jr({"success": True, "user": {"id": user.get("id")}}))
 
     payload = {
         "name": "Test User", "email": email, "phone": "3001234567",

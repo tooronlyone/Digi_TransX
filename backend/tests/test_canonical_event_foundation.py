@@ -74,6 +74,9 @@ ACTIVATION_MIGRATION = (
 SIGNUP_FAILED_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations" / "20260801120000_add_signup_failed_event.sql"
 )
+SIGNUP_INTEGRATION_MIGRATION = (
+    REPO_ROOT / "supabase" / "migrations" / "20260801130000_security_signup_event_integration.sql"
+)
 EXPECTED_BASE_DATABASE = "dtx_schema_trigger_rls_baseline"
 EVENT_TABLES = ("security_events", "business_audit_events")
 CATALOG_PROJECTION = "canonical_event_catalog_projection"
@@ -403,7 +406,7 @@ def test_signup_failed_catalog_contract_is_anonymous_and_coarse_only():
         definition.lifecycle_status,
         definition.writable,
         definition.integrated,
-    ) == (1, SECURITY, "security_12_months", PLANNED, True, False)
+    ) == (1, SECURITY, "security_12_months", PLANNED, True, True)
     for code in definition.allowed_result_codes:
         _, context, data = validate_catalog_event_contract(
             definition.name,
@@ -562,6 +565,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         REPO_ROOT / "supabase" / "migrations" / "20260801110000_canonical_event_integrated_guard.sql"
     ).read_text(encoding="utf-8")
     signup_failed_sql = SIGNUP_FAILED_MIGRATION.read_text(encoding="utf-8")
+    signup_integration_sql = SIGNUP_INTEGRATION_MIGRATION.read_text(encoding="utf-8")
     baseline_sql = BASELINE_MIGRATION.read_text(encoding="utf-8")
     sequence_url, sequence_cleanup = _disposable(
         STUBS,
@@ -571,6 +575,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         activation_sql,
         guard_sql,
         signup_failed_sql,
+        signup_integration_sql,
     )
     corrected_url, corrected_cleanup = _disposable(
         STUBS,
@@ -579,6 +584,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         activation_sql,
         guard_sql,
         signup_failed_sql,
+        signup_integration_sql,
     )
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
@@ -819,7 +825,7 @@ def test_python_writer_rejects_every_unintegrated_writable_definition_before_sql
     unintegrated = [
         definition for definition in CATALOG.values() if definition.writable and not definition.integrated
     ]
-    assert len(unintegrated) == 140
+    assert len(unintegrated) == 137
     for definition in unintegrated:
         writer = (
             write_security_event
@@ -885,8 +891,8 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
         ),
         key=lambda definition: definition.name,
     )
-    assert len(integrated) == 4
-    assert len(unintegrated_writable) == 140
+    assert len(integrated) == 7
+    assert len(unintegrated_writable) == 137
     expected_security = sum(definition.category == SECURITY for definition in integrated)
     expected_business = sum(
         definition.category == BUSINESS_AUDIT for definition in integrated

@@ -6,7 +6,12 @@ from werkzeug.security import check_password_hash, generate_password_hash
 from shared.db import open_db
 from shared.supabase_client import (
     PasswordProviderUnavailable,
-    supabase_create_user,
+    SignupProviderConflict,
+    SignupProviderUnavailable,
+    SignupProviderValidationError,
+    supabase_create_signup_user,
+    supabase_delete_created_signup_user,
+    supabase_signup_identity_is_owned,
     supabase_update_password,
     supabase_verify_password,
 )
@@ -79,6 +84,105 @@ def _invalid_credentials_response():
     )
 
 
+def _record_signup_started(request_id):
+    with open_db() as db:
+        write_security_event(
+            db,
+            "security.signup.started",
+            _auth_event_context(request_id),
+            EventData(),
+            idempotency_scope="security.signup.started",
+            idempotency_key=request_id,
+        )
+
+
+def _record_signup_failed(request_id, result_code):
+    try:
+        with open_db() as db:
+            write_security_event(
+                db,
+                "security.signup.failed",
+                _auth_event_context(request_id),
+                EventData(metadata={"result_code": result_code}),
+                idempotency_scope="security.signup.terminal",
+                idempotency_key=request_id,
+            )
+        return True
+    except Exception:
+        return False
+
+
+def _signup_failure_response(request_id, result_code, status, payload):
+    """Persist a terminal denial before returning any public signup response."""
+    if not _record_signup_failed(request_id, result_code):
+        return json_response(
+            {"success": False, "message": "Signup service is temporarily unavailable."}, 503
+        )
+    return json_response(payload, status)
+
+
+def _write_signup_profile(db, user_id, role, clean):
+    """Write exactly the one server-selected public role profile."""
+    if role in {"service_seeker", "client"}:
+        db.execute("DELETE FROM everyday_user_profiles WHERE user_id = %s", (user_id,))
+        db.execute(
+            """
+            INSERT INTO service_seeker_profiles
+                (user_id, company_name, business_type, transport_need,
+                 default_pickup_city, billing_address)
+            VALUES (%s, %s, %s, %s, %s, %s)
+            ON CONFLICT (user_id) DO UPDATE SET
+                company_name = excluded.company_name,
+                business_type = excluded.business_type,
+                transport_need = excluded.transport_need,
+                default_pickup_city = excluded.default_pickup_city,
+                billing_address = excluded.billing_address
+            """,
+            (user_id, clean("company_name"), clean("business_type"), clean("transport_need"),
+             clean("default_pickup_city"), clean("billing_address")),
+        )
+    elif role == "everyday_user":
+        db.execute("DELETE FROM service_seeker_profiles WHERE user_id = %s", (user_id,))
+        db.execute("INSERT INTO everyday_user_profiles (user_id) VALUES (%s) ON CONFLICT (user_id) DO NOTHING", (user_id,))
+    elif role == "logistics_provider":
+        db.execute(
+            """INSERT INTO transporter_profiles (user_id, company_name, fleet_size)
+               VALUES (%s, %s, %s) ON CONFLICT (user_id) DO UPDATE SET
+               company_name = excluded.company_name, fleet_size = excluded.fleet_size""",
+            (user_id, clean("company_name"), clean("fleet_size")),
+        )
+    elif role == "fuel_station_manager":
+        db.execute(
+            """INSERT INTO fuel_station_profiles (user_id, station_name, pumps_count, license_no)
+               VALUES (%s, %s, %s, %s) ON CONFLICT (user_id) DO UPDATE SET
+               station_name = excluded.station_name, pumps_count = excluded.pumps_count,
+               license_no = excluded.license_no""",
+            (user_id, clean("station_name"), clean("pumps_count"), clean("license_no")),
+        )
+    elif role == "shopkeeper":
+        db.execute(
+            """INSERT INTO shopkeeper_profiles (user_id, shop_name)
+               VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET shop_name = excluded.shop_name""",
+            (user_id, clean("shop_name")),
+        )
+    else:
+        raise ValueError("Unsupported signup role.")
+
+
+def _compensate_signup_identity(auth_user_id, request_id):
+    """Remove only public/Auth state proven to belong to this signup request."""
+    if not supabase_signup_identity_is_owned(auth_user_id, request_id):
+        return False
+    try:
+        with open_db() as db:
+            deleted = db.execute("DELETE FROM users WHERE auth_id = %s", (str(auth_user_id),))
+            if getattr(deleted, "rowcount", 0) > 1:
+                raise RuntimeError("Signup ownership is ambiguous.")
+    except Exception:
+        return False
+    return supabase_delete_created_signup_user(auth_user_id, request_id)
+
+
 @auth_blueprint.get("/csrf-token")
 def csrf_token():
     return json_response({"success": True, "csrf_token": ensure_csrf_token()})
@@ -87,10 +191,23 @@ def csrf_token():
 @auth_blueprint.post("/signup")
 def signup():
     data = request.get_json(silent=True) or {}
+    request_id = f"signup.{uuid.uuid4().hex}"
+    try:
+        _record_signup_started(request_id)
+    except Exception:
+        return json_response(
+            {"success": False, "message": "Signup service is temporarily unavailable."}, 503
+        )
+
     errors = validate_signup_payload(data)
     if errors:
         field = next(iter(errors))
-        return json_response({"success": False, "field": field, "message": errors[field]}, 400)
+        return _signup_failure_response(
+            request_id,
+            "validation_failed",
+            400,
+            {"success": False, "field": field, "message": errors[field]},
+        )
     full_name = (data.get("name") or "").strip()
     email = normalize_email(data.get("email"))
     phone = normalize_phone(data.get("phone"))
@@ -99,16 +216,17 @@ def signup():
     stamp = timestamp_bundle()
     with open_db() as db:
         email_exists = db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone()
-        if email_exists:
-            return json_response({"success": False, "field": "email", "message": "Email is already registered."}, 409)
         cnic_exists = db.execute("SELECT id FROM users WHERE cnic = %s", (cnic,)).fetchone()
-        if cnic_exists:
-            return json_response({"success": False, "field": "cnic", "message": "CNIC is already registered."}, 409)
+    if email_exists or cnic_exists:
+        return _signup_failure_response(
+            request_id, "account_conflict", 409,
+            {"success": False, "field": "signup", "message": "Unable to complete signup."},
+        )
 
     # Create the account in Supabase Auth. The database trigger inserts the
     # public.users profile row automatically from this metadata.
     try:
-        supabase_create_user(
+        auth_user = supabase_create_signup_user(
             email,
             data.get("password") or "",
             {
@@ -117,112 +235,62 @@ def signup():
                 "cnic": cnic,
                 "role": map_legacy_role(role),
                 "legacy_role": role,
+                "signup_request_id": request_id,
             },
         )
-    except Exception as exc:
-        message = str(exc)
-        if "already" in message.lower():
-            return json_response({"success": False, "field": "email", "message": "Email is already registered."}, 409)
-        return json_response({"success": False, "message": f"Could not create account: {message}"}, 500)
+    except SignupProviderConflict:
+        return _signup_failure_response(
+            request_id, "account_conflict", 409,
+            {"success": False, "field": "signup", "message": "Unable to complete signup."},
+        )
+    except SignupProviderValidationError:
+        return _signup_failure_response(
+            request_id, "validation_failed", 400,
+            {"success": False, "field": "signup", "message": "Unable to complete signup."},
+        )
+    except SignupProviderUnavailable:
+        return _signup_failure_response(
+            request_id, "provider_unavailable", 503,
+            {"success": False, "message": "Signup service is temporarily unavailable."},
+        )
 
     def clean(key):
         return (data.get(key) or "").strip() or None
 
-    with open_db() as db:
-        db.execute(
-            """
-            UPDATE users
-            SET full_name = %s, phone = %s, cnic = %s, legacy_role = %s,
-                city = %s, address = %s, about = %s, updated_at = %s, last_login_at = %s
-            WHERE email = %s
-            """,
-            (
-                full_name,
-                phone,
-                cnic,
-                role,
-                clean("city"),
-                clean("address"),
-                clean("about"),
-                stamp["iso"],
-                stamp["iso"],
-                email,
-            ),
+    try:
+        with open_db() as db:
+            row = db.execute("SELECT id FROM users WHERE auth_id = %s", (str(auth_user.id),)).fetchone()
+            if not row:
+                raise RuntimeError("Created Auth identity was not linked to a public user.")
+            user_id = row["id"]
+            db.execute(
+                """UPDATE users SET full_name = %s, phone = %s, cnic = %s, legacy_role = %s,
+                    city = %s, address = %s, about = %s, updated_at = %s, last_login_at = %s
+                    WHERE id = %s AND auth_id = %s""",
+                (full_name, phone, cnic, role, clean("city"), clean("address"), clean("about"),
+                 stamp["iso"], stamp["iso"], user_id, str(auth_user.id)),
+            )
+            _write_signup_profile(db, user_id, role, clean)
+            record_login_activity(user_id, email, "signup", "success", "", executor=db)
+            device_token = upsert_trusted_device(user_id, executor=db)
+            user = db.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
+            if not user:
+                raise RuntimeError("Signup public user disappeared.")
+            write_security_event(
+                db,
+                "security.signup.completed",
+                _auth_event_context(request_id, user=dict(user)),
+                EventData(metadata={"result_code": "completed"}),
+                idempotency_scope="security.signup.terminal",
+                idempotency_key=request_id,
+            )
+    except Exception:
+        result_code = "persistence_failed" if _compensate_signup_identity(auth_user.id, request_id) else "reconciliation_required"
+        return _signup_failure_response(
+            request_id, result_code, 503,
+            {"success": False, "message": "Signup service is temporarily unavailable."},
         )
-        row = db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone()
-        user_id = row["id"] if row else None
-
-        # Role-specific data goes into its own profile table (clean structure,
-        # no duplication of the common users fields). Business service seekers
-        # and everyday individuals now live in separate tables; a user ends up
-        # in exactly one (the opposite row is cleared to keep them exclusive).
-        if role in {"service_seeker", "client"}:
-            db.execute("DELETE FROM everyday_user_profiles WHERE user_id = %s", (user_id,))
-            db.execute(
-                """
-                INSERT INTO service_seeker_profiles
-                    (user_id, company_name, business_type, transport_need,
-                     default_pickup_city, billing_address)
-                VALUES (%s, %s, %s, %s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    company_name = excluded.company_name,
-                    business_type = excluded.business_type,
-                    transport_need = excluded.transport_need,
-                    default_pickup_city = excluded.default_pickup_city,
-                    billing_address = excluded.billing_address
-                """,
-                (
-                    user_id,
-                    clean("company_name"),
-                    clean("business_type"),
-                    clean("transport_need"),
-                    clean("default_pickup_city"),
-                    clean("billing_address"),
-                ),
-            )
-        elif role == "everyday_user":
-            db.execute("DELETE FROM service_seeker_profiles WHERE user_id = %s", (user_id,))
-            db.execute(
-                "INSERT INTO everyday_user_profiles (user_id) VALUES (%s) "
-                "ON CONFLICT (user_id) DO NOTHING",
-                (user_id,),
-            )
-        elif role == "logistics_provider":
-            db.execute(
-                """
-                INSERT INTO transporter_profiles (user_id, company_name, fleet_size)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    company_name = excluded.company_name,
-                    fleet_size = excluded.fleet_size
-                """,
-                (user_id, clean("company_name"), clean("fleet_size")),
-            )
-        elif role == "fuel_station_manager":
-            db.execute(
-                """
-                INSERT INTO fuel_station_profiles (user_id, station_name, pumps_count, license_no)
-                VALUES (%s, %s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET
-                    station_name = excluded.station_name,
-                    pumps_count = excluded.pumps_count,
-                    license_no = excluded.license_no
-                """,
-                (user_id, clean("station_name"), clean("pumps_count"), clean("license_no")),
-            )
-        elif role == "shopkeeper":
-            db.execute(
-                """
-                INSERT INTO shopkeeper_profiles (user_id, shop_name)
-                VALUES (%s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET shop_name = excluded.shop_name
-                """,
-                (user_id, clean("shop_name")),
-            )
-        db.commit()
-    user = get_user_by_id(user_id)
-    record_login_activity(user_id, email, "signup", "success", "")
-    return build_auth_success_response(user)
+    return build_auth_success_response(dict(user), device_token=device_token)
 
 
 @auth_blueprint.post("/login")
