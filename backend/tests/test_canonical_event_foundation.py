@@ -391,12 +391,8 @@ def test_envelope_is_strict_and_server_owned(monkeypatch):
     security, security_envelope = validate_envelope_inputs(
         "security.login.succeeded", _context(source="server_route"), EventData()
     )
-    business, business_envelope = validate_envelope_inputs(
-        "one_time.payment.released", _context(), _data()
-    )
     assert security.category == SECURITY
-    assert business.category == BUSINESS_AUDIT
-    assert security_envelope["event_version"] == business_envelope["event_version"] == 1
+    assert security_envelope["event_version"] == 1
     assert "environment" not in security_envelope
     assert derive_server_environment() == "test"
     with pytest.raises(EnvironmentConfigurationError):
@@ -418,7 +414,7 @@ def test_envelope_is_strict_and_server_owned(monkeypatch):
 )
 def test_sensitive_oversized_nested_and_malformed_data_is_rejected(bad_data):
     with pytest.raises(EventContractError):
-        validate_envelope_inputs("one_time.payment.released", _context(), bad_data)
+        validate_envelope_inputs("security.login.succeeded", _context(), bad_data)
 
 
 def test_untrusted_json_rejects_duplicates_nonfinite_and_server_fields():
@@ -481,11 +477,11 @@ def test_writer_uses_only_caller_cursor_and_never_controls_transaction(monkeypat
 
     class ProductionDbStyle:
         def execute(self, statement, values):
-            assert statement.startswith("INSERT INTO public.business_audit_events")
+            assert statement.startswith("INSERT INTO public.security_events")
             return Result()
 
-    production_style = write_business_audit_event(
-        ProductionDbStyle(), "one_time.payment.released", _context(), EventData()
+    production_style = write_security_event(
+        ProductionDbStyle(), "security.login.failed", _context(), EventData()
     )
     assert not production_style.replayed
     writer_source = (REPO_ROOT / "backend" / "events" / "writer.py").read_text(
@@ -516,6 +512,9 @@ def test_migration_order_and_no_old_provisional_reference():
 def test_full_sequence_corrected_main_and_fresh_schema_converge():
     event_sql = EVENT_MIGRATION.read_text(encoding="utf-8")
     activation_sql = ACTIVATION_MIGRATION.read_text(encoding="utf-8")
+    guard_sql = (
+        REPO_ROOT / "supabase" / "migrations" / "20260801110000_canonical_event_integrated_guard.sql"
+    ).read_text(encoding="utf-8")
     baseline_sql = BASELINE_MIGRATION.read_text(encoding="utf-8")
     sequence_url, sequence_cleanup = _disposable(
         STUBS,
@@ -523,12 +522,14 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         baseline_sql,
         event_sql,
         activation_sql,
+        guard_sql,
     )
     corrected_url, corrected_cleanup = _disposable(
         STUBS,
         _locked_main_schema(),
         event_sql,
         activation_sql,
+        guard_sql,
     )
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
@@ -713,7 +714,7 @@ def event_connection(event_database_url):
         conn.close()
 
 
-def test_valid_security_and_business_writes_use_server_fields(
+def test_valid_integrated_security_writes_use_server_fields(
     event_connection, monkeypatch
 ):
     monkeypatch.setenv("DIGITRANSX_ENVIRONMENT", "test")
@@ -724,12 +725,15 @@ def test_valid_security_and_business_writes_use_server_fields(
             _context(source="server_route"),
             EventData(metadata={"result_code": "ok"}),
         )
-        business = write_business_audit_event(
-            cursor, "one_time.payment.released", _context(), _data()
+        terminal = write_security_event(
+            cursor,
+            "security.login.failed",
+            _context(),
+            EventData(metadata={"result_code": "invalid_credentials"}),
         )
     assert security.event["category"] == "security"
-    assert business.event["category"] == "business_audit"
-    assert security.event["environment"] == business.event["environment"] == "test"
+    assert terminal.event["category"] == "security"
+    assert security.event["environment"] == terminal.event["environment"] == "test"
     assert security.event["occurred_at"] is not None
     assert security.event["actor_id"] == 7
 
@@ -756,21 +760,87 @@ def test_unknown_deferred_and_wrong_category_fail_before_insert(
         assert cursor.fetchone() == {"security_count": 0, "business_count": 0}
 
 
+def test_python_writer_rejects_every_unintegrated_writable_definition_before_sql(monkeypatch):
+    monkeypatch.setenv("DIGITRANSX_ENVIRONMENT", "test")
+
+    class NoSqlExecutor:
+        def execute(self, *_args, **_kwargs):
+            raise AssertionError("unintegrated definitions must be rejected before SQL")
+
+    unintegrated = [
+        definition for definition in CATALOG.values() if definition.writable and not definition.integrated
+    ]
+    assert len(unintegrated) == 139
+    for definition in unintegrated:
+        writer = (
+            write_security_event
+            if definition.category == SECURITY
+            else write_business_audit_event
+        )
+        with pytest.raises(NonWritableEventName):
+            writer(NoSqlExecutor(), definition.name, _context(), EventData())
+
+    assert all(
+        get_writable_event_definition(name).integrated for name in INTEGRATED_EVENT_NAMES
+    )
+
+
+def test_direct_sql_rejects_gps_operations_and_deferred_definitions(event_connection):
+    rejected = [
+        CATALOG["security.login.gps_result_recorded"],
+        *(definition for definition in CATALOG.values() if definition.category == OPERATIONS),
+        *(CATALOG[name] for name in DEFERRED_EVENT_NAMES),
+    ]
+    assert len(rejected) == 15
+    before = _event_counts(event_connection)
+    with event_connection.cursor() as cursor:
+        cursor.execute("SET LOCAL ROLE service_role")
+        for index, definition in enumerate(rejected, start=1):
+            table = "security_events" if definition.category == SECURITY else "business_audit_events"
+            cursor.execute("SAVEPOINT rejected_catalog_definition")
+            with pytest.raises((errors.CheckViolation, errors.RaiseException)):
+                _direct_insert(
+                    cursor,
+                    table,
+                    event_name=definition.name,
+                    event_version=definition.version,
+                    category=definition.category,
+                    retention_class=definition.retention_class,
+                    request_id=f"request.explicit.rejected.{index}",
+                )
+            cursor.execute("ROLLBACK TO SAVEPOINT rejected_catalog_definition")
+        cursor.execute("RESET ROLE")
+    assert _event_counts(event_connection) == before
+
+
 def test_database_projection_matches_python_bidirectionally(event_connection):
     assert _catalog_projection(event_connection) == _expected_catalog_projection()
 
 
-def test_every_writable_definition_is_accepted_only_by_its_category_table(
+def test_only_integrated_writable_definitions_are_accepted_by_their_category_table(
     event_connection,
 ):
-    writable = sorted(
-        (definition for definition in CATALOG.values() if definition.writable),
+    integrated = sorted(
+        (
+            definition
+            for definition in CATALOG.values()
+            if definition.writable and definition.integrated
+        ),
         key=lambda definition: definition.name,
     )
-    assert len(writable) == 143
-    expected_security = sum(definition.category == SECURITY for definition in writable)
+    unintegrated_writable = sorted(
+        (
+            definition
+            for definition in CATALOG.values()
+            if definition.writable and not definition.integrated
+        ),
+        key=lambda definition: definition.name,
+    )
+    assert len(integrated) == 4
+    assert len(unintegrated_writable) == 139
+    expected_security = sum(definition.category == SECURITY for definition in integrated)
     expected_business = sum(
-        definition.category == BUSINESS_AUDIT for definition in writable
+        definition.category == BUSINESS_AUDIT for definition in integrated
     )
     with event_connection.cursor() as cursor:
         cursor.execute("SET LOCAL ROLE service_role")
@@ -779,7 +849,7 @@ def test_every_writable_definition_is_accepted_only_by_its_category_table(
             cursor.execute("SELECT * FROM public.canonical_event_catalog_projection")
         cursor.execute("ROLLBACK TO SAVEPOINT projection_denied")
 
-        for index, definition in enumerate(writable, start=1):
+        for index, definition in enumerate(integrated, start=1):
             correct_table = (
                 "security_events"
                 if definition.category == SECURITY
@@ -811,6 +881,25 @@ def test_every_writable_definition_is_accepted_only_by_its_category_table(
                     request_id=f"request.wrong_table.{index}",
                 )
             cursor.execute("ROLLBACK TO SAVEPOINT wrong_category_table")
+
+        for index, definition in enumerate(unintegrated_writable, start=1):
+            table = (
+                "security_events"
+                if definition.category == SECURITY
+                else "business_audit_events"
+            )
+            cursor.execute("SAVEPOINT unintegrated_definition")
+            with pytest.raises((errors.CheckViolation, errors.RaiseException)):
+                _direct_insert(
+                    cursor,
+                    table,
+                    event_name=definition.name,
+                    event_version=definition.version,
+                    category=definition.category,
+                    retention_class=definition.retention_class,
+                    request_id=f"request.unintegrated.{index}",
+                )
+            cursor.execute("ROLLBACK TO SAVEPOINT unintegrated_definition")
 
         cursor.execute("RESET ROLE")
         assert _event_counts(event_connection) == (
@@ -982,32 +1071,32 @@ def test_same_key_replays_and_conflicting_key_fails_closed(
 ):
     monkeypatch.setenv("DIGITRANSX_ENVIRONMENT", "test")
     with event_connection.cursor(cursor_factory=RealDictCursor) as cursor:
-        first = write_business_audit_event(
+        first = write_security_event(
             cursor,
-            "one_time.payment.released",
+            "security.login.succeeded",
             _context(),
             _data(),
-            idempotency_scope="payment.release",
-            idempotency_key="payment.11",
+            idempotency_scope="security.login.terminal",
+            idempotency_key="login.11",
         )
-        replay = write_business_audit_event(
+        replay = write_security_event(
             cursor,
-            "one_time.payment.released",
+            "security.login.succeeded",
             _context(),
             _data(),
-            idempotency_scope="payment.release",
-            idempotency_key="payment.11",
+            idempotency_scope="security.login.terminal",
+            idempotency_key="login.11",
         )
         assert not first.replayed and replay.replayed
         assert first.event["event_id"] == replay.event["event_id"]
         with pytest.raises(EventIdempotencyConflict):
-            write_business_audit_event(
+            write_security_event(
                 cursor,
-                "one_time.payment.refunded",
+                "security.login.failed",
                 _context(),
                 _data(after_state={"status": "refunded"}),
-                idempotency_scope="payment.release",
-                idempotency_key="payment.11",
+                idempotency_scope="security.login.terminal",
+                idempotency_key="login.11",
             )
         cursor.execute("SELECT 1 AS usable")
         assert cursor.fetchone()["usable"] == 1
@@ -1015,8 +1104,8 @@ def test_same_key_replays_and_conflicting_key_fails_closed(
 
 def test_concurrent_duplicate_creates_one_row(event_database_url, monkeypatch):
     monkeypatch.setenv("DIGITRANSX_ENVIRONMENT", "test")
-    scope = "concurrent.payment.release"
-    key = "payment.12"
+    scope = "concurrent.security.login"
+    key = "login.12"
     barrier = threading.Barrier(2)
     results = []
     failures = []
@@ -1026,9 +1115,9 @@ def test_concurrent_duplicate_creates_one_row(event_database_url, monkeypatch):
         try:
             with conn.cursor(cursor_factory=RealDictCursor) as cursor:
                 barrier.wait(timeout=10)
-                result = write_business_audit_event(
+                result = write_security_event(
                     cursor,
-                    "one_time.payment.released",
+                    "security.login.succeeded",
                     _context(request_id="request.concurrent.1"),
                     _data(),
                     idempotency_scope=scope,
@@ -1056,13 +1145,13 @@ def test_concurrent_duplicate_creates_one_row(event_database_url, monkeypatch):
         with cleanup:
             with cleanup.cursor() as cursor:
                 cursor.execute(
-                    "SELECT count(*) FROM business_audit_events "
+                    "SELECT count(*) FROM security_events "
                     "WHERE idempotency_scope=%s AND idempotency_key=%s",
                     (scope, key),
                 )
                 assert cursor.fetchone()[0] == 1
                 cursor.execute(
-                    "DELETE FROM business_audit_events "
+                    "DELETE FROM security_events "
                     "WHERE idempotency_scope=%s AND idempotency_key=%s",
                     (scope, key),
                 )
@@ -1077,14 +1166,14 @@ def test_mutation_and_event_share_atomic_rollback(event_connection, monkeypatch)
     event_connection.commit()
     with event_connection.cursor(cursor_factory=RealDictCursor) as cursor:
         cursor.execute("INSERT INTO authoritative_mutation VALUES (1)")
-        write_business_audit_event(
-            cursor, "one_time.payment.released", _context(), _data()
+        write_security_event(
+            cursor, "security.login.succeeded", _context(), EventData()
         )
     event_connection.rollback()
     with event_connection.cursor(cursor_factory=RealDictCursor) as cursor:
         cursor.execute("SELECT count(*) AS count FROM authoritative_mutation")
         assert cursor.fetchone()["count"] == 0
-        cursor.execute("SELECT count(*) AS count FROM business_audit_events")
+        cursor.execute("SELECT count(*) AS count FROM security_events")
         assert cursor.fetchone()["count"] == 0
 
 

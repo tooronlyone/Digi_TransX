@@ -2256,20 +2256,22 @@ begin
             message = 'canonical event contract trigger is attached to an unknown table';
     end if;
 
-    select event_version, category, retention_class, writable
+    select event_version, category, retention_class, writable, integrated, lifecycle_status
       into definition
       from public.canonical_event_catalog_projection
      where event_name = new.event_name;
 
     if not found
        or not definition.writable
+       or not definition.integrated
+       or definition.lifecycle_status <> 'planned'
        or definition.event_version <> new.event_version
        or definition.category <> new.category
        or definition.category <> expected_category
        or definition.retention_class <> new.retention_class then
         raise exception using
             errcode = '23514',
-            message = 'event does not match a writable canonical catalog definition';
+            message = 'event does not match an integrated writable canonical catalog definition';
     end if;
 
     if new.actor_type in ('user', 'admin')

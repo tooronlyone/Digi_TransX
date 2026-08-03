@@ -293,8 +293,10 @@ def get_event_definition(name):
 
 def get_writable_event_definition(name, expected_category=None):
     definition = get_event_definition(name)
-    if not definition.writable:
-        raise NonWritableEventName("This canonical event is not writable in Phase 1B-1.")
+    if not definition.writable or not definition.integrated:
+        raise NonWritableEventName(
+            "This canonical event is not integrated for runtime persistence."
+        )
     if expected_category and definition.category != expected_category:
         raise NonWritableEventName("Canonical event category does not match this writer.")
     return definition

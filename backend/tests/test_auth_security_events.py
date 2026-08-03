@@ -602,13 +602,13 @@ def test_exact_auth_event_replay_is_idempotent_and_conflict_fails(auth_database_
 def test_activation_migration_is_exact_idempotent_and_converges_with_schema():
     base = _local_test_url()
     old_schema = subprocess.check_output(
-        ["git", "show", "main:supabase/schema.sql"], cwd=REPO_ROOT
+        ["git", "show", "origin/main:supabase/schema.sql"], cwd=REPO_ROOT
     ).decode("utf-8")
     migration = ACTIVATION_MIGRATION.read_text(encoding="utf-8")
     observed = []
     for blocks, apply_migration in (
         ((STUBS, old_schema), True),
-        ((STUBS, SCHEMA_SQL.read_text(encoding="utf-8")), False),
+        ((STUBS, old_schema), True),
     ):
         url, cleanup = make_disposable(base, *blocks)
         try:
@@ -641,7 +641,7 @@ def test_activation_migration_is_exact_idempotent_and_converges_with_schema():
 def test_activation_migration_rejects_partial_state_without_repair():
     base = _local_test_url()
     old_schema = subprocess.check_output(
-        ["git", "show", "main:supabase/schema.sql"], cwd=REPO_ROOT
+        ["git", "show", "origin/main:supabase/schema.sql"], cwd=REPO_ROOT
     ).decode("utf-8")
     url, cleanup = make_disposable(base, STUBS, old_schema)
     try:

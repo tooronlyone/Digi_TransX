@@ -33,6 +33,10 @@ ACTIVATION_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations"
     / "20260801100000_security_login_event_integration.sql"
 )
+INTEGRATED_GUARD_MIGRATION = (
+    REPO_ROOT / "supabase" / "migrations"
+    / "20260801110000_canonical_event_integrated_guard.sql"
+)
 EXPECTED_DATABASE = "dtx_schema_trigger_rls_baseline"
 EVENT_TABLES = ("security_events", "business_audit_events")
 PROJECTION = "canonical_event_catalog_projection"
@@ -210,12 +214,14 @@ def test_supabase_like_additive_acl_is_narrowed_without_row_or_object_drift():
 def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
     new_sql = _migration_text(ACL_MIGRATION)
     activation_sql = _migration_text(ACTIVATION_MIGRATION)
+    guard_sql = _migration_text(INTEGRATED_GUARD_MIGRATION)
     migrated_url, migrated_cleanup = _disposable(
         STUBS,
         _locked_main_schema(),
         _migration_text(FOUNDATION_MIGRATION),
         new_sql,
         activation_sql,
+        guard_sql,
     )
     schema_url, schema_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     migrated = psycopg2.connect(migrated_url)
@@ -226,10 +232,10 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         assert _foundation_metadata(migrated) == expected_metadata
         assert _projection(migrated) == expected_projection == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(schema)
-        assert _semantic_signature(schema) == "f5168975e0605fe0f7b84c1276a0082a"
+        assert _semantic_signature(schema) == "7b8157021244549cfed79416b40ab662"
         before = _foundation_metadata(schema), _projection(schema), _all_public_counts(schema)
-        _apply(schema, activation_sql)
-        _apply(schema, activation_sql)
+        _apply(schema, guard_sql)
+        _apply(schema, guard_sql)
         assert (_foundation_metadata(schema), _projection(schema), _all_public_counts(schema)) == before
     finally:
         migrated.close()
@@ -297,18 +303,6 @@ def test_effective_role_matrix_and_rolled_back_probes(corrected_database_url):
                 """
             )
             security_id = cursor.fetchone()[0]
-            cursor.execute(
-                """
-                INSERT INTO public.business_audit_events (
-                    event_name,event_version,category,actor_type,request_id,
-                    source,provider_mode,environment,retention_class
-                ) VALUES (
-                    'one_time.order.created',1,'business_audit','system',
-                    'acl.probe.business','test','none','test','business_24_months'
-                ) RETURNING event_id
-                """
-            )
-            business_id = cursor.fetchone()[0]
             cursor.execute("SAVEPOINT invalid_catalog_event")
             with pytest.raises(errors.CheckViolation):
                 cursor.execute(
@@ -330,9 +324,6 @@ def test_effective_role_matrix_and_rolled_back_probes(corrected_database_url):
             )
             cursor.execute(
                 "DELETE FROM public.security_events WHERE event_id=%s", (security_id,)
-            )
-            cursor.execute(
-                "DELETE FROM public.business_audit_events WHERE event_id=%s", (business_id,)
             )
             cursor.execute("RESET ROLE")
         conn.rollback()
