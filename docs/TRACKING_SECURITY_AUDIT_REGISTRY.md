@@ -8,7 +8,7 @@ This registry is the human-readable source for the current architecture, verifie
 | --- | --- |
 | Inventory base SHA | `0d1b5b2de4b92ec642f39cfec26b09b3aefce571` |
 | Verification date | 2026-07-31 |
-| Latest capability-status reconciliation | 2026-08-04; Phase 1A, Phase 1B-1, Phase 1B-2A, and Phase 1B-2B are implemented in main and authorized shared TEST. Phase 1B-2B activates exactly three bounded signup events; GPS and Email/SMS OTP remain Planned and unintegrated. |
+| Latest capability-status reconciliation | 2026-08-05; Phase 1A through Phase 1B-2B remain implemented in main and authorized shared TEST. Phase 1B-2C0 is verified only on its feature branch: it formalizes bounded device/session/MPIN catalog contracts without adding a runtime emitter, applying migration `140000` to shared TEST, or deploying. |
 | Repository | `tooronlyone/Digi_TransX` |
 | Branch used for this registry | `chore/tracking-architecture-registry` |
 | Phase 1A implementation branch | `security/phase-1a-legacy-tracking-containment` |
@@ -17,16 +17,17 @@ This registry is the human-readable source for the current architecture, verifie
 | Phase 1B-1 implementation branch | `feature/phase-1b-canonical-event-foundation` |
 | Phase 1B-1 ACL correction branch | `fix/phase-1b-service-role-event-acl` |
 | Phase 1B-2A implementation branch | `feature/phase-1b2a-auth-events` |
+| Phase 1B-2C0 feature branch | `feature/phase-1b2c0-device-session-mpin-contracts` |
 | Environment inspected | Authorized Supabase TEST project `fysu…goev` |
 | Database inspection mode | Read-only transactions; every inspection ended with `ROLLBACK` |
 | Scheduler state during inspection | Disabled with `DIGITRANSX_ENABLE_SCHEDULER=0`; no scheduler process active |
-| Phase | Phase 0 registry; Phase 1A containment, Phase 1B-1, Phase 1B-2A, and Phase 1B-2B implemented in main and authorized shared TEST; later runtime integrations remain Planned |
+| Phase | Phase 0 registry; Phase 1A through Phase 1B-2B implemented in main and authorized shared TEST; Phase 1B-2C0 contract-only state verified on its feature branch; later runtime integrations remain Planned |
 
 > **Planning/documentation only.** This file creates no routes, tables, views, functions, triggers, policies, jobs, dashboards, providers, or runtime behavior. Any object or event marked Planned or Deferred does not exist merely because it appears here.
 
 The Inventory base SHA identifies the code/database state inspected during Phase 0. It is not the SHA of the documentation commit that introduced or later corrected this registry.
 
-Runtime implementation remains authoritative when this registry and code disagree. A disagreement is a defect: every future tracking-related change must update this file in the same commit. Phase 1B-1 adds foundation contract tests; Phase 1B-2A adds PostgreSQL route, transaction, privacy, failure, activation, and convergence proofs for exactly four auth events.
+Runtime implementation remains authoritative when this registry and code disagree. A disagreement is a defect: every future tracking-related change must update this file in the same commit. Phase 1B-1 adds foundation contract tests; Phase 1B-2A adds PostgreSQL route, transaction, privacy, failure, activation, and convergence proofs for exactly four auth events. Phase 1B-2C0 adds catalog/projection contracts only and deliberately adds no runtime emitter or route integration.
 
 ### Status vocabulary
 
@@ -285,9 +286,9 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 ### 3.9 Schema, migrations, and test mirrors
 
 - [`supabase/schema.sql`](../supabase/schema.sql) is the canonical fresh-install mirror.
-- Seventeen forward migrations exist under [`supabase/migrations`](../supabase/migrations). The Phase 1B-1 foundation/ACL, Phase 1B-2A activation/guard, and Phase 1B-2B signup integration are applied to shared TEST and merged to main.
+- Twelve forward migrations exist under [`supabase/migrations`](../supabase/migrations) on the Phase 1B-2C0 feature branch. The Phase 1B-1 foundation/ACL, Phase 1B-2A activation/guard, and Phase 1B-2B signup integration are applied to shared TEST and merged to main; `20260801140000_device_session_mpin_event_contracts.sql` is feature-only and has not been applied to shared TEST.
 - PostgreSQL integration mirrors in [`backend/tests/conftest.py`](../backend/tests/conftest.py) and `test_migration*.py` use isolated/disposable PostgreSQL databases or schemas and never fall back from `TEST_SUPABASE_DB_URL` to the shared application URL.
-- Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, review concurrency/integrity, schema-trigger convergence, effective shipment/trip role visibility, the branch-local 150 + 8 catalog correction, strict envelopes, migration convergence, caller-owned writers, idempotency/concurrency, append-only enforcement, and event-table privileges.
+- Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, review concurrency/integrity, schema-trigger convergence, effective shipment/trip role visibility, the feature-branch 162 + 8 catalog projection, strict envelopes, migration convergence, caller-owned writers, idempotency/concurrency, append-only enforcement, and event-table privileges.
 
 ## 4. Actual TEST database capability inventory
 
@@ -309,6 +310,10 @@ The Auth trigger `auth.users.trg_on_auth_user_created` is present. The Storage b
 The baseline application added exactly `trg_transporter_profiles_updated_at`, `trg_fuel_station_profiles_updated_at`, and `trg_shopkeeper_profiles_updated_at` to shared TEST by reusing `set_updated_at()`. It also installed the non-recursive shipment authorization helper/policy. Post-application reconciliation retained 43 tables, two views, 218 constraints, 122 indexes, and 94 policies; function count became 10 and non-internal trigger count became 24. All business row counts, safe financial totals, and existing profile `updated_at` values remained unchanged.
 
 Shared TEST contains empty `security_events` and `business_audit_events` tables plus the 158-row `canonical_event_catalog_projection`; 150 definitions are Planned, 8 Deferred QR, 144 writable, and exactly seven auth definitions are `integrated=true`. The current signature is `371c7010a0553c7953708dea164ed0bc`, following `993b1de965a1791a2a84ccff5fcfbdf9` through `20260801130000_security_signup_event_integration.sql` (SHA-256 `915c7937fd36e8dae19ab0f45b4a1cd10fade3a52c9bca959ffd49ca59f909e5`). `event_outbox` remains absent. `service_role` has exactly `DELETE`, `INSERT`, and `SELECT` on each event table and zero projection access; `anon`, `authenticated`, and `PUBLIC` have zero event or projection access. Only integrated+writable definitions are insertable; 137 writable-but-unintegrated Planned definitions, all six Operations definitions, and all eight Deferred QR definitions are rejected. Rolled-back verification left both event tables empty and created no TEST Auth account or business row.
+
+The verified Phase 1B-2C0 feature-only current-final projection has 170 rows: 162 Planned, 8 Deferred QR, 156 writable, and the same seven integrated auth definitions. Its semantic signature is `3d9b730408336c82629c25342ddc7ea2`. The added/formalized device, session, trusted-device, and MPIN definitions remain unintegrated, migration `140000` was tested only on attributable localhost disposable databases, and no shared TEST state was changed.
+
+Phase 1B-2C0 adds `security.session.issued`, `security.session.access_locked`, `security.trusted_device.rotated`, `security.mpin.enrolled`, `security.mpin.changed`, `security.mpin.disabled`, `security.mpin.unlock_succeeded`, `security.mpin.unlock_failed`, `security.mpin.locked`, `security.mpin.reset_completed`, `security.mpin.step_up_succeeded`, and `security.mpin.step_up_failed`; it formalizes contracts for the existing `security.session.refreshed`, `security.session.expired_inactivity`, `security.session.revoked`, `security.trusted_device.added`, and `security.trusted_device.removed`. All seventeen remain Planned, writable, and unintegrated, so neither Python nor PostgreSQL writers may emit them yet.
 
 ### 4.2 Tables, views, and safe aggregate row counts
 
@@ -394,6 +399,7 @@ Disposable PostgreSQL tests and post-application real-role probes prove that the
 | `20260731220000_schema_trigger_rls_baseline.sql` | Three profile `updated_at` triggers plus non-recursive shipment/trip authorization helper and policy | Verified present in shared TEST; row/timestamp/financial reconciliation unchanged |
 | `20260731230000_canonical_event_foundation.sql` | Two append-only event tables, catalog projection, bounded JSON validator, contract/UPDATE guards, indexes, RLS/service policy and grants | Verified applied in shared TEST with zero event rows; its additive `service_role` default-table ACL issue is corrected by the applied forward migration |
 | `20260731240000_canonical_event_acl_hardening.sql` | Fail-closed foundation/signature validation followed only by event-table `service_role` revoke and narrow re-grant | Verified applied in shared TEST; final event-table privileges are exactly `DELETE`, `INSERT`, and `SELECT`, with signature `772212260b85fd6b5cd4aa35ca9ffdfb` |
+| `20260801140000_device_session_mpin_event_contracts.sql` | Forward-only projection of bounded device/session/trusted-device/MPIN contracts; no event integration or runtime emitter | Verified only on `feature/phase-1b2c0-device-session-mpin-contracts`; not applied to shared TEST |
 
 No partial or out-of-order foundation capability was detected. The former three-trigger/RLS drift and additive `service_role` event-table ACL issue are corrected. Stop if a future inspection finds a named capability missing, an unexpected extra application table/column, a migration only partially represented, or a migration ledger that conflicts with observed capability.
 
@@ -470,11 +476,11 @@ Arbitrary frontend event names and arbitrary metadata are forbidden. The server 
 
 ### 6.1 Implemented Phase 1B-1 objects and writers
 
-- [`backend/events/catalog.py`](../backend/events/catalog.py) remains the only machine-readable catalog owner: 150 Planned-lifecycle names plus 8 Deferred QR names. Exactly seven Planned auth definitions are integrated in main and shared TEST: `security.login.started`, `security.login.failed`, `security.login.succeeded`, `security.logout.completed`, `security.signup.started`, `security.signup.failed`, and `security.signup.completed`. Signup failure permits only one coarse `result_code` from `validation_failed`, `account_conflict`, `provider_unavailable`, `persistence_failed`, or `reconciliation_required`; signup-start is anonymous and carries no request data. The other 143 Planned definitions, including signup GPS and Email/SMS OTP, and all 8 Deferred definitions remain unintegrated. Deferred QR and the six Operations names remain non-writable.
+- [`backend/events/catalog.py`](../backend/events/catalog.py) remains the only machine-readable catalog owner. The Phase 1B-2C0 feature branch has 162 Planned-lifecycle names plus 8 Deferred QR names. Exactly seven Planned auth definitions remain integrated: `security.login.started`, `security.login.failed`, `security.login.succeeded`, `security.logout.completed`, `security.signup.started`, `security.signup.failed`, and `security.signup.completed`. The other 155 Planned definitions, including the bounded device/session/trusted-device/MPIN contracts, signup GPS, and Email/SMS OTP, remain unintegrated. Deferred QR and the six Operations names remain non-writable.
 - [`backend/events/contract.py`](../backend/events/contract.py) owns the shared typed envelope. The maximum encoded envelope is 8,192 bytes; metadata is 2,048 bytes; each before/after object is 1,024 bytes; objects are flat, have at most 16 keys, use explicit type maps, and permit strings of at most 128 contract characters.
 - [`backend/events/environment.py`](../backend/events/environment.py) derives only `local`, `test`, `staging`, or `production` from server configuration and fails closed when configuration is absent/unknown.
 - [`backend/events/writer.py`](../backend/events/writer.py) exposes one security writer and one business-audit writer. Each accepts the caller's existing production `Db` transaction executor or native cursor, opens no connection, and never commits or rolls back. The database supplies `occurred_at`; catalog/context supply category/version/actor/retention/environment.
-- `canonical_event_catalog_projection` is migration-owned enforcement metadata generated from the Python catalog, not a third event store or a second semantic owner. Main and shared TEST project 158 exact name/version/category/domain/retention/lifecycle/writable/integrated tuples; deterministic bidirectional tests reject missing, extra, duplicate, or drifted definitions. Both have seven integrated auth rows after the authorized Phase 1B-2B rollout.
+- `canonical_event_catalog_projection` is migration-owned enforcement metadata generated from the Python catalog, not a third event store or a second semantic owner. Main and shared TEST remain at 158 exact rows through Phase 1B-2B; the verified Phase 1B-2C0 feature-only schema projects 170 exact name/version/category/domain/retention/lifecycle/writable/integrated/contract tuples. Deterministic bidirectional tests reject missing, extra, duplicate, or drifted definitions, and all states retain exactly seven integrated auth rows.
 - Scoped `(idempotency_scope, idempotency_key)` uniqueness uses a SHA-256 envelope fingerprint. Same-key/same-fingerprint calls replay the existing row; same-key/different-fingerprint calls fail without aborting the transaction; concurrent duplicates create one row.
 - `security_events` and `business_audit_events` each retain 43 columns, a UUID primary key, 16 named CHECK constraints, an UPDATE-blocking trigger, a catalog-contract INSERT trigger, and scoped idempotency uniqueness. Security has five explicit secondary/unique indexes plus its primary-key index; business audit has eleven plus its primary-key index. The database rejects unknown/non-writable names, table/category, version or retention drift, and user/admin actors missing either server-owned ID or role.
 - All three Phase 1B tables have RLS. `anon`, `authenticated`, and `PUBLIC` have no event-table privileges or policies. The applied ACL correction leaves `service_role` exactly `DELETE`, `INSERT`, and `SELECT` on each event table and no projection access; UPDATE remains blocked by privilege and append-only trigger.
@@ -489,6 +495,7 @@ There is no current asynchronous consumer or delivery requirement, so an outbox 
 - Migration/fresh schema produced zero event rows. In main and shared TEST, the integrated guard admits only the seven integrated definitions and rejects all 137 writable-but-unintegrated Planned definitions, including signup GPS and OTP, plus Operations and Deferred QR definitions; it preserves existing envelope, actor, idempotency, append-only, and ACL guarantees.
 - Fresh, partial and exact-reapply migration tests prove fail-closed preservation for wrong column names/types/nullability/defaults, weakened CHECKs, missing indexes/triggers/policies, wrong RLS/grants and drifted helper definitions. Phase 1B-2B pre-merge verification passed the complete PostgreSQL backend suite with 678 tests and zero failures/skips; its explicit no-DB run passed 302 while safely skipping 376 PostgreSQL-dependent tests.
 - Phase 1B-1 remains **Implemented in the repository and shared TEST**: `20260731230000_canonical_event_foundation.sql` and `20260731240000_canonical_event_acl_hardening.sql` are both applied. Its foundation and ACL guarantees are unchanged.
+- Phase 1B-2C0 feature verification passed 682 PostgreSQL tests with zero failures/skips, explicit no-DB mode passed 304 with only 378 expected PostgreSQL skips, and fresh/sequential/reapply/partial/corruption projection paths converged. No runtime emitter was added, and shared TEST was not accessed or modified.
 
 ### 6.3 Phase 1B-2A/2B bounded auth integration
 
@@ -1148,7 +1155,7 @@ Stop any runtime event integration if any of the following is unresolved:
 
 At this verification point the registry explicitly names:
 
-- 24 planned Security authentication/session/device/account events;
+- 36 planned Security authentication/session/device/account events on the Phase 1B-2C0 feature branch (24 in main/shared TEST);
 - 14 planned One-Time order/bid/checkout events;
 - 27 planned payment/wallet/commission/Terms events;
 - 21 planned trip/delivery/dispute/chat/review events;
@@ -1161,4 +1168,4 @@ At this verification point the registry explicitly names:
 - 8 Deferred One-Time QR-payment events;
 - 13 logical data objects: 2 event tables implemented in the repository and present empty in shared TEST, and 11 still Not implemented.
 
-The canonical catalog contains 150 Planned-lifecycle events plus 8 Deferred QR-payment events (158 combined). Deferred events are reported separately and excluded from the Planned total. Exactly seven Planned auth definitions are integrated in main and shared TEST: four Phase 1B-2A login/logout names and three Phase 1B-2B signup names. The other 143 Planned definitions, including signup GPS and Email/SMS OTP, and all 8 Deferred definitions remain unintegrated. The six Operations definitions remain non-writable and unintegrated.
+The Phase 1B-2C0 feature catalog contains 162 Planned-lifecycle events plus 8 Deferred QR-payment events (170 combined); main and shared TEST remain at 150 + 8 through Phase 1B-2B. Deferred events are reported separately and excluded from the Planned total. Exactly seven Planned auth definitions are integrated in every state: four Phase 1B-2A login/logout names and three Phase 1B-2B signup names. On the feature branch the other 155 Planned definitions, including device/session/MPIN, signup GPS, and Email/SMS OTP, and all 8 Deferred definitions remain unintegrated. The six Operations definitions remain non-writable and unintegrated.

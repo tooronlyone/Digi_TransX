@@ -43,7 +43,11 @@ SIGNUP_FAILED_MIGRATION = (
 SIGNUP_INTEGRATION_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations" / "20260801130000_security_signup_event_integration.sql"
 )
-EXPECTED_DATABASE = "dtx_schema_trigger_rls_baseline"
+DEVICE_SESSION_MPIN_MIGRATION = (
+    REPO_ROOT / "supabase" / "migrations"
+    / "20260801140000_device_session_mpin_event_contracts.sql"
+)
+EXPECTED_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EVENT_TABLES = ("security_events", "business_audit_events")
 PROJECTION = "canonical_event_catalog_projection"
 NARROW_PRIVILEGES = {"SELECT", "INSERT", "DELETE"}
@@ -56,8 +60,8 @@ def _local_url():
     parsed = urlsplit(url)
     if parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
         pytest.fail("ACL hardening tests require local disposable PostgreSQL.")
-    if parsed.path.lstrip("/") != EXPECTED_DATABASE:
-        pytest.fail("TEST_SUPABASE_DB_URL must name the exact approved local database.")
+    if not parsed.path.lstrip("/").startswith(EXPECTED_DATABASE_PREFIX):
+        pytest.fail("TEST_SUPABASE_DB_URL must name the approved local Phase 1B-2C0 runner.")
     return url
 
 
@@ -128,16 +132,12 @@ def _non_acl_metadata(conn):
 
 
 def _semantic_signature(conn):
-    text = _migration_text(FOUNDATION_MIGRATION)
-    start = text.index("with signature_items as (")
-    stop = text.index("\n    if actual_signature", start)
-    query = text[start:stop].replace(
-        "select md5(string_agg(item, E'\\n' order by item)) into actual_signature\n"
-        "    from signature_items;",
-        "select md5(string_agg(item, E'\\n' order by item)) from signature_items;",
-    )
+    text = _migration_text(DEVICE_SESSION_MPIN_MIGRATION)
+    start = text.index("create or replace function pg_temp.canonical_event_semantic_signature()")
+    stop = text.index("\ndo $migration$", start)
     with conn.cursor() as cursor:
-        cursor.execute(query)
+        cursor.execute(text[start:stop])
+        cursor.execute("select pg_temp.canonical_event_semantic_signature()")
         return cursor.fetchone()[0]
 
 
@@ -223,6 +223,7 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
     guard_sql = _migration_text(INTEGRATED_GUARD_MIGRATION)
     signup_failed_sql = _migration_text(SIGNUP_FAILED_MIGRATION)
     signup_integration_sql = _migration_text(SIGNUP_INTEGRATION_MIGRATION)
+    device_session_mpin_sql = _migration_text(DEVICE_SESSION_MPIN_MIGRATION)
     migrated_url, migrated_cleanup = _disposable(
         STUBS,
         _locked_main_schema(),
@@ -232,6 +233,7 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         guard_sql,
         signup_failed_sql,
         signup_integration_sql,
+        device_session_mpin_sql,
     )
     schema_url, schema_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     migrated = psycopg2.connect(migrated_url)
@@ -242,10 +244,10 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         assert _foundation_metadata(migrated) == expected_metadata
         assert _projection(migrated) == expected_projection == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(schema)
-        assert _semantic_signature(schema) == "371c7010a0553c7953708dea164ed0bc"
+        assert _semantic_signature(schema) == "3d9b730408336c82629c25342ddc7ea2"
         before = _foundation_metadata(schema), _projection(schema), _all_public_counts(schema)
-        _apply(schema, signup_integration_sql)
-        _apply(schema, signup_integration_sql)
+        _apply(schema, device_session_mpin_sql)
+        _apply(schema, device_session_mpin_sql)
         assert (_foundation_metadata(schema), _projection(schema), _all_public_counts(schema)) == before
     finally:
         migrated.close()
@@ -411,4 +413,4 @@ def test_migration_is_forward_only_and_does_not_mutate_catalog_or_runtime():
     assert not re.search(r"(?im)^\s*delete\s+from\s+", text)
     assert "REVOKE ALL PRIVILEGES ON TABLE public.security_events FROM service_role" in text
     assert "GRANT SELECT, INSERT, DELETE ON TABLE public.security_events TO service_role" in text
-    assert len(CATALOG) == 158
+    assert len(CATALOG) == 170

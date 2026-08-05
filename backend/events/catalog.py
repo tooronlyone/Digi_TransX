@@ -29,6 +29,8 @@ class EventDefinition:
     writable: bool
     integrated: bool = False
     allowed_result_codes: frozenset[str] | None = None
+    actor_policy: str = "generic"
+    allowed_metadata_keys: frozenset[str] = frozenset()
 
 
 _SECURITY_NAMES = (
@@ -57,6 +59,18 @@ _SECURITY_NAMES = (
     "security.trusted_device.removed",
     "security.account.locked",
     "security.account.unlocked",
+    "security.session.issued",
+    "security.session.access_locked",
+    "security.trusted_device.rotated",
+    "security.mpin.enrolled",
+    "security.mpin.changed",
+    "security.mpin.disabled",
+    "security.mpin.unlock_succeeded",
+    "security.mpin.unlock_failed",
+    "security.mpin.locked",
+    "security.mpin.reset_completed",
+    "security.mpin.step_up_succeeded",
+    "security.mpin.step_up_failed",
 )
 
 _BUSINESS_NAMES = (
@@ -229,6 +243,52 @@ SIGNUP_FAILURE_RESULT_CODES = frozenset(
     }
 )
 
+_CONTRACTS = {
+    "security.session.issued": ("authenticated_self", (), ()),
+    "security.session.access_locked": (
+        "service_subject",
+        ("app_launch", "idle_lock", "security_action"),
+        ("result_code",),
+    ),
+    "security.session.refreshed": ("authenticated_self", (), ()),
+    "security.session.expired_inactivity": ("service_subject", (), ()),
+    "security.session.revoked": (
+        "authenticated_self_or_service",
+        ("logout", "logout_all", "password_changed", "password_reset", "account_blocked", "device_removed", "security_action", "absolute_expiry"),
+        ("result_code",),
+    ),
+    "security.trusted_device.added": ("authenticated_self", (), ()),
+    "security.trusted_device.removed": (
+        "authenticated_self_or_service",
+        ("user_removed", "logout_all", "password_changed", "password_reset", "account_blocked", "inactivity_expired", "attempt_limit", "security_action"),
+        ("result_code",),
+    ),
+    "security.trusted_device.rotated": (
+        "authenticated_self_or_service",
+        ("full_login", "scheduled_rotation", "security_action"),
+        ("result_code",),
+    ),
+    "security.mpin.enrolled": ("authenticated_self", (), ()),
+    "security.mpin.changed": ("authenticated_self", (), ()),
+    "security.mpin.disabled": ("authenticated_self", (), ()),
+    "security.mpin.unlock_succeeded": ("authenticated_self", (), ()),
+    "security.mpin.unlock_failed": (
+        "service_subject", ("invalid_mpin", "rate_limited"), ("result_code",)
+    ),
+    "security.mpin.locked": (
+        "service_subject", ("attempt_limit", "security_action"), ("result_code",)
+    ),
+    "security.mpin.reset_completed": (
+        "authenticated_self", ("user_reauthentication", "security_recovery"), ("result_code",)
+    ),
+    "security.mpin.step_up_succeeded": ("authenticated_self", (), ()),
+    "security.mpin.step_up_failed": (
+        "service_subject",
+        ("invalid_mpin", "rate_limited", "challenge_expired", "challenge_mismatch"),
+        ("result_code",),
+    ),
+}
+
 _HIGH_SECURITY_NAMES = {
     "security.login.suspicious_detected",
     "security.account.locked",
@@ -263,6 +323,7 @@ def _retention(name, category):
 
 
 def _definition(name, category, status=PLANNED, writable=True):
+    actor_policy, result_codes, metadata_keys = _CONTRACTS.get(name, ("generic", None, ()))
     return EventDefinition(
         name=name,
         category=category,
@@ -273,7 +334,15 @@ def _definition(name, category, status=PLANNED, writable=True):
         writable=writable,
         integrated=name in INTEGRATED_EVENT_NAMES,
         allowed_result_codes=(
-            SIGNUP_FAILURE_RESULT_CODES if name == "security.signup.failed" else None
+            SIGNUP_FAILURE_RESULT_CODES
+            if name == "security.signup.failed"
+            else frozenset(result_codes) if result_codes else None
+        ),
+        actor_policy=actor_policy,
+        allowed_metadata_keys=(
+            frozenset({"result_code"})
+            if name == "security.signup.failed"
+            else frozenset(metadata_keys)
         ),
     )
 
@@ -323,10 +392,37 @@ def get_writable_event_definition(name, expected_category=None):
     return definition
 
 
+def catalog_projection_contract(definition):
+    """Return the database projection contract from the sole Python catalog owner."""
+    return {
+        "actor_policy": definition.actor_policy,
+        "allowed_metadata_keys": sorted(definition.allowed_metadata_keys),
+        "allowed_result_codes": sorted(definition.allowed_result_codes or ()),
+    }
+
+
+def catalog_projection_rows():
+    """Stable catalog-derived rows used to verify the database projection."""
+    return tuple(
+        (
+            definition.name,
+            definition.version,
+            definition.category,
+            definition.ownership_domain,
+            definition.retention_class,
+            definition.lifecycle_status,
+            definition.writable,
+            definition.integrated,
+            catalog_projection_contract(definition),
+        )
+        for definition in sorted(_DEFINITIONS, key=lambda item: item.name)
+    )
+
+
 def _assert_catalog_integrity():
     if len(_DEFINITIONS) != len(CATALOG):
         raise RuntimeError("Canonical event catalog contains duplicate names.")
-    if len(PLANNED_EVENT_NAMES) != 150 or len(DEFERRED_EVENT_NAMES) != 8:
+    if len(PLANNED_EVENT_NAMES) != 162 or len(DEFERRED_EVENT_NAMES) != 8:
         raise RuntimeError("Canonical event catalog totals do not match the locked registry.")
     for definition in _DEFINITIONS:
         if not _NAME_RE.fullmatch(definition.name):

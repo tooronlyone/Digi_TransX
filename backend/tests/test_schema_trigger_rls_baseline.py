@@ -25,7 +25,7 @@ MIGRATION = (
     / "migrations"
     / "20260731220000_schema_trigger_rls_baseline.sql"
 )
-EXPECTED_BASE_DATABASE = "dtx_schema_trigger_rls_baseline"
+EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
 TRIGGERS = {
     "transporter_profiles": "trg_transporter_profiles_updated_at",
     "fuel_station_profiles": "trg_fuel_station_profiles_updated_at",
@@ -40,7 +40,7 @@ def _local_test_url():
     parsed = urlsplit(url)
     if parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
         pytest.fail("Baseline correction tests require local disposable PostgreSQL.")
-    if parsed.path.lstrip("/") != EXPECTED_BASE_DATABASE:
+    if not parsed.path.lstrip("/").startswith(EXPECTED_BASE_DATABASE_PREFIX):
         pytest.fail(
             "TEST_SUPABASE_DB_URL must name the exact baseline-correction database."
         )

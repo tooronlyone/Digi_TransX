@@ -71,9 +71,19 @@ def make_disposable(url, *sql_blocks):
     migration tests.
     """
     import psycopg2
+    from psycopg2 import sql
 
     parts = urlsplit(url)
-    admin_url = urlunsplit((parts.scheme, parts.netloc, "/postgres", "", ""))
+    # Tests may supply a loopback maintenance connection explicitly.  It owns
+    # teardown and is independent of any intentionally corrupted child schema.
+    admin_url = os.environ.get("TEST_LOCAL_MAINTENANCE_DB_URL", "").strip()
+    if not admin_url:
+        admin_url = urlunsplit((parts.scheme, parts.netloc, "/postgres", "", ""))
+    admin_parts = urlsplit(admin_url)
+    if admin_parts.hostname not in {"localhost", "127.0.0.1", "::1"}:
+        pytest.fail("TEST_LOCAL_MAINTENANCE_DB_URL must use a loopback host.")
+    if admin_parts.path.lstrip("/").startswith("dtx_life_"):
+        pytest.fail("The maintenance connection must not target a disposable child database.")
     dbname = f"dtx_life_{uuid.uuid4().hex[:10]}"
     child_url = urlunsplit((parts.scheme, parts.netloc, "/" + dbname, "", ""))
 
@@ -84,7 +94,11 @@ def make_disposable(url, *sql_blocks):
     admin.autocommit = True
     try:
         with admin.cursor() as cur:
-            cur.execute(f'create database "{dbname}"')
+            cur.execute(
+                sql.SQL("create database {} owner {}").format(
+                    sql.Identifier(dbname), sql.Identifier(parts.username)
+                )
+            )
     except psycopg2.Error as exc:
         admin.close()
         pytest.skip(f"test role cannot CREATE DATABASE (managed environment?): {exc}")
@@ -102,7 +116,7 @@ def make_disposable(url, *sql_blocks):
                 "select pg_terminate_backend(pid) from pg_stat_activity where datname = %s",
                 (dbname,),
             )
-            cur.execute(f'drop database if exists "{dbname}"')
+            cur.execute(sql.SQL("drop database if exists {}").format(sql.Identifier(dbname)))
         admin.close()
         raise
 
@@ -112,7 +126,9 @@ def make_disposable(url, *sql_blocks):
                 "select pg_terminate_backend(pid) from pg_stat_activity where datname = %s",
                 (dbname,),
             )
-            cur.execute(f'drop database if exists "{dbname}"')
+            cur.execute(sql.SQL("drop database if exists {}").format(sql.Identifier(dbname)))
+            cur.execute("select 1 from pg_database where datname = %s", (dbname,))
+            assert cur.fetchone() is None
         admin.close()
 
     return child_url, cleanup

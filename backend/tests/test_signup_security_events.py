@@ -2,6 +2,7 @@
 
 import json
 import os
+import subprocess
 import uuid
 from contextlib import contextmanager
 from pathlib import Path
@@ -43,9 +44,17 @@ def _local_url():
     url = require_test_db_url()
     parsed = urlsplit(url)
     assert parsed.hostname in {"localhost", "127.0.0.1", "::1"}
-    assert parsed.path.lstrip("/") == "dtx_schema_trigger_rls_baseline"
+    assert parsed.path.lstrip("/").startswith("dtx_phase1b2c0_")
     assert url != os.environ.get("SUPABASE_DB_URL", "")
     return url
+
+
+def _signup_integration_final_schema():
+    return subprocess.check_output(
+        ["git", "show", "9944bd5fa6c8acbe790e55c39edc8b3b951c6ef8:supabase/schema.sql"],
+        cwd=REPO_ROOT,
+        text=True,
+    )
 
 
 @pytest.fixture(scope="module")
@@ -271,7 +280,7 @@ def test_signup_integration_migration_is_exact_idempotent_and_converges():
     observed = []
     for blocks, expected, apply in (
         ((STUBS, schema_before_migration_or_skip(MIGRATION)), PRE_SIGNATURE, True),
-        ((STUBS, SCHEMA_SQL.read_text(encoding="utf-8")), POST_SIGNATURE, False),
+        ((STUBS, _signup_integration_final_schema()), POST_SIGNATURE, False),
     ):
         url, cleanup = make_disposable(_local_url(), *blocks)
         try:
@@ -318,13 +327,13 @@ def test_signup_integration_migration_aborts_partial_state_without_repair():
 
 def test_signup_catalog_totals_and_contracts_are_locked():
     assert {name for name, definition in CATALOG.items() if definition.integrated} == INTEGRATED
-    assert len(CATALOG) == 158
-    assert sum(definition.lifecycle_status == "planned" for definition in CATALOG.values()) == 150
+    assert len(CATALOG) == 170
+    assert sum(definition.lifecycle_status == "planned" for definition in CATALOG.values()) == 162
     assert sum(definition.lifecycle_status == "deferred" for definition in CATALOG.values()) == 8
-    assert sum(definition.writable for definition in CATALOG.values()) == 144
+    assert sum(definition.writable for definition in CATALOG.values()) == 156
     assert sum(definition.integrated for definition in CATALOG.values()) == 7
-    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 143
-    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 137
+    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 155
+    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 149
 
 
 def test_signup_provider_classification_uses_only_structured_status_and_code(monkeypatch):

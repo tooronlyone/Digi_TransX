@@ -30,7 +30,7 @@ ACTIVATION_MIGRATION = (
     / "migrations"
     / "20260801100000_security_login_event_integration.sql"
 )
-EXPECTED_BASE_DATABASE = "dtx_schema_trigger_rls_baseline"
+EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EXPECTED_PRIOR_SIGNATURE = "772212260b85fd6b5cd4aa35ca9ffdfb"
 EXPECTED_FINAL_SIGNATURE = "f5168975e0605fe0f7b84c1276a0082a"
 ACTIVATION_PRE_SCHEMA_SHA = "7282d049a1bd9e0c8543c4752b5c0980dc817a68"
@@ -46,7 +46,7 @@ def _local_test_url():
     url = require_test_db_url()
     parsed = urlsplit(url)
     assert parsed.hostname in {"localhost", "127.0.0.1", "::1"}
-    assert parsed.path.lstrip("/") == EXPECTED_BASE_DATABASE
+    assert parsed.path.lstrip("/").startswith(EXPECTED_BASE_DATABASE_PREFIX)
     assert url != os.environ.get("SUPABASE_DB_URL", "").strip()
     return url
 
@@ -162,7 +162,7 @@ def test_catalog_preserves_login_events_and_adds_only_bounded_signup_events():
     assert set(INTEGRATED_EVENT_NAMES) == expected
     assert {name for name, item in CATALOG.items() if item.integrated} == expected
     assert sum(item.integrated for item in CATALOG.values()) == 7
-    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 143
+    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 155
     assert sum(item.lifecycle_status == "deferred" and not item.integrated for item in CATALOG.values()) == 8
 
 

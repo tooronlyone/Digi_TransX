@@ -77,7 +77,11 @@ SIGNUP_FAILED_MIGRATION = (
 SIGNUP_INTEGRATION_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations" / "20260801130000_security_signup_event_integration.sql"
 )
-EXPECTED_BASE_DATABASE = "dtx_schema_trigger_rls_baseline"
+DEVICE_SESSION_MPIN_MIGRATION = (
+    REPO_ROOT / "supabase" / "migrations"
+    / "20260801140000_device_session_mpin_event_contracts.sql"
+)
+EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EVENT_TABLES = ("security_events", "business_audit_events")
 CATALOG_PROJECTION = "canonical_event_catalog_projection"
 FOUNDATION_TABLES = (*EVENT_TABLES, CATALOG_PROJECTION)
@@ -90,8 +94,8 @@ def _local_test_url():
     parsed = urlsplit(url)
     if parsed.hostname not in {"localhost", "127.0.0.1", "::1"}:
         pytest.fail("Canonical event tests require local disposable PostgreSQL.")
-    if parsed.path.lstrip("/") != EXPECTED_BASE_DATABASE:
-        pytest.fail("TEST_SUPABASE_DB_URL must name the exact approved local database.")
+    if not parsed.path.lstrip("/").startswith(EXPECTED_BASE_DATABASE_PREFIX):
+        pytest.fail("TEST_SUPABASE_DB_URL must name the approved local Phase 1B-2C0 runner.")
     return url
 
 
@@ -251,15 +255,18 @@ def _expected_catalog_projection():
     )
 
 
-def _committed_projection_rows(path):
-    text = path.read_text(encoding="utf-8")
-    start = text.index("insert into public.canonical_event_catalog_projection")
-    end = text.index("on conflict (event_name) do nothing;", start)
+def _projection_rows_from_sql(text):
+    inserts = re.finditer(
+        r"insert\s+into\s+public\.canonical_event_catalog_projection\b"
+        r"(?P<values>.*?)\bon\s+conflict\s*\(event_name\)\s+do\s+nothing;",
+        text,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
     pattern = re.compile(
         r"\('([^']+)', (\d+), '([^']+)', '([^']+)', '([^']+)', "
-        r"'([^']+)', (true|false), (true|false)\)"
+        r"'([^']+)', (true|false), (true|false)(?:, [^\n]+)?\)"
     )
-    return sorted(
+    rows = [
         (
             match.group(1),
             int(match.group(2)),
@@ -270,8 +277,33 @@ def _committed_projection_rows(path):
             match.group(7) == "true",
             match.group(8) == "true",
         )
-        for match in pattern.finditer(text[start:end])
-    )
+        for insert in inserts
+        for match in pattern.finditer(insert.group("values"))
+    ]
+    if not rows:
+        raise AssertionError("No canonical projection INSERT block was found.")
+    return sorted(rows)
+
+
+def _committed_projection_rows(path):
+    return _projection_rows_from_sql(path.read_text(encoding="utf-8"))
+
+
+def test_projection_parser_discovers_every_insert_block_without_a_fixed_limit():
+    blocks = []
+    for index in range(3):
+        blocks.append(
+            "insert into public.canonical_event_catalog_projection values\n"
+            f"('security.parser.block_{index}', 1, 'security', 'identity_access', "
+            "'security_12_months', 'planned', true, false)\n"
+            "on conflict (event_name) do nothing;"
+        )
+    rows = _projection_rows_from_sql("\n".join(blocks))
+    assert [row[0] for row in rows] == [
+        "security.parser.block_0",
+        "security.parser.block_1",
+        "security.parser.block_2",
+    ]
 
 
 def _event_counts(conn):
@@ -358,8 +390,8 @@ def _direct_insert(
 
 
 def test_catalog_is_single_locked_owner_and_deferred_names_are_not_writable():
-    assert len(CATALOG) == 158
-    assert len(PLANNED_EVENT_NAMES) == 150
+    assert len(CATALOG) == 170
+    assert len(PLANNED_EVENT_NAMES) == 162
     assert len(DEFERRED_EVENT_NAMES) == 8
     assert len(set(CATALOG)) == len(CATALOG)
     assert all(CATALOG[name].lifecycle_status == PLANNED for name in PLANNED_EVENT_NAMES)
@@ -369,11 +401,9 @@ def test_catalog_is_single_locked_owner_and_deferred_names_are_not_writable():
 
 
 def _expected_foundation_projection():
-    return [
-        (*row[:-1], False)
-        for row in _expected_catalog_projection()
-        if row[0] != "security.signup.failed"
-    ]
+    # The foundation migration is an immutable 157-row historical baseline;
+    # never derive it from the later, expanded current catalog.
+    return _committed_projection_rows(EVENT_MIGRATION)
     assert all(CATALOG[name].lifecycle_status == DEFERRED for name in DEFERRED_EVENT_NAMES)
     assert all(not CATALOG[name].writable for name in DEFERRED_EVENT_NAMES)
     assert all(
@@ -392,7 +422,7 @@ def test_committed_database_projection_matches_python_catalog_exactly():
     migration_rows = _committed_projection_rows(EVENT_MIGRATION)
     schema_rows = _committed_projection_rows(SCHEMA_SQL)
     assert len(migration_rows) == 157
-    assert len(expected) == len(schema_rows) == 158
+    assert len(expected) == len(schema_rows) == 170
     assert all(not row[-1] for row in migration_rows)
     assert schema_rows == expected
 
@@ -544,14 +574,14 @@ def test_writer_uses_only_caller_cursor_and_never_controls_transaction(monkeypat
 
 def test_migration_order_and_no_old_provisional_reference():
     old_stamp = "20260731" + "210000"
+    source_files = subprocess.check_output(
+        ["git", "ls-files", "--cached", "--others", "--exclude-standard"],
+        cwd=REPO_ROOT,
+        text=True,
+    ).splitlines()
     repository_text = "\n".join(
-        path.read_text(encoding="utf-8", errors="replace")
-        for path in REPO_ROOT.rglob("*")
-        if path.is_file()
-        and ".git" not in path.parts
-        and "node_modules" not in path.parts
-        and "dist" not in path.parts
-        and "__pycache__" not in path.parts
+        (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
+        for path in source_files
     )
     assert old_stamp not in repository_text
     assert BASELINE_MIGRATION.name < EVENT_MIGRATION.name
@@ -566,6 +596,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
     ).read_text(encoding="utf-8")
     signup_failed_sql = SIGNUP_FAILED_MIGRATION.read_text(encoding="utf-8")
     signup_integration_sql = SIGNUP_INTEGRATION_MIGRATION.read_text(encoding="utf-8")
+    device_session_mpin_sql = DEVICE_SESSION_MPIN_MIGRATION.read_text(encoding="utf-8")
     baseline_sql = BASELINE_MIGRATION.read_text(encoding="utf-8")
     sequence_url, sequence_cleanup = _disposable(
         STUBS,
@@ -576,6 +607,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         guard_sql,
         signup_failed_sql,
         signup_integration_sql,
+        device_session_mpin_sql,
     )
     corrected_url, corrected_cleanup = _disposable(
         STUBS,
@@ -585,6 +617,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         guard_sql,
         signup_failed_sql,
         signup_integration_sql,
+        device_session_mpin_sql,
     )
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
@@ -825,7 +858,7 @@ def test_python_writer_rejects_every_unintegrated_writable_definition_before_sql
     unintegrated = [
         definition for definition in CATALOG.values() if definition.writable and not definition.integrated
     ]
-    assert len(unintegrated) == 137
+    assert len(unintegrated) == 149
     for definition in unintegrated:
         writer = (
             write_security_event
@@ -892,7 +925,7 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
         key=lambda definition: definition.name,
     )
     assert len(integrated) == 7
-    assert len(unintegrated_writable) == 137
+    assert len(unintegrated_writable) == 149
     expected_security = sum(definition.category == SECURITY for definition in integrated)
     expected_business = sum(
         definition.category == BUSINESS_AUDIT for definition in integrated

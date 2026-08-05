@@ -130,6 +130,13 @@ PROHIBITED_KEYS = frozenset(
         "latitude",
         "longitude",
         "gps",
+        "email",
+        "phone",
+        "cnic",
+        "ip",
+        "ip_address",
+        "user_agent",
+        "fingerprint",
     }
 )
 
@@ -358,6 +365,12 @@ def validate_event_data(data, *, definition=None):
             raise EventContractError(
                 "Signup failure events require one approved coarse result_code only."
             )
+    if definition is not None and definition.actor_policy != "generic":
+        if definition.allowed_result_codes is None:
+            if normalized["metadata"]:
+                raise EventContractError("This event does not permit metadata.")
+        elif set(normalized["metadata"]) != set(definition.allowed_metadata_keys) or normalized["metadata"].get("result_code") not in definition.allowed_result_codes:
+            raise EventContractError("This event requires one approved coarse result code only.")
     return normalized
 
 
@@ -372,6 +385,14 @@ def validate_catalog_event_contract(event_name, context, data=None):
         or normalized_context["subject_user_id"] is not None
     ):
         raise EventContractError("Anonymous signup events must remain anonymous.")
+    authenticated_self = normalized_context["actor_type"] in {"user", "admin"} and normalized_context["actor_id"] == normalized_context["subject_user_id"]
+    service_subject = normalized_context["actor_type"] == "system" and normalized_context["actor_id"] is None and normalized_context["actor_role"] is None and normalized_context["subject_user_id"] is not None
+    if definition.actor_policy == "authenticated_self" and not authenticated_self:
+        raise EventContractError("This event requires an authenticated actor and matching subject.")
+    if definition.actor_policy == "service_subject" and not service_subject:
+        raise EventContractError("This event requires the service actor and a derived subject.")
+    if definition.actor_policy == "authenticated_self_or_service" and not (authenticated_self or service_subject):
+        raise EventContractError("This event requires an authenticated self actor or service subject.")
     return definition, normalized_context, validate_event_data(data, definition=definition)
 
 

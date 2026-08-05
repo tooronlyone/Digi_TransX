@@ -1,6 +1,7 @@
 """Forward-only proof for the bounded canonical signup-failure definition."""
 
 from pathlib import Path
+import subprocess
 from urllib.parse import urlsplit
 
 import psycopg2
@@ -31,8 +32,16 @@ def _local_url():
     url = require_test_db_url()
     parsed = urlsplit(url)
     assert parsed.hostname in {"localhost", "127.0.0.1", "::1"}
-    assert parsed.path.lstrip("/") == "dtx_schema_trigger_rls_baseline"
+    assert parsed.path.lstrip("/").startswith("dtx_phase1b2c0_")
     return url
+
+
+def _signup_integration_final_schema():
+    return subprocess.check_output(
+        ["git", "show", "9944bd5fa6c8acbe790e55c39edc8b3b951c6ef8:supabase/schema.sql"],
+        cwd=REPO_ROOT,
+        text=True,
+    )
 
 
 def _context(**changes):
@@ -135,7 +144,7 @@ def test_signup_failure_migration_converges_and_reapplies_after_integrated_rows(
     observed = []
     for blocks, requires_migration in (
         ((STUBS, schema_before_migration_or_skip(MIGRATION)), True),
-        ((STUBS, SCHEMA_SQL.read_text(encoding="utf-8")), False),
+        ((STUBS, _signup_integration_final_schema()), False),
     ):
         url, cleanup = make_disposable(_local_url(), *blocks)
         try:

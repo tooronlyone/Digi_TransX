@@ -1958,6 +1958,7 @@ create table if not exists public.canonical_event_catalog_projection (
     lifecycle_status text not null,
     writable boolean not null,
     integrated boolean not null,
+    event_contract jsonb not null default '{"actor_policy":"generic","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb,
     constraint canonical_event_catalog_projection_name_check check (
         event_name ~ '^[a-z][a-z0-9_]*(\.[a-z][a-z0-9_]*){1,3}$'
         and length(event_name) <= 128
@@ -1989,6 +1990,18 @@ create table if not exists public.canonical_event_catalog_projection (
             and writable
             and category in ('security', 'business_audit')
         )
+    ),
+    constraint canonical_event_catalog_projection_contract_check check (
+        jsonb_typeof(event_contract) = 'object'
+        and event_contract ? 'actor_policy'
+        and event_contract ? 'allowed_metadata_keys'
+        and event_contract ? 'allowed_result_codes'
+        and event_contract ->> 'actor_policy' in (
+            'generic', 'authenticated_self', 'service_subject',
+            'authenticated_self_or_service'
+        )
+        and jsonb_typeof(event_contract -> 'allowed_metadata_keys') = 'array'
+        and jsonb_typeof(event_contract -> 'allowed_result_codes') = 'array'
     )
 );
 
@@ -2156,6 +2169,44 @@ insert into public.canonical_event_catalog_projection (
     ('one_time.qr_payment.webhook_applied', 1, 'business_audit', 'one_time', 'business_24_months', 'deferred', false, false)
 on conflict (event_name) do nothing;
 
+-- Generated projection of backend.events.catalog contract fields.  The Python
+-- catalog is the authoritative definition; migration tests assert equality in
+-- both directions so this durable projection cannot drift independently.
+update public.canonical_event_catalog_projection
+   set event_contract = case event_name
+       when 'security.signup.failed' then
+           '{"actor_policy":"generic","allowed_metadata_keys":["result_code"],"allowed_result_codes":["account_conflict","persistence_failed","provider_unavailable","reconciliation_required","validation_failed"]}'::jsonb
+       when 'security.session.refreshed' then
+           '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb
+       when 'security.session.expired_inactivity' then
+           '{"actor_policy":"service_subject","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb
+       when 'security.session.revoked' then
+           '{"actor_policy":"authenticated_self_or_service","allowed_metadata_keys":["result_code"],"allowed_result_codes":["absolute_expiry","account_blocked","device_removed","logout","logout_all","password_changed","password_reset","security_action"]}'::jsonb
+       when 'security.trusted_device.added' then
+           '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb
+       when 'security.trusted_device.removed' then
+           '{"actor_policy":"authenticated_self_or_service","allowed_metadata_keys":["result_code"],"allowed_result_codes":["account_blocked","attempt_limit","inactivity_expired","logout_all","password_changed","password_reset","security_action","user_removed"]}'::jsonb
+       else '{"actor_policy":"generic","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb
+   end;
+
+insert into public.canonical_event_catalog_projection (
+    event_name, event_version, category, ownership_domain, retention_class,
+    lifecycle_status, writable, integrated, event_contract
+) values
+    ('security.session.issued', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.session.access_locked', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["app_launch","idle_lock","security_action"]}'::jsonb),
+    ('security.trusted_device.rotated', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self_or_service","allowed_metadata_keys":["result_code"],"allowed_result_codes":["full_login","scheduled_rotation","security_action"]}'::jsonb),
+    ('security.mpin.enrolled', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.changed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.disabled', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.unlock_succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.unlock_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["invalid_mpin","rate_limited"]}'::jsonb),
+    ('security.mpin.locked', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["attempt_limit","security_action"]}'::jsonb),
+    ('security.mpin.reset_completed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["result_code"],"allowed_result_codes":["security_recovery","user_reauthentication"]}'::jsonb),
+    ('security.mpin.step_up_succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.step_up_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["challenge_expired","challenge_mismatch","invalid_mpin","rate_limited"]}'::jsonb)
+on conflict (event_name) do nothing;
+
 create or replace function public.is_bounded_event_json(event_value jsonb, value_kind text)
 returns boolean
 language plpgsql
@@ -2257,7 +2308,8 @@ begin
             message = 'canonical event contract trigger is attached to an unknown table';
     end if;
 
-    select event_version, category, retention_class, writable, integrated, lifecycle_status
+    select event_version, category, retention_class, writable, integrated,
+           lifecycle_status, event_contract
       into definition
       from public.canonical_event_catalog_projection
      where event_name = new.event_name;
@@ -2280,6 +2332,58 @@ begin
         raise exception using
             errcode = '23514',
             message = 'user and admin canonical events require actor_id and actor_role';
+    end if;
+
+    if definition.event_contract ->> 'actor_policy' = 'authenticated_self'
+       and not (
+           new.actor_type in ('user', 'admin')
+           and new.actor_id is not null
+           and new.actor_id = new.subject_user_id
+       ) then
+        raise exception using errcode = '23514',
+            message = 'event requires an authenticated actor and matching subject';
+    elsif definition.event_contract ->> 'actor_policy' = 'service_subject'
+       and not (
+           new.actor_type = 'system'
+           and new.actor_id is null
+           and new.actor_role is null
+           and new.subject_user_id is not null
+       ) then
+        raise exception using errcode = '23514',
+            message = 'event requires the service actor and a derived subject';
+    elsif definition.event_contract ->> 'actor_policy' = 'authenticated_self_or_service'
+       and not (
+           (new.actor_type in ('user', 'admin') and new.actor_id = new.subject_user_id)
+           or (new.actor_type = 'system' and new.actor_id is null
+               and new.actor_role is null and new.subject_user_id is not null)
+       ) then
+        raise exception using errcode = '23514',
+            message = 'event requires an authenticated self actor or service subject';
+    end if;
+
+    if definition.event_contract ->> 'actor_policy' <> 'generic' then
+        if (select count(*) from jsonb_object_keys(new.metadata)) <> jsonb_array_length(
+               definition.event_contract -> 'allowed_metadata_keys'
+           )
+           or exists (
+               select 1 from jsonb_object_keys(new.metadata) as key_value
+                where not key_value = any (
+                    array(select jsonb_array_elements_text(
+                        definition.event_contract -> 'allowed_metadata_keys'
+                    ))
+                )
+           )
+           or (
+               definition.event_contract -> 'allowed_result_codes' <> '[]'::jsonb
+               and new.metadata ->> 'result_code' not in (
+                   select jsonb_array_elements_text(
+                       definition.event_contract -> 'allowed_result_codes'
+                   )
+               )
+           ) then
+            raise exception using errcode = '23514',
+                message = 'event metadata does not match its canonical contract';
+        end if;
     end if;
 
     return new;

@@ -39,7 +39,7 @@ def _local_url():
     url = require_test_db_url()
     parsed = urlsplit(url)
     assert parsed.hostname in {"localhost", "127.0.0.1", "::1"}
-    assert parsed.path.lstrip("/") == "dtx_schema_trigger_rls_baseline"
+    assert parsed.path.lstrip("/").startswith("dtx_phase1b2c0_")
     assert url != os.environ.get("SUPABASE_DB_URL", "").strip()
     return url
 
