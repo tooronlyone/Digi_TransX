@@ -286,7 +286,7 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 ### 3.9 Schema, migrations, and test mirrors
 
 - [`supabase/schema.sql`](../supabase/schema.sql) is the canonical fresh-install mirror.
-- Twelve forward migrations exist under [`supabase/migrations`](../supabase/migrations) on the Phase 1B-2C0 feature branch. The Phase 1B-1 foundation/ACL, Phase 1B-2A activation/guard, and Phase 1B-2B signup integration are applied to shared TEST and merged to main; `20260801140000_device_session_mpin_event_contracts.sql` is feature-only and has not been applied to shared TEST.
+- Eighteen forward migrations exist under [`supabase/migrations`](../supabase/migrations) on the Phase 1B-2C0 feature branch. The Phase 1B-1 foundation/ACL, Phase 1B-2A activation/guard, and Phase 1B-2B signup integration are applied to shared TEST and merged to main; `20260801140000_device_session_mpin_event_contracts.sql` is feature-only and has not been applied to shared TEST.
 - PostgreSQL integration mirrors in [`backend/tests/conftest.py`](../backend/tests/conftest.py) and `test_migration*.py` use isolated/disposable PostgreSQL databases or schemas and never fall back from `TEST_SUPABASE_DB_URL` to the shared application URL.
 - Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, review concurrency/integrity, schema-trigger convergence, effective shipment/trip role visibility, the feature-branch 162 + 8 catalog projection, strict envelopes, migration convergence, caller-owned writers, idempotency/concurrency, append-only enforcement, and event-table privileges.
 
