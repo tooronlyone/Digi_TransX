@@ -26,6 +26,7 @@ from .helpers import (
     OTP_EXPIRY_MINUTES,
     OTP_REGEX,
     build_auth_success_response,
+    clear_device_cookie,
     create_otp_record,
     create_reset_token,
     csrf_error,
@@ -50,10 +51,10 @@ from .helpers import (
     split_name,
     timestamp_bundle,
     update_user_settings,
-    upsert_trusted_device,
     validate_signup_payload,
     verify_otp_for_user,
 )
+from auth.trusted_device_service import establish_after_full_login
 
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/auth")
@@ -272,7 +273,9 @@ def signup():
             )
             _write_signup_profile(db, user_id, role, clean)
             record_login_activity(user_id, email, "signup", "success", "", executor=db)
-            device_token = upsert_trusted_device(user_id, executor=db)
+            device_token, device_id, device_event = establish_after_full_login(
+                db, user_id, request.cookies.get(DEVICE_COOKIE_NAME)
+            )
             user = db.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
             if not user:
                 raise RuntimeError("Signup public user disappeared.")
@@ -283,6 +286,11 @@ def signup():
                 EventData(metadata={"result_code": "completed"}),
                 idempotency_scope="security.signup.terminal",
                 idempotency_key=request_id,
+            )
+            write_security_event(
+                db, device_event, _auth_event_context(request_id, user=dict(user)),
+                EventData(metadata={"result_code": "full_login"} if device_event.endswith("rotated") else {}),
+                idempotency_scope="security.trusted_device.terminal", idempotency_key=request_id,
             )
     except Exception:
         result_code = "persistence_failed" if _compensate_signup_identity(auth_user.id, request_id) else "reconciliation_required"
@@ -412,7 +420,9 @@ def login():
                 record_login_activity(
                     user["id"], lookup_value, login_method, "success", "", executor=db
                 )
-                device_token = upsert_trusted_device(user["id"], executor=db)
+                device_token, device_id, device_event = establish_after_full_login(
+                    db, user["id"], request.cookies.get(DEVICE_COOKIE_NAME)
+                )
                 write_security_event(
                     db,
                     "security.login.succeeded",
@@ -420,6 +430,11 @@ def login():
                     EventData(metadata={"result_code": "authenticated"}),
                     idempotency_scope="security.login.terminal",
                     idempotency_key=request_id,
+                )
+                write_security_event(
+                    db, device_event, _auth_event_context(request_id, user=user),
+                    EventData(metadata={"result_code": "full_login"} if device_event.endswith("rotated") else {}),
+                    idempotency_scope="security.trusted_device.terminal", idempotency_key=request_id,
                 )
                 authenticated_user_id = user["id"]
     except Exception:
@@ -568,49 +583,16 @@ def reset_password():
 
 @auth_blueprint.get("/fast-login/options")
 def fast_login_options():
-    device_token = request.cookies.get(DEVICE_COOKIE_NAME)
-    if not device_token:
-        return json_response({"success": True, "available": False})
-    with open_db() as db:
-        row = db.execute(
-            "SELECT u.* FROM trusted_devices td JOIN users u ON u.id = td.user_id WHERE td.device_token = %s",
-            (device_token,),
-        ).fetchone()
-    if not row:
-        return json_response({"success": True, "available": False})
-    user = _with_legacy_role(dict(row))
-    return json_response({"success": True, "available": bool(user.get("mpin_enabled") and user.get("mpin_hash")), "masked_email": mask_email(user.get("email", "")), "user_role": user.get("role", "")})
+    response = json_response({"success": True, "available": False})
+    return clear_device_cookie(response)
 
 
 @auth_blueprint.post("/fast-login/mpin")
 def fast_login_mpin():
-    data = request.get_json(silent=True) or {}
-    mpin = (data.get("mpin") or "").strip()
-    if not MPIN_REGEX.fullmatch(mpin):
-        return json_response({"success": False, "message": "MPIN must be exactly 4 digits."}, 400)
-    device_token = request.cookies.get(DEVICE_COOKIE_NAME)
-    if not device_token:
-        return json_response({"success": False, "message": "No trusted device found. Please login with password first."}, 404)
-    with open_db() as db:
-        row = db.execute(
-            "SELECT u.* FROM trusted_devices td JOIN users u ON u.id = td.user_id WHERE td.device_token = %s",
-            (device_token,),
-        ).fetchone()
-    if not row:
-        return json_response({"success": False, "message": "Trusted device not found. Please login with password first."}, 404)
-    user = _with_legacy_role(dict(row))
-    if not user.get("mpin_enabled") or not user.get("mpin_hash"):
-        return json_response({"success": False, "message": "Fast login is not enabled for this account."}, 400)
-    if not check_password_hash(user["mpin_hash"], mpin):
-        record_login_activity(user["id"], user.get("email", ""), "mpin", "failed", "Invalid MPIN.")
-        return json_response({"success": False, "message": "Invalid MPIN."}, 401)
-    stamp = timestamp_bundle()
-    with open_db() as db:
-        db.execute("UPDATE users SET last_login_at = %s, updated_at = %s WHERE id = %s", (stamp["display"], stamp["display"], user["id"]))
-        db.commit()
-    user = get_user_by_id(user["id"])
-    record_login_activity(user["id"], user.get("email", ""), "mpin", "success", "")
-    return build_auth_success_response(user)
+    response = json_response(
+        {"success": False, "message": "Full login is required."}, 401
+    )
+    return clear_device_cookie(response)
 
 
 @auth_blueprint.post("/fast-login/setup")

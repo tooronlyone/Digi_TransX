@@ -227,6 +227,9 @@ INTEGRATED_EVENT_NAMES = frozenset(
         "security.signup.started",
         "security.signup.failed",
         "security.signup.completed",
+        "security.trusted_device.added",
+        "security.trusted_device.removed",
+        "security.trusted_device.rotated",
     }
 )
 

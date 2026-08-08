@@ -13,6 +13,7 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from shared.db import open_db
 from shared.roles import BUSINESS_CLIENT_ROLES, EVERYDAY_ROLES
+from auth.trusted_device_service import trusted_device_lifetime_days
 
 
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -358,37 +359,9 @@ def record_login_activity(
         db.commit()
 
 
-def upsert_trusted_device(user_id, *, executor=None):
-    stamp = timestamp_bundle()
-    device_token = request.cookies.get(DEVICE_COOKIE_NAME) or secrets.token_urlsafe(32)
-
-    def persist(db):
-        existing = db.execute(
-            "SELECT id FROM trusted_devices WHERE device_token = %s", (device_token,)
-        ).fetchone()
-        if existing:
-            db.execute(
-                "UPDATE trusted_devices SET user_id = %s, last_seen_at = %s WHERE device_token = %s",
-                (user_id, stamp["display"], device_token),
-            )
-        else:
-            db.execute(
-                "INSERT INTO trusted_devices (device_token, user_id, created_at, last_seen_at) VALUES (%s, %s, %s, %s)",
-                (device_token, user_id, stamp["display"], stamp["display"]),
-            )
-
-    if executor is not None:
-        persist(executor)
-        return device_token
-    with open_db() as db:
-        persist(db)
-        db.commit()
-    return device_token
-
-
 def build_auth_success_response(user, *, device_token=None):
     if device_token is None:
-        device_token = upsert_trusted_device(user["id"])
+        raise RuntimeError("Trusted-device persistence must complete before authentication response.")
     session["user_id"] = user["id"]
     session["csrf_token"] = secrets.token_urlsafe(24)
     session["last_active_at"] = timestamp_bundle()["display"]
@@ -406,7 +379,19 @@ def build_auth_success_response(user, *, device_token=None):
         httponly=True,
         samesite="Lax",
         secure=current_app.config["SESSION_COOKIE_SECURE"],
-        max_age=60 * 60 * 24 * 180,
+        max_age=60 * 60 * 24 * trusted_device_lifetime_days(),
+        path="/",
+    )
+    return response
+
+
+def clear_device_cookie(response):
+    response.delete_cookie(
+        DEVICE_COOKIE_NAME,
+        path="/",
+        httponly=True,
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        samesite="Lax",
     )
     return response
 

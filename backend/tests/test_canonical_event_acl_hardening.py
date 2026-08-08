@@ -43,6 +43,8 @@ SIGNUP_FAILED_MIGRATION = (
 SIGNUP_INTEGRATION_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations" / "20260801130000_security_signup_event_integration.sql"
 )
+DURABLE_SESSION_MIGRATION = REPO_ROOT / "supabase/migrations/20260801150000_durable_server_session_foundation.sql"
+TRUSTED_DEVICE_MIGRATION = REPO_ROOT / "supabase/migrations/20260801160000_trusted_device_hardening.sql"
 DEVICE_SESSION_MPIN_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations"
     / "20260801140000_device_session_mpin_event_contracts.sql"
@@ -234,6 +236,8 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         signup_failed_sql,
         signup_integration_sql,
         device_session_mpin_sql,
+        _migration_text(DURABLE_SESSION_MIGRATION),
+        _migration_text(TRUSTED_DEVICE_MIGRATION),
     )
     schema_url, schema_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     migrated = psycopg2.connect(migrated_url)
@@ -244,10 +248,10 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         assert _foundation_metadata(migrated) == expected_metadata
         assert _projection(migrated) == expected_projection == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(schema)
-        assert _semantic_signature(schema) == "3d9b730408336c82629c25342ddc7ea2"
+        assert _semantic_signature(schema) == "11043982605bef207d3b9a5626bd86d8"
         before = _foundation_metadata(schema), _projection(schema), _all_public_counts(schema)
-        _apply(schema, device_session_mpin_sql)
-        _apply(schema, device_session_mpin_sql)
+        _apply(schema, _migration_text(TRUSTED_DEVICE_MIGRATION))
+        _apply(schema, _migration_text(TRUSTED_DEVICE_MIGRATION))
         assert (_foundation_metadata(schema), _projection(schema), _all_public_counts(schema)) == before
     finally:
         migrated.close()

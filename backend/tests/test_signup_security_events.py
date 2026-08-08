@@ -37,6 +37,12 @@ INTEGRATED = {
     "security.login.started", "security.login.failed", "security.login.succeeded",
     "security.logout.completed", "security.signup.started", "security.signup.failed",
     "security.signup.completed",
+    "security.trusted_device.added", "security.trusted_device.removed",
+    "security.trusted_device.rotated",
+}
+HISTORICAL_SIGNUP_INTEGRATED = INTEGRATED - {
+    "security.trusted_device.added", "security.trusted_device.removed",
+    "security.trusted_device.rotated",
 }
 
 
@@ -145,7 +151,10 @@ def test_successful_signup_commits_public_evidence_before_session(signup_client,
     assert response.status_code == 200
     assert set(response.get_json()) == {"success", "user", "csrf_token", "redirect", "session"}
     events = _events(url)
-    assert {row["event_name"] for row in events} == {"security.signup.started", "security.signup.completed"}
+    assert {row["event_name"] for row in events} == {
+        "security.signup.started", "security.signup.completed",
+        "security.trusted_device.added",
+    }
     assert len({row["request_id"] for row in events}) == 1
     started = next(row for row in events if row["event_name"] == "security.signup.started")
     completed = next(row for row in events if row["event_name"] == "security.signup.completed")
@@ -208,7 +217,10 @@ def test_each_supported_signup_role_creates_only_its_server_selected_profile(sig
     assert response.status_code == 200
     assert len(_rows(url, profile_table)) == 1
     assert len(_rows(url, "users")) == 1
-    assert {row["event_name"] for row in _events(url)} == {"security.signup.started", "security.signup.completed"}
+    assert {row["event_name"] for row in _events(url)} == {
+        "security.signup.started", "security.signup.completed",
+        "security.trusted_device.added",
+    }
 
 
 def test_provider_and_public_persistence_failures_fail_closed(signup_client, monkeypatch):
@@ -233,7 +245,7 @@ def test_provider_and_public_persistence_failures_fail_closed(signup_client, mon
 def test_trusted_device_failure_and_unproven_compensation_never_issue_a_session(signup_client, monkeypatch):
     client, url = signup_client
     monkeypatch.setattr(auth_routes, "supabase_create_signup_user", _provider(url))
-    monkeypatch.setattr(auth_routes, "upsert_trusted_device", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("device failure")))
+    monkeypatch.setattr(auth_routes, "establish_after_full_login", lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("device failure")))
     monkeypatch.setattr(auth_routes, "supabase_signup_identity_is_owned", lambda *_args: False)
     response = client.post("/auth/signup", json=_payload())
     assert response.status_code == 503
@@ -302,7 +314,10 @@ def test_signup_integration_migration_is_exact_idempotent_and_converges():
                 conn.close()
         finally:
             cleanup()
-    assert observed == [(POST_SIGNATURE, INTEGRATED), (POST_SIGNATURE, INTEGRATED)]
+    assert observed == [
+        (POST_SIGNATURE, HISTORICAL_SIGNUP_INTEGRATED),
+        (POST_SIGNATURE, HISTORICAL_SIGNUP_INTEGRATED),
+    ]
 
 
 def test_signup_integration_migration_aborts_partial_state_without_repair():
@@ -331,9 +346,9 @@ def test_signup_catalog_totals_and_contracts_are_locked():
     assert sum(definition.lifecycle_status == "planned" for definition in CATALOG.values()) == 162
     assert sum(definition.lifecycle_status == "deferred" for definition in CATALOG.values()) == 8
     assert sum(definition.writable for definition in CATALOG.values()) == 156
-    assert sum(definition.integrated for definition in CATALOG.values()) == 7
-    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 155
-    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 149
+    assert sum(definition.integrated for definition in CATALOG.values()) == 10
+    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 152
+    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 146
 
 
 def test_signup_provider_classification_uses_only_structured_status_and_code(monkeypatch):

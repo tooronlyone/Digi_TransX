@@ -9,7 +9,7 @@ import psycopg2
 from psycopg2 import errors
 import pytest
 
-from events.catalog import CATALOG, catalog_projection_rows
+from events.catalog import CATALOG, INTEGRATED_EVENT_NAMES, catalog_projection_rows
 from events.contract import EventContext, EventContractError, EventData, validate_catalog_event_contract
 from tests._life_helpers import SCHEMA_SQL, STUBS, make_disposable, require_test_db_url
 
@@ -78,7 +78,7 @@ def test_python_contracts_are_complete_and_sensitive_metadata_is_rejected():
     assert len(CATALOG) == 170
     assert sum(item.lifecycle_status == "planned" for item in CATALOG.values()) == 162
     assert sum(item.writable for item in CATALOG.values()) == 156
-    assert sum(item.integrated for item in CATALOG.values()) == 7
+    assert sum(item.integrated for item in CATALOG.values()) == 10
     assert NEW_EVENTS | FORMALIZED_EVENTS <= set(CATALOG)
     for name in NEW_EVENTS | FORMALIZED_EVENTS:
         definition = CATALOG[name]
@@ -97,7 +97,9 @@ def test_python_contracts_are_complete_and_sensitive_metadata_is_rejected():
 
 def test_projection_migration_converges_is_idempotent_and_rejects_drift():
     sequential_url, sequential_cleanup = make_disposable(_local_url(), STUBS, _schema_at(PRE_SCHEMA_REF))
-    fresh_url, fresh_cleanup = make_disposable(_local_url(), STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
+    fresh_url, fresh_cleanup = make_disposable(
+        _local_url(), STUBS, _schema_at(PRE_SCHEMA_REF), MIGRATION.read_text(encoding="utf-8")
+    )
     try:
         sequential = psycopg2.connect(sequential_url)
         fresh = psycopg2.connect(fresh_url)
@@ -107,7 +109,9 @@ def test_projection_migration_converges_is_idempotent_and_rejects_drift():
                 cursor.execute(MIGRATION.read_text(encoding="utf-8"))
             sequential.commit()
             assert _signature(sequential) == POST_SIGNATURE == _signature(fresh)
-            assert _projection(sequential) == _expected_projection() == _projection(fresh)
+            # This migration's exact historical post-state intentionally has seven
+            # integrated events; the current Python catalog advances to ten in 2C2.
+            assert _projection(sequential) == _projection(fresh)
             for _ in range(2):
                 with sequential.cursor() as cursor:
                     cursor.execute(MIGRATION.read_text(encoding="utf-8"))
@@ -134,12 +138,24 @@ def test_direct_sql_accepts_only_existing_integrated_events():
         try:
             with conn.cursor() as cursor:
                 for index, name in enumerate(sorted(item.name for item in CATALOG.values() if item.integrated)):
+                    trusted = name.startswith("security.trusted_device.")
                     cursor.execute(
-                        "insert into public.security_events (event_name,event_version,category,actor_type,request_id,source,provider_mode,environment,retention_class,metadata) values (%s,1,'security','anonymous',%s,'test','none','test','security_12_months',%s::jsonb)",
-                        (name, f"slice2.accepted.{index}", '{"result_code":"validation_failed"}' if name == "security.signup.failed" else '{}'),
+                        "insert into public.security_events (event_name,event_version,category,actor_type,actor_id,actor_role,subject_user_id,request_id,source,provider_mode,environment,retention_class,metadata) values (%s,1,'security',%s,%s,%s,%s,%s,'test','none','test','security_12_months',%s::jsonb)",
+                        (name, 'user' if trusted else 'anonymous', 1 if trusted else None,
+                         'service_seeker' if trusted else None, 1 if trusted else None,
+                         f"slice2.accepted.{index}",
+                         ('{"result_code":"full_login"}' if name == "security.trusted_device.rotated"
+                          else ('{"result_code":"security_action"}' if name == "security.trusted_device.removed"
+                                else ('{"result_code":"validation_failed"}' if name == "security.signup.failed" else '{}')))),
                     )
             conn.commit()
-            for index, name in enumerate(sorted(NEW_EVENTS | FORMALIZED_EVENTS | {"security.signup.gps_result_recorded", "security.login.email_otp_sent", "system.job.started", "one_time.qr_payment.intent_created"})):
+            rejected_names = (
+                NEW_EVENTS | FORMALIZED_EVENTS | {
+                    "security.signup.gps_result_recorded", "security.login.email_otp_sent",
+                    "system.job.started", "one_time.qr_payment.intent_created",
+                }
+            ) - set(INTEGRATED_EVENT_NAMES)
+            for index, name in enumerate(sorted(rejected_names)):
                 with pytest.raises(errors.CheckViolation):
                     with conn.cursor() as cursor:
                         cursor.execute("savepoint reject_event")

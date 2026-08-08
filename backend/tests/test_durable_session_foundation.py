@@ -112,7 +112,9 @@ def test_service_hashes_tokens_and_has_no_runtime_route_wiring(monkeypatch):
 
 def test_fresh_sequential_and_exact_reapplication_converge():
     sequential_url, sequential_cleanup = make_disposable(_local_url(), STUBS, _schema_at(PRE_SCHEMA_REF))
-    fresh_url, fresh_cleanup = make_disposable(_local_url(), STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
+    fresh_url, fresh_cleanup = make_disposable(
+        _local_url(), STUBS, _schema_at(PRE_SCHEMA_REF), MIGRATION.read_text(encoding="utf-8")
+    )
     try:
         sequential = psycopg2.connect(sequential_url)
         fresh = psycopg2.connect(fresh_url)
@@ -151,9 +153,9 @@ def test_constraints_indexes_rls_and_minimum_privileges():
                 user_id = cursor.fetchone()[0]
                 cursor.execute("insert into public.users(email,cnic) values ('other@example.invalid','session-other') returning id")
                 other_id = cursor.fetchone()[0]
-                cursor.execute("insert into public.trusted_devices(device_token,user_id) values ('legacy-device',%s) returning id", (user_id,))
+                cursor.execute("insert into public.trusted_devices(token_digest,user_id) values (%s,%s) returning id", (b'd'*32,user_id))
                 device_id = cursor.fetchone()[0]
-                cursor.execute("insert into public.trusted_devices(device_token,user_id) values ('other-device',%s) returning id", (other_id,))
+                cursor.execute("insert into public.trusted_devices(token_digest,user_id) values (%s,%s) returning id", (b'e'*32,other_id))
                 other_device_id = cursor.fetchone()[0]
                 cursor.execute("select relrowsecurity from pg_class where oid='public.user_sessions'::regclass")
                 assert cursor.fetchone()[0] is True

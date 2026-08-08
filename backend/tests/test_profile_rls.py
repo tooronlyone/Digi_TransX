@@ -57,7 +57,6 @@ create policy admin_all_everyday_user_profiles on public.everyday_user_profiles
 create policy everyday_user_profile_select_own on public.everyday_user_profiles
     for select using (user_id = public.current_app_user_id());
 
-create role app_user nologin;
 grant usage on schema public to app_user;
 grant select, insert, update, delete on public.service_seeker_profiles, public.everyday_user_profiles to app_user;
 grant usage, select on all sequences in schema public to app_user;
@@ -81,6 +80,10 @@ def rls_conn():
     admin.autocommit = True
     try:
         with admin.cursor() as cur:
+            cur.execute("select 1 from pg_roles where rolname='app_user'")
+            if cur.fetchone() is None:
+                cur.execute("create role app_user nologin")
+            cur.execute(f"grant app_user to {parts.username}")
             cur.execute(f"DROP DATABASE IF EXISTS {dbname}")
             cur.execute(f"CREATE DATABASE {dbname}")
     except Exception as exc:

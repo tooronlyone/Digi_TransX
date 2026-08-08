@@ -158,11 +158,14 @@ def test_catalog_preserves_login_events_and_adds_only_bounded_signup_events():
         "security.signup.started",
         "security.signup.failed",
         "security.signup.completed",
+        "security.trusted_device.added",
+        "security.trusted_device.removed",
+        "security.trusted_device.rotated",
     }
     assert set(INTEGRATED_EVENT_NAMES) == expected
     assert {name for name, item in CATALOG.items() if item.integrated} == expected
-    assert sum(item.integrated for item in CATALOG.values()) == 7
-    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 155
+    assert sum(item.integrated for item in CATALOG.values()) == 10
+    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 152
     assert sum(item.lifecycle_status == "deferred" and not item.integrated for item in CATALOG.values()) == 8
 
 
@@ -180,6 +183,7 @@ def test_valid_password_login_emits_started_and_succeeded_atomically(auth_client
     assert [event["event_name"] for event in events] == [
         "security.login.started",
         "security.login.succeeded",
+        "security.trusted_device.added",
     ]
     assert len({event["request_id"] for event in events}) == 1
     assert events[0]["actor_type"] == "anonymous"
@@ -187,6 +191,7 @@ def test_valid_password_login_emits_started_and_succeeded_atomically(auth_client
     assert events[1]["actor_type"] == "user"
     assert events[1]["actor_id"] == events[1]["subject_user_id"] == user_id
     assert events[1]["actor_role"] == "service_seeker"
+    assert events[2]["actor_id"] == events[2]["subject_user_id"] == user_id
     assert all(event["source"] == "server_route" and event["provider_mode"] == "none" for event in events)
     assert all(event["session_ref"] is None and event["device_ref"] is None for event in events)
     activity = _rows(url, "login_activity")
@@ -505,7 +510,7 @@ def test_trusted_device_failure_rolls_back_terminal_success_and_issues_no_sessio
     monkeypatch.setattr(auth_routes, "supabase_verify_password", lambda *_a, **_k: True)
     monkeypatch.setattr(
         auth_routes,
-        "upsert_trusted_device",
+        "establish_after_full_login",
         lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError("device write failed")),
     )
     response = client.post(

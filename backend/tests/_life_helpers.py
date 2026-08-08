@@ -113,7 +113,8 @@ def make_disposable(url, *sql_blocks):
     except Exception:
         with admin.cursor() as cur:
             cur.execute(
-                "select pg_terminate_backend(pid) from pg_stat_activity where datname = %s",
+                "select pg_terminate_backend(pid) from pg_stat_activity "
+                "where datname = %s and backend_type = 'client backend'",
                 (dbname,),
             )
             cur.execute(sql.SQL("drop database if exists {}").format(sql.Identifier(dbname)))
@@ -123,7 +124,8 @@ def make_disposable(url, *sql_blocks):
     def cleanup():
         with admin.cursor() as cur:
             cur.execute(
-                "select pg_terminate_backend(pid) from pg_stat_activity where datname = %s",
+                "select pg_terminate_backend(pid) from pg_stat_activity "
+                "where datname = %s and backend_type = 'client backend'",
                 (dbname,),
             )
             cur.execute(sql.SQL("drop database if exists {}").format(sql.Identifier(dbname)))
