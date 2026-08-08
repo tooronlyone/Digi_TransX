@@ -8,7 +8,7 @@ This registry is the human-readable source for the current architecture, verifie
 | --- | --- |
 | Inventory base SHA | `0d1b5b2de4b92ec642f39cfec26b09b3aefce571` |
 | Verification date | 2026-07-31 |
-| Latest capability-status reconciliation | 2026-08-08; Phase 1A through Phase 1B-2C0 are implemented in main and authorized shared TEST. Phase 1B-2C0 formalizes bounded device/session/MPIN catalog contracts without adding a runtime emitter or deploying. |
+| Latest capability-status reconciliation | 2026-08-08; Phase 1A through Phase 1B-2C0 are implemented in main and authorized shared TEST. Phase 1B-2C1 is implemented only on its feature branch as an unused durable server-session database/service foundation; it is not applied to shared TEST, wired into Flask authentication, or deployed. |
 | Repository | `tooronlyone/Digi_TransX` |
 | Branch used for this registry | `chore/tracking-architecture-registry` |
 | Phase 1A implementation branch | `security/phase-1a-legacy-tracking-containment` |
@@ -18,16 +18,17 @@ This registry is the human-readable source for the current architecture, verifie
 | Phase 1B-1 ACL correction branch | `fix/phase-1b-service-role-event-acl` |
 | Phase 1B-2A implementation branch | `feature/phase-1b2a-auth-events` |
 | Phase 1B-2C0 feature branch | `feature/phase-1b2c0-device-session-mpin-contracts` |
+| Phase 1B-2C1 feature branch | `feature/phase-1b2c1-durable-session-foundation` |
 | Environment inspected | Authorized Supabase TEST project `fysu…goev` |
 | Database inspection mode | Read-only transactions; every inspection ended with `ROLLBACK` |
 | Scheduler state during inspection | Disabled with `DIGITRANSX_ENABLE_SCHEDULER=0`; no scheduler process active |
-| Phase | Phase 0 registry; Phase 1A through Phase 1B-2C0 implemented in main and authorized shared TEST; Phase 1B-2C0 remains catalog/contract foundation only; later runtime integrations remain Planned |
+| Phase | Phase 0 registry; Phase 1A through Phase 1B-2C0 implemented in main and authorized shared TEST; Phase 1B-2C1 durable-session foundation implemented on its feature branch only; all durable-session runtime integration remains Planned |
 
 > **Planning/documentation only.** This file creates no routes, tables, views, functions, triggers, policies, jobs, dashboards, providers, or runtime behavior. Any object or event marked Planned or Deferred does not exist merely because it appears here.
 
 The Inventory base SHA identifies the code/database state inspected during Phase 0. It is not the SHA of the documentation commit that introduced or later corrected this registry.
 
-Runtime implementation remains authoritative when this registry and code disagree. A disagreement is a defect: every future tracking-related change must update this file in the same commit. Phase 1B-1 adds foundation contract tests; Phase 1B-2A adds PostgreSQL route, transaction, privacy, failure, activation, and convergence proofs for exactly four auth events. Phase 1B-2C0 adds catalog/projection contracts only and deliberately adds no runtime emitter or route integration.
+Runtime implementation remains authoritative when this registry and code disagree. A disagreement is a defect: every future tracking-related change must update this file in the same commit. Phase 1B-1 adds foundation contract tests; Phase 1B-2A adds PostgreSQL route, transaction, privacy, failure, activation, and convergence proofs for exactly four auth events. Phase 1B-2C0 adds catalog/projection contracts only. Phase 1B-2C1 adds the unused canonical `user_sessions` database/service foundation and deliberately adds no runtime emitter or route integration.
 
 ### Status vocabulary
 
@@ -113,7 +114,7 @@ Every TEST catalog/count/anomaly query used a transaction reporting `transaction
 | Password change | Partially implemented | [`request_password_change_otp()`](../backend/profile/routes.py#L59) and [`change_password()`](../backend/profile/routes.py#L95) reuse the OTP helpers. | Same OTP table | No session revocation or security-event contract. |
 | Login activity | Verified existing but unstandardized; transaction ownership narrowed in Phase 1B-2A | [`record_login_activity()`](../backend/auth/helpers.py) still records identifier, method, status, failure reason, IP, and user agent. Password-login terminal writes can now use the route-owned transaction; signup and MPIN compatibility retain the existing standalone behavior. | `login_activity` | Transitional evidence is not weakened or repurposed; its raw identifier/IP fields remain outside canonical event payloads. |
 | Trusted device / fast login | Verified existing but unstandardized | [`upsert_trusted_device()`](../backend/auth/helpers.py#L338) stores a raw random cookie token; MPIN routes use it for fast login. Cookie lifetime is 180 days. | `trusted_devices`, `users.mpin_hash`, `users.mpin_enabled` | Not the planned device model; raw token storage, no per-device revocation UI, no maximum-five enforcement, and trusted device currently bypasses password/full-login checks via MPIN. |
-| Flask session | Verified existing but unstandardized | [`build_auth_success_response()`](../backend/auth/helpers.py#L357) sets `user_id`, CSRF token, and `last_active_at` in Flask's signed cookie. [`login_required()`](../backend/auth/helpers.py#L286) refreshes `last_active_at` on every authenticated request. | Signed cookie, no `user_sessions` table | No 15-minute access token, rotating refresh token, replay detection, seven-day inactivity enforcement, or 30-day absolute lifetime. Polling requests currently count as activity. |
+| Flask session | Verified existing but unstandardized; Phase 1B-2C1 foundation is feature-only and unused | [`build_auth_success_response()`](../backend/auth/helpers.py#L357) sets `user_id`, CSRF token, and `last_active_at` in Flask's signed cookie. [`login_required()`](../backend/auth/helpers.py#L286) refreshes `last_active_at` on every authenticated request. | Signed cookie remains the runtime owner; feature branch adds unused `user_sessions` plus [`auth/session_service.py`](../backend/auth/session_service.py) | No durable token issuance, replay detection, revocation enforcement, seven-day inactivity enforcement, or 30-day absolute-lifetime enforcement. Polling requests currently count as cookie activity. |
 | Supabase session use | Verified existing but unstandardized | [`supabase_verify_password()`](../backend/shared/supabase_client.py) signs in with the anon client only to validate credentials, then signs out; returned Supabase tokens are discarded. Its strict password-login mode recognizes the installed Auth client's structured `invalid_credentials` code without parsing provider messages; unavailable, malformed, transport, timeout, and other provider failures fail closed. | Supabase Auth plus Flask cookie | Supabase Auth sessions are not the application session owner. Existing boolean-only callers retain their compatibility behavior. |
 | Account block | Partially implemented | Login checks `users.is_blocked`; admin can toggle it with CSRF. | `users.is_blocked`, `users.block_reason` | No lock/unlock event, re-authentication, mandatory reason on unlock, case, alert, or session revocation. |
 | GPS and risk | Not implemented | No signup/login GPS route, distance comparison, IP intelligence, score, tier, or rollout-state owner exists. | None | Must be introduced behind disabled/shadow states after data and privacy review. |
@@ -286,7 +287,7 @@ Repository scans also found frontend calls for organization, shopkeeper, mainten
 ### 3.9 Schema, migrations, and test mirrors
 
 - [`supabase/schema.sql`](../supabase/schema.sql) is the canonical fresh-install mirror.
-- Eighteen forward migrations exist under [`supabase/migrations`](../supabase/migrations) in main. The Phase 1B-1 foundation/ACL, Phase 1B-2A activation/guard, Phase 1B-2B signup integration, and Phase 1B-2C0 device/session/MPIN contract migration are applied to authorized shared TEST and merged to main.
+- Nineteen forward migrations exist under [`supabase/migrations`](../supabase/migrations) on the Phase 1B-2C1 feature branch; main and authorized shared TEST remain at eighteen. `20260801150000_durable_server_session_foundation.sql` is feature-only and has not been applied to shared TEST.
 - PostgreSQL integration mirrors in [`backend/tests/conftest.py`](../backend/tests/conftest.py) and `test_migration*.py` use isolated/disposable PostgreSQL databases or schemas and never fall back from `TEST_SUPABASE_DB_URL` to the shared application URL.
 - Tests cover payment constraints, RLS, lifecycle integrity, coordinate integrity, everyday separation, dispatcher removal, review concurrency/integrity, schema-trigger convergence, effective shipment/trip role visibility, the 162 + 8 catalog projection, strict envelopes, migration convergence, caller-owned writers, idempotency/concurrency, append-only enforcement, and event-table privileges.
 
@@ -400,6 +401,7 @@ Disposable PostgreSQL tests and post-application real-role probes prove that the
 | `20260731230000_canonical_event_foundation.sql` | Two append-only event tables, catalog projection, bounded JSON validator, contract/UPDATE guards, indexes, RLS/service policy and grants | Verified applied in shared TEST with zero event rows; its additive `service_role` default-table ACL issue is corrected by the applied forward migration |
 | `20260731240000_canonical_event_acl_hardening.sql` | Fail-closed foundation/signature validation followed only by event-table `service_role` revoke and narrow re-grant | Verified applied in shared TEST; final event-table privileges are exactly `DELETE`, `INSERT`, and `SELECT`, with signature `772212260b85fd6b5cd4aa35ca9ffdfb` |
 | `20260801140000_device_session_mpin_event_contracts.sql` | Forward-only projection of bounded device/session/trusted-device/MPIN contracts; no event integration or runtime emitter | Merged into main and applied to authorized shared TEST; Git-blob SHA-256 `653a5859cefea10705b8b547519f73892059294d11e9da5e773f1e278d777bba`; signature `371c7010a0553c7953708dea164ed0bc` to `3d9b730408336c82629c25342ddc7ea2` |
+| `20260801150000_durable_server_session_foundation.sql` | Canonical `user_sessions` relation, strict digest/ownership/lifecycle constraints, narrow service-role access, and unused caller-transaction-owned session service | Verified only on `feature/phase-1b2c1-durable-session-foundation`; SHA-256 `11b32c6d7cbd70dd16fb3f2854d3eb615d922fcd58049c0462917f635e9ada20`; not applied to shared TEST and no runtime session behavior activated |
 
 No partial or out-of-order foundation capability was detected. The former three-trigger/RLS drift and additive `service_role` event-table ACL issue are corrected. Stop if a future inspection finds a named capability missing, an unexpected extra application table/column, a migration only partially represented, or a migration ledger that conflicts with observed capability.
 
@@ -442,7 +444,7 @@ The logical object plan is:
 
 `security_events`, `user_devices`, `user_sessions`, `otp_challenges`, `security_cases`, `security_case_events`, `security_alert_deliveries`, `admin_security_actions`, `business_audit_events`, `analytics_events`, `operational_incidents`, `event_outbox`, and `notification_deliveries`.
 
-Only `security_events` and `business_audit_events` are implemented in the repository and present in shared TEST in Phase 1B-1. The other eleven logical objects remain **Not implemented** and absent from shared TEST. These names describe responsibilities, not a mandate to create thirteen tables.
+`security_events` and `business_audit_events` are implemented in main and present in shared TEST. Phase 1B-2C1 implements `user_sessions` only on its feature branch; it remains absent from shared TEST and unused by runtime authentication. The other ten logical objects remain **Not implemented**. These names describe responsibilities, not a mandate to create thirteen tables.
 
 ## 6. Phase 1B-1 common event envelope foundation
 
@@ -496,6 +498,7 @@ There is no current asynchronous consumer or delivery requirement, so an outbox 
 - Fresh, partial and exact-reapply migration tests prove fail-closed preservation for wrong column names/types/nullability/defaults, weakened CHECKs, missing indexes/triggers/policies, wrong RLS/grants and drifted helper definitions. Phase 1B-2B pre-merge verification passed the complete PostgreSQL backend suite with 678 tests and zero failures/skips; its explicit no-DB run passed 302 while safely skipping 376 PostgreSQL-dependent tests.
 - Phase 1B-1 remains **Implemented in the repository and shared TEST**: `20260731230000_canonical_event_foundation.sql` and `20260731240000_canonical_event_acl_hardening.sql` are both applied. Its foundation and ACL guarantees are unchanged.
 - Phase 1B-2C0 verification passed 682 PostgreSQL tests with zero failures/skips, explicit no-DB mode passed 304 with only 378 expected PostgreSQL skips, and fresh/sequential/reapply/partial/corruption projection paths converged. The migration is merged into main and applied to authorized shared TEST; no runtime emitter was added.
+- Phase 1B-2C1 feature verification passed 692 PostgreSQL tests with zero failures/skips and explicit no-DB mode passed 306 with only 386 expected PostgreSQL skips. Fresh schema, sequential migration, exact reapplication, relationship/state/privilege enforcement, and partial/corrupt-state rejection converge without changing the `3d9b730408336c82629c25342ddc7ea2` event signature or creating session/event rows.
 
 ### 6.3 Phase 1B-2A/2B bounded auth integration
 
@@ -1019,7 +1022,7 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
 | --- | --- | --- | --- | --- | --- | --- |
 | Auth event evidence | Password-login/logout and signup routes plus transitional helper | Shared TEST: `login_activity` and empty `security_events`; activation, guard, and signup integration applied | Phase 1B-2A/2B integrate exactly seven canonical auth events while retaining existing activity evidence; only integrated+writable names are insertable | Login and signup starts commit before external provider operations; terminal public evidence owns activity, trusted device where applicable, and terminal event; canonical payload excludes legacy identifier/IP/device-token fields | Any additional auth event, raw failure/identity field, duplicate start, or split terminal commit |
 | Device registry | Auth helper | `trusted_devices` | Present; unique raw token | Concept reusable; storage/session model incompatible | Introduce opaque device ID and hashed credential separately; explicit transition | Any path silently invalidates or trusts existing devices |
-| Sessions | Flask cookie | None | No `user_sessions` | Not reusable as durable session store | Add server session/token-family model behind disabled state | Cannot distinguish polling from genuine activity |
+| Sessions | Flask cookie; feature-only [`auth/session_service.py`](../backend/auth/session_service.py) is unused | Feature branch `user_sessions`; absent from shared TEST | Runtime still uses only the Flask signed cookie; the feature foundation stores a 32-byte token digest, exact user/optional same-user trusted-device binding, genuine-activity/expiry boundaries, access lock, rotation, and bounded revocation state | Canonical foundation reusable; no route currently calls it | Integrate only in a separately reviewed phase while preserving login/signup/logout transactions and distinguishing polling from genuine activity | Any raw token persistence, browser grant, duplicate session owner, or runtime activation in this phase |
 | OTP | Auth/profile helpers | `password_reset_otps` | Has hashed OTP, attempts, purpose | Partial reuse; 10-minute expiry/text timestamps/no device binding/HMAC | New challenge contract; preserve reset flow until cutover | Provider/domain controls or replay/resend controls absent |
 | Risk/security cases | None | None | Absent | Missing | Disabled → shadow foundation first | Any enforcement before shadow validation |
 | Generic tracking | Contained ActivityTracker/API | `user_action_logs` | Historical arbitrary JSON retained; new writes restricted to one safe page-visit shape | Phase 1A containment implemented; table remains incompatible for the four canonical domains | Keep endpoint-local sanitizer; future consent-aware analytics replacement; retain/administer legacy data | Sensitive-field inventory or retention unknown |
@@ -1077,14 +1080,15 @@ Phase 1B-1 does not change a domain owner. Phase 1B-2A attaches the existing cur
 4. **Phase 1B-2A — Password login/logout security events (Implemented in main and authorized shared TEST; not deployed)** — exactly four definitions are integrated with caller-owned terminal transactions; the activation and integrated-state guard migrations are applied, and only integrated+writable names are insertable.
 5. **Phase 1B-2B — bounded signup events (Implemented in main and authorized shared TEST; not deployed)** — exactly three signup definitions are integrated through `20260801130000_security_signup_event_integration.sql` and a compensation-aware external-Auth saga; GPS and Email/SMS OTP remain Planned and unintegrated.
 6. **Phase 1B-2C0 — device/session/MPIN event contracts (Implemented in main and authorized shared TEST; not deployed)** — migration `20260801140000_device_session_mpin_event_contracts.sql` adds twelve contracts and formalizes five existing contracts. All seventeen remain unintegrated; durable sessions, secure trusted-device hashing/revocation/rotation, software MPIN unlock, high-risk payment/action MPIN step-up, seven-day genuine-inactivity enforcement, GPS, Email OTP, and SMS OTP remain Planned, and no payment or wallet behavior changed.
-7. **Phase 1B-2 remaining runtime event integration (Planned)** — attach canonical writers only through separately reviewed domain-owner changes.
-8. **Security** — observation first; risk shadow mode and alerts/cases; later Email OTP after provider/domain readiness. Device/session and raw-token migration is a later dedicated security workstream and must preserve or deliberately migrate MPIN compatibility.
-9. **One-Time Business Audit** — attach same-transaction events to canonical One-Time services and prove idempotency/lock behavior.
-10. **General Analytics** — replace broad tracker with consent-aware, allowlisted, idempotent analytics.
-11. **Operational Monitoring** — structured errors/latency/health/provider/scheduler/release telemetry and incident lifecycle.
-12. **Dashboards and retention** — user/admin security surfaces, KPI/funnel views, deletion/aggregation jobs, access audits.
-11. **Final audit and freeze** — drift, privilege, retention, volume, performance, privacy, and integrity review.
-12. **GPS tracking architecture afterward** — separate bounded architecture after the event foundations are stable.
+7. **Phase 1B-2C1 — durable server-session foundation (Implemented on feature branch only)** — one `user_sessions` table and one unused session service own future digest-only tokens, genuine activity, lock, expiry, rotation, and revocation state. Runtime issuance/enforcement, trusted-device hardening, MPIN enrollment/unlock/step-up, logout/password/account-block revocation, seven-day enforcement, GPS, and Email/SMS OTP remain Planned.
+8. **Phase 1B-2 remaining runtime event integration (Planned)** — attach canonical writers only through separately reviewed domain-owner changes.
+9. **Security** — observation first; risk shadow mode and alerts/cases; later Email OTP after provider/domain readiness. Device/session and raw-token migration is a later dedicated security workstream and must preserve or deliberately migrate MPIN compatibility.
+10. **One-Time Business Audit** — attach same-transaction events to canonical One-Time services and prove idempotency/lock behavior.
+11. **General Analytics** — replace broad tracker with consent-aware, allowlisted, idempotent analytics.
+12. **Operational Monitoring** — structured errors/latency/health/provider/scheduler/release telemetry and incident lifecycle.
+13. **Dashboards and retention** — user/admin security surfaces, KPI/funnel views, deletion/aggregation jobs, access audits.
+14. **Final audit and freeze** — drift, privilege, retention, volume, performance, privacy, and integrity review.
+15. **GPS tracking architecture afterward** — separate bounded architecture after the event foundations are stable.
 
 Agreemental tracking remains a clearly marked future extension. It may reuse common security, analytics, operations, envelope, outbox, and delivery infrastructure, but must add separate Agreemental business rules only after Agreemental workflow implementation is reviewed. It must never overwrite One-Time behavior.
 
@@ -1167,6 +1171,6 @@ At this verification point the registry explicitly names:
 - 8 planned notification events;
 - 6 planned scheduler/worker run events;
 - 8 Deferred One-Time QR-payment events;
-- 13 logical data objects: 2 event tables implemented in the repository and present empty in shared TEST, and 11 still Not implemented.
+- 13 logical data objects: 2 event tables implemented in main and present empty in shared TEST; `user_sessions` implemented only on the Phase 1B-2C1 feature branch; 10 still Not implemented.
 
 The Phase 1B-2C0 catalog in main and authorized shared TEST contains 162 Planned-lifecycle events plus 8 Deferred QR-payment events (170 combined), of which 156 are writable. Deferred events are reported separately and excluded from the Planned total. Exactly seven Planned auth definitions are integrated: four Phase 1B-2A login/logout names and three Phase 1B-2B signup names. The other 155 Planned definitions, including all seventeen Phase 1B-2C0 device/session/trusted-device/MPIN definitions, signup GPS, and Email/SMS OTP, remain unintegrated; 149 of those Planned-unintegrated definitions are writable. The six Operations definitions remain non-writable and unintegrated.

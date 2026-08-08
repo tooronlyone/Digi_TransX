@@ -1045,7 +1045,60 @@ create table public.trusted_devices (
     device_token    text not null unique,
     user_id         bigint not null references public.users (id) on delete cascade,
     created_at      timestamptz not null default now(),
-    last_seen_at    timestamptz not null default now()
+    last_seen_at    timestamptz not null default now(),
+    constraint trusted_devices_session_owner_unique unique (id, user_id)
+);
+
+create table public.user_sessions (
+    session_id uuid primary key default gen_random_uuid(),
+    user_id bigint not null,
+    token_digest bytea not null,
+    trusted_device_id bigint,
+    created_at timestamptz not null default now(),
+    authenticated_at timestamptz not null default now(),
+    last_genuine_activity_at timestamptz not null default now(),
+    inactivity_expires_at timestamptz not null,
+    absolute_expires_at timestamptz not null,
+    access_locked boolean not null default false,
+    access_locked_at timestamptz,
+    revoked_at timestamptz,
+    revocation_reason text,
+    token_version integer not null default 1,
+    token_rotated_at timestamptz,
+    updated_at timestamptz not null default now(),
+    constraint user_sessions_user_fk foreign key (user_id)
+        references public.users (id),
+    constraint user_sessions_trusted_device_owner_fk
+        foreign key (trusted_device_id, user_id)
+        references public.trusted_devices (id, user_id)
+        on delete set null (trusted_device_id),
+    constraint user_sessions_token_digest_unique unique (token_digest),
+    constraint user_sessions_token_digest_shape check (octet_length(token_digest) = 32),
+    constraint user_sessions_timestamp_order check (
+        created_at <= authenticated_at
+        and authenticated_at <= last_genuine_activity_at
+        and inactivity_expires_at > last_genuine_activity_at
+        and absolute_expires_at > authenticated_at
+        and updated_at >= created_at
+    ),
+    constraint user_sessions_access_lock_state check (
+        (access_locked and access_locked_at is not null)
+        or (not access_locked and access_locked_at is null)
+    ),
+    constraint user_sessions_revocation_state check (
+        (revoked_at is null and revocation_reason is null)
+        or (revoked_at is not null and revoked_at >= authenticated_at and revocation_reason in (
+            'logout', 'logout_all', 'password_changed', 'password_reset',
+            'account_blocked', 'device_removed', 'inactivity_expired',
+            'absolute_expiry', 'security_action', 'token_rotated', 'replay_detected'
+        ))
+    ),
+    constraint user_sessions_rotation_state check (
+        token_version >= 1
+        and ((token_version = 1 and token_rotated_at is null)
+          or (token_version > 1 and token_rotated_at is not null
+              and token_rotated_at >= authenticated_at))
+    )
 );
 
 create table public.user_action_logs (
@@ -1092,6 +1145,8 @@ create index idx_agr_trips_agr_truck         on public.agreement_trips (agreemen
 create index idx_agr_payments_due_status     on public.agreement_monthly_payments (status, payment_due_date);
 create index idx_notifications_user_created  on public.shipment_notifications (user_id, created_at desc);
 create index idx_login_activity_user         on public.login_activity (user_id, id desc);
+create index idx_user_sessions_active_token   on public.user_sessions (token_digest) where revoked_at is null;
+create index idx_user_sessions_user_revocable on public.user_sessions (user_id, session_id) where revoked_at is null;
 create index idx_otps_user_purpose           on public.password_reset_otps (user_id, purpose, id desc);
 create index idx_reset_tokens_user_purpose   on public.reset_tokens (user_id, purpose, used);
 create index idx_commission_policies_type_version
@@ -1470,7 +1525,7 @@ begin
         'agreement_posts','agreement_post_trucks','agreement_bids',
         'agreement_bid_trucks','agreements','agreement_trucks',
         'agreement_trips','agreement_monthly_payments','agreement_payment_penalties',
-        'login_activity','trusted_devices','user_action_logs',
+        'login_activity','trusted_devices','user_sessions','user_action_logs',
         'password_reset_otps','reset_tokens',
         'commission_policies','terms_versions','terms_acknowledgements',
         'saved_payment_methods','user_payment_preferences'
@@ -1667,6 +1722,11 @@ create policy login_activity_own_read on public.login_activity
 create policy trusted_devices_own on public.trusted_devices
     for all using (user_id = public.current_app_user_id())
     with check (user_id = public.current_app_user_id());
+drop policy if exists admin_all_user_sessions on public.user_sessions;
+create policy user_sessions_service_role_all on public.user_sessions
+    for all to service_role using (true) with check (true);
+revoke all privileges on table public.user_sessions from public, anon, authenticated, service_role;
+grant select, insert, update on table public.user_sessions to service_role;
 create policy action_logs_own_insert on public.user_action_logs
     for insert with check (true);
 
