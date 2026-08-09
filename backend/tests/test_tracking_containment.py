@@ -41,10 +41,15 @@ def tracking_env(monkeypatch):
         yield fake_db
 
     monkeypatch.setattr(tracking_routes, "open_db", fake_open_db)
+    @contextmanager
+    def fake_auth_open_db():
+        yield fake_db
+    monkeypatch.setattr(auth_helpers, "open_db", fake_auth_open_db)
+    monkeypatch.setattr(auth_helpers, "find_session_by_token", lambda *_a, **_k: {"session_id": "tracking-session", "user_id": 42})
     monkeypatch.setattr(
         auth_helpers,
-        "get_user_by_id",
-        lambda user_id: {
+        "get_user_by_id_with_executor",
+        lambda _db, user_id: {
             "id": 42,
             "email": "server-owned@example.invalid",
             "role": "client",
@@ -59,8 +64,9 @@ def tracking_env(monkeypatch):
     client = app.test_client()
 
     def login():
+        client.set_cookie("dtx_device_token", "d" * 32)
+        client.set_cookie("dtx_session_token", "s" * 32)
         with client.session_transaction() as sess:
-            sess["user_id"] = 42
             sess["csrf_token"] = CSRF
             sess["last_active_at"] = "original-user-activity"
 
@@ -92,10 +98,12 @@ def postgres_tracking_env(db, pg_session_info, monkeypatch):
             conn.close()
 
     monkeypatch.setattr(tracking_routes, "open_db", test_open_db)
+    monkeypatch.setattr(auth_helpers, "open_db", test_open_db)
+    monkeypatch.setattr(auth_helpers, "find_session_by_token", lambda *_a, **_k: {"session_id": "tracking-session", "user_id": 42})
     monkeypatch.setattr(
         auth_helpers,
-        "get_user_by_id",
-        lambda user_id: {
+        "get_user_by_id_with_executor",
+        lambda _db, user_id: {
             "id": 42,
             "email": "server-owned@example.invalid",
             "role": "client",
@@ -110,8 +118,9 @@ def postgres_tracking_env(db, pg_session_info, monkeypatch):
     client = app.test_client()
 
     def login():
+        client.set_cookie("dtx_device_token", "d" * 32)
+        client.set_cookie("dtx_session_token", "s" * 32)
         with client.session_transaction() as sess:
-            sess["user_id"] = 42
             sess["csrf_token"] = CSRF
             sess["last_active_at"] = "original-user-activity"
 
@@ -182,11 +191,12 @@ def test_client_ip_and_user_agent_headers_are_not_stored(tracking_env):
 
 
 def test_default_login_required_still_refreshes_genuine_user_activity(monkeypatch):
-    monkeypatch.setattr(
-        auth_helpers,
-        "get_user_by_id",
-        lambda user_id: {"id": 42, "role": "client"} if str(user_id) == "42" else None,
-    )
+    @contextmanager
+    def fake_open_db():
+        yield object()
+    monkeypatch.setattr(auth_helpers, "open_db", fake_open_db)
+    monkeypatch.setattr(auth_helpers, "find_session_by_token", lambda *_a, **_k: {"session_id": "tracking-session", "user_id": 42})
+    monkeypatch.setattr(auth_helpers, "get_user_by_id_with_executor", lambda _db, user_id: {"id": 42, "role": "client"} if str(user_id) == "42" else None)
     app = Flask(__name__)
     app.config.update(SECRET_KEY="login-required-regression-test", TESTING=True)
 
@@ -196,8 +206,9 @@ def test_default_login_required_still_refreshes_genuine_user_activity(monkeypatc
         return auth_helpers.json_response({"success": True})
 
     client = app.test_client()
+    client.set_cookie("dtx_device_token", "d" * 32)
+    client.set_cookie("dtx_session_token", "s" * 32)
     with client.session_transaction() as sess:
-        sess["user_id"] = 42
         sess["last_active_at"] = "original-user-activity"
 
     response = client.get("/protected")

@@ -2103,7 +2103,7 @@ insert into public.canonical_event_catalog_projection (
     ('security.login.suspicious_detected', 1, 'security', 'security', 'security_24_months', 'planned', true, false),
     ('security.session.refreshed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.session.expired_inactivity', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
-    ('security.session.revoked', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
+    ('security.session.revoked', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.logout.completed', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.password.changed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.password_reset.requested', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
@@ -2271,7 +2271,7 @@ insert into public.canonical_event_catalog_projection (
     event_name, event_version, category, ownership_domain, retention_class,
     lifecycle_status, writable, integrated, event_contract
 ) values
-    ('security.session.issued', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.session.issued', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
     ('security.session.access_locked', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["app_launch","idle_lock","security_action"]}'::jsonb),
     ('security.trusted_device.rotated', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self_or_service","allowed_metadata_keys":["result_code"],"allowed_result_codes":["full_login","scheduled_rotation","security_action"]}'::jsonb),
     ('security.mpin.enrolled', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),

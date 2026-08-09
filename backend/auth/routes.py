@@ -26,6 +26,7 @@ from .helpers import (
     OTP_EXPIRY_MINUTES,
     OTP_REGEX,
     build_auth_success_response,
+    clear_authentication_cookies,
     clear_device_cookie,
     create_otp_record,
     create_reset_token,
@@ -55,6 +56,7 @@ from .helpers import (
     verify_otp_for_user,
 )
 from auth.trusted_device_service import establish_after_full_login
+from auth.session_service import create_session, lock_session_by_id, revoke_session
 
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/auth")
@@ -276,6 +278,9 @@ def signup():
             device_token, device_id, device_event = establish_after_full_login(
                 db, user_id, request.cookies.get(DEVICE_COOKIE_NAME)
             )
+            session_token, session_id = create_session(
+                db, user_id, trusted_device_id=device_id
+            )
             user = db.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
             if not user:
                 raise RuntimeError("Signup public user disappeared.")
@@ -292,13 +297,20 @@ def signup():
                 EventData(metadata={"result_code": "full_login"} if device_event.endswith("rotated") else {}),
                 idempotency_scope="security.trusted_device.terminal", idempotency_key=request_id,
             )
+            write_security_event(
+                db, "security.session.issued", _auth_event_context(request_id, user=dict(user)),
+                EventData(), idempotency_scope="security.session.issued",
+                idempotency_key=request_id,
+            )
     except Exception:
         result_code = "persistence_failed" if _compensate_signup_identity(auth_user.id, request_id) else "reconciliation_required"
         return _signup_failure_response(
             request_id, result_code, 503,
             {"success": False, "message": "Signup service is temporarily unavailable."},
         )
-    return build_auth_success_response(dict(user), device_token=device_token)
+    return build_auth_success_response(
+        dict(user), device_token=device_token, session_token=session_token
+    )
 
 
 @auth_blueprint.post("/login")
@@ -363,6 +375,7 @@ def login():
     terminal_response = None
     authenticated_user_id = None
     device_token = None
+    session_token = None
     try:
         with open_db() as db:
             anonymous_context = _auth_event_context(request_id)
@@ -423,6 +436,9 @@ def login():
                 device_token, device_id, device_event = establish_after_full_login(
                     db, user["id"], request.cookies.get(DEVICE_COOKIE_NAME)
                 )
+                session_token, session_id = create_session(
+                    db, user["id"], trusted_device_id=device_id
+                )
                 write_security_event(
                     db,
                     "security.login.succeeded",
@@ -435,6 +451,11 @@ def login():
                     db, device_event, _auth_event_context(request_id, user=user),
                     EventData(metadata={"result_code": "full_login"} if device_event.endswith("rotated") else {}),
                     idempotency_scope="security.trusted_device.terminal", idempotency_key=request_id,
+                )
+                write_security_event(
+                    db, "security.session.issued", _auth_event_context(request_id, user=user),
+                    EventData(), idempotency_scope="security.session.issued",
+                    idempotency_key=request_id,
                 )
                 authenticated_user_id = user["id"]
     except Exception:
@@ -449,54 +470,56 @@ def login():
     if terminal_response is not None:
         return terminal_response
     user = get_user_by_id(authenticated_user_id)
-    return build_auth_success_response(user, device_token=device_token)
+    return build_auth_success_response(
+        user, device_token=device_token, session_token=session_token
+    )
 
 
 @auth_blueprint.get("/me")
+@login_required(refresh_activity=False)
 def auth_me():
-    user_id = session.get("user_id")
-    if not user_id:
-        return json_response({"success": False, "message": "Not authenticated."}, 401)
-    user = get_user_by_id(user_id)
-    if not user:
-        session.clear()
-        return json_response({"success": False, "message": "Session expired."}, 401)
-    session["last_active_at"] = timestamp_bundle()["display"]
     ensure_csrf_token()
     return json_response(
         {
             "success": True,
-            "user": serialize_user(user),
+            "user": serialize_user(request.current_user),
             "csrf_token": session["csrf_token"],
-            "redirect": role_redirect(user.get("role")),
+            "redirect": role_redirect(request.current_user.get("role")),
             "session": {"last_active_at": session.get("last_active_at", "")},
         }
     )
 
 
 @auth_blueprint.post("/logout")
+@login_required(refresh_activity=False)
 def logout():
     request_id = f"auth.{uuid.uuid4().hex}"
-    user_id = session.get("user_id")
-    if user_id and not require_csrf():
+    if not require_csrf():
         return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
-    if user_id:
-        try:
-            user = get_user_by_id(user_id)
-            if user is not None:
-                with open_db() as db:
-                    write_security_event(
-                        db,
-                        "security.logout.completed",
-                        _auth_event_context(request_id, user=user),
-                        EventData(metadata={"result_code": "completed"}),
-                        idempotency_scope="security.logout.completed",
-                        idempotency_key=request_id,
-                    )
-        except Exception:
-            current_app.logger.error("Canonical logout evidence could not be persisted.")
-    session.clear()
-    return json_response({"success": True, "message": "Logged out successfully."})
+    try:
+        with open_db() as db:
+            locked = lock_session_by_id(
+                db, request.current_session["session_id"], request.current_user["id"]
+            )
+            if not locked:
+                raise RuntimeError("Current durable session could not be locked for logout.")
+            if revoke_session(db, locked["session_id"], "logout") != 1:
+                raise RuntimeError("Current durable session could not be revoked.")
+            context = _auth_event_context(request_id, user=request.current_user)
+            write_security_event(
+                db, "security.session.revoked", context,
+                EventData(metadata={"result_code": "logout"}),
+                idempotency_scope="security.session.revoked", idempotency_key=request_id,
+            )
+            write_security_event(
+                db, "security.logout.completed", context,
+                EventData(metadata={"result_code": "completed"}),
+                idempotency_scope="security.logout.completed", idempotency_key=request_id,
+            )
+    except Exception:
+        current_app.logger.error("Canonical logout revocation/evidence could not be persisted.")
+    response = json_response({"success": True, "message": "Logged out successfully."})
+    return clear_authentication_cookies(response)
 
 
 @auth_blueprint.post("/forgot-password")

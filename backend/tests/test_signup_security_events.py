@@ -39,10 +39,12 @@ INTEGRATED = {
     "security.signup.completed",
     "security.trusted_device.added", "security.trusted_device.removed",
     "security.trusted_device.rotated",
+    "security.session.issued", "security.session.revoked",
 }
 HISTORICAL_SIGNUP_INTEGRATED = INTEGRATED - {
     "security.trusted_device.added", "security.trusted_device.removed",
-    "security.trusted_device.rotated",
+    "security.trusted_device.rotated", "security.session.issued",
+    "security.session.revoked",
 }
 
 
@@ -153,7 +155,8 @@ def test_successful_signup_commits_public_evidence_before_session(signup_client,
     events = _events(url)
     assert {row["event_name"] for row in events} == {
         "security.signup.started", "security.signup.completed",
-        "security.trusted_device.added",
+        "security.trusted_device.added", "security.session.issued",
+        "security.session.issued",
     }
     assert len({row["request_id"] for row in events}) == 1
     started = next(row for row in events if row["event_name"] == "security.signup.started")
@@ -166,6 +169,7 @@ def test_successful_signup_commits_public_evidence_before_session(signup_client,
     assert not _rows(url, "everyday_user_profiles")
     assert len(_rows(url, "login_activity")) == len(_rows(url, "trusted_devices")) == 1
     assert "dtx_device_token=" in response.headers.get("Set-Cookie", "")
+    assert "dtx_session_token=" in "\n".join(response.headers.getlist("Set-Cookie"))
 
 
 def test_validation_and_provider_conflict_are_anonymous_terminal_denials(signup_client, monkeypatch):
@@ -219,7 +223,7 @@ def test_each_supported_signup_role_creates_only_its_server_selected_profile(sig
     assert len(_rows(url, "users")) == 1
     assert {row["event_name"] for row in _events(url)} == {
         "security.signup.started", "security.signup.completed",
-        "security.trusted_device.added",
+        "security.trusted_device.added", "security.session.issued",
     }
 
 
@@ -346,9 +350,9 @@ def test_signup_catalog_totals_and_contracts_are_locked():
     assert sum(definition.lifecycle_status == "planned" for definition in CATALOG.values()) == 162
     assert sum(definition.lifecycle_status == "deferred" for definition in CATALOG.values()) == 8
     assert sum(definition.writable for definition in CATALOG.values()) == 156
-    assert sum(definition.integrated for definition in CATALOG.values()) == 10
-    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 152
-    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 146
+    assert sum(definition.integrated for definition in CATALOG.values()) == 12
+    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 150
+    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 144
 
 
 def test_signup_provider_classification_uses_only_structured_status_and_code(monkeypatch):

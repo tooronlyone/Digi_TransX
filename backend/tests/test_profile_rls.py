@@ -83,7 +83,7 @@ def rls_conn():
             cur.execute("select 1 from pg_roles where rolname='app_user'")
             if cur.fetchone() is None:
                 cur.execute("create role app_user nologin")
-            cur.execute(f"grant app_user to {parts.username}")
+            cur.execute(f"grant app_user to {parts.username} with set true")
             cur.execute(f"DROP DATABASE IF EXISTS {dbname}")
             cur.execute(f"CREATE DATABASE {dbname}")
     except Exception as exc:

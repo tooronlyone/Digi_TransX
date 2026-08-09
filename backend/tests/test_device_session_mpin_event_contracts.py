@@ -78,7 +78,7 @@ def test_python_contracts_are_complete_and_sensitive_metadata_is_rejected():
     assert len(CATALOG) == 170
     assert sum(item.lifecycle_status == "planned" for item in CATALOG.values()) == 162
     assert sum(item.writable for item in CATALOG.values()) == 156
-    assert sum(item.integrated for item in CATALOG.values()) == 10
+    assert sum(item.integrated for item in CATALOG.values()) == 12
     assert NEW_EVENTS | FORMALIZED_EVENTS <= set(CATALOG)
     for name in NEW_EVENTS | FORMALIZED_EVENTS:
         definition = CATALOG[name]
@@ -138,7 +138,7 @@ def test_direct_sql_accepts_only_existing_integrated_events():
         try:
             with conn.cursor() as cursor:
                 for index, name in enumerate(sorted(item.name for item in CATALOG.values() if item.integrated)):
-                    trusted = name.startswith("security.trusted_device.")
+                    trusted = name.startswith("security.trusted_device.") or name.startswith("security.session.")
                     cursor.execute(
                         "insert into public.security_events (event_name,event_version,category,actor_type,actor_id,actor_role,subject_user_id,request_id,source,provider_mode,environment,retention_class,metadata) values (%s,1,'security',%s,%s,%s,%s,%s,'test','none','test','security_12_months',%s::jsonb)",
                         (name, 'user' if trusted else 'anonymous', 1 if trusted else None,
@@ -146,7 +146,8 @@ def test_direct_sql_accepts_only_existing_integrated_events():
                          f"slice2.accepted.{index}",
                          ('{"result_code":"full_login"}' if name == "security.trusted_device.rotated"
                           else ('{"result_code":"security_action"}' if name == "security.trusted_device.removed"
-                                else ('{"result_code":"validation_failed"}' if name == "security.signup.failed" else '{}')))),
+                                else ('{"result_code":"logout"}' if name == "security.session.revoked"
+                                      else ('{"result_code":"validation_failed"}' if name == "security.signup.failed" else '{}'))))),
                     )
             conn.commit()
             rejected_names = (

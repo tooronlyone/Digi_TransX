@@ -18,7 +18,9 @@ from tests._life_helpers import SCHEMA_SQL, STUBS, make_disposable, require_test
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATION = ROOT / "supabase/migrations/20260801160000_trusted_device_hardening.sql"
 LEGACY_SCHEMA = subprocess.check_output(
-    ["git", "show", "origin/main:supabase/schema.sql"], cwd=ROOT, text=True
+    ["git", "show", "eb10d8eff93499a67e424bea5a60fd0245d46c4f^:supabase/schema.sql"],
+    cwd=ROOT,
+    text=True,
 )
 
 

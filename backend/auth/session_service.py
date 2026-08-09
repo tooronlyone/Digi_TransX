@@ -1,8 +1,7 @@
-"""Canonical durable-session service foundation.
+"""Canonical durable-session persistence and runtime authority.
 
-This module is intentionally not wired into Flask authentication yet.  It owns
-the future ``public.user_sessions`` persistence contract so routes do not grow
-competing token, activity, lock, or revocation implementations.
+Raw credentials exist only in caller memory and the protected browser cookie.
+Every operation participates in the caller-owned transaction.
 """
 
 import hashlib
@@ -49,17 +48,16 @@ def digest_opaque_token(raw_token):
     return hashlib.sha256(raw_token.encode("utf-8")).digest()
 
 
-def create_session(executor, user_id, *, trusted_device_id=None):
-    """Create an inactive-at-runtime foundation row in the caller transaction.
+def create_session(executor, user_id, *, trusted_device_id):
+    """Issue one device-bound session inside the caller transaction."""
 
-    Nothing currently calls this function.  A future issuance route may call it
-    only inside its existing transaction and send the returned raw token once.
-    """
+    if not trusted_device_id:
+        raise SessionFoundationError("A trusted device is required for session issuance.")
 
     raw_token = generate_opaque_token()
     result = executor.execute(
         """
-        INSERT INTO public.user_sessions (
+        INSERT INTO user_sessions (
             user_id, token_digest, trusted_device_id,
             inactivity_expires_at, absolute_expires_at
         ) VALUES (
@@ -75,18 +73,39 @@ def create_session(executor, user_id, *, trusted_device_id=None):
     return raw_token, result["session_id"]
 
 
-def find_session_by_token(executor, raw_token):
-    """Resolve a non-revoked, non-expired session without refreshing activity."""
+def find_session_by_token(executor, raw_token, device_digest, *, lock=False):
+    """Resolve only a currently valid session bound to the exact active device."""
 
     return executor.execute(
-        """
-        SELECT * FROM public.user_sessions
-        WHERE token_digest = %s
-          AND revoked_at IS NULL
-          AND inactivity_expires_at > now()
-          AND absolute_expires_at > now()
+        f"""
+        SELECT s.*
+          FROM user_sessions s
+          JOIN users u ON u.id = s.user_id
+          JOIN trusted_devices d
+            ON d.id = s.trusted_device_id AND d.user_id = s.user_id
+         WHERE s.token_digest = %s
+           AND d.token_digest = %s
+           AND s.revoked_at IS NULL
+           AND s.inactivity_expires_at > now()
+           AND s.absolute_expires_at > now()
+           AND NOT s.access_locked
+           AND NOT u.is_blocked
+           AND d.revoked_at IS NULL
+           AND d.expires_at > now()
+        {"FOR UPDATE OF s, d" if lock else ""}
         """,
-        (digest_opaque_token(raw_token),),
+        (digest_opaque_token(raw_token), device_digest),
+    ).fetchone()
+
+
+def lock_session_by_id(executor, session_id, user_id):
+    """Lock one exact active session before a conflicting revoke operation."""
+
+    return executor.execute(
+        """SELECT * FROM user_sessions
+             WHERE session_id = %s AND user_id = %s AND revoked_at IS NULL
+             FOR UPDATE""",
+        (session_id, user_id),
     ).fetchone()
 
 
@@ -95,7 +114,7 @@ def record_genuine_activity(executor, session_id):
 
     return executor.execute(
         """
-        UPDATE public.user_sessions
+        UPDATE user_sessions
            SET last_genuine_activity_at = now(),
                inactivity_expires_at = now() + interval '7 days',
                updated_at = now()
@@ -110,7 +129,7 @@ def set_access_locked(executor, session_id, *, locked):
 
     return executor.execute(
         """
-        UPDATE public.user_sessions
+        UPDATE user_sessions
            SET access_locked = %s,
                access_locked_at = CASE WHEN %s THEN now() ELSE NULL END,
                updated_at = now()
@@ -127,7 +146,7 @@ def revoke_session(executor, session_id, reason):
         raise SessionFoundationError("Unsupported session revocation reason.")
     return executor.execute(
         """
-        UPDATE public.user_sessions
+        UPDATE user_sessions
            SET revoked_at = now(), revocation_reason = %s, updated_at = now()
          WHERE session_id = %s AND revoked_at IS NULL
         """,
@@ -142,7 +161,7 @@ def revoke_user_sessions(executor, user_id, reason):
         raise SessionFoundationError("Unsupported session revocation reason.")
     return executor.execute(
         """
-        UPDATE public.user_sessions
+        UPDATE user_sessions
            SET revoked_at = now(), revocation_reason = %s, updated_at = now()
          WHERE user_id = %s AND revoked_at IS NULL
         """,

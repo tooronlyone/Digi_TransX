@@ -1,6 +1,8 @@
 """Real PostgreSQL proof for the bounded Phase 1B-2A auth integration."""
 
 import os
+import hashlib
+import secrets
 from contextlib import contextmanager
 from pathlib import Path
 import subprocess
@@ -29,6 +31,10 @@ ACTIVATION_MIGRATION = (
     / "supabase"
     / "migrations"
     / "20260801100000_security_login_event_integration.sql"
+)
+DURABLE_RUNTIME_MIGRATION = (
+    REPO_ROOT / "supabase" / "migrations"
+    / "20260801170000_durable_session_runtime_events.sql"
 )
 EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EXPECTED_PRIOR_SIGNATURE = "772212260b85fd6b5cd4aa35ca9ffdfb"
@@ -153,6 +159,36 @@ def _event_rows(url):
     )
 
 
+def _authenticate_client(client, url, user_id, csrf="csrf-test"):
+    device_raw = secrets.token_urlsafe(32)
+    session_raw = secrets.token_urlsafe(32)
+    conn = psycopg2.connect(url)
+    try:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "insert into public.trusted_devices(token_digest,user_id,expires_at) "
+                    "values(%s,%s,now()+interval '30 days') returning id",
+                    (hashlib.sha256(device_raw.encode()).digest(), user_id),
+                )
+                device_id = cursor.fetchone()[0]
+                cursor.execute(
+                    "insert into public.user_sessions(user_id,token_digest,trusted_device_id,"
+                    "inactivity_expires_at,absolute_expires_at) values "
+                    "(%s,%s,%s,now()+interval '7 days',now()+interval '30 days') "
+                    "returning session_id",
+                    (user_id, hashlib.sha256(session_raw.encode()).digest(), device_id),
+                )
+                session_id = cursor.fetchone()[0]
+    finally:
+        conn.close()
+    client.set_cookie("dtx_device_token", device_raw)
+    client.set_cookie("dtx_session_token", session_raw)
+    with client.session_transaction() as state:
+        state["csrf_token"] = csrf
+    return device_raw, session_raw, device_id, session_id
+
+
 def test_catalog_preserves_login_events_and_adds_only_bounded_signup_events():
     expected = EXPECTED_EVENTS | {
         "security.signup.started",
@@ -161,11 +197,13 @@ def test_catalog_preserves_login_events_and_adds_only_bounded_signup_events():
         "security.trusted_device.added",
         "security.trusted_device.removed",
         "security.trusted_device.rotated",
+        "security.session.issued",
+        "security.session.revoked",
     }
     assert set(INTEGRATED_EVENT_NAMES) == expected
     assert {name for name, item in CATALOG.items() if item.integrated} == expected
-    assert sum(item.integrated for item in CATALOG.values()) == 10
-    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 152
+    assert sum(item.integrated for item in CATALOG.values()) == 12
+    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 150
     assert sum(item.lifecycle_status == "deferred" and not item.integrated for item in CATALOG.values()) == 8
 
 
@@ -183,6 +221,7 @@ def test_valid_password_login_emits_started_and_succeeded_atomically(auth_client
     assert [event["event_name"] for event in events] == [
         "security.login.started",
         "security.login.succeeded",
+        "security.session.issued",
         "security.trusted_device.added",
     ]
     assert len({event["request_id"] for event in events}) == 1
@@ -198,6 +237,8 @@ def test_valid_password_login_emits_started_and_succeeded_atomically(auth_client
     assert len(activity) == 1 and activity[0]["status"] == "success"
     devices = _rows(url, "trusted_devices")
     assert len(devices) == 1 and devices[0]["user_id"] == user_id
+    sessions = _rows(url, "user_sessions")
+    assert len(sessions) == 1 and sessions[0]["trusted_device_id"] == devices[0]["id"]
     users = _rows(url, "users")
     assert users[0]["last_login_at"] is not None
     assert _rows(url, "business_audit_events") == []
@@ -529,41 +570,155 @@ def test_trusted_device_failure_rolls_back_terminal_success_and_issues_no_sessio
 def test_authenticated_logout_emits_once_and_clears_session(auth_client):
     client, url = auth_client
     user_id = _seed_user(url, admin=True)
-    with client.session_transaction() as session:
-        session["user_id"] = user_id
-        session["csrf_token"] = "csrf-test"
+    _authenticate_client(client, url, user_id)
     response = client.post("/auth/logout", headers={"X-CSRF-Token": "csrf-test"})
     assert response.status_code == 200
     with client.session_transaction() as session:
         assert "user_id" not in session
     events = _event_rows(url)
-    assert len(events) == 1
-    assert events[0]["event_name"] == "security.logout.completed"
-    assert events[0]["actor_type"] == "admin"
-    assert events[0]["actor_id"] == events[0]["subject_user_id"] == user_id
-    assert events[0]["actor_role"] == "platform_admin"
+    assert [event["event_name"] for event in events] == [
+        "security.logout.completed", "security.session.revoked"
+    ]
+    assert all(event["actor_type"] == "admin" for event in events)
+    assert all(event["actor_id"] == event["subject_user_id"] == user_id for event in events)
+    assert all(event["actor_role"] == "platform_admin" for event in events)
 
 
 def test_invalid_csrf_and_anonymous_logout_emit_no_event(auth_client):
     client, url = auth_client
     user_id = _seed_user(url)
-    with client.session_transaction() as session:
-        session["user_id"] = user_id
-        session["csrf_token"] = "expected"
+    _authenticate_client(client, url, user_id, "expected")
     assert client.post("/auth/logout", headers={"X-CSRF-Token": "wrong"}).status_code == 403
     assert _event_rows(url) == []
-    with client.session_transaction() as session:
-        session.clear()
-    assert client.post("/auth/logout").status_code == 200
+    client.delete_cookie("dtx_session_token")
+    assert client.post("/auth/logout").status_code == 401
     assert _event_rows(url) == []
+
+
+def test_durable_session_and_exact_device_are_the_only_runtime_authority(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+
+    with client.session_transaction() as state:
+        state["user_id"] = user_id
+    signed_only = client.get("/auth/me")
+    assert signed_only.status_code == 401
+    assert signed_only.get_json() == {
+        "success": False,
+        "message": "Authentication required.",
+    }
+
+    device_raw, session_raw, _device_id, _session_id = _authenticate_client(
+        client, url, user_id
+    )
+    client.delete_cookie("dtx_session_token")
+    assert client.get("/auth/me").status_code == 401
+    client.set_cookie("dtx_session_token", session_raw)
+    client.delete_cookie("dtx_device_token")
+    assert client.get("/auth/me").status_code == 401
+    client.set_cookie("dtx_session_token", session_raw)
+    client.set_cookie("dtx_device_token", device_raw)
+    assert client.get("/auth/me").status_code == 200
+
+
+@pytest.mark.parametrize(
+    "statement",
+    [
+        "update user_sessions set revoked_at=now(), revocation_reason='logout'",
+        "update user_sessions set created_at=now()-interval '40 days', "
+        "authenticated_at=now()-interval '40 days', "
+        "last_genuine_activity_at=now()-interval '8 days', "
+        "inactivity_expires_at=now()-interval '1 second'",
+        "update user_sessions set created_at=now()-interval '40 days', "
+        "authenticated_at=now()-interval '40 days', "
+        "last_genuine_activity_at=now()-interval '31 days', "
+        "inactivity_expires_at=now()-interval '24 days', "
+        "absolute_expires_at=now()-interval '1 second'",
+        "update trusted_devices set revoked_at=now()",
+        "update trusted_devices set created_at=now()-interval '31 days', "
+        "expires_at=now()-interval '1 second'",
+    ],
+)
+def test_revoked_or_expired_session_or_device_fails_closed(auth_client, statement):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _authenticate_client(client, url, user_id)
+    conn = psycopg2.connect(url)
+    try:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(statement)
+    finally:
+        conn.close()
+    response = client.get("/auth/me")
+    assert response.status_code == 401
+    assert response.get_json() == {
+        "success": False,
+        "message": "Authentication required.",
+    }
+    assert any("dtx_session_token=;" in value for value in response.headers.getlist("Set-Cookie"))
+    assert any("dtx_device_token=;" in value for value in response.headers.getlist("Set-Cookie"))
+
+
+def test_unknown_token_is_generic_and_passive_me_does_not_refresh_genuine_activity(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    device_raw, _session_raw, _device_id, session_id = _authenticate_client(client, url, user_id)
+    before = _rows(url, "user_sessions")[0]["last_genuine_activity_at"]
+    assert client.get("/auth/me").status_code == 200
+    after = _rows(url, "user_sessions")[0]["last_genuine_activity_at"]
+    assert after == before
+
+    client.set_cookie("dtx_device_token", device_raw)
+    client.set_cookie("dtx_session_token", secrets.token_urlsafe(32))
+    response = client.get("/auth/me")
+    assert response.status_code == 401
+    assert response.get_json() == {
+        "success": False,
+        "message": "Authentication required.",
+    }
+    assert str(session_id) not in response.get_data(as_text=True)
+
+
+def test_logout_revokes_only_current_session(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _device_raw, _session_raw, _device_id, current_id = _authenticate_client(
+        client, url, user_id
+    )
+    other_device = hashlib.sha256(secrets.token_bytes(32)).digest()
+    other_session = hashlib.sha256(secrets.token_bytes(32)).digest()
+    conn = psycopg2.connect(url)
+    try:
+        with conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "insert into trusted_devices(token_digest,user_id,expires_at) "
+                    "values(%s,%s,now()+interval '30 days') returning id",
+                    (other_device, user_id),
+                )
+                other_device_id = cursor.fetchone()[0]
+                cursor.execute(
+                    "insert into user_sessions(user_id,token_digest,trusted_device_id,"
+                    "inactivity_expires_at,absolute_expires_at) values "
+                    "(%s,%s,%s,now()+interval '7 days',now()+interval '30 days') "
+                    "returning session_id",
+                    (user_id, other_session, other_device_id),
+                )
+                other_id = cursor.fetchone()[0]
+    finally:
+        conn.close()
+    assert client.post("/auth/logout", headers={"X-CSRF-Token": "csrf-test"}).status_code == 200
+    rows = {row["session_id"]: row for row in _rows(url, "user_sessions")}
+    assert rows[current_id]["revoked_at"] is not None
+    assert rows[current_id]["revocation_reason"] == "logout"
+    assert rows[other_id]["revoked_at"] is None
 
 
 def test_logout_clears_session_when_event_persistence_fails(auth_client, monkeypatch):
     client, url = auth_client
     user_id = _seed_user(url)
-    with client.session_transaction() as session:
-        session["user_id"] = user_id
-        session["csrf_token"] = "csrf-test"
+    _authenticate_client(client, url, user_id)
     monkeypatch.setattr(
         auth_routes,
         "write_security_event",
@@ -689,6 +844,43 @@ def test_activation_migration_rejects_partial_state_without_repair():
                     "canonical_event_catalog_projection where integrated"
                 )
                 assert cursor.fetchone()[0] == ["security.login.started"]
+        finally:
+            conn.close()
+    finally:
+        cleanup()
+
+
+def test_durable_runtime_migration_rejects_partial_state_without_repair():
+    base = _local_test_url()
+    prior_schema = subprocess.check_output(
+        ["git", "show", "330509618dcfc7f8d70c3056f3128d4a7fcafcb0:supabase/schema.sql"],
+        cwd=REPO_ROOT,
+    ).decode("utf-8")
+    url, cleanup = make_disposable(base, STUBS, prior_schema)
+    try:
+        conn = psycopg2.connect(url)
+        try:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "update canonical_event_catalog_projection set integrated=true "
+                    "where event_name='security.session.issued'"
+                )
+            conn.commit()
+            with pytest.raises(psycopg2.Error):
+                with conn.cursor() as cursor:
+                    cursor.execute(DURABLE_RUNTIME_MIGRATION.read_text(encoding="utf-8"))
+                conn.commit()
+            conn.rollback()
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "select event_name,integrated from canonical_event_catalog_projection "
+                    "where event_name in ('security.session.issued','security.session.revoked') "
+                    "order by event_name"
+                )
+                assert cursor.fetchall() == [
+                    ("security.session.issued", True),
+                    ("security.session.revoked", False),
+                ]
         finally:
             conn.close()
     finally:

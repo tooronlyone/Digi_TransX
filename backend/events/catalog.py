@@ -230,6 +230,8 @@ INTEGRATED_EVENT_NAMES = frozenset(
         "security.trusted_device.added",
         "security.trusted_device.removed",
         "security.trusted_device.rotated",
+        "security.session.issued",
+        "security.session.revoked",
     }
 )
 

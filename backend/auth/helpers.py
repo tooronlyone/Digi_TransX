@@ -13,7 +13,8 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from shared.db import open_db
 from shared.roles import BUSINESS_CLIENT_ROLES, EVERYDAY_ROLES
-from auth.trusted_device_service import trusted_device_lifetime_days
+from auth.session_service import ABSOLUTE_LIFETIME_DAYS, find_session_by_token
+from auth.trusted_device_service import digest_token, trusted_device_lifetime_days
 
 
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
@@ -26,6 +27,7 @@ OTP_EXPIRY_MINUTES = 10
 OTP_ATTEMPT_LIMIT = 5
 RESET_TOKEN_EXPIRY_MINUTES = 10
 DEVICE_COOKIE_NAME = "dtx_device_token"
+SESSION_TOKEN_COOKIE_NAME = "dtx_session_token"
 
 
 def now_local():
@@ -250,6 +252,15 @@ def get_user_by_id(user_id):
         return _attach_role_profile(db, _with_legacy_role(dict(row)))
 
 
+def get_user_by_id_with_executor(executor, user_id):
+    """Load current server-owned identity using the authentication transaction."""
+
+    row = executor.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
+    if not row:
+        return None
+    return _attach_role_profile(executor, _with_legacy_role(dict(row)))
+
+
 def get_user_by_login(login_id):
     login_kind, value = parse_login_id(login_id)
     column = "cnic" if login_kind == "cnic" else "email"
@@ -284,27 +295,57 @@ def serialize_user(user):
     }
 
 
-def login_required(view=None, *, refresh_activity=True):
-    """Require a verified Flask session.
+def _clear_local_authentication(response):
+    if current_app.secret_key:
+        session.clear()
+    for cookie_name in (SESSION_TOKEN_COOKIE_NAME, DEVICE_COOKIE_NAME):
+        response.delete_cookie(
+            cookie_name,
+            httponly=True,
+            samesite="Lax",
+            secure=current_app.config["SESSION_COOKIE_SECURE"],
+            path="/",
+        )
+    return response
 
-    Passive telemetry may opt out of refreshing genuine user activity while
-    still deriving identity from the same server-owned session/user lookup.
-    Existing ``@login_required`` callers retain their current behavior.
+
+def _authentication_error():
+    return _clear_local_authentication(
+        json_response({"success": False, "message": "Authentication required."}, 401)
+    )
+
+
+def login_required(view=None, *, refresh_activity=True):
+    """Require a valid durable session bound to its exact active device.
+
+    The signed Flask cookie is presentation/CSRF state only. ``refresh_activity``
+    preserves its legacy display timestamp and never updates durable genuine
+    activity.
     """
 
     def decorator(target):
         @wraps(target)
         def wrapped(*args, **kwargs):
-            user_id = session.get("user_id")
-            if not user_id:
-                return json_response({"success": False, "message": "Authentication required."}, 401)
-            user = get_user_by_id(user_id)
-            if not user:
-                session.clear()
-                return json_response({"success": False, "message": "Session expired."}, 401)
+            raw_session = request.cookies.get(SESSION_TOKEN_COOKIE_NAME, "")
+            raw_device = request.cookies.get(DEVICE_COOKIE_NAME, "")
+            if not raw_session or not raw_device:
+                return _authentication_error()
+            try:
+                device_digest = digest_token(raw_device)
+                with open_db() as db:
+                    durable = find_session_by_token(db, raw_session, device_digest)
+                    user = (
+                        get_user_by_id_with_executor(db, durable["user_id"])
+                        if durable else None
+                    )
+            except Exception:
+                return _authentication_error()
+            if not durable or not user:
+                return _authentication_error()
             if refresh_activity:
                 session["last_active_at"] = timestamp_bundle()["display"]
             request.current_user = user
+            request.current_session = durable
             return target(*args, **kwargs)
 
         return wrapped
@@ -359,10 +400,10 @@ def record_login_activity(
         db.commit()
 
 
-def build_auth_success_response(user, *, device_token=None):
-    if device_token is None:
-        raise RuntimeError("Trusted-device persistence must complete before authentication response.")
-    session["user_id"] = user["id"]
+def build_auth_success_response(user, *, device_token=None, session_token=None):
+    if device_token is None or session_token is None:
+        raise RuntimeError("Device and durable-session persistence must complete before response.")
+    session.clear()
     session["csrf_token"] = secrets.token_urlsafe(24)
     session["last_active_at"] = timestamp_bundle()["display"]
     payload = {
@@ -382,6 +423,15 @@ def build_auth_success_response(user, *, device_token=None):
         max_age=60 * 60 * 24 * trusted_device_lifetime_days(),
         path="/",
     )
+    response.set_cookie(
+        SESSION_TOKEN_COOKIE_NAME,
+        session_token,
+        httponly=True,
+        samesite="Lax",
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        max_age=60 * 60 * 24 * ABSOLUTE_LIFETIME_DAYS,
+        path="/",
+    )
     return response
 
 
@@ -394,6 +444,12 @@ def clear_device_cookie(response):
         samesite="Lax",
     )
     return response
+
+
+def clear_authentication_cookies(response):
+    """Clear durable, trusted-device and non-authoritative Flask state."""
+
+    return _clear_local_authentication(response)
 
 
 def latest_otp_record(user_id, purpose):

@@ -88,7 +88,7 @@ class _Executor:
         return _Result()
 
 
-def test_service_hashes_tokens_and_has_no_runtime_route_wiring(monkeypatch):
+def test_service_hashes_tokens_and_is_the_only_runtime_route_owner(monkeypatch):
     raw = "A" * 43
     assert session_service.digest_opaque_token(raw) == hashlib.sha256(raw.encode()).digest()
     assert len(session_service.digest_opaque_token(raw)) == 32
@@ -106,8 +106,11 @@ def test_service_hashes_tokens_and_has_no_runtime_route_wiring(monkeypatch):
 
     route_text = (REPO_ROOT / "backend" / "auth" / "routes.py").read_text(encoding="utf-8")
     helper_text = (REPO_ROOT / "backend" / "auth" / "helpers.py").read_text(encoding="utf-8")
-    assert "session_service" not in route_text
-    assert "session_service" not in helper_text
+    assert "from auth.session_service import" in route_text
+    assert "from auth.session_service import" in helper_text
+    assert "secrets.token_urlsafe" not in route_text
+    assert "hashlib.sha256" not in route_text
+    assert "hashlib.sha256" not in helper_text
 
 
 def test_fresh_sequential_and_exact_reapplication_converge():
