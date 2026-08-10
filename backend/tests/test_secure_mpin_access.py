@@ -27,6 +27,9 @@ from tests.test_canonical_event_acl_hardening import _semantic_signature
 
 ROOT = Path(__file__).resolve().parents[2]
 MIGRATION = ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
+GENUINE_ACTIVITY_MIGRATION = (
+    ROOT / "supabase/migrations/20260801200000_genuine_session_activity.sql"
+)
 PEPPER = base64.urlsafe_b64encode(b"P" * 32).decode()
 NEW_INTEGRATIONS = {
     "security.session.access_locked",
@@ -573,6 +576,7 @@ def test_migration_converges_reapplies_invalidates_legacy_and_rejects_corruption
         ["git", "show", "origin/main:supabase/schema.sql"], cwd=ROOT, text=True
     )
     migration = MIGRATION.read_text(encoding="utf-8")
+    activity_migration = GENUINE_ACTIVITY_MIGRATION.read_text(encoding="utf-8")
     assert "cascade" not in migration.lower()
     sequential_url, sequential_cleanup = make_disposable(_local_url(), STUBS, main_schema)
     fresh_url, fresh_cleanup = make_disposable(
@@ -590,10 +594,20 @@ def test_migration_converges_reapplies_invalidates_legacy_and_rejects_corruption
                 cursor.execute(migration)
                 cursor.execute(migration)
             sequential.commit()
+            with sequential.cursor() as cursor:
+                cursor.execute("alter table public.mpin_credentials add column corrupt text")
+                with pytest.raises((psycopg2.Error, errors.RaiseException)):
+                    cursor.execute(migration)
+            sequential.rollback()
+            with sequential.cursor() as cursor:
+                cursor.execute(activity_migration)
+                cursor.execute(activity_migration)
+            sequential.commit()
             with fresh.cursor() as cursor:
-                cursor.execute(migration)
+                cursor.execute(activity_migration)
+                cursor.execute(activity_migration)
             fresh.commit()
-            assert _semantic_signature(sequential) == _semantic_signature(fresh) == "8dcc0c1ecaf1df3fdad9d0be30f6be03"
+            assert _semantic_signature(sequential) == _semantic_signature(fresh) == "b57a59369062e678a7b269cd61d4e01e"
             for conn in (sequential, fresh):
                 with conn.cursor() as cursor:
                     cursor.execute(
@@ -602,21 +616,14 @@ def test_migration_converges_reapplies_invalidates_legacy_and_rejects_corruption
                         "count(*) filter(where writable and not integrated) "
                         "from public.canonical_event_catalog_projection"
                     )
-                    assert cursor.fetchone() == (170, 20, 142, 136)
+                    assert cursor.fetchone() == (170, 21, 141, 135)
                     cursor.execute("select count(*) from public.mpin_credentials")
                     assert cursor.fetchone()[0] == 0
                     cursor.execute("select count(*) from public.users where mpin_hash is not null or mpin_enabled")
                     assert cursor.fetchone()[0] == 0
-            with fresh.cursor() as cursor:
-                cursor.execute("alter table public.mpin_credentials add column corrupt text")
-            fresh.commit()
-            with pytest.raises((psycopg2.Error, errors.RaiseException)):
-                with fresh.cursor() as cursor:
-                    cursor.execute(migration)
-            fresh.rollback()
-            with fresh.cursor() as cursor:
+            with sequential.cursor() as cursor:
                 cursor.execute("select count(*) from information_schema.columns where table_schema='public' and table_name='mpin_credentials' and column_name='corrupt'")
-                assert cursor.fetchone()[0] == 1
+                assert cursor.fetchone()[0] == 0
         finally:
             sequential.close()
             fresh.close()

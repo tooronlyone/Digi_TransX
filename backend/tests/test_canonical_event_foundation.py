@@ -85,6 +85,7 @@ DURABLE_SESSION_MIGRATION = REPO_ROOT / "supabase/migrations/20260801150000_dura
 TRUSTED_DEVICE_MIGRATION = REPO_ROOT / "supabase/migrations/20260801160000_trusted_device_hardening.sql"
 DURABLE_RUNTIME_MIGRATION = REPO_ROOT / "supabase/migrations/20260801170000_durable_session_runtime_events.sql"
 SECURE_MPIN_MIGRATION = REPO_ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
+GENUINE_ACTIVITY_MIGRATION = REPO_ROOT / "supabase/migrations/20260801200000_genuine_session_activity.sql"
 EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EVENT_TABLES = ("security_events", "business_audit_events")
 CATALOG_PROJECTION = "canonical_event_catalog_projection"
@@ -609,6 +610,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
     trusted_device_sql = TRUSTED_DEVICE_MIGRATION.read_text(encoding="utf-8")
     durable_runtime_sql = DURABLE_RUNTIME_MIGRATION.read_text(encoding="utf-8")
     secure_mpin_sql = SECURE_MPIN_MIGRATION.read_text(encoding="utf-8")
+    genuine_activity_sql = GENUINE_ACTIVITY_MIGRATION.read_text(encoding="utf-8")
     baseline_sql = BASELINE_MIGRATION.read_text(encoding="utf-8")
     sequence_url, sequence_cleanup = _disposable(
         STUBS,
@@ -624,6 +626,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         trusted_device_sql,
         durable_runtime_sql,
         secure_mpin_sql,
+        genuine_activity_sql,
     )
     corrected_url, corrected_cleanup = _disposable(
         STUBS,
@@ -638,6 +641,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         trusted_device_sql,
         durable_runtime_sql,
         secure_mpin_sql,
+        genuine_activity_sql,
     )
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
@@ -878,7 +882,7 @@ def test_python_writer_rejects_every_unintegrated_writable_definition_before_sql
     unintegrated = [
         definition for definition in CATALOG.values() if definition.writable and not definition.integrated
     ]
-    assert len(unintegrated) == 136
+    assert len(unintegrated) == 135
     for definition in unintegrated:
         writer = (
             write_security_event
@@ -944,8 +948,8 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
         ),
         key=lambda definition: definition.name,
     )
-    assert len(integrated) == 20
-    assert len(unintegrated_writable) == 136
+    assert len(integrated) == 21
+    assert len(unintegrated_writable) == 135
     expected_security = sum(definition.category == SECURITY for definition in integrated)
     expected_business = sum(
         definition.category == BUSINESS_AUDIT for definition in integrated

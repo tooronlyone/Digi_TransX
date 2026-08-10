@@ -2191,7 +2191,7 @@ insert into public.canonical_event_catalog_projection (
     ('security.login.succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.login.new_device_detected', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.login.suspicious_detected', 1, 'security', 'security', 'security_24_months', 'planned', true, false),
-    ('security.session.refreshed', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
+    ('security.session.refreshed', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.session.expired_inactivity', 1, 'security', 'security', 'security_12_months', 'planned', true, false),
     ('security.session.revoked', 1, 'security', 'security', 'security_12_months', 'planned', true, true),
     ('security.logout.completed', 1, 'security', 'security', 'security_12_months', 'planned', true, true),

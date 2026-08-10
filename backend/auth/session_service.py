@@ -14,6 +14,7 @@ ACCESS_PROOF_BYTES = 32
 ACCESS_PROOF_LIFETIME_HOURS = 8
 INACTIVITY_DAYS = 7
 ABSOLUTE_LIFETIME_DAYS = 30
+GENUINE_ACTIVITY_WRITE_THROTTLE_HOURS = 12
 
 REVOCATION_REASONS = frozenset(
     {
@@ -70,6 +71,12 @@ def access_lock_reference(session_id):
     return hashlib.sha256(str(session_id).encode("ascii")).hexdigest()
 
 
+def session_event_reference(session_id):
+    """Return the bounded, non-reversible canonical reference for a session."""
+
+    return f"session_{access_lock_reference(session_id)[:32]}"
+
+
 def create_session(executor, user_id, *, trusted_device_id):
     """Issue one device-bound session inside the caller transaction."""
 
@@ -86,8 +93,9 @@ def create_session(executor, user_id, *, trusted_device_id):
             access_proof_digest, access_proof_expires_at
         ) VALUES (
             %s, %s, %s,
-            now() + interval '7 days', now() + interval '30 days',
-            %s, now() + interval '8 hours'
+            now() + (%s * interval '1 day'),
+            now() + (%s * interval '1 day'),
+            %s, now() + (%s * interval '1 hour')
         )
         RETURNING session_id
         """,
@@ -95,7 +103,10 @@ def create_session(executor, user_id, *, trusted_device_id):
             user_id,
             digest_opaque_token(raw_token),
             trusted_device_id,
+            INACTIVITY_DAYS,
+            ABSOLUTE_LIFETIME_DAYS,
             digest_access_proof(raw_access_proof),
+            ACCESS_PROOF_LIFETIME_HOURS,
         ),
     ).fetchone()
     if not result:
@@ -177,19 +188,108 @@ def lock_session_user_and_device(executor, session_id, user_id, device_digest):
     return durable, user, device
 
 
-def record_genuine_activity(executor, session_id):
-    """Refresh only explicit genuine activity and its seven-day boundary."""
+def record_genuine_activity(
+    executor,
+    *,
+    session_id,
+    user_id,
+    session_digest,
+    device_digest,
+    access_proof_digest,
+):
+    """Revalidate and throttle one exact session's genuine activity.
 
-    return executor.execute(
+    Lock order is session -> user -> trusted device.  The caller owns the
+    transaction and writes canonical evidence only when ``refreshed`` is true.
+    """
+
+    durable = executor.execute(
+        """
+        SELECT *
+          FROM user_sessions
+         WHERE session_id = %s AND user_id = %s AND token_digest = %s
+           AND revoked_at IS NULL
+           AND inactivity_expires_at > now()
+           AND absolute_expires_at > now()
+         FOR UPDATE
+        """,
+        (session_id, user_id, session_digest),
+    ).fetchone()
+    if not durable:
+        return {"status": "invalid_authentication", "refreshed": False}
+
+    user = executor.execute(
+        "SELECT id FROM users WHERE id = %s AND NOT is_blocked FOR UPDATE",
+        (user_id,),
+    ).fetchone()
+    if not user:
+        return {"status": "invalid_authentication", "refreshed": False}
+
+    device = executor.execute(
+        """
+        SELECT id
+          FROM trusted_devices
+         WHERE id = %s AND user_id = %s AND token_digest = %s
+           AND revoked_at IS NULL AND expires_at > now()
+         FOR UPDATE
+        """,
+        (durable["trusted_device_id"], user_id, device_digest),
+    ).fetchone()
+    if not device:
+        return {"status": "invalid_authentication", "refreshed": False}
+
+    proof_valid = (
+        not durable["access_locked"]
+        and access_proof_digest is not None
+        and durable["access_proof_digest"] is not None
+        and secrets.compare_digest(
+            bytes(durable["access_proof_digest"]), bytes(access_proof_digest)
+        )
+        and durable["access_proof_expires_at"] is not None
+        and executor.execute(
+            "SELECT %s > now() AS valid", (durable["access_proof_expires_at"],)
+        ).fetchone()["valid"]
+    )
+    if not proof_valid:
+        newly_locked = lock_access_once(executor, session_id) == 1
+        return {
+            "status": "access_locked",
+            "refreshed": False,
+            "newly_locked": newly_locked,
+        }
+
+    refreshed = executor.execute(
         """
         UPDATE user_sessions
            SET last_genuine_activity_at = now(),
-               inactivity_expires_at = now() + interval '7 days',
+               inactivity_expires_at = greatest(
+                   inactivity_expires_at, now() + (%s * interval '1 day')
+               ),
                updated_at = now()
-         WHERE session_id = %s AND revoked_at IS NULL
+         WHERE session_id = %s
+           AND last_genuine_activity_at <=
+               now() - (%s * interval '1 hour')
+        RETURNING last_genuine_activity_at,
+                  floor(
+                      extract(epoch from last_genuine_activity_at)
+                      / (%s * 3600)
+                  )::bigint
+                      AS refresh_bucket
         """,
-        (session_id,),
-    ).rowcount
+        (
+            INACTIVITY_DAYS,
+            session_id,
+            GENUINE_ACTIVITY_WRITE_THROTTLE_HOURS,
+            GENUINE_ACTIVITY_WRITE_THROTTLE_HOURS,
+        ),
+    ).fetchone()
+    if not refreshed:
+        return {"status": "ok", "refreshed": False}
+    return {
+        "status": "ok",
+        "refreshed": True,
+        "refresh_bucket": refreshed["refresh_bucket"],
+    }
 
 
 def set_access_locked(executor, session_id, *, locked):

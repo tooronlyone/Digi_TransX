@@ -196,7 +196,7 @@ def test_client_ip_and_user_agent_headers_are_not_stored(tracking_env):
     assert "secret-browser-fingerprint" not in stored_params[6]
 
 
-def test_default_login_required_still_refreshes_genuine_user_activity(monkeypatch):
+def test_default_login_required_updates_only_flask_presentation_activity(monkeypatch):
     @contextmanager
     def fake_open_db():
         yield object()

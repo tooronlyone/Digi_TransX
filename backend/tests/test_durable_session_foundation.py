@@ -109,7 +109,10 @@ def test_service_hashes_tokens_and_is_the_only_runtime_route_owner(monkeypatch):
         7,
         hashlib.sha256(raw.encode()).digest(),
         9,
+        session_service.INACTIVITY_DAYS,
+        session_service.ABSOLUTE_LIFETIME_DAYS,
         hashlib.sha256(raw.encode()).digest(),
+        session_service.ACCESS_PROOF_LIFETIME_HOURS,
     )
 
     route_text = (REPO_ROOT / "backend" / "auth" / "routes.py").read_text(encoding="utf-8")

@@ -41,6 +41,7 @@ INTEGRATED = {
     "security.trusted_device.rotated",
     "security.session.issued", "security.session.revoked",
     "security.session.access_locked",
+    "security.session.refreshed",
     "security.mpin.enrolled", "security.mpin.changed", "security.mpin.disabled",
     "security.mpin.unlock_succeeded", "security.mpin.unlock_failed",
     "security.mpin.locked", "security.mpin.reset_completed",
@@ -359,9 +360,9 @@ def test_signup_catalog_totals_and_contracts_are_locked():
     assert sum(definition.lifecycle_status == "planned" for definition in CATALOG.values()) == 162
     assert sum(definition.lifecycle_status == "deferred" for definition in CATALOG.values()) == 8
     assert sum(definition.writable for definition in CATALOG.values()) == 156
-    assert sum(definition.integrated for definition in CATALOG.values()) == 20
-    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 142
-    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 136
+    assert sum(definition.integrated for definition in CATALOG.values()) == 21
+    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 141
+    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 135
 
 
 def test_signup_provider_classification_uses_only_structured_status_and_code(monkeypatch):

@@ -230,6 +230,7 @@ def test_catalog_preserves_login_events_and_adds_only_bounded_signup_events():
         "security.session.issued",
         "security.session.revoked",
         "security.session.access_locked",
+        "security.session.refreshed",
         "security.mpin.enrolled",
         "security.mpin.changed",
         "security.mpin.disabled",
@@ -240,8 +241,8 @@ def test_catalog_preserves_login_events_and_adds_only_bounded_signup_events():
     }
     assert set(INTEGRATED_EVENT_NAMES) == expected
     assert {name for name, item in CATALOG.items() if item.integrated} == expected
-    assert sum(item.integrated for item in CATALOG.values()) == 20
-    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 142
+    assert sum(item.integrated for item in CATALOG.values()) == 21
+    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 141
     assert sum(item.lifecycle_status == "deferred" and not item.integrated for item in CATALOG.values()) == 8
 
 
@@ -1200,3 +1201,337 @@ def test_durable_runtime_migration_rejects_partial_state_without_repair():
             conn.close()
     finally:
         cleanup()
+
+
+def _genuine_activity_session(url, session_id):
+    with psycopg2.connect(url) as conn:
+        with conn.cursor(cursor_factory=RealDictCursor) as cursor:
+            cursor.execute(
+                """
+                select authenticated_at,last_genuine_activity_at,
+                       inactivity_expires_at,absolute_expires_at,updated_at,
+                       access_locked,access_proof_digest,access_proof_expires_at,
+                       trusted_device_id
+                  from public.user_sessions where session_id=%s
+                """,
+                (session_id,),
+            )
+            return dict(cursor.fetchone())
+
+
+def _age_valid_session(url, session_id):
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                update public.user_sessions
+                   set created_at=now()-interval '8 days',
+                       authenticated_at=now()-interval '8 days',
+                       last_genuine_activity_at=now()-interval '13 hours',
+                       inactivity_expires_at=now()+interval '1 day',
+                       absolute_expires_at=now()+interval '22 days',
+                       access_proof_expires_at=now()+interval '1 hour',
+                       updated_at=now()
+                 where session_id=%s
+                """,
+                (session_id,),
+            )
+
+
+def test_genuine_activity_refreshes_only_current_deadline_beyond_login_age(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, device_id, session_id = _authenticate_client(client, url, user_id)
+    _age_valid_session(url, session_id)
+    second_raw = secrets.token_urlsafe(32)
+    second_proof = secrets.token_urlsafe(32)
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                insert into public.user_sessions(
+                    user_id,token_digest,trusted_device_id,
+                    inactivity_expires_at,absolute_expires_at,
+                    access_proof_digest,access_proof_expires_at
+                ) values(
+                    %s,%s,%s,now()+interval '2 days',now()+interval '20 days',
+                    %s,now()+interval '1 hour'
+                ) returning session_id
+                """,
+                (
+                    user_id,
+                    hashlib.sha256(second_raw.encode()).digest(),
+                    device_id,
+                    hashlib.sha256(second_proof.encode()).digest(),
+                ),
+            )
+            second_id = cursor.fetchone()[0]
+    before = _genuine_activity_session(url, session_id)
+    second_before = _genuine_activity_session(url, second_id)
+
+    response = client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    )
+
+    assert response.status_code == 204 and response.data == b""
+    after = _genuine_activity_session(url, session_id)
+    assert after["authenticated_at"] == before["authenticated_at"]
+    assert after["absolute_expires_at"] == before["absolute_expires_at"]
+    assert after["access_proof_digest"] == before["access_proof_digest"]
+    assert after["access_proof_expires_at"] == before["access_proof_expires_at"]
+    assert after["trusted_device_id"] == before["trusted_device_id"]
+    assert after["last_genuine_activity_at"] > before["last_genuine_activity_at"]
+    assert after["inactivity_expires_at"] > before["inactivity_expires_at"]
+    assert 6.99 < (
+        after["inactivity_expires_at"] - after["last_genuine_activity_at"]
+    ).total_seconds() / 86400 <= 7
+    assert _genuine_activity_session(url, second_id) == second_before
+    events = _event_rows(url)
+    assert len(events) == 1
+    assert events[0]["event_name"] == "security.session.refreshed"
+    assert events[0]["actor_id"] == events[0]["subject_user_id"] == user_id
+    assert events[0]["session_ref"].startswith("session_")
+    assert str(session_id) not in events[0]["session_ref"]
+    assert events[0]["metadata"] == {}
+
+
+def test_no_activity_expires_and_cannot_be_revived(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, _, session_id = _authenticate_client(client, url, user_id)
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                update public.user_sessions
+                   set created_at=now()-interval '8 days',
+                       authenticated_at=now()-interval '8 days',
+                       last_genuine_activity_at=now()-interval '8 days',
+                       inactivity_expires_at=now()-interval '1 day',
+                       absolute_expires_at=now()+interval '22 days',
+                       updated_at=now()
+                 where session_id=%s
+                """,
+                (session_id,),
+            )
+    before = _genuine_activity_session(url, session_id)
+
+    response = client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    )
+
+    assert response.status_code == 401
+    assert _genuine_activity_session(url, session_id) == before
+    assert _event_rows(url) == []
+
+
+@pytest.mark.parametrize(
+    ("state", "expected_status"),
+    [
+        ("revoked", 401),
+        ("blocked", 401),
+        ("device_expired", 401),
+        ("device_mismatch", 401),
+        ("absolute_expired", 401),
+        ("access_locked", 423),
+    ],
+)
+def test_ineligible_authentication_states_never_refresh(
+    auth_client, state, expected_status
+):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, device_id, session_id = _authenticate_client(client, url, user_id)
+    _age_valid_session(url, session_id)
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            if state == "revoked":
+                cursor.execute(
+                    "update user_sessions set revoked_at=now(),revocation_reason='security_action',updated_at=now() where session_id=%s",
+                    (session_id,),
+                )
+            elif state == "blocked":
+                cursor.execute("update users set is_blocked=true where id=%s", (user_id,))
+            elif state == "device_expired":
+                cursor.execute(
+                    "update trusted_devices set created_at=now()-interval '2 days',expires_at=now()-interval '1 day' where id=%s",
+                    (device_id,),
+                )
+            elif state == "device_mismatch":
+                client.set_cookie("dtx_device_token", secrets.token_urlsafe(32))
+            elif state == "absolute_expired":
+                cursor.execute(
+                    """
+                    update user_sessions
+                       set created_at=now()-interval '31 days',
+                           authenticated_at=now()-interval '31 days',
+                           last_genuine_activity_at=now()-interval '3 days',
+                           inactivity_expires_at=now()-interval '2 days',
+                           absolute_expires_at=now()-interval '1 day',
+                           access_locked=true,access_locked_at=now()-interval '2 days',
+                           access_proof_digest=null,access_proof_expires_at=null,
+                           updated_at=now()
+                     where session_id=%s
+                    """,
+                    (session_id,),
+                )
+            elif state == "access_locked":
+                cursor.execute(
+                    "update user_sessions set access_locked=true,access_locked_at=now(),access_proof_digest=null,access_proof_expires_at=null,updated_at=now() where session_id=%s",
+                    (session_id,),
+                )
+    before = _genuine_activity_session(url, session_id)
+
+    response = client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    )
+
+    assert response.status_code == expected_status
+    after = _genuine_activity_session(url, session_id)
+    assert after["last_genuine_activity_at"] == before["last_genuine_activity_at"]
+    assert after["inactivity_expires_at"] == before["inactivity_expires_at"]
+    assert after["absolute_expires_at"] == before["absolute_expires_at"]
+    assert _event_rows(url) == []
+
+
+@pytest.mark.parametrize("csrf", [None, "wrong-csrf"])
+def test_activity_requires_csrf_and_an_empty_private_signal(auth_client, csrf):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, _, session_id = _authenticate_client(client, url, user_id)
+    _age_valid_session(url, session_id)
+    before = _genuine_activity_session(url, session_id)
+    headers = {} if csrf is None else {"X-CSRF-Token": csrf}
+
+    response = client.post("/auth/session/activity", headers=headers)
+
+    assert response.status_code == 403
+    assert _genuine_activity_session(url, session_id) == before
+    assert _event_rows(url) == []
+
+    detailed = client.post(
+        "/auth/session/activity",
+        json={"key": "private-interaction-detail"},
+        headers={"X-CSRF-Token": "csrf-test"},
+    )
+    assert detailed.status_code == 400
+    assert _genuine_activity_session(url, session_id) == before
+    assert _event_rows(url) == []
+
+
+def test_passive_me_and_throttled_activity_are_noop(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, _, session_id = _authenticate_client(client, url, user_id)
+    _age_valid_session(url, session_id)
+    before_me = _genuine_activity_session(url, session_id)
+    assert client.get("/auth/me").status_code == 200
+    assert _genuine_activity_session(url, session_id) == before_me
+
+    first = client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    )
+    assert first.status_code == 204
+    after_first = _genuine_activity_session(url, session_id)
+    second = client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    )
+    assert second.status_code == 204
+    assert _genuine_activity_session(url, session_id) == after_first
+    assert [row["event_name"] for row in _event_rows(url)] == [
+        "security.session.refreshed"
+    ]
+
+
+def test_later_signal_after_database_throttle_boundary_refreshes(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, _, session_id = _authenticate_client(client, url, user_id)
+    initial = _genuine_activity_session(url, session_id)
+    assert client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    ).status_code == 204
+    assert _genuine_activity_session(url, session_id) == initial
+    assert _event_rows(url) == []
+
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "update user_sessions set created_at=now()-interval '1 day',"
+                "authenticated_at=now()-interval '1 day',last_genuine_activity_at="
+                "now()-interval '12 hours 1 second' where session_id=%s",
+                (session_id,),
+            )
+    boundary = _genuine_activity_session(url, session_id)
+    assert client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    ).status_code == 204
+    after = _genuine_activity_session(url, session_id)
+    assert after["last_genuine_activity_at"] > boundary["last_genuine_activity_at"]
+    assert len(_event_rows(url)) == 1
+
+
+def test_concurrent_activity_has_one_update_and_one_event(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, _, session_id = _authenticate_client(client, url, user_id)
+    _age_valid_session(url, session_id)
+    before = _genuine_activity_session(url, session_id)
+    cookie_names = (
+        "dtx_device_token",
+        "dtx_session_token",
+        "dtx_access_proof",
+        client.application.config.get("SESSION_COOKIE_NAME", "session"),
+    )
+    cookie_values = {
+        name: client.get_cookie(name).value for name in cookie_names
+    }
+    responses = []
+    failures = []
+
+    def worker():
+        try:
+            isolated = client.application.test_client()
+            for name, value in cookie_values.items():
+                isolated.set_cookie(name, value)
+            responses.append(
+                isolated.post(
+                    "/auth/session/activity",
+                    headers={"X-CSRF-Token": "csrf-test"},
+                ).status_code
+            )
+        except Exception as exc:
+            failures.append(type(exc).__name__)
+
+    threads = [threading.Thread(target=worker) for _ in range(4)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=10)
+
+    assert failures == []
+    assert responses == [204] * 4
+    after = _genuine_activity_session(url, session_id)
+    assert after["last_genuine_activity_at"] > before["last_genuine_activity_at"]
+    assert len(_event_rows(url)) == 1
+
+
+def test_refresh_and_event_roll_back_together(auth_client, monkeypatch):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, _, session_id = _authenticate_client(client, url, user_id)
+    _age_valid_session(url, session_id)
+    before = _genuine_activity_session(url, session_id)
+    monkeypatch.setattr(
+        auth_routes,
+        "write_security_event",
+        lambda *_args, **_kwargs: (_ for _ in ()).throw(RuntimeError("forced")),
+    )
+
+    response = client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    )
+
+    assert response.status_code == 503
+    assert _genuine_activity_session(url, session_id) == before
+    assert _event_rows(url) == []

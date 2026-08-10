@@ -1,6 +1,7 @@
 import React from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ActivityTracker from './components/ActivityTracker'
+import GenuineActivity from './components/GenuineActivity'
 import GlobalAiAssistant from './components/ai/GlobalAiAssistant'
 
 import Login from './pages/auth/Login'
@@ -349,6 +350,7 @@ function OrgPortal() {
 export default function App() {
   return (
     <BrowserRouter>
+      <GenuineActivity />
       <ActivityTracker>
         <>
           <Routes>

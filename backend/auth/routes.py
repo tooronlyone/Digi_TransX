@@ -20,12 +20,15 @@ from .helpers import (
     _with_legacy_role,
     map_legacy_role,
     DEVICE_COOKIE_NAME,
+    SESSION_TOKEN_COOKIE_NAME,
+    ACCESS_PROOF_COOKIE_NAME,
     LOGIN_COOLDOWN_MINUTES,
     OTP_EXPIRY_MINUTES,
     OTP_REGEX,
     build_auth_success_response,
     claim_reset_token,
     clear_authentication_cookies,
+    clear_access_proof_cookie,
     clear_device_cookie,
     consume_otp_for_user,
     create_otp_record,
@@ -59,18 +62,23 @@ from .helpers import (
 from auth import mpin_service
 from auth.trusted_device_service import digest_token, establish_after_full_login
 from auth.session_service import (
+    access_lock_reference,
     create_session,
+    digest_access_proof,
+    digest_opaque_token,
     lock_session_by_id,
     lock_session_user_and_device,
+    record_genuine_activity,
     revoke_session,
     rotate_access_proof,
+    session_event_reference,
 )
 
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/auth")
 
 
-def _auth_event_context(request_id, *, user=None):
+def _auth_event_context(request_id, *, user=None, session_ref=None):
     if user is None:
         return EventContext(
             request_id=request_id,
@@ -85,6 +93,7 @@ def _auth_event_context(request_id, *, user=None):
         actor_id=user["id"],
         actor_role=role,
         subject_user_id=user["id"],
+        session_ref=session_ref,
     )
 
 
@@ -568,6 +577,99 @@ def auth_me():
             "access_locked": bool(request.current_session.get("access_locked")),
         }
     )
+
+
+@auth_blueprint.post("/session/activity")
+@login_required(refresh_activity=False)
+def genuine_session_activity():
+    """Accept only the browser's empty, CSRF-backed genuine-activity signal."""
+
+    if request.content_length not in (None, 0):
+        return json_response(
+            {"success": False, "message": "Activity signal must be empty."}, 400
+        )
+    err = csrf_error()
+    if err:
+        return err
+
+    raw_session = request.cookies.get(SESSION_TOKEN_COOKIE_NAME, "")
+    raw_device = request.cookies.get(DEVICE_COOKIE_NAME, "")
+    raw_access_proof = request.cookies.get(ACCESS_PROOF_COOKIE_NAME, "")
+    try:
+        session_digest = digest_opaque_token(raw_session)
+        device_digest = digest_token(raw_device)
+        proof_digest = digest_access_proof(raw_access_proof)
+        with open_db() as db:
+            outcome = record_genuine_activity(
+                db,
+                session_id=request.current_session["session_id"],
+                user_id=request.current_user["id"],
+                session_digest=session_digest,
+                device_digest=device_digest,
+                access_proof_digest=proof_digest,
+            )
+            if outcome["status"] == "access_locked" and outcome.get(
+                "newly_locked"
+            ):
+                lock_reference = access_lock_reference(
+                    request.current_session["session_id"]
+                )
+                request_id = f"access.lock.{lock_reference}"
+                write_security_event(
+                    db,
+                    "security.session.access_locked",
+                    _service_subject_context(
+                        request_id, request.current_user["id"]
+                    ),
+                    EventData(metadata={"result_code": "app_launch"}),
+                    idempotency_scope="security.session.access_locked",
+                    idempotency_key=request_id,
+                )
+            elif outcome["refreshed"]:
+                reference = session_event_reference(
+                    request.current_session["session_id"]
+                )
+                request_id = (
+                    f"activity.refresh.{reference[8:]}."
+                    f"{outcome['refresh_bucket']}"
+                )
+                write_security_event(
+                    db,
+                    "security.session.refreshed",
+                    _auth_event_context(
+                        request_id,
+                        user=request.current_user,
+                        session_ref=reference,
+                    ),
+                    EventData(),
+                    idempotency_scope="security.session.refreshed",
+                    idempotency_key=request_id,
+                )
+    except Exception:
+        current_app.logger.error("Genuine session activity could not be committed.")
+        return json_response(
+            {"success": False, "message": "Activity service is temporarily unavailable."},
+            503,
+        )
+
+    if outcome["status"] == "invalid_authentication":
+        return clear_authentication_cookies(
+            json_response(
+                {"success": False, "message": "Authentication required."}, 401
+            )
+        )
+    if outcome["status"] == "access_locked":
+        return clear_access_proof_cookie(
+            json_response(
+                {
+                    "success": False,
+                    "code": "access_locked",
+                    "message": "Access is locked.",
+                },
+                423,
+            )
+        )
+    return ("", 204)
 
 
 @auth_blueprint.post("/logout")
