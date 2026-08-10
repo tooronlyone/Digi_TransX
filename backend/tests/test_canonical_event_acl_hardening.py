@@ -46,6 +46,7 @@ SIGNUP_INTEGRATION_MIGRATION = (
 DURABLE_SESSION_MIGRATION = REPO_ROOT / "supabase/migrations/20260801150000_durable_server_session_foundation.sql"
 TRUSTED_DEVICE_MIGRATION = REPO_ROOT / "supabase/migrations/20260801160000_trusted_device_hardening.sql"
 DURABLE_RUNTIME_MIGRATION = REPO_ROOT / "supabase/migrations/20260801170000_durable_session_runtime_events.sql"
+SECURE_MPIN_MIGRATION = REPO_ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
 DEVICE_SESSION_MPIN_MIGRATION = (
     REPO_ROOT / "supabase" / "migrations"
     / "20260801140000_device_session_mpin_event_contracts.sql"
@@ -240,6 +241,7 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         _migration_text(DURABLE_SESSION_MIGRATION),
         _migration_text(TRUSTED_DEVICE_MIGRATION),
         _migration_text(DURABLE_RUNTIME_MIGRATION),
+        _migration_text(SECURE_MPIN_MIGRATION),
     )
     schema_url, schema_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     migrated = psycopg2.connect(migrated_url)
@@ -250,10 +252,10 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         assert _foundation_metadata(migrated) == expected_metadata
         assert _projection(migrated) == expected_projection == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(schema)
-        assert _semantic_signature(schema) == "87c1377e1404933c69b1a90ac9962937"
+        assert _semantic_signature(schema) == "8dcc0c1ecaf1df3fdad9d0be30f6be03"
         before = _foundation_metadata(schema), _projection(schema), _all_public_counts(schema)
-        _apply(schema, _migration_text(DURABLE_RUNTIME_MIGRATION))
-        _apply(schema, _migration_text(DURABLE_RUNTIME_MIGRATION))
+        _apply(schema, _migration_text(SECURE_MPIN_MIGRATION))
+        _apply(schema, _migration_text(SECURE_MPIN_MIGRATION))
         assert (_foundation_metadata(schema), _projection(schema), _all_public_counts(schema)) == before
     finally:
         migrated.close()

@@ -1,8 +1,7 @@
+import secrets
 import uuid
 
 from flask import Blueprint, current_app, request, session
-from werkzeug.security import check_password_hash, generate_password_hash
-
 from shared.db import open_db
 from shared.supabase_client import (
     PasswordProviderUnavailable,
@@ -22,7 +21,6 @@ from .helpers import (
     map_legacy_role,
     DEVICE_COOKIE_NAME,
     LOGIN_COOLDOWN_MINUTES,
-    MPIN_REGEX,
     OTP_EXPIRY_MINUTES,
     OTP_REGEX,
     build_auth_success_response,
@@ -49,14 +47,22 @@ from .helpers import (
     role_redirect,
     send_email,
     serialize_user,
+    set_access_proof_cookie,
     split_name,
     timestamp_bundle,
     update_user_settings,
     validate_signup_payload,
     verify_otp_for_user,
 )
-from auth.trusted_device_service import establish_after_full_login
-from auth.session_service import create_session, lock_session_by_id, revoke_session
+from auth import mpin_service
+from auth.trusted_device_service import digest_token, establish_after_full_login
+from auth.session_service import (
+    create_session,
+    lock_session_by_id,
+    lock_session_user_and_device,
+    revoke_session,
+    rotate_access_proof,
+)
 
 
 auth_blueprint = Blueprint("auth", __name__, url_prefix="/auth")
@@ -84,6 +90,62 @@ def _invalid_credentials_response():
     return json_response(
         {"success": False, "field": "password", "message": "Incorrect password."},
         401,
+    )
+
+
+def _generic_reverification_response(status=401):
+    return json_response(
+        {"success": False, "message": "Unable to verify current credentials."},
+        status,
+    )
+
+
+def _password_matches_current_user(user, password):
+    if (
+        not user
+        or user.get("is_blocked")
+        or not isinstance(password, str)
+        or not password
+    ):
+        return False
+    return supabase_verify_password(
+        user["email"], password, raise_provider_errors=True
+    )
+
+
+def _identifier_matches_current_user(user, identifier):
+    if not isinstance(identifier, str) or not identifier.strip():
+        return False
+    kind, value = parse_login_id(identifier)
+    expected = user.get("cnic", "") if kind == "cnic" else user.get("email", "")
+    normalized = normalize_cnic(expected) if kind == "cnic" else normalize_email(expected)
+    return bool(value and normalized and secrets.compare_digest(value, normalized))
+
+
+def _service_subject_context(request_id, user_id):
+    return EventContext(
+        request_id=request_id,
+        source="server_route",
+        actor_type="system",
+        subject_user_id=user_id,
+    )
+
+
+def _lock_current_authentication(db):
+    raw_device = request.cookies.get(DEVICE_COOKIE_NAME, "")
+    if not raw_device:
+        return None, None, None
+    return lock_session_user_and_device(
+        db,
+        request.current_session["session_id"],
+        request.current_user["id"],
+        digest_token(raw_device),
+    )
+
+
+def _mpin_unavailable_response():
+    return json_response(
+        {"success": False, "message": "Secure MPIN service is unavailable."}, 503
     )
 
 
@@ -278,7 +340,7 @@ def signup():
             device_token, device_id, device_event = establish_after_full_login(
                 db, user_id, request.cookies.get(DEVICE_COOKIE_NAME)
             )
-            session_token, session_id = create_session(
+            session_token, access_proof, session_id = create_session(
                 db, user_id, trusted_device_id=device_id
             )
             user = db.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
@@ -309,7 +371,8 @@ def signup():
             {"success": False, "message": "Signup service is temporarily unavailable."},
         )
     return build_auth_success_response(
-        dict(user), device_token=device_token, session_token=session_token
+        dict(user), device_token=device_token, session_token=session_token,
+        access_proof=access_proof,
     )
 
 
@@ -376,6 +439,7 @@ def login():
     authenticated_user_id = None
     device_token = None
     session_token = None
+    access_proof = None
     try:
         with open_db() as db:
             anonymous_context = _auth_event_context(request_id)
@@ -436,7 +500,7 @@ def login():
                 device_token, device_id, device_event = establish_after_full_login(
                     db, user["id"], request.cookies.get(DEVICE_COOKIE_NAME)
                 )
-                session_token, session_id = create_session(
+                session_token, access_proof, session_id = create_session(
                     db, user["id"], trusted_device_id=device_id
                 )
                 write_security_event(
@@ -471,12 +535,13 @@ def login():
         return terminal_response
     user = get_user_by_id(authenticated_user_id)
     return build_auth_success_response(
-        user, device_token=device_token, session_token=session_token
+        user, device_token=device_token, session_token=session_token,
+        access_proof=access_proof,
     )
 
 
 @auth_blueprint.get("/me")
-@login_required(refresh_activity=False)
+@login_required(refresh_activity=False, allow_locked=True)
 def auth_me():
     ensure_csrf_token()
     return json_response(
@@ -486,12 +551,13 @@ def auth_me():
             "csrf_token": session["csrf_token"],
             "redirect": role_redirect(request.current_user.get("role")),
             "session": {"last_active_at": session.get("last_active_at", "")},
+            "access_locked": bool(request.current_session.get("access_locked")),
         }
     )
 
 
 @auth_blueprint.post("/logout")
-@login_required(refresh_activity=False)
+@login_required(refresh_activity=False, allow_locked=True)
 def logout():
     request_id = f"auth.{uuid.uuid4().hex}"
     if not require_csrf():
@@ -624,16 +690,9 @@ def setup_fast_login():
     err = csrf_error()
     if err:
         return err
-    data = request.get_json(silent=True) or {}
-    mpin = (data.get("mpin") or "").strip()
-    if not MPIN_REGEX.fullmatch(mpin):
-        return json_response({"success": False, "field": "mpin", "message": "MPIN must be exactly 4 digits."}, 400)
-    stamp = timestamp_bundle()
-    with open_db() as db:
-        db.execute("UPDATE users SET mpin_hash = %s, mpin_enabled = true, updated_at = %s WHERE id = %s", (generate_password_hash(mpin), stamp["display"], request.current_user["id"]))
-        db.commit()
-    user = get_user_by_id(request.current_user["id"])
-    return json_response({"success": True, "message": "MPIN enabled successfully.", "user": serialize_user(user), "csrf_token": session.get("csrf_token", "")})
+    return json_response(
+        {"success": False, "message": "Legacy MPIN setup is unavailable."}, 410
+    )
 
 
 @auth_blueprint.post("/fast-login/disable")
@@ -642,9 +701,451 @@ def disable_fast_login():
     err = csrf_error()
     if err:
         return err
-    stamp = timestamp_bundle()
-    with open_db() as db:
-        db.execute("UPDATE users SET mpin_hash = NULL, mpin_enabled = false, updated_at = %s WHERE id = %s", (stamp["display"], request.current_user["id"]))
-        db.commit()
-    user = get_user_by_id(request.current_user["id"])
-    return json_response({"success": True, "message": "MPIN disabled successfully.", "user": serialize_user(user), "csrf_token": session.get("csrf_token", "")})
+    return json_response(
+        {"success": False, "message": "Legacy MPIN disable is unavailable."}, 410
+    )
+
+
+@auth_blueprint.get("/mpin/status")
+@login_required(refresh_activity=False, allow_locked=True)
+def mpin_status():
+    try:
+        mpin_service.validate_configuration()
+        with open_db() as db:
+            row = db.execute(
+                "SELECT permanently_locked FROM mpin_credentials WHERE user_id = %s",
+                (request.current_user["id"],),
+            ).fetchone()
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    except Exception:
+        current_app.logger.error("Secure MPIN status could not be determined.")
+        return _mpin_unavailable_response()
+    return json_response(
+        {
+            "success": True,
+            "access_locked": bool(request.current_session.get("access_locked")),
+            "mpin": {
+                "enrolled": bool(row),
+                "locked": bool(row and row["permanently_locked"]),
+                "role_eligible": mpin_service.role_is_eligible(
+                    request.current_user.get("role")
+                ),
+            },
+        }
+    )
+
+
+@auth_blueprint.post("/mpin/enroll")
+@login_required(refresh_activity=False)
+def mpin_enroll():
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    try:
+        mpin = mpin_service.validate_mpin(data.get("mpin"))
+        mpin_service.validate_configuration()
+    except mpin_service.MpinError:
+        return json_response(
+            {"success": False, "field": "mpin", "message": "MPIN must be exactly four ASCII digits."},
+            400,
+        )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    if not mpin_service.role_is_eligible(request.current_user.get("role")):
+        return json_response(
+            {"success": False, "message": "MPIN is not supported for this account."},
+            403,
+        )
+    try:
+        if not _password_matches_current_user(
+            request.current_user, data.get("password")
+        ):
+            return _generic_reverification_response()
+    except PasswordProviderUnavailable:
+        return _generic_reverification_response(503)
+
+    request_id = f"mpin.{uuid.uuid4().hex}"
+    try:
+        with open_db() as db:
+            durable, user, device = _lock_current_authentication(db)
+            if not durable or not user or not device or durable["access_locked"]:
+                raise RuntimeError("Current authentication changed during enrollment.")
+            if mpin_service.lock_credential(db, user["id"]):
+                return json_response(
+                    {"success": False, "message": "MPIN is already enrolled."}, 409
+                )
+            if not mpin_service.enroll(db, user["id"], mpin):
+                raise RuntimeError("MPIN enrollment lost its locked user.")
+            db.execute(
+                "UPDATE user_sessions SET password_verified_at=now(), updated_at=now() WHERE session_id=%s",
+                (durable["session_id"],),
+            )
+            write_security_event(
+                db,
+                "security.mpin.enrolled",
+                _auth_event_context(request_id, user=request.current_user),
+                EventData(),
+                idempotency_scope="security.mpin.enrolled",
+                idempotency_key=request_id,
+            )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    except Exception:
+        current_app.logger.error("Secure MPIN enrollment could not be committed.")
+        return _mpin_unavailable_response()
+    return json_response({"success": True, "message": "MPIN enrolled."})
+
+
+@auth_blueprint.post("/mpin/unlock")
+@login_required(refresh_activity=False, allow_locked=True)
+def mpin_unlock():
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    try:
+        mpin = mpin_service.validate_mpin(data.get("mpin"))
+        mpin_service.validate_configuration()
+    except mpin_service.MpinError:
+        return json_response(
+            {"success": False, "field": "mpin", "message": "MPIN must be exactly four ASCII digits."},
+            400,
+        )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    if not mpin_service.role_is_eligible(request.current_user.get("role")):
+        return json_response(
+            {"success": False, "message": "MPIN is not supported for this account."},
+            403,
+        )
+
+    request_id = f"mpin.{uuid.uuid4().hex}"
+    access_proof = None
+    try:
+        with open_db() as db:
+            durable, user, device = _lock_current_authentication(db)
+            if not durable or not user or not device:
+                raise RuntimeError("Current authentication changed during unlock.")
+            if not durable["access_locked"]:
+                return json_response(
+                    {"success": False, "message": "Access is already unlocked."}, 409
+                )
+            credential = mpin_service.lock_credential(db, user["id"])
+            if not credential:
+                return json_response(
+                    {"success": False, "message": "Unable to unlock access."}, 401
+                )
+            if credential["permanently_locked"]:
+                return json_response(
+                    {
+                        "success": False,
+                        "code": "mpin_locked",
+                        "message": "MPIN is locked. Use password recovery.",
+                    },
+                    423,
+                )
+            if not mpin_service.verify_mpin(mpin, credential):
+                outcome, _ = mpin_service.record_failure(db, user["id"])
+                if outcome == "locked":
+                    write_security_event(
+                        db,
+                        "security.mpin.locked",
+                        _service_subject_context(request_id, user["id"]),
+                        EventData(metadata={"result_code": "attempt_limit"}),
+                        idempotency_scope="security.mpin.unlock",
+                        idempotency_key=request_id,
+                    )
+                    return json_response(
+                        {
+                            "success": False,
+                            "code": "mpin_locked",
+                            "message": "MPIN is locked. Use password recovery.",
+                        },
+                        423,
+                    )
+                if outcome != "failed":
+                    raise RuntimeError("MPIN failure state changed unexpectedly.")
+                write_security_event(
+                    db,
+                    "security.mpin.unlock_failed",
+                    _service_subject_context(request_id, user["id"]),
+                    EventData(metadata={"result_code": "invalid_mpin"}),
+                    idempotency_scope="security.mpin.unlock",
+                    idempotency_key=request_id,
+                )
+                return json_response(
+                    {"success": False, "message": "Unable to unlock access."}, 401
+                )
+            if mpin_service.reset_failures(db, user["id"]) != 1:
+                raise RuntimeError("MPIN success could not reset its failure state.")
+            access_proof = rotate_access_proof(db, durable["session_id"])
+            write_security_event(
+                db,
+                "security.mpin.unlock_succeeded",
+                _auth_event_context(request_id, user=request.current_user),
+                EventData(),
+                idempotency_scope="security.mpin.unlock",
+                idempotency_key=request_id,
+            )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    except Exception:
+        current_app.logger.error("Secure MPIN unlock could not be committed.")
+        return _mpin_unavailable_response()
+    return set_access_proof_cookie(
+        json_response({"success": True, "message": "Access unlocked."}),
+        access_proof,
+    )
+
+
+@auth_blueprint.post("/mpin/password-unlock")
+@auth_blueprint.post("/access/unlock/password")
+@login_required(refresh_activity=False, allow_locked=True)
+def password_unlock():
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    identifier = data.get("identifier", data.get("loginId"))
+    if not _identifier_matches_current_user(request.current_user, identifier):
+        return _generic_reverification_response()
+    try:
+        if not _password_matches_current_user(
+            request.current_user, data.get("password")
+        ):
+            return _generic_reverification_response()
+    except PasswordProviderUnavailable:
+        return _generic_reverification_response(503)
+
+    access_proof = None
+    try:
+        with open_db() as db:
+            durable, user, device = _lock_current_authentication(db)
+            if not durable or not user or not device:
+                raise RuntimeError("Current authentication changed during password unlock.")
+            if not durable["access_locked"]:
+                return json_response(
+                    {"success": False, "message": "Access is already unlocked."}, 409
+                )
+            access_proof = rotate_access_proof(
+                db, durable["session_id"], password_verified=True
+            )
+    except Exception:
+        current_app.logger.error("Password access unlock could not be committed.")
+        return _generic_reverification_response(503)
+    return set_access_proof_cookie(
+        json_response({"success": True, "message": "Access unlocked."}),
+        access_proof,
+    )
+
+
+@auth_blueprint.post("/mpin/change")
+@login_required(refresh_activity=False)
+def mpin_change():
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    try:
+        current_mpin = mpin_service.validate_mpin(data.get("current_mpin"))
+        new_mpin = mpin_service.validate_mpin(data.get("new_mpin"))
+        mpin_service.validate_configuration()
+    except mpin_service.MpinError:
+        return json_response(
+            {"success": False, "field": "mpin", "message": "MPIN values must be exactly four ASCII digits."},
+            400,
+        )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    if not mpin_service.role_is_eligible(request.current_user.get("role")):
+        return json_response(
+            {"success": False, "message": "MPIN is not supported for this account."},
+            403,
+        )
+    request_id = f"mpin.{uuid.uuid4().hex}"
+    try:
+        with open_db() as db:
+            durable, user, device = _lock_current_authentication(db)
+            if not durable or not user or not device or durable["access_locked"]:
+                raise RuntimeError("Current authentication changed during MPIN change.")
+            credential = mpin_service.lock_credential(db, user["id"])
+            if (
+                not credential
+                or credential["permanently_locked"]
+                or not mpin_service.verify_mpin(current_mpin, credential)
+            ):
+                return json_response(
+                    {"success": False, "message": "Unable to verify current MPIN."}, 401
+                )
+            if not mpin_service.replace(db, user["id"], new_mpin):
+                raise RuntimeError("MPIN change lost its locked credential.")
+            write_security_event(
+                db,
+                "security.mpin.changed",
+                _auth_event_context(request_id, user=request.current_user),
+                EventData(),
+                idempotency_scope="security.mpin.changed",
+                idempotency_key=request_id,
+            )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    except Exception:
+        current_app.logger.error("Secure MPIN change could not be committed.")
+        return _mpin_unavailable_response()
+    return json_response({"success": True, "message": "MPIN changed."})
+
+
+@auth_blueprint.post("/mpin/disable")
+@login_required(refresh_activity=False)
+def mpin_disable():
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    try:
+        mpin_service.validate_configuration()
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+
+    password_verified = False
+    if data.get("password") is not None:
+        try:
+            password_verified = _password_matches_current_user(
+                request.current_user, data.get("password")
+            )
+        except PasswordProviderUnavailable:
+            return _generic_reverification_response(503)
+        if not password_verified:
+            return _generic_reverification_response()
+
+    request_id = f"mpin.{uuid.uuid4().hex}"
+    try:
+        with open_db() as db:
+            durable, user, device = _lock_current_authentication(db)
+            if not durable or not user or not device or durable["access_locked"]:
+                raise RuntimeError("Current authentication changed during MPIN disable.")
+            credential = mpin_service.lock_credential(db, user["id"])
+            if not credential:
+                return json_response({"success": True, "message": "MPIN disabled."})
+            if password_verified:
+                db.execute(
+                    "UPDATE user_sessions SET password_verified_at=now(), updated_at=now() WHERE session_id=%s",
+                    (durable["session_id"],),
+                )
+                authorized = True
+            else:
+                recent = db.execute(
+                    """
+                    SELECT password_verified_at IS NOT NULL
+                       AND password_verified_at > now() - interval '10 minutes' AS recent
+                      FROM user_sessions WHERE session_id=%s
+                    """,
+                    (durable["session_id"],),
+                ).fetchone()
+                authorized = bool(recent and recent["recent"])
+                if not authorized and data.get("current_mpin") is not None:
+                    try:
+                        current_mpin = mpin_service.validate_mpin(
+                            data.get("current_mpin")
+                        )
+                    except mpin_service.MpinError:
+                        current_mpin = None
+                    authorized = bool(
+                        current_mpin
+                        and not credential["permanently_locked"]
+                        and mpin_service.verify_mpin(current_mpin, credential)
+                    )
+            if not authorized:
+                return json_response(
+                    {"success": False, "message": "Unable to authorize MPIN disable."},
+                    401,
+                )
+            if mpin_service.disable(db, user["id"]) != 1:
+                raise RuntimeError("MPIN disable lost its locked credential.")
+            write_security_event(
+                db,
+                "security.mpin.disabled",
+                _auth_event_context(request_id, user=request.current_user),
+                EventData(),
+                idempotency_scope="security.mpin.disabled",
+                idempotency_key=request_id,
+            )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    except Exception:
+        current_app.logger.error("Secure MPIN disable could not be committed.")
+        return _mpin_unavailable_response()
+    return json_response({"success": True, "message": "MPIN disabled."})
+
+
+@auth_blueprint.post("/mpin/reset")
+@login_required(refresh_activity=False)
+def mpin_reset():
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    try:
+        new_mpin = mpin_service.validate_mpin(data.get("new_mpin"))
+        mpin_service.validate_configuration()
+    except mpin_service.MpinError:
+        return json_response(
+            {"success": False, "field": "mpin", "message": "MPIN must be exactly four ASCII digits."},
+            400,
+        )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    if not mpin_service.role_is_eligible(request.current_user.get("role")):
+        return json_response(
+            {"success": False, "message": "MPIN is not supported for this account."},
+            403,
+        )
+    try:
+        if not _password_matches_current_user(
+            request.current_user, data.get("password")
+        ):
+            return _generic_reverification_response()
+    except PasswordProviderUnavailable:
+        return _generic_reverification_response(503)
+
+    request_id = f"mpin.{uuid.uuid4().hex}"
+    try:
+        with open_db() as db:
+            durable, user, device = _lock_current_authentication(db)
+            if not durable or not user or not device:
+                raise RuntimeError("Current authentication changed during MPIN reset.")
+            mpin_service.lock_credential(db, user["id"])
+            if not mpin_service.reset_or_enroll(db, user["id"], new_mpin):
+                raise RuntimeError("MPIN reset lost its locked user.")
+            db.execute(
+                "UPDATE user_sessions SET password_verified_at=now(), updated_at=now() WHERE session_id=%s",
+                (durable["session_id"],),
+            )
+            write_security_event(
+                db,
+                "security.mpin.reset_completed",
+                _auth_event_context(request_id, user=request.current_user),
+                EventData(metadata={"result_code": "user_reauthentication"}),
+                idempotency_scope="security.mpin.reset_completed",
+                idempotency_key=request_id,
+            )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    except Exception:
+        current_app.logger.error("Secure MPIN reset could not be committed.")
+        return _mpin_unavailable_response()
+    return json_response({"success": True, "message": "MPIN reset completed."})

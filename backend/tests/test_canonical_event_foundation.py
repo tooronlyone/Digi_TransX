@@ -84,6 +84,7 @@ DEVICE_SESSION_MPIN_MIGRATION = (
 DURABLE_SESSION_MIGRATION = REPO_ROOT / "supabase/migrations/20260801150000_durable_server_session_foundation.sql"
 TRUSTED_DEVICE_MIGRATION = REPO_ROOT / "supabase/migrations/20260801160000_trusted_device_hardening.sql"
 DURABLE_RUNTIME_MIGRATION = REPO_ROOT / "supabase/migrations/20260801170000_durable_session_runtime_events.sql"
+SECURE_MPIN_MIGRATION = REPO_ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
 EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EVENT_TABLES = ("security_events", "business_audit_events")
 CATALOG_PROJECTION = "canonical_event_catalog_projection"
@@ -607,6 +608,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
     durable_session_sql = DURABLE_SESSION_MIGRATION.read_text(encoding="utf-8")
     trusted_device_sql = TRUSTED_DEVICE_MIGRATION.read_text(encoding="utf-8")
     durable_runtime_sql = DURABLE_RUNTIME_MIGRATION.read_text(encoding="utf-8")
+    secure_mpin_sql = SECURE_MPIN_MIGRATION.read_text(encoding="utf-8")
     baseline_sql = BASELINE_MIGRATION.read_text(encoding="utf-8")
     sequence_url, sequence_cleanup = _disposable(
         STUBS,
@@ -621,6 +623,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         durable_session_sql,
         trusted_device_sql,
         durable_runtime_sql,
+        secure_mpin_sql,
     )
     corrected_url, corrected_cleanup = _disposable(
         STUBS,
@@ -634,6 +637,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         durable_session_sql,
         trusted_device_sql,
         durable_runtime_sql,
+        secure_mpin_sql,
     )
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
@@ -874,7 +878,7 @@ def test_python_writer_rejects_every_unintegrated_writable_definition_before_sql
     unintegrated = [
         definition for definition in CATALOG.values() if definition.writable and not definition.integrated
     ]
-    assert len(unintegrated) == 144
+    assert len(unintegrated) == 136
     for definition in unintegrated:
         writer = (
             write_security_event
@@ -940,8 +944,8 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
         ),
         key=lambda definition: definition.name,
     )
-    assert len(integrated) == 12
-    assert len(unintegrated_writable) == 144
+    assert len(integrated) == 20
+    assert len(unintegrated_writable) == 136
     expected_security = sum(definition.category == SECURITY for definition in integrated)
     expected_business = sum(
         definition.category == BUSINESS_AUDIT for definition in integrated
@@ -964,23 +968,26 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
                 if correct_table == "security_events"
                 else "security_events"
             )
-            actor_kwargs = (
-                {
-                    "actor_type": "user", "actor_id": 1,
-                    "actor_role": "service_seeker", "subject_user_id": 1,
-                    "metadata": (
-                            '{"result_code":"full_login"}'
-                            if definition.name.endswith("rotated")
-                            else ('{"result_code":"security_action"}'
-                                  if definition.name.endswith("removed")
-                                  else ('{"result_code":"logout"}'
-                                        if definition.name == "security.session.revoked"
-                                        else '{}'))
-                    ),
-                }
-                    if definition.name.startswith("security.trusted_device.")
-                    or definition.name.startswith("security.session.") else {}
+            service_subject = definition.actor_policy == "service_subject"
+            authenticated = definition.actor_policy in {
+                "authenticated_self",
+                "authenticated_self_or_service",
+            }
+            actor_kwargs = {}
+            if service_subject:
+                actor_kwargs.update(actor_type="system", subject_user_id=1)
+            elif authenticated:
+                actor_kwargs.update(
+                    actor_type="user",
+                    actor_id=1,
+                    actor_role="service_seeker",
+                    subject_user_id=1,
                 )
+            if definition.name == "security.signup.failed":
+                actor_kwargs["metadata"] = '{"result_code":"validation_failed"}'
+            elif definition.allowed_result_codes:
+                result_code = sorted(definition.allowed_result_codes)[0]
+                actor_kwargs["metadata"] = '{"result_code":"' + result_code + '"}'
             _direct_insert(
                 cursor,
                 correct_table,
@@ -1376,4 +1383,4 @@ def test_only_the_bounded_auth_route_imports_or_emits_canonical_events():
         text = path.read_text(encoding="utf-8", errors="replace")
         if any(token in text for token in forbidden):
             matches.append(path.relative_to(REPO_ROOT).as_posix())
-    assert matches == ["backend/auth/routes.py"]
+    assert matches == ["backend/auth/helpers.py", "backend/auth/routes.py"]

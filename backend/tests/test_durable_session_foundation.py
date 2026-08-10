@@ -98,11 +98,19 @@ def test_service_hashes_tokens_and_is_the_only_runtime_route_owner(monkeypatch):
 
     executor = _Executor()
     monkeypatch.setattr(session_service, "generate_opaque_token", lambda: raw)
-    returned, session_id = session_service.create_session(executor, 7, trusted_device_id=9)
-    assert returned == raw and session_id == "session-id"
+    monkeypatch.setattr(session_service, "generate_access_proof", lambda: raw)
+    returned, access_proof, session_id = session_service.create_session(
+        executor, 7, trusted_device_id=9
+    )
+    assert returned == raw and access_proof == raw and session_id == "session-id"
     statement, values = executor.calls[0]
     assert raw not in statement and raw not in values
-    assert values == (7, hashlib.sha256(raw.encode()).digest(), 9)
+    assert values == (
+        7,
+        hashlib.sha256(raw.encode()).digest(),
+        9,
+        hashlib.sha256(raw.encode()).digest(),
+    )
 
     route_text = (REPO_ROOT / "backend" / "auth" / "routes.py").read_text(encoding="utf-8")
     helper_text = (REPO_ROOT / "backend" / "auth" / "helpers.py").read_text(encoding="utf-8")

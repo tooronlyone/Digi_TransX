@@ -501,6 +501,10 @@ def _create_cluster_roles_if_missing(conn, roles):
                 cur.execute("select 1 from pg_roles where rolname = %s", (role,))
                 if not cur.fetchone():
                     cur.execute(f"create role {role} nologin")
+                    # PostgreSQL 16 separates role administration from SET
+                    # membership.  Grant the isolated NOSUPERUSER test runner
+                    # membership so it can exercise and clean up this role.
+                    cur.execute(f"grant {role} to current_user")
                     created.append(role)
         finally:
             cur.execute("select pg_advisory_unlock(%s)", (ROLE_LOCK_KEY,))
@@ -550,6 +554,7 @@ def test_preexisting_roles_survive_migration_test_unchanged(migration_db):
                 sentinel_exists = cur.fetchone() is not None
                 if not sentinel_exists:
                     cur.execute(f"create role {sentinel} login")
+                    cur.execute(f"grant {sentinel} to current_user")
             finally:
                 cur.execute("select pg_advisory_unlock(%s)", (ROLE_LOCK_KEY,))
         if sentinel_exists:

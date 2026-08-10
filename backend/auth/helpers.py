@@ -3,6 +3,7 @@ import os
 import re
 import secrets
 import smtplib
+import uuid
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
@@ -13,21 +14,34 @@ from werkzeug.security import check_password_hash, generate_password_hash
 
 from shared.db import open_db
 from shared.roles import BUSINESS_CLIENT_ROLES, EVERYDAY_ROLES
-from auth.session_service import ABSOLUTE_LIFETIME_DAYS, find_session_by_token
+from auth.session_service import (
+    ABSOLUTE_LIFETIME_DAYS,
+    access_lock_reference,
+    find_session_by_token,
+    lock_access_once,
+    lock_session_user_and_device,
+)
 from auth.trusted_device_service import digest_token, trusted_device_lifetime_days
+from events.contract import EventContext, EventData
+from events.writer import write_security_event
 
 
 EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
 CNIC_REGEX = re.compile(r"^\d{13}$")
 PHONE_DIGIT_REGEX = re.compile(r"^\d{10,15}$")
 OTP_REGEX = re.compile(r"^\d{6}$")
-MPIN_REGEX = re.compile(r"^\d{4}$")
+MPIN_REGEX = re.compile(r"^[0-9]{4}$", re.ASCII)
 LOGIN_COOLDOWN_MINUTES = 15
 OTP_EXPIRY_MINUTES = 10
 OTP_ATTEMPT_LIMIT = 5
 RESET_TOKEN_EXPIRY_MINUTES = 10
 DEVICE_COOKIE_NAME = "dtx_device_token"
 SESSION_TOKEN_COOKIE_NAME = "dtx_session_token"
+ACCESS_PROOF_COOKIE_NAME = "dtx_access_proof"
+
+
+class _AccessLockPersistenceError(RuntimeError):
+    pass
 
 
 def now_local():
@@ -298,7 +312,11 @@ def serialize_user(user):
 def _clear_local_authentication(response):
     if current_app.secret_key:
         session.clear()
-    for cookie_name in (SESSION_TOKEN_COOKIE_NAME, DEVICE_COOKIE_NAME):
+    for cookie_name in (
+        SESSION_TOKEN_COOKIE_NAME,
+        DEVICE_COOKIE_NAME,
+        ACCESS_PROOF_COOKIE_NAME,
+    ):
         response.delete_cookie(
             cookie_name,
             httponly=True,
@@ -315,7 +333,31 @@ def _authentication_error():
     )
 
 
-def login_required(view=None, *, refresh_activity=True):
+def clear_access_proof_cookie(response):
+    response.delete_cookie(
+        ACCESS_PROOF_COOKIE_NAME,
+        httponly=True,
+        samesite="Lax",
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        path="/",
+    )
+    return response
+
+
+def _access_locked_response():
+    return clear_access_proof_cookie(
+        json_response(
+            {
+                "success": False,
+                "code": "access_locked",
+                "message": "Access is locked.",
+            },
+            423,
+        )
+    )
+
+
+def login_required(view=None, *, refresh_activity=True, allow_locked=False):
     """Require a valid durable session bound to its exact active device.
 
     The signed Flask cookie is presentation/CSRF state only. ``refresh_activity``
@@ -328,24 +370,77 @@ def login_required(view=None, *, refresh_activity=True):
         def wrapped(*args, **kwargs):
             raw_session = request.cookies.get(SESSION_TOKEN_COOKIE_NAME, "")
             raw_device = request.cookies.get(DEVICE_COOKIE_NAME, "")
+            raw_access_proof = request.cookies.get(ACCESS_PROOF_COOKIE_NAME, "")
             if not raw_session or not raw_device:
                 return _authentication_error()
             try:
                 device_digest = digest_token(raw_device)
                 with open_db() as db:
-                    durable = find_session_by_token(db, raw_session, device_digest)
+                    durable = find_session_by_token(
+                        db,
+                        raw_session,
+                        device_digest,
+                        raw_access_proof=raw_access_proof,
+                    )
                     user = (
                         get_user_by_id_with_executor(db, durable["user_id"])
                         if durable else None
                     )
+                    if durable and user and not durable["access_proof_valid"]:
+                        try:
+                            locked_session, locked_user, locked_device = (
+                                lock_session_user_and_device(
+                                    db,
+                                    durable["session_id"],
+                                    durable["user_id"],
+                                    device_digest,
+                                )
+                            )
+                            if not locked_session or not locked_user or not locked_device:
+                                durable = None
+                                user = None
+                            elif lock_access_once(db, durable["session_id"]) == 1:
+                                lock_reference = access_lock_reference(
+                                    durable["session_id"]
+                                )
+                                request_id = f"access.lock.{lock_reference}"
+                                write_security_event(
+                                    db,
+                                    "security.session.access_locked",
+                                    EventContext(
+                                        request_id=request_id,
+                                        source="server_route",
+                                        actor_type="system",
+                                        subject_user_id=durable["user_id"],
+                                    ),
+                                    EventData(metadata={"result_code": "app_launch"}),
+                                    idempotency_scope="security.session.access_locked",
+                                    idempotency_key=request_id,
+                                )
+                            if durable:
+                                durable["access_locked"] = True
+                                durable["access_proof_valid"] = False
+                        except Exception:
+                            raise _AccessLockPersistenceError from None
+            except _AccessLockPersistenceError:
+                current_app.logger.error("Software access lock could not be committed.")
+                return clear_access_proof_cookie(
+                    json_response(
+                        {"success": False, "message": "Access service is temporarily unavailable."},
+                        503,
+                    )
+                )
             except Exception:
                 return _authentication_error()
             if not durable or not user:
                 return _authentication_error()
-            if refresh_activity:
-                session["last_active_at"] = timestamp_bundle()["display"]
             request.current_user = user
             request.current_session = durable
+            if durable["access_locked"] or not durable["access_proof_valid"]:
+                if not allow_locked:
+                    return _access_locked_response()
+            elif refresh_activity:
+                session["last_active_at"] = timestamp_bundle()["display"]
             return target(*args, **kwargs)
 
         return wrapped
@@ -400,9 +495,13 @@ def record_login_activity(
         db.commit()
 
 
-def build_auth_success_response(user, *, device_token=None, session_token=None):
-    if device_token is None or session_token is None:
-        raise RuntimeError("Device and durable-session persistence must complete before response.")
+def build_auth_success_response(
+    user, *, device_token=None, session_token=None, access_proof=None
+):
+    if device_token is None or session_token is None or access_proof is None:
+        raise RuntimeError(
+            "Device, durable session and access proof must complete before response."
+        )
     session.clear()
     session["csrf_token"] = secrets.token_urlsafe(24)
     session["last_active_at"] = timestamp_bundle()["display"]
@@ -430,6 +529,22 @@ def build_auth_success_response(user, *, device_token=None, session_token=None):
         samesite="Lax",
         secure=current_app.config["SESSION_COOKIE_SECURE"],
         max_age=60 * 60 * 24 * ABSOLUTE_LIFETIME_DAYS,
+        path="/",
+    )
+    return set_access_proof_cookie(response, access_proof)
+
+
+def set_access_proof_cookie(response, raw_proof):
+    """Issue a non-persistent HttpOnly access proof after caller commit."""
+
+    if not isinstance(raw_proof, str) or not raw_proof:
+        raise RuntimeError("A committed access proof is required.")
+    response.set_cookie(
+        ACCESS_PROOF_COOKIE_NAME,
+        raw_proof,
+        httponly=True,
+        samesite="Lax",
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
         path="/",
     )
     return response

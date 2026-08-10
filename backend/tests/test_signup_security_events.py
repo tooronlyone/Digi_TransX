@@ -40,11 +40,15 @@ INTEGRATED = {
     "security.trusted_device.added", "security.trusted_device.removed",
     "security.trusted_device.rotated",
     "security.session.issued", "security.session.revoked",
+    "security.session.access_locked",
+    "security.mpin.enrolled", "security.mpin.changed", "security.mpin.disabled",
+    "security.mpin.unlock_succeeded", "security.mpin.unlock_failed",
+    "security.mpin.locked", "security.mpin.reset_completed",
 }
-HISTORICAL_SIGNUP_INTEGRATED = INTEGRATED - {
-    "security.trusted_device.added", "security.trusted_device.removed",
-    "security.trusted_device.rotated", "security.session.issued",
-    "security.session.revoked",
+HISTORICAL_SIGNUP_INTEGRATED = {
+    "security.login.started", "security.login.failed", "security.login.succeeded",
+    "security.logout.completed", "security.signup.started", "security.signup.failed",
+    "security.signup.completed",
 }
 
 
@@ -170,6 +174,11 @@ def test_successful_signup_commits_public_evidence_before_session(signup_client,
     assert len(_rows(url, "login_activity")) == len(_rows(url, "trusted_devices")) == 1
     assert "dtx_device_token=" in response.headers.get("Set-Cookie", "")
     assert "dtx_session_token=" in "\n".join(response.headers.getlist("Set-Cookie"))
+    proof = next(
+        value for value in response.headers.getlist("Set-Cookie")
+        if value.startswith("dtx_access_proof=")
+    )
+    assert "HttpOnly" in proof and "Max-Age" not in proof and "Expires" not in proof
 
 
 def test_validation_and_provider_conflict_are_anonymous_terminal_denials(signup_client, monkeypatch):
@@ -350,9 +359,9 @@ def test_signup_catalog_totals_and_contracts_are_locked():
     assert sum(definition.lifecycle_status == "planned" for definition in CATALOG.values()) == 162
     assert sum(definition.lifecycle_status == "deferred" for definition in CATALOG.values()) == 8
     assert sum(definition.writable for definition in CATALOG.values()) == 156
-    assert sum(definition.integrated for definition in CATALOG.values()) == 12
-    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 150
-    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 144
+    assert sum(definition.integrated for definition in CATALOG.values()) == 20
+    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 142
+    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 136
 
 
 def test_signup_provider_classification_uses_only_structured_status_and_code(monkeypatch):

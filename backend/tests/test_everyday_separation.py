@@ -195,7 +195,11 @@ def _signup(client, monkeypatch, role, email, extra=None):
     monkeypatch.setattr(auth_routes, "write_security_event", lambda *_args, **_kwargs: None)
     monkeypatch.setattr(auth_routes, "record_login_activity", lambda *a, **k: None)
     monkeypatch.setattr(auth_routes, "establish_after_full_login", lambda *_args, **_kwargs: ("test-device", 1, "security.trusted_device.added"))
-    monkeypatch.setattr(auth_routes, "create_session", lambda *_args, **_kwargs: ("test-session", "session-id"))
+    monkeypatch.setattr(
+        auth_routes,
+        "create_session",
+        lambda *_args, **_kwargs: ("test-session", "test-access-proof", "session-id"),
+    )
     # The profile row is committed before the auth response is built; stub the
     # session/trusted-device machinery so the test stays focused on the profile.
     from auth.helpers import json_response as _jr

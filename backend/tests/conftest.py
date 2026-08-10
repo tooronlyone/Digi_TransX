@@ -174,6 +174,9 @@ create table user_sessions (
     absolute_expires_at     timestamptz not null,
     access_locked           boolean not null default false,
     access_locked_at        timestamptz,
+    access_proof_digest     bytea,
+    access_proof_expires_at timestamptz,
+    password_verified_at    timestamptz,
     revoked_at              timestamptz,
     revocation_reason       text,
     updated_at              timestamptz not null default now(),
@@ -890,6 +893,7 @@ def client(app_env):
         )
         device_token = secrets.token_urlsafe(32)
         session_token = secrets.token_urlsafe(32)
+        access_proof = secrets.token_urlsafe(32)
         device = db.execute(
             "insert into trusted_devices(token_digest,user_id,expires_at) "
             "values(%s,%s,now()+interval '30 days') returning id",
@@ -897,13 +901,21 @@ def client(app_env):
         ).fetchone()
         db.execute(
             "insert into user_sessions(user_id,token_digest,trusted_device_id,"
-            "inactivity_expires_at,absolute_expires_at) values "
-            "(%s,%s,%s,now()+interval '7 days',now()+interval '30 days')",
-            (user["id"], hashlib.sha256(session_token.encode()).digest(), device["id"]),
+            "inactivity_expires_at,absolute_expires_at,access_proof_digest,"
+            "access_proof_expires_at) values "
+            "(%s,%s,%s,now()+interval '7 days',now()+interval '30 days',"
+            "%s,now()+interval '8 hours')",
+            (
+                user["id"],
+                hashlib.sha256(session_token.encode()).digest(),
+                device["id"],
+                hashlib.sha256(access_proof.encode()).digest(),
+            ),
         )
         db.commit()
         test_client.set_cookie("dtx_device_token", device_token)
         test_client.set_cookie("dtx_session_token", session_token)
+        test_client.set_cookie("dtx_access_proof", access_proof)
         with test_client.session_transaction() as sess:
             sess["csrf_token"] = "test-csrf-token"
 

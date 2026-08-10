@@ -45,7 +45,10 @@ def tracking_env(monkeypatch):
     def fake_auth_open_db():
         yield fake_db
     monkeypatch.setattr(auth_helpers, "open_db", fake_auth_open_db)
-    monkeypatch.setattr(auth_helpers, "find_session_by_token", lambda *_a, **_k: {"session_id": "tracking-session", "user_id": 42})
+    monkeypatch.setattr(auth_helpers, "find_session_by_token", lambda *_a, **_k: {
+        "session_id": "tracking-session", "user_id": 42,
+        "access_locked": False, "access_proof_valid": True,
+    })
     monkeypatch.setattr(
         auth_helpers,
         "get_user_by_id_with_executor",
@@ -99,7 +102,10 @@ def postgres_tracking_env(db, pg_session_info, monkeypatch):
 
     monkeypatch.setattr(tracking_routes, "open_db", test_open_db)
     monkeypatch.setattr(auth_helpers, "open_db", test_open_db)
-    monkeypatch.setattr(auth_helpers, "find_session_by_token", lambda *_a, **_k: {"session_id": "tracking-session", "user_id": 42})
+    monkeypatch.setattr(auth_helpers, "find_session_by_token", lambda *_a, **_k: {
+        "session_id": "tracking-session", "user_id": 42,
+        "access_locked": False, "access_proof_valid": True,
+    })
     monkeypatch.setattr(
         auth_helpers,
         "get_user_by_id_with_executor",
@@ -195,7 +201,10 @@ def test_default_login_required_still_refreshes_genuine_user_activity(monkeypatc
     def fake_open_db():
         yield object()
     monkeypatch.setattr(auth_helpers, "open_db", fake_open_db)
-    monkeypatch.setattr(auth_helpers, "find_session_by_token", lambda *_a, **_k: {"session_id": "tracking-session", "user_id": 42})
+    monkeypatch.setattr(auth_helpers, "find_session_by_token", lambda *_a, **_k: {
+        "session_id": "tracking-session", "user_id": 42,
+        "access_locked": False, "access_proof_valid": True,
+    })
     monkeypatch.setattr(auth_helpers, "get_user_by_id_with_executor", lambda _db, user_id: {"id": 42, "role": "client"} if str(user_id) == "42" else None)
     app = Flask(__name__)
     app.config.update(SECRET_KEY="login-required-regression-test", TESTING=True)

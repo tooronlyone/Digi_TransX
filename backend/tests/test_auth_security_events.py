@@ -162,6 +162,7 @@ def _event_rows(url):
 def _authenticate_client(client, url, user_id, csrf="csrf-test"):
     device_raw = secrets.token_urlsafe(32)
     session_raw = secrets.token_urlsafe(32)
+    access_proof = secrets.token_urlsafe(32)
     conn = psycopg2.connect(url)
     try:
         with conn:
@@ -174,16 +175,24 @@ def _authenticate_client(client, url, user_id, csrf="csrf-test"):
                 device_id = cursor.fetchone()[0]
                 cursor.execute(
                     "insert into public.user_sessions(user_id,token_digest,trusted_device_id,"
-                    "inactivity_expires_at,absolute_expires_at) values "
-                    "(%s,%s,%s,now()+interval '7 days',now()+interval '30 days') "
+                    "inactivity_expires_at,absolute_expires_at,access_proof_digest,"
+                    "access_proof_expires_at) values "
+                    "(%s,%s,%s,now()+interval '7 days',now()+interval '30 days',"
+                    "%s,now()+interval '8 hours') "
                     "returning session_id",
-                    (user_id, hashlib.sha256(session_raw.encode()).digest(), device_id),
+                    (
+                        user_id,
+                        hashlib.sha256(session_raw.encode()).digest(),
+                        device_id,
+                        hashlib.sha256(access_proof.encode()).digest(),
+                    ),
                 )
                 session_id = cursor.fetchone()[0]
     finally:
         conn.close()
     client.set_cookie("dtx_device_token", device_raw)
     client.set_cookie("dtx_session_token", session_raw)
+    client.set_cookie("dtx_access_proof", access_proof)
     with client.session_transaction() as state:
         state["csrf_token"] = csrf
     return device_raw, session_raw, device_id, session_id
@@ -199,11 +208,19 @@ def test_catalog_preserves_login_events_and_adds_only_bounded_signup_events():
         "security.trusted_device.rotated",
         "security.session.issued",
         "security.session.revoked",
+        "security.session.access_locked",
+        "security.mpin.enrolled",
+        "security.mpin.changed",
+        "security.mpin.disabled",
+        "security.mpin.unlock_succeeded",
+        "security.mpin.unlock_failed",
+        "security.mpin.locked",
+        "security.mpin.reset_completed",
     }
     assert set(INTEGRATED_EVENT_NAMES) == expected
     assert {name for name, item in CATALOG.items() if item.integrated} == expected
-    assert sum(item.integrated for item in CATALOG.values()) == 12
-    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 150
+    assert sum(item.integrated for item in CATALOG.values()) == 20
+    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 142
     assert sum(item.lifecycle_status == "deferred" and not item.integrated for item in CATALOG.values()) == 8
 
 
@@ -217,6 +234,13 @@ def test_valid_password_login_emits_started_and_succeeded_atomically(auth_client
     )
     assert response.status_code == 200
     assert set(response.get_json()) == {"success", "user", "csrf_token", "redirect", "session"}
+    proof_headers = [
+        value for value in response.headers.getlist("Set-Cookie")
+        if value.startswith("dtx_access_proof=")
+    ]
+    assert len(proof_headers) == 1
+    assert "HttpOnly" in proof_headers[0] and "SameSite=Lax" in proof_headers[0]
+    assert "Max-Age" not in proof_headers[0] and "Expires" not in proof_headers[0]
     events = _event_rows(url)
     assert [event["event_name"] for event in events] == [
         "security.login.started",
@@ -293,6 +317,11 @@ def test_login_started_failure_prevents_provider_and_session(auth_client, monkey
     assert _event_rows(url) == []
     assert _rows(url, "login_activity") == []
     assert _rows(url, "trusted_devices") == []
+    assert _rows(url, "user_sessions") == []
+    assert not any(
+        value.startswith("dtx_access_proof=")
+        for value in response.headers.getlist("Set-Cookie")
+    )
     assert _rows(url, "users")[0]["last_login_at"] is None
 
 
@@ -633,7 +662,8 @@ def test_durable_session_and_exact_device_are_the_only_runtime_authority(auth_cl
         "authenticated_at=now()-interval '40 days', "
         "last_genuine_activity_at=now()-interval '31 days', "
         "inactivity_expires_at=now()-interval '24 days', "
-        "absolute_expires_at=now()-interval '1 second'",
+        "absolute_expires_at=now()-interval '1 second', "
+        "access_proof_digest=null, access_proof_expires_at=null",
         "update trusted_devices set revoked_at=now()",
         "update trusted_devices set created_at=now()-interval '31 days', "
         "expires_at=now()-interval '1 second'",

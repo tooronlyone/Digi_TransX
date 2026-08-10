@@ -1079,6 +1079,9 @@ create table public.user_sessions (
     revocation_reason text,
     token_version integer not null default 1,
     token_rotated_at timestamptz,
+    access_proof_digest bytea,
+    access_proof_expires_at timestamptz,
+    password_verified_at timestamptz,
     updated_at timestamptz not null default now(),
     constraint user_sessions_user_fk foreign key (user_id)
         references public.users (id),
@@ -1087,7 +1090,11 @@ create table public.user_sessions (
         references public.trusted_devices (id, user_id)
         on delete set null (trusted_device_id),
     constraint user_sessions_token_digest_unique unique (token_digest),
+    constraint user_sessions_access_proof_digest_unique unique (access_proof_digest),
     constraint user_sessions_token_digest_shape check (octet_length(token_digest) = 32),
+    constraint user_sessions_access_proof_shape check (
+        access_proof_digest is null or octet_length(access_proof_digest) = 32
+    ),
     constraint user_sessions_timestamp_order check (
         created_at <= authenticated_at
         and authenticated_at <= last_genuine_activity_at
@@ -1096,8 +1103,21 @@ create table public.user_sessions (
         and updated_at >= created_at
     ),
     constraint user_sessions_access_lock_state check (
-        (access_locked and access_locked_at is not null)
+        (access_locked and access_locked_at is not null
+            and access_proof_digest is null and access_proof_expires_at is null)
         or (not access_locked and access_locked_at is null)
+    ),
+    constraint user_sessions_access_proof_state check (
+        (access_proof_digest is null) = (access_proof_expires_at is null)
+        and (not access_locked or access_proof_digest is null)
+        and (access_proof_expires_at is null
+             or (access_proof_expires_at > authenticated_at
+                 and access_proof_expires_at <= absolute_expires_at))
+    ),
+    constraint user_sessions_password_verification_state check (
+        password_verified_at is null
+        or (password_verified_at >= authenticated_at
+            and password_verified_at <= updated_at)
     ),
     constraint user_sessions_revocation_state check (
         (revoked_at is null and revocation_reason is null)
@@ -1112,6 +1132,30 @@ create table public.user_sessions (
         and ((token_version = 1 and token_rotated_at is null)
           or (token_version > 1 and token_rotated_at is not null
               and token_rotated_at >= authenticated_at))
+    )
+);
+
+create table public.mpin_credentials (
+    user_id bigint primary key references public.users (id),
+    verifier bytea not null,
+    salt bytea not null,
+    kdf_version smallint not null,
+    failed_attempts smallint not null default 0,
+    permanently_locked boolean not null default false,
+    locked_at timestamptz,
+    created_at timestamptz not null default now(),
+    updated_at timestamptz not null default now(),
+    constraint mpin_credentials_salt_unique unique (salt),
+    constraint mpin_credentials_verifier_shape check (octet_length(verifier) = 32),
+    constraint mpin_credentials_salt_shape check (octet_length(salt) = 32),
+    constraint mpin_credentials_kdf_version check (kdf_version = 1),
+    constraint mpin_credentials_attempts check (failed_attempts between 0 and 5),
+    constraint mpin_credentials_lock_state check (
+        (permanently_locked and failed_attempts = 5 and locked_at is not null)
+        or (not permanently_locked and failed_attempts between 0 and 4 and locked_at is null)
+    ),
+    constraint mpin_credentials_timestamp_order check (
+        created_at <= updated_at and (locked_at is null or locked_at >= created_at)
     )
 );
 
@@ -1745,6 +1789,11 @@ create policy user_sessions_service_role_all on public.user_sessions
     for all to service_role using (true) with check (true);
 revoke all privileges on table public.user_sessions from public, anon, authenticated, service_role;
 grant select, insert, update on table public.user_sessions to service_role;
+alter table public.mpin_credentials enable row level security;
+create policy mpin_credentials_service_role_all on public.mpin_credentials
+    for all to service_role using (true) with check (true);
+revoke all privileges on table public.mpin_credentials from public, anon, authenticated, service_role;
+grant select, insert, update, delete on table public.mpin_credentials to service_role;
 create policy action_logs_own_insert on public.user_action_logs
     for insert with check (true);
 
@@ -2272,15 +2321,15 @@ insert into public.canonical_event_catalog_projection (
     lifecycle_status, writable, integrated, event_contract
 ) values
     ('security.session.issued', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
-    ('security.session.access_locked', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["app_launch","idle_lock","security_action"]}'::jsonb),
+    ('security.session.access_locked', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["app_launch","idle_lock","security_action"]}'::jsonb),
     ('security.trusted_device.rotated', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self_or_service","allowed_metadata_keys":["result_code"],"allowed_result_codes":["full_login","scheduled_rotation","security_action"]}'::jsonb),
-    ('security.mpin.enrolled', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
-    ('security.mpin.changed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
-    ('security.mpin.disabled', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
-    ('security.mpin.unlock_succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
-    ('security.mpin.unlock_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["invalid_mpin","rate_limited"]}'::jsonb),
-    ('security.mpin.locked', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["attempt_limit","security_action"]}'::jsonb),
-    ('security.mpin.reset_completed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["result_code"],"allowed_result_codes":["security_recovery","user_reauthentication"]}'::jsonb),
+    ('security.mpin.enrolled', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.changed', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.disabled', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.unlock_succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.unlock_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["invalid_mpin","rate_limited"]}'::jsonb),
+    ('security.mpin.locked', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["attempt_limit","security_action"]}'::jsonb),
+    ('security.mpin.reset_completed', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["result_code"],"allowed_result_codes":["security_recovery","user_reauthentication"]}'::jsonb),
     ('security.mpin.step_up_succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
     ('security.mpin.step_up_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["challenge_expired","challenge_mismatch","invalid_mpin","rate_limited"]}'::jsonb)
 on conflict (event_name) do nothing;

@@ -31,6 +31,9 @@ app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
 app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") == "production"
 
 app.register_blueprint(auth_blueprint)
+# Preserve the established /auth contract while exposing the bounded API
+# namespace used by the secure MPIN backend contract.
+app.register_blueprint(auth_blueprint, url_prefix="/api/auth", name="api_auth")
 app.register_blueprint(admin_blueprint)
 app.register_blueprint(agreements_blueprint)
 app.register_blueprint(chat_blueprint)

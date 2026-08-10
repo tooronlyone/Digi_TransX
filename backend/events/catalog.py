@@ -232,6 +232,14 @@ INTEGRATED_EVENT_NAMES = frozenset(
         "security.trusted_device.rotated",
         "security.session.issued",
         "security.session.revoked",
+        "security.session.access_locked",
+        "security.mpin.enrolled",
+        "security.mpin.changed",
+        "security.mpin.disabled",
+        "security.mpin.unlock_succeeded",
+        "security.mpin.unlock_failed",
+        "security.mpin.locked",
+        "security.mpin.reset_completed",
     }
 )
 
