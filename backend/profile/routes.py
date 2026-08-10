@@ -1,4 +1,4 @@
-from flask import Blueprint, request
+from flask import Blueprint, current_app, request
 from werkzeug.security import generate_password_hash
 
 from auth.helpers import (
@@ -84,8 +84,12 @@ def request_password_change_otp():
                 f"This code will expire in {OTP_EXPIRY_MINUTES} minutes.",
             ],
         )
-    except Exception as exc:
-        return json_response({"success": False, "message": f"Unable to send OTP email: {exc}"}, 500)
+    except Exception:
+        current_app.logger.error("Password-change OTP email delivery failed.")
+        return json_response(
+            {"success": False, "message": "Unable to send the password-change code."},
+            503,
+        )
     create_otp_record(request.current_user["id"], "password_change", otp_code, request.current_user["email"])
     return json_response({"success": True, "message": "OTP sent to your registered email."})
 
@@ -113,8 +117,15 @@ def change_password():
     from shared.supabase_client import supabase_update_password
     try:
         supabase_update_password(auth_id, new_password)
-    except Exception as exc:
-        return json_response({"success": False, "message": f"Could not update password: {exc}"}, 500)
+    except Exception:
+        current_app.logger.error("Auth provider password change failed.")
+        return json_response(
+            {
+                "success": False,
+                "message": "Password change could not be completed. Request a new code.",
+            },
+            503,
+        )
     with open_db() as db:
         db.execute("UPDATE users SET updated_at = %s WHERE id = %s", (stamp["iso"], request.current_user["id"]))
         db.commit()

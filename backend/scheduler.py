@@ -91,8 +91,8 @@ def run_process_payments():
         with open_db() as db:
             result = process_due_payments(db)
         logger.info(f"[Scheduler] process_payments: {result}")
-    except Exception as exc:
-        logger.error(f"[Scheduler] process_payments error: {exc}")
+    except Exception:
+        logger.error("[Scheduler] process_payments failed")
 
 
 def run_apply_penalties():
@@ -104,8 +104,8 @@ def run_apply_penalties():
         with open_db() as db:
             result = apply_overdue_penalties(db)
         logger.info(f"[Scheduler] apply_penalties: {result}")
-    except Exception as exc:
-        logger.error(f"[Scheduler] apply_penalties error: {exc}")
+    except Exception:
+        logger.error("[Scheduler] apply_penalties failed")
 
 
 def run_process_overdue_confirmations():
@@ -121,9 +121,13 @@ def run_process_overdue_confirmations():
             db.commit()
         logger.info(f"[Scheduler] process_overdue_confirmations: {result}")
         return result
-    except Exception as exc:
-        logger.error(f"[Scheduler] process_overdue_confirmations error: {exc}")
-        return {"processed_count": 0, "processed_trip_ids": [], "error": str(exc)}
+    except Exception:
+        logger.error("[Scheduler] process_overdue_confirmations failed")
+        return {
+            "processed_count": 0,
+            "processed_trip_ids": [],
+            "error": "processing_failed",
+        }
 
 
 def start_scheduler(force=False):

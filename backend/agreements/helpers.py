@@ -367,9 +367,9 @@ def process_payment_row(db, payment):
 
 
 def run_process_payments(db):
-    """Process every pending payment due today or earlier. Commits.
+    """Process every pending payment due today or earlier.
 
-    Returns {"processed": int, "failed": int}.
+    The caller owns the transaction. Returns processed/failed counts.
     """
     today = date.today().isoformat()
     processed = 0
@@ -384,14 +384,13 @@ def run_process_payments(db):
             processed += 1
         else:
             failed += 1
-    db.commit()
     return {"processed": processed, "failed": failed}
 
 
 def run_apply_penalties(db):
-    """Apply the late penalty to every overdue failed payment, then retry it. Commits.
+    """Apply the late penalty to every overdue failed payment, then retry it.
 
-    Returns {"penalties_applied": int}.
+    The caller owns the transaction. Returns the applied count.
     """
     today = date.today().isoformat()
     penalties_applied = 0
@@ -439,5 +438,4 @@ def run_apply_penalties(db):
         ).fetchone()
         if refreshed:
             process_payment_row(db, dict(refreshed))
-    db.commit()
     return {"penalties_applied": penalties_applied}

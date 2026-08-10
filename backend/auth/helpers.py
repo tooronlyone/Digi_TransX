@@ -3,10 +3,10 @@ import os
 import re
 import secrets
 import smtplib
-import uuid
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
+from hashlib import sha256
 
 from flask import current_app, jsonify, request, session
 from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
@@ -266,10 +266,13 @@ def get_user_by_id(user_id):
         return _attach_role_profile(db, _with_legacy_role(dict(row)))
 
 
-def get_user_by_id_with_executor(executor, user_id):
+def get_user_by_id_with_executor(executor, user_id, *, lock=False):
     """Load current server-owned identity using the authentication transaction."""
 
-    row = executor.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
+    row = executor.execute(
+        "SELECT * FROM users WHERE id = %s" + (" FOR UPDATE" if lock else ""),
+        (user_id,),
+    ).fetchone()
     if not row:
         return None
     return _attach_role_profile(executor, _with_legacy_role(dict(row)))
@@ -609,51 +612,117 @@ def get_serializer():
     return URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
 
 
-def create_reset_token(user_id, purpose):
-    raw_token = get_serializer().dumps({"user_id": user_id, "purpose": purpose, "nonce": secrets.token_urlsafe(16)})
+def _reset_token_digest(raw_token):
+    return sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def _new_reset_token(user_id, purpose):
+    return get_serializer().dumps(
+        {
+            "user_id": user_id,
+            "purpose": purpose,
+            "nonce": secrets.token_urlsafe(32),
+        }
+    )
+
+
+def _insert_reset_token(executor, user_id, purpose, raw_token):
     stamp = timestamp_bundle()
-    with open_db() as db:
-        db.execute(
-            """
-            INSERT INTO reset_tokens (user_id, purpose, token_hash, expires_at_iso, created_at_iso, used)
-            VALUES (%s, %s, %s, %s, %s, 0)
-            """,
-            (
-                user_id,
-                purpose,
-                generate_password_hash(raw_token),
-                add_minutes(stamp["iso"], RESET_TOKEN_EXPIRY_MINUTES),
-                stamp["iso"],
-            ),
-        )
-        db.commit()
-    return raw_token
+    executor.execute(
+        """
+        INSERT INTO reset_tokens (
+            user_id, purpose, token_hash, expires_at_iso, created_at_iso,
+            used, claim_state
+        ) VALUES (%s, %s, %s, %s, %s, 0, 'available')
+        """,
+        (
+            user_id,
+            purpose,
+            _reset_token_digest(raw_token),
+            add_minutes(stamp["iso"], RESET_TOKEN_EXPIRY_MINUTES),
+            stamp["iso"],
+        ),
+    )
 
 
-def find_valid_reset_token(raw_token, purpose):
+def claim_reset_token(raw_token, purpose):
+    """Atomically claim one high-entropy reset authorization before provider I/O."""
+
+    if not isinstance(raw_token, str) or not raw_token:
+        return None, None, "Invalid reset token."
     try:
         payload = get_serializer().loads(raw_token, max_age=RESET_TOKEN_EXPIRY_MINUTES * 60)
     except SignatureExpired:
-        return None, "Reset token expired."
+        return None, None, "Reset token expired."
     except BadSignature:
-        return None, "Invalid reset token."
+        return None, None, "Invalid reset token."
+    if payload.get("purpose") != purpose:
+        return None, None, "Invalid reset token."
     user_id = payload.get("user_id")
+    claim_secret = secrets.token_urlsafe(32)
+    claim_digest = sha256(claim_secret.encode("utf-8")).digest()
     with open_db() as db:
-        rows = db.execute(
+        row = db.execute(
             """
-            SELECT * FROM reset_tokens
-            WHERE user_id = %s AND purpose = %s AND used = 0
-            ORDER BY id DESC
+            SELECT rt.*, u.auth_id
+              FROM reset_tokens rt
+              JOIN users u ON u.id = rt.user_id
+             WHERE rt.user_id = %s AND rt.purpose = %s
+               AND rt.token_hash = %s
+               AND rt.used = 0 AND rt.claim_state = 'available'
+             FOR UPDATE OF rt
             """,
-            (user_id, purpose),
-        ).fetchall()
-    for row in rows:
-        token_record = dict(row)
-        if not is_future(token_record["expires_at_iso"]):
-            continue
-        if check_password_hash(token_record["token_hash"], raw_token):
-            return token_record, ""
-    return None, "Reset token is no longer valid."
+            (user_id, purpose, _reset_token_digest(raw_token)),
+        ).fetchone()
+        if not row or not is_future(row["expires_at_iso"]):
+            return None, None, "Reset token is no longer valid."
+        claimed = db.execute(
+            """
+            UPDATE reset_tokens
+               SET used = 1, claim_state = 'claimed',
+                   claim_digest = %s, claimed_at = now()
+             WHERE id = %s AND used = 0 AND claim_state = 'available'
+            RETURNING id, user_id
+            """,
+            (claim_digest, row["id"]),
+        ).fetchone()
+        if not claimed:
+            return None, None, "Reset token is no longer valid."
+        token_record = dict(claimed)
+        token_record["auth_id"] = row["auth_id"]
+    return token_record, claim_secret, ""
+
+
+def finalize_reset_token_claim(executor, token_id, claim_secret, *, completed):
+    """Finalize exactly the in-memory claim; callers own the transaction."""
+
+    if not isinstance(claim_secret, str) or not claim_secret:
+        return 0
+    next_state = "completed" if completed else "reconciliation_required"
+    return executor.execute(
+        """
+        UPDATE reset_tokens
+           SET claim_state = %s,
+               completed_at = CASE WHEN %s THEN now() ELSE NULL END
+         WHERE id = %s AND used = 1 AND claim_state = 'claimed'
+           AND claim_digest = %s
+        """,
+        (
+            next_state,
+            bool(completed),
+            token_id,
+            sha256(claim_secret.encode("utf-8")).digest(),
+        ),
+    ).rowcount
+
+
+def mark_reset_token_reconciliation(token_id, claim_secret):
+    """Make provider failure explicit and permanently non-replayable."""
+
+    with open_db() as db:
+        return finalize_reset_token_claim(
+            db, token_id, claim_secret, completed=False
+        )
 
 
 def validate_signup_payload(data):
@@ -724,31 +793,67 @@ def update_user_settings(user_id, settings_dict):
         db.commit()
 
 
-def verify_otp_for_user(user_id, purpose, otp_code):
-    record = latest_otp_record(user_id, purpose)
-    if not record:
-        return None, "No active OTP request found."
-    if record.get("cooldown_until_iso") and is_future(record["cooldown_until_iso"]):
-        return None, "Too many wrong attempts. Please wait 15 minutes before requesting a new code."
-    if not is_future(record["expires_at_iso"]):
-        return None, "OTP has expired. Please request a new code."
-    if record["verified"]:
-        return record, ""
-    if not check_password_hash(record["otp_hash"], otp_code):
-        attempts = int(record["attempts"]) + 1
-        cooldown_until = None
-        message = "Invalid OTP."
-        if attempts >= OTP_ATTEMPT_LIMIT:
-            cooldown_until = (now_local() + timedelta(minutes=LOGIN_COOLDOWN_MINUTES)).isoformat(timespec="seconds")
-            message = "Too many wrong attempts. Please wait 15 minutes before requesting a new code."
-        with open_db() as db:
+def consume_otp_for_user(
+    user_id, purpose, otp_code, *, issue_reset_authorization=False
+):
+    """Consume the latest OTP once under a row lock.
+
+    Password-reset OTP consumption and reset-token creation share this one
+    transaction, so a challenge cannot mint multiple authorizations.
+    """
+
+    with open_db() as db:
+        row = db.execute(
+            """
+            SELECT * FROM password_reset_otps
+             WHERE user_id = %s AND purpose = %s
+             ORDER BY id DESC
+             LIMIT 1
+             FOR UPDATE
+            """,
+            (user_id, purpose),
+        ).fetchone()
+        if not row:
+            return None, "No active OTP request found.", None
+        record = dict(row)
+        if record["verified"]:
+            return None, "OTP is no longer valid.", None
+        if record.get("cooldown_until_iso") and is_future(record["cooldown_until_iso"]):
+            return None, "Too many wrong attempts. Please wait 15 minutes before requesting a new code.", None
+        if not is_future(record["expires_at_iso"]):
+            return None, "OTP has expired. Please request a new code.", None
+        if not check_password_hash(record["otp_hash"], otp_code):
+            attempts = min(int(record["attempts"]) + 1, OTP_ATTEMPT_LIMIT)
+            cooldown_until = None
+            message = "Invalid OTP."
+            if attempts >= OTP_ATTEMPT_LIMIT:
+                cooldown_until = (
+                    now_local() + timedelta(minutes=LOGIN_COOLDOWN_MINUTES)
+                ).isoformat(timespec="seconds")
+                message = "Too many wrong attempts. Please wait 15 minutes before requesting a new code."
             db.execute(
                 "UPDATE password_reset_otps SET attempts = %s, cooldown_until_iso = %s WHERE id = %s",
                 (attempts, cooldown_until, record["id"]),
             )
-            db.commit()
-        return None, message
-    with open_db() as db:
-        db.execute("UPDATE password_reset_otps SET verified = 1 WHERE id = %s", (record["id"],))
-        db.commit()
-    return latest_otp_record(user_id, purpose), ""
+            return None, message, None
+        updated = db.execute(
+            """
+            UPDATE password_reset_otps
+               SET verified = 1
+             WHERE id = %s AND verified = 0
+            RETURNING *
+            """,
+            (record["id"],),
+        ).fetchone()
+        if not updated:
+            return None, "OTP is no longer valid.", None
+        raw_token = None
+        if issue_reset_authorization:
+            raw_token = _new_reset_token(user_id, purpose)
+            _insert_reset_token(db, user_id, purpose, raw_token)
+        return dict(updated), "", raw_token
+
+
+def verify_otp_for_user(user_id, purpose, otp_code):
+    record, error, _ = consume_otp_for_user(user_id, purpose, otp_code)
+    return record, error

@@ -3,6 +3,9 @@
 import os
 import hashlib
 import secrets
+import threading
+import time
+import uuid
 from contextlib import contextmanager
 from pathlib import Path
 import subprocess
@@ -138,6 +141,24 @@ def _seed_user(url, *, blocked=False, admin=False):
                 return cursor.fetchone()[0]
     finally:
         conn.close()
+
+
+def _seed_linked_user(url, *, email="linked@example.invalid"):
+    auth_id = str(uuid.uuid4())
+    metadata = (
+        '{"full_name":"Linked Test User","phone":"03000000009",'
+        '"cnic":"9000000000000","role":"service_seeker"}'
+    )
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "insert into auth.users(id,email,raw_user_meta_data) values(%s,%s,%s::jsonb)",
+                (auth_id, email, metadata),
+            )
+            cursor.execute(
+                "select id from public.users where auth_id=%s", (auth_id,)
+            )
+            return cursor.fetchone()[0]
 
 
 def _rows(url, table, columns="*"):
@@ -288,6 +309,270 @@ def test_login_started_is_committed_before_provider_verification(auth_client, mo
     )
     assert response.status_code == 200
     assert observed == [["security.login.started"]]
+
+
+def test_login_provider_runs_with_no_database_context_held(auth_client, monkeypatch):
+    client, url = auth_client
+    _seed_user(url)
+    original = auth_routes.open_db
+    active = 0
+    guard = threading.Lock()
+
+    @contextmanager
+    def tracked_open_db():
+        nonlocal active
+        with guard:
+            active += 1
+        try:
+            with original() as db:
+                yield db
+        finally:
+            with guard:
+                active -= 1
+
+    def provider(*_args, **_kwargs):
+        assert active == 0
+        assert [row["event_name"] for row in _event_rows(url)] == [
+            "security.login.started"
+        ]
+        return True
+
+    monkeypatch.setattr(auth_routes, "open_db", tracked_open_db)
+    monkeypatch.setattr(auth_helpers, "open_db", tracked_open_db)
+    monkeypatch.setattr(auth_routes, "supabase_verify_password", provider)
+    response = client.post(
+        "/auth/login",
+        json={"loginId": "bounded@example.invalid", "password": "valid"},
+    )
+    assert response.status_code == 200
+    assert active == 0
+
+
+def test_login_revalidates_blocked_account_after_provider(auth_client, monkeypatch):
+    client, url = auth_client
+    _seed_user(url)
+
+    def provider(*_args, **_kwargs):
+        with psycopg2.connect(url) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute("update public.users set is_blocked=true")
+        return True
+
+    monkeypatch.setattr(auth_routes, "supabase_verify_password", provider)
+    response = client.post(
+        "/auth/login",
+        json={"loginId": "bounded@example.invalid", "password": "valid"},
+    )
+    assert response.status_code == 401
+    assert _rows(url, "trusted_devices") == []
+    assert _rows(url, "user_sessions") == []
+    assert _rows(url, "login_activity")[0]["status"] == "failed"
+
+
+def test_login_uses_committed_snapshot_without_post_commit_user_read(
+    auth_client, monkeypatch
+):
+    client, url = auth_client
+    _seed_user(url)
+    monkeypatch.setattr(auth_routes, "supabase_verify_password", lambda *_a, **_k: True)
+    monkeypatch.setattr(
+        auth_routes,
+        "get_user_by_id",
+        lambda *_a, **_k: (_ for _ in ()).throw(
+            RuntimeError("forbidden-post-commit-read")
+        ),
+    )
+    response = client.post(
+        "/auth/login",
+        json={"loginId": "bounded@example.invalid", "password": "valid"},
+    )
+    assert response.status_code == 200
+    assert len(_rows(url, "trusted_devices")) == 1
+    assert len(_rows(url, "user_sessions")) == 1
+
+
+def test_otp_is_one_shot_and_wrong_replay_mints_no_authorization(
+    auth_client
+):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    with client.application.app_context():
+        auth_helpers.create_otp_record(
+            user_id, "password_reset", "123456", "bounded@example.invalid"
+        )
+        _, first_error, first_token = auth_helpers.consume_otp_for_user(
+            user_id,
+            "password_reset",
+            "123456",
+            issue_reset_authorization=True,
+        )
+        _, replay_error, replay_token = auth_helpers.consume_otp_for_user(
+            user_id,
+            "password_reset",
+            "654321",
+            issue_reset_authorization=True,
+        )
+    assert first_error == "" and first_token
+    assert replay_error and replay_token is None
+    rows = _rows(url, "reset_tokens")
+    assert len(rows) == 1
+    serialized = str(rows).lower()
+    assert "123456" not in serialized and first_token not in serialized
+
+
+def test_concurrent_reset_consumers_call_provider_exactly_once(
+    auth_client, monkeypatch
+):
+    client, url = auth_client
+    user_id = _seed_linked_user(url)
+    with client.application.app_context():
+        auth_helpers.create_otp_record(
+            user_id, "password_reset", "123456", "linked@example.invalid"
+        )
+        _, error, raw_token = auth_helpers.consume_otp_for_user(
+            user_id,
+            "password_reset",
+            "123456",
+            issue_reset_authorization=True,
+        )
+    assert not error
+    calls = []
+    call_lock = threading.Lock()
+
+    def provider(*_args, **_kwargs):
+        with call_lock:
+            calls.append(True)
+        time.sleep(0.1)
+
+    monkeypatch.setattr(auth_routes, "supabase_update_password", provider)
+    barrier = threading.Barrier(2)
+    responses = []
+    response_lock = threading.Lock()
+
+    def consume():
+        clone = client.application.test_client()
+        barrier.wait()
+        response = clone.post(
+            "/auth/reset-password",
+            json={"reset_token": raw_token, "new_password": "new-password-1"},
+        )
+        with response_lock:
+            responses.append(response)
+
+    threads = [threading.Thread(target=consume) for _ in range(2)]
+    for thread in threads:
+        thread.start()
+    for thread in threads:
+        thread.join(timeout=20)
+    assert len(calls) == 1
+    assert sorted(response.status_code for response in responses) == [200, 400]
+    rows = _rows(url, "reset_tokens")
+    assert len(rows) == 1 and rows[0]["claim_state"] == "completed"
+
+
+def test_reset_provider_failure_is_sanitized_nonreplayable_and_explicit(
+    auth_client, monkeypatch, caplog
+):
+    client, url = auth_client
+    user_id = _seed_linked_user(url, email="failure@example.invalid")
+    with client.application.app_context():
+        auth_helpers.create_otp_record(
+            user_id, "password_reset", "234567", "failure@example.invalid"
+        )
+        _, error, raw_token = auth_helpers.consume_otp_for_user(
+            user_id,
+            "password_reset",
+            "234567",
+            issue_reset_authorization=True,
+        )
+    assert not error
+    sentinel = "SENTINEL_RESET_PROVIDER_SECRET"
+    calls = []
+
+    def provider(*_args, **_kwargs):
+        calls.append(True)
+        raise RuntimeError(sentinel)
+
+    monkeypatch.setattr(auth_routes, "supabase_update_password", provider)
+    first = client.post(
+        "/auth/reset-password",
+        json={"reset_token": raw_token, "new_password": "new-password-2"},
+    )
+    replay = client.post(
+        "/auth/reset-password",
+        json={"reset_token": raw_token, "new_password": "new-password-2"},
+    )
+    assert first.status_code == 503 and replay.status_code == 400
+    assert len(calls) == 1
+    assert sentinel not in first.get_data(as_text=True)
+    assert sentinel not in replay.get_data(as_text=True)
+    assert sentinel not in caplog.text
+    assert _rows(url, "reset_tokens")[0]["claim_state"] == "reconciliation_required"
+
+
+def test_reset_finalization_failure_is_explicit_and_nonreplayable(
+    auth_client, monkeypatch, caplog
+):
+    client, url = auth_client
+    user_id = _seed_linked_user(url, email="finalize@example.invalid")
+    with client.application.app_context():
+        auth_helpers.create_otp_record(
+            user_id, "password_reset", "345678", "finalize@example.invalid"
+        )
+        _, error, raw_token = auth_helpers.consume_otp_for_user(
+            user_id,
+            "password_reset",
+            "345678",
+            issue_reset_authorization=True,
+        )
+    assert not error
+    calls = []
+    monkeypatch.setattr(
+        auth_routes,
+        "supabase_update_password",
+        lambda *_a, **_k: calls.append(True),
+    )
+    sentinel = "SENTINEL_RESET_FINALIZE_SECRET"
+    monkeypatch.setattr(
+        auth_routes,
+        "finalize_reset_token_claim",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError(sentinel)),
+    )
+    first = client.post(
+        "/auth/reset-password",
+        json={"reset_token": raw_token, "new_password": "new-password-3"},
+    )
+    replay = client.post(
+        "/auth/reset-password",
+        json={"reset_token": raw_token, "new_password": "new-password-3"},
+    )
+    assert first.status_code == 503 and replay.status_code == 400
+    assert "confirmation is pending" in first.get_json()["message"]
+    assert calls == [True]
+    assert sentinel not in first.get_data(as_text=True)
+    assert sentinel not in replay.get_data(as_text=True)
+    assert sentinel not in caplog.text
+    assert _rows(url, "reset_tokens")[0]["claim_state"] == "claimed"
+
+
+def test_forgot_password_email_exception_is_sanitized(
+    auth_client, monkeypatch, caplog
+):
+    client, url = auth_client
+    _seed_user(url)
+    sentinel = "SENTINEL_PASSWORD_EMAIL_SECRET"
+    monkeypatch.setattr(
+        auth_routes,
+        "send_email",
+        lambda *_a, **_k: (_ for _ in ()).throw(RuntimeError(sentinel)),
+    )
+    response = client.post(
+        "/auth/forgot-password", json={"loginId": "bounded@example.invalid"}
+    )
+    assert response.status_code == 503
+    assert sentinel not in response.get_data(as_text=True)
+    assert sentinel not in caplog.text
+    assert _rows(url, "password_reset_otps") == []
 
 
 def test_login_started_failure_prevents_provider_and_session(auth_client, monkeypatch):

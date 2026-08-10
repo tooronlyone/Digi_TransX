@@ -1,7 +1,4 @@
 import os
-import re
-import time
-from pathlib import Path
 from uuid import uuid4
 
 from werkzeug.utils import secure_filename
@@ -69,11 +66,8 @@ def make_chat_upload_relative_path(thread_id, file_storage):
     """Upload chat media to Supabase Storage. Returns the stored filename."""
     from shared.storage import upload_file_storage
 
-    safe_name, _ = validate_media_file(file_storage)
-    stem = Path(safe_name).stem or "media"
-    extension = Path(safe_name).suffix.lower()
-    compact_stem = re.sub(r"[^a-zA-Z0-9_-]+", "-", stem).strip("-") or "media"
-    filename = f"{thread_id}_{int(time.time())}_{uuid4().hex[:8]}_{compact_stem}{extension}"
+    _, extension = validate_media_file(file_storage)
+    filename = f"{thread_id}_{uuid4().hex}.{extension}"
     upload_file_storage(f"uploads/chat/{filename}", file_storage)
     return filename
 

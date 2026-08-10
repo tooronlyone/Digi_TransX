@@ -1025,7 +1025,39 @@ create table public.reset_tokens (
     token_hash      text not null,
     expires_at_iso  text not null,
     created_at_iso  text not null default '',
-    used            integer not null default 0
+    used            integer not null default 0,
+    claim_state     text not null default 'available',
+    claim_digest    bytea,
+    claimed_at      timestamptz,
+    completed_at    timestamptz,
+    constraint reset_tokens_token_hash_unique unique (token_hash),
+    constraint reset_tokens_claim_state check (
+        used in (0, 1)
+        and claim_state in (
+            'available', 'claimed', 'completed',
+            'reconciliation_required', 'invalidated'
+        )
+        and (
+            (claim_state = 'available' and used = 0 and claim_digest is null
+                and claimed_at is null and completed_at is null
+                and token_hash ~ '^[0-9a-f]{64}$')
+            or (claim_state = 'claimed' and used = 1
+                and octet_length(claim_digest) = 32
+                and claimed_at is not null and completed_at is null
+                and token_hash ~ '^[0-9a-f]{64}$')
+            or (claim_state = 'completed' and used = 1
+                and octet_length(claim_digest) = 32
+                and claimed_at is not null and completed_at >= claimed_at
+                and token_hash ~ '^[0-9a-f]{64}$')
+            or (claim_state = 'reconciliation_required' and used = 1
+                and octet_length(claim_digest) = 32
+                and claimed_at is not null and completed_at is null
+                and token_hash ~ '^[0-9a-f]{64}$')
+            or (claim_state = 'invalidated' and used = 1
+                and claim_digest is null and claimed_at is null
+                and completed_at is null)
+        )
+    )
 );
 
 create table public.login_activity (
@@ -1207,6 +1239,8 @@ create index idx_user_sessions_active_token   on public.user_sessions (token_dig
 create index idx_user_sessions_user_revocable on public.user_sessions (user_id, session_id) where revoked_at is null;
 create index idx_otps_user_purpose           on public.password_reset_otps (user_id, purpose, id desc);
 create index idx_reset_tokens_user_purpose   on public.reset_tokens (user_id, purpose, used);
+create unique index reset_tokens_claim_digest_unique
+    on public.reset_tokens (claim_digest) where claim_digest is not null;
 create index idx_commission_policies_type_version
     on public.commission_policies (policy_type, version_number desc);
 create index idx_terms_versions_version       on public.terms_versions (version_number desc);
@@ -1794,6 +1828,13 @@ create policy mpin_credentials_service_role_all on public.mpin_credentials
     for all to service_role using (true) with check (true);
 revoke all privileges on table public.mpin_credentials from public, anon, authenticated, service_role;
 grant select, insert, update, delete on table public.mpin_credentials to service_role;
+drop policy admin_all_reset_tokens on public.reset_tokens;
+create policy reset_tokens_service_role_all on public.reset_tokens
+    for all to service_role using (true) with check (true);
+revoke all privileges on table public.reset_tokens from public, anon, authenticated, service_role;
+grant select, insert, update on table public.reset_tokens to service_role;
+revoke all privileges on sequence public.reset_tokens_id_seq from public, anon, authenticated, service_role;
+grant usage, select on sequence public.reset_tokens_id_seq to service_role;
 create policy action_logs_own_insert on public.user_action_logs
     for insert with check (true);
 

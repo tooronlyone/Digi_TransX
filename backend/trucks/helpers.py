@@ -1,8 +1,8 @@
 import json
 import math
 import re
-import time
 from pathlib import Path
+from uuid import uuid4
 
 from shared.coordinates import (
     CoordinateValidationError,
@@ -14,6 +14,8 @@ from shared.db import BASE_DIR
 
 
 UPLOADS_DIR = BASE_DIR / "backend" / "uploads" / "trucks"
+ALLOWED_TRUCK_UPLOAD_EXTENSIONS = {"jpg", "jpeg", "png", "webp", "pdf"}
+MAX_TRUCK_UPLOAD_BYTES = 10 * 1024 * 1024
 STATUS_REASON_LABELS = {
     "assigned_job": "On job / assigned to job",
     "maintenance": "Maintenance",
@@ -277,5 +279,13 @@ def make_upload_relative_path(truck_id, file_storage):
     from shared.storage import upload_file_storage
 
     original = secure_filename(file_storage.filename or "")
-    filename = f"{truck_id}_{int(time.time())}_{original or 'upload.bin'}"
+    extension = Path(original).suffix.lower().lstrip(".")
+    if extension not in ALLOWED_TRUCK_UPLOAD_EXTENSIONS:
+        raise ValueError("Truck files must be JPG, JPEG, PNG, WEBP, or PDF.")
+    file_storage.stream.seek(0, 2)
+    size = file_storage.stream.tell()
+    file_storage.stream.seek(0)
+    if size > MAX_TRUCK_UPLOAD_BYTES:
+        raise ValueError("Truck files must be 10MB or smaller.")
+    filename = f"{truck_id}_{uuid4().hex}.{extension}"
     return upload_file_storage(f"uploads/trucks/{filename}", file_storage)

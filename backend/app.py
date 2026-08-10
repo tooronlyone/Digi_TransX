@@ -10,6 +10,7 @@ if str(CURRENT_DIR) not in sys.path:
 
 from auth import auth_blueprint
 from auth.helpers import json_response
+from auth.security_config import configure_flask_security
 from admin import admin_blueprint
 from agreements import agreements_blueprint
 from chat import chat_blueprint
@@ -25,10 +26,7 @@ from wallet import wallet_blueprint
 
 
 app = Flask(__name__)
-app.config["SECRET_KEY"] = os.environ.get("FLASK_SECRET_KEY", "digitransx-dev-secret-change-me")
-app.config["SESSION_COOKIE_HTTPONLY"] = True
-app.config["SESSION_COOKIE_SAMESITE"] = "Lax"
-app.config["SESSION_COOKIE_SECURE"] = os.environ.get("FLASK_ENV") == "production"
+configure_flask_security(app)
 
 app.register_blueprint(auth_blueprint)
 # Preserve the established /auth contract while exposing the bounded API

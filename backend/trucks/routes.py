@@ -1,7 +1,8 @@
 import json
+import logging
 import re
 
-from flask import Blueprint, Response, request
+from flask import Blueprint, Response, current_app, request
 
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import IntegrityError, open_db
@@ -67,6 +68,52 @@ def normalize_catalog_specs_json(value, fallback=None):
     return cleaned
 
 
+def _register_and_link_gps_device(truck_id, owner_user_id, imei, truck_number):
+    """Perform provider I/O first, then revalidate the exact truck on write.
+
+    ``True`` means the persisted tracking identifier remains explicit pending
+    reconciliation because provider registration or the final bounded write
+    could not be completed.
+    """
+
+    if not imei:
+        return False
+    try:
+        provider_device_id = register_device(imei, truck_number)
+    except Exception:
+        logging.getLogger(__name__).error("Truck GPS device registration failed.")
+        return True
+    if provider_device_id is None:
+        logging.getLogger(__name__).error("Truck GPS device registration failed.")
+        return True
+    try:
+        with open_db() as db:
+            linked = db.execute(
+                """
+                UPDATE vehicles
+                   SET traccar_device_id = %s
+                 WHERE id = %s AND owner_user_id = %s
+                   AND tracking_id = %s AND truck_number = %s
+                RETURNING id
+                """,
+                (
+                    str(provider_device_id),
+                    truck_id,
+                    owner_user_id,
+                    imei,
+                    truck_number,
+                ),
+            ).fetchone()
+            if not linked:
+                raise RuntimeError("Truck state changed before GPS linkage.")
+    except Exception:
+        logging.getLogger(__name__).error(
+            "Truck GPS linkage requires reconciliation."
+        )
+        return True
+    return False
+
+
 @trucks_blueprint.get("/api/catalog/truck-types")
 def truck_types_catalog():
     return json_response({"success": True, "truck_types": TRUCK_TYPES})
@@ -78,13 +125,64 @@ def truck_type_fields(type_key):
 
 
 @trucks_blueprint.get("/uploads/trucks/<path:filename>")
+@login_required(refresh_activity=False)
 def serve_truck_upload(filename):
     from shared.storage import download_bytes, guess_content_type
 
-    data = download_bytes(f"uploads/trucks/{filename}")
+    storage_path = f"uploads/trucks/{filename}"
+    with open_db() as db:
+        rows = db.execute(
+            """
+            SELECT owner_user_id, doc_type
+              FROM documents
+             WHERE storage_path = %s AND vehicle_id IS NOT NULL
+            UNION ALL
+            SELECT owner_user_id, 'vehicle_photo'
+              FROM vehicles WHERE truck_photo_path = %s
+            UNION ALL
+            SELECT owner_user_id, 'insurance'
+              FROM vehicles WHERE insurance_photo_path = %s
+            UNION ALL
+            SELECT owner_user_id, 'rc_book'
+              FROM vehicles WHERE rc_book_photo_path = %s
+            """,
+            (storage_path, storage_path, storage_path, storage_path),
+        ).fetchall()
+    if not rows:
+        return json_response({"success": False, "message": "File not found."}, 404)
+    sensitive = [row for row in rows if row["doc_type"] != "vehicle_photo"]
+    is_admin = (
+        (request.current_user.get("role") or "").strip().lower()
+        == "platform_admin"
+    )
+    owns_every_sensitive_mapping = all(
+        row["owner_user_id"] == request.current_user["id"] for row in sensitive
+    )
+    if sensitive and not (is_admin or owns_every_sensitive_mapping):
+        return json_response({"success": False, "message": "File not found."}, 404)
+    try:
+        data = download_bytes(storage_path)
+    except Exception:
+        current_app.logger.error("Truck storage download failed.")
+        return json_response(
+            {"success": False, "message": "File is temporarily unavailable."},
+            503,
+        )
     if data is None:
         return json_response({"success": False, "message": "File not found."}, 404)
-    return Response(data, mimetype=guess_content_type(filename))
+    content_type = guess_content_type(filename)
+    safe_inline_image = not sensitive and content_type in {
+        "image/jpeg", "image/png", "image/webp"
+    }
+    headers = {
+        "Cache-Control": "private, no-store",
+        "Content-Security-Policy": "sandbox; default-src 'none'",
+        "X-Content-Type-Options": "nosniff",
+    }
+    if not safe_inline_image:
+        headers["Content-Disposition"] = 'attachment; filename="document"'
+        content_type = "application/octet-stream"
+    return Response(data, mimetype=content_type, headers=headers)
 
 
 @trucks_blueprint.post("/api/trucks")
@@ -151,6 +249,7 @@ def create_truck():
         return json_response({"success": False, "message": location_error}, 400)
 
     stamp = timestamp_bundle()
+    imei = parse_optional_text(form.get("trackingId"))
     with open_db() as db:
         existing_truck_number = db.execute(
             "SELECT id FROM vehicles WHERE lower(trim(truck_number)) = lower(trim(%s)) LIMIT 1",
@@ -209,18 +308,6 @@ def create_truck():
                 ),
             ).fetchone()["id"]
             db.commit()
-            try:
-                imei = parse_optional_text(form.get("trackingId"))
-                if imei is not None and imei.strip() != "":
-                    gps_device_id = register_device(imei.strip(), truck_number)
-                    if gps_device_id is not None:
-                        db.execute(
-                            "UPDATE vehicles SET traccar_device_id = %s WHERE id = %s",
-                            (str(gps_device_id), truck_id),
-                        )
-                        db.commit()
-            except Exception:
-                pass
         except IntegrityError:
             db.rollback()
             duplicate_truck_number = db.execute(
@@ -238,7 +325,21 @@ def create_truck():
                 return json_response({"success": False, "message": "This chassis number is already registered in the system."}, 409)
             raise
 
-    return json_response({"success": True, "message": "Truck registered successfully"})
+    gps_link_pending = _register_and_link_gps_device(
+        truck_id,
+        request.current_user["id"],
+        imei.strip() if imei else "",
+        truck_number,
+    )
+
+    return json_response({
+        "success": True,
+        "message": (
+            "Truck registered; GPS linkage is pending."
+            if gps_link_pending else "Truck registered successfully"
+        ),
+        "gps_link_pending": gps_link_pending,
+    })
 
 
 @trucks_blueprint.get("/api/trucks")
@@ -325,12 +426,13 @@ def truck_live_location(truck_id):
 
     try:
         position = get_latest_position(traccar_device_id)
-    except Exception as exc:
+    except Exception:
+        logging.getLogger(__name__).error("Truck GPS provider position fetch failed.")
         return json_response({
             "success": True,
             "gps_available": False,
             "reason": "fetch_error",
-            "message": f"GPS fetch error: {exc}",
+            "message": "GPS location is temporarily unavailable.",
         })
 
     if not position:
@@ -439,15 +541,24 @@ def update_truck_configuration(truck_id):
     insurance_photo_path = truck.get("insurance_photo_path")
     rc_book_photo_path = truck.get("rc_book_photo_path")
     new_documents = []
-    if request.files.get("truck_photo") and request.files["truck_photo"].filename:
-        truck_photo_path = make_upload_relative_path(truck_id, request.files["truck_photo"])
-        new_documents.append((truck_photo_path, "vehicle_photo", request.files["truck_photo"]))
-    if request.files.get("insurance_photo") and request.files["insurance_photo"].filename:
-        insurance_photo_path = make_upload_relative_path(truck_id, request.files["insurance_photo"])
-        new_documents.append((insurance_photo_path, "insurance", request.files["insurance_photo"]))
-    if request.files.get("rc_book_photo") and request.files["rc_book_photo"].filename:
-        rc_book_photo_path = make_upload_relative_path(truck_id, request.files["rc_book_photo"])
-        new_documents.append((rc_book_photo_path, "rc_book", request.files["rc_book_photo"]))
+    try:
+        if request.files.get("truck_photo") and request.files["truck_photo"].filename:
+            truck_photo_path = make_upload_relative_path(truck_id, request.files["truck_photo"])
+            new_documents.append((truck_photo_path, "vehicle_photo", request.files["truck_photo"]))
+        if request.files.get("insurance_photo") and request.files["insurance_photo"].filename:
+            insurance_photo_path = make_upload_relative_path(truck_id, request.files["insurance_photo"])
+            new_documents.append((insurance_photo_path, "insurance", request.files["insurance_photo"]))
+        if request.files.get("rc_book_photo") and request.files["rc_book_photo"].filename:
+            rc_book_photo_path = make_upload_relative_path(truck_id, request.files["rc_book_photo"])
+            new_documents.append((rc_book_photo_path, "rc_book", request.files["rc_book_photo"]))
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
+    except Exception:
+        logging.getLogger(__name__).error("Truck document storage upload failed.")
+        return json_response(
+            {"success": False, "message": "Document upload is temporarily unavailable."},
+            503,
+        )
 
     status_reason_code = truck.get("status_reason_code") or ""
     status_reason = truck.get("status_reason") or ""
@@ -518,21 +629,25 @@ def update_truck_configuration(truck_id):
                 mime_type=file_storage.mimetype,
             )
         db.commit()
-        try:
-            imei = parse_optional_text(form.get("tracking_id"))
-            if imei is not None and imei.strip() != "":
-                gps_device_id = register_device(imei.strip(), truck_number)
-                if gps_device_id is not None:
-                    db.execute(
-                        "UPDATE vehicles SET traccar_device_id = %s WHERE id = %s",
-                        (str(gps_device_id), truck_id),
-                    )
-                    db.commit()
-        except Exception:
-            pass
-        updated = db.execute("SELECT * FROM vehicles WHERE id = %s AND owner_user_id = %s", (truck_id, request.current_user["id"])).fetchone()
 
-    return json_response({"success": True, "truck": build_configuration_payload(dict(updated))})
+    imei = parse_optional_text(form.get("tracking_id"))
+    gps_link_pending = _register_and_link_gps_device(
+        truck_id,
+        request.current_user["id"],
+        imei.strip() if imei else "",
+        truck_number,
+    )
+    with open_db() as db:
+        updated = db.execute(
+            "SELECT * FROM vehicles WHERE id = %s AND owner_user_id = %s",
+            (truck_id, request.current_user["id"]),
+        ).fetchone()
+
+    return json_response({
+        "success": True,
+        "truck": build_configuration_payload(dict(updated)),
+        "gps_link_pending": gps_link_pending,
+    })
 
 
 @trucks_blueprint.put("/api/trucks/<int:truck_id>/status")

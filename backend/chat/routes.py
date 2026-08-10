@@ -1,4 +1,4 @@
-from flask import Blueprint, Response, request
+from flask import Blueprint, Response, current_app, request
 
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
@@ -125,7 +125,9 @@ def insert_chat_message(db, thread_id, sender_user_id, message_type, content="",
     return dict(row) if row else None
 
 
-def get_pending_media_request_for_sender(db, thread_id, sender_user_id):
+def get_pending_media_request_for_sender(
+    db, thread_id, sender_user_id, *, lock=False
+):
     counterpart_id = db.execute(
         """
         SELECT CASE
@@ -150,20 +152,52 @@ def get_pending_media_request_for_sender(db, thread_id, sender_user_id):
           AND media_request_status = %s
         ORDER BY id DESC
         LIMIT 1
-        """,
+        """ + (" FOR UPDATE" if lock else ""),
         (thread_id, sender_user_id, MEDIA_REQUEST_APPROVED),
     ).fetchone()
     return dict(row) if row else None
 
 
 @chat_blueprint.get("/uploads/chat/<path:filename>")
+@login_required(refresh_activity=False)
 def serve_chat_upload(filename):
     from shared.storage import download_bytes, guess_content_type
 
-    data = download_bytes(f"uploads/chat/{filename}")
+    with open_db() as db:
+        rows = db.execute(
+            """
+            SELECT ct.client_user_id, ct.transporter_user_id,
+                   ct.is_group_chat, ct.admin_user_id
+              FROM chat_messages cm
+              JOIN chat_threads ct ON ct.id = cm.thread_id
+             WHERE cm.media_path = %s
+            """,
+            (filename,),
+        ).fetchall()
+    if not any(
+        user_can_access_thread(dict(row), request.current_user["id"])
+        for row in rows
+    ):
+        return json_response({"success": False, "message": "File not found."}, 404)
+    try:
+        data = download_bytes(f"uploads/chat/{filename}")
+    except Exception:
+        current_app.logger.error("Chat media storage download failed.")
+        return json_response(
+            {"success": False, "message": "File is temporarily unavailable."},
+            503,
+        )
     if data is None:
         return json_response({"success": False, "message": "File not found."}, 404)
-    return Response(data, mimetype=guess_content_type(filename))
+    return Response(
+        data,
+        mimetype=guess_content_type(filename),
+        headers={
+            "Cache-Control": "private, no-store",
+            "Content-Security-Policy": "sandbox; default-src 'none'",
+            "X-Content-Type-Options": "nosniff",
+        },
+    )
 
 
 @chat_blueprint.get("/api/chat/threads")
@@ -401,15 +435,40 @@ def send_media_message(thread_id):
         return json_response({"success": False, "message": str(exc)}, 400)
 
     with open_db() as db:
-        thread, error = get_thread_or_error(db, thread_id, user_id)
+        _, error = get_thread_or_error(db, thread_id, user_id)
         if error:
             return error
+        approved_request = get_pending_media_request_for_sender(
+            db, thread_id, user_id
+        )
+    if not approved_request:
+        return json_response(
+            {"success": False, "message": "No pending approval available for media upload."},
+            400,
+        )
 
-        approved_request = get_pending_media_request_for_sender(db, thread_id, user_id)
-        if not approved_request:
-            return json_response({"success": False, "message": "No pending approval available for media upload."}, 400)
-
+    try:
         filename = make_chat_upload_relative_path(thread_id, file_storage)
+    except Exception:
+        current_app.logger.error("Chat media storage upload failed.")
+        return json_response(
+            {"success": False, "message": "Media upload is temporarily unavailable."},
+            503,
+        )
+
+    with open_db() as db:
+        _, error = get_thread_or_error(db, thread_id, user_id)
+        current_request = get_pending_media_request_for_sender(
+            db, thread_id, user_id, lock=True
+        )
+        if error or not current_request or current_request["id"] != approved_request["id"]:
+            current_app.logger.error(
+                "Chat media metadata reconciliation is required."
+            )
+            return json_response(
+                {"success": False, "message": "Media approval is no longer available."},
+                409,
+            )
         row = insert_chat_message(db, thread_id, user_id, MEDIA_MESSAGE, media_path=filename)
         db.execute(
             """
@@ -417,7 +476,7 @@ def send_media_message(thread_id):
             SET media_request_status = %s
             WHERE id = %s AND thread_id = %s
             """,
-            (MEDIA_REQUEST_FULFILLED, approved_request["id"], thread_id),
+            (MEDIA_REQUEST_FULFILLED, current_request["id"], thread_id),
         )
         db.commit()
 

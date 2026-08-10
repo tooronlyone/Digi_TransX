@@ -24,20 +24,23 @@ from .helpers import (
     OTP_EXPIRY_MINUTES,
     OTP_REGEX,
     build_auth_success_response,
+    claim_reset_token,
     clear_authentication_cookies,
     clear_device_cookie,
+    consume_otp_for_user,
     create_otp_record,
-    create_reset_token,
     csrf_error,
     ensure_csrf_token,
-    find_valid_reset_token,
+    finalize_reset_token_claim,
     generate_numeric_code,
     get_user_by_id,
+    get_user_by_id_with_executor,
     get_user_by_login,
     json_response,
     latest_otp_record,
     login_required,
     mask_email,
+    mark_reset_token_reconciliation,
     normalize_cnic,
     normalize_email,
     normalize_phone,
@@ -52,7 +55,6 @@ from .helpers import (
     timestamp_bundle,
     update_user_settings,
     validate_signup_payload,
-    verify_otp_for_user,
 )
 from auth import mpin_service
 from auth.trusted_device_service import digest_token, establish_after_full_login
@@ -435,8 +437,18 @@ def login():
         return json_response(
             {"success": False, "message": "Login service is temporarily unavailable."}, 503
         )
+    password_valid = False
+    provider_unavailable = False
+    if user and not user.get("is_blocked"):
+        try:
+            password_valid = supabase_verify_password(
+                user["email"], password, raise_provider_errors=True
+            )
+        except PasswordProviderUnavailable:
+            provider_unavailable = True
+
     terminal_response = None
-    authenticated_user_id = None
+    committed_user = None
     device_token = None
     session_token = None
     access_proof = None
@@ -445,35 +457,38 @@ def login():
             anonymous_context = _auth_event_context(request_id)
             failure_code = None
             failure_reason = ""
+            current_user = (
+                get_user_by_id_with_executor(db, user["id"], lock=True)
+                if user else None
+            )
             if not user:
                 failure_code = "invalid_credentials"
                 failure_reason = "Account not found."
                 terminal_response = _invalid_credentials_response()
-            elif user.get("is_blocked"):
+            elif (
+                not current_user
+                or current_user.get("is_blocked")
+                or current_user.get("email") != user.get("email")
+                or current_user.get("auth_id") != user.get("auth_id")
+            ):
                 failure_code = "account_unavailable"
-                failure_reason = "Account blocked."
+                failure_reason = "Account state changed."
                 terminal_response = _invalid_credentials_response()
-            else:
-                try:
-                    password_valid = supabase_verify_password(
-                        user["email"], password, raise_provider_errors=True
-                    )
-                except PasswordProviderUnavailable:
-                    password_valid = False
-                    failure_code = "provider_unavailable"
-                    failure_reason = "Provider unavailable."
-                    terminal_response = json_response(
-                        {"success": False, "message": "Login service is temporarily unavailable."},
-                        503,
-                    )
-                if not password_valid and failure_code is None:
-                    failure_code = "invalid_credentials"
-                    failure_reason = "Invalid password."
-                    terminal_response = _invalid_credentials_response()
+            elif provider_unavailable:
+                failure_code = "provider_unavailable"
+                failure_reason = "Provider unavailable."
+                terminal_response = json_response(
+                    {"success": False, "message": "Login service is temporarily unavailable."},
+                    503,
+                )
+            elif not password_valid:
+                failure_code = "invalid_credentials"
+                failure_reason = "Invalid password."
+                terminal_response = _invalid_credentials_response()
 
             if failure_code is not None:
                 record_login_activity(
-                    user["id"] if user else None,
+                    current_user["id"] if current_user else (user["id"] if user else None),
                     lookup_value,
                     login_method,
                     "failed",
@@ -492,36 +507,36 @@ def login():
                 stamp = timestamp_bundle()
                 db.execute(
                     "UPDATE users SET last_login_at = %s, updated_at = %s WHERE id = %s",
-                    (stamp["display"], stamp["display"], user["id"]),
+                    (stamp["display"], stamp["display"], current_user["id"]),
                 )
                 record_login_activity(
-                    user["id"], lookup_value, login_method, "success", "", executor=db
+                    current_user["id"], lookup_value, login_method, "success", "", executor=db
                 )
                 device_token, device_id, device_event = establish_after_full_login(
-                    db, user["id"], request.cookies.get(DEVICE_COOKIE_NAME)
+                    db, current_user["id"], request.cookies.get(DEVICE_COOKIE_NAME)
                 )
                 session_token, access_proof, session_id = create_session(
-                    db, user["id"], trusted_device_id=device_id
+                    db, current_user["id"], trusted_device_id=device_id
                 )
                 write_security_event(
                     db,
                     "security.login.succeeded",
-                    _auth_event_context(request_id, user=user),
+                    _auth_event_context(request_id, user=current_user),
                     EventData(metadata={"result_code": "authenticated"}),
                     idempotency_scope="security.login.terminal",
                     idempotency_key=request_id,
                 )
                 write_security_event(
-                    db, device_event, _auth_event_context(request_id, user=user),
+                    db, device_event, _auth_event_context(request_id, user=current_user),
                     EventData(metadata={"result_code": "full_login"} if device_event.endswith("rotated") else {}),
                     idempotency_scope="security.trusted_device.terminal", idempotency_key=request_id,
                 )
                 write_security_event(
-                    db, "security.session.issued", _auth_event_context(request_id, user=user),
+                    db, "security.session.issued", _auth_event_context(request_id, user=current_user),
                     EventData(), idempotency_scope="security.session.issued",
                     idempotency_key=request_id,
                 )
-                authenticated_user_id = user["id"]
+                committed_user = current_user
     except Exception:
         if terminal_response is not None:
             current_app.logger.error("Canonical login failure evidence could not be persisted.")
@@ -533,9 +548,8 @@ def login():
 
     if terminal_response is not None:
         return terminal_response
-    user = get_user_by_id(authenticated_user_id)
     return build_auth_success_response(
-        user, device_token=device_token, session_token=session_token,
+        committed_user, device_token=device_token, session_token=session_token,
         access_proof=access_proof,
     )
 
@@ -616,8 +630,12 @@ def forgot_password():
                 "If you did not request this code, please ignore this email.",
             ],
         )
-    except Exception as exc:
-        return json_response({"success": False, "message": f"Unable to send OTP email: {exc}"}, 500)
+    except Exception:
+        current_app.logger.error("Password-reset OTP email delivery failed.")
+        return json_response(
+            {"success": False, "message": "Unable to send the password-reset code."},
+            503,
+        )
     create_otp_record(user["id"], "password_reset", otp_code, user["email"])
     return json_response({"success": True, "masked_email": mask_email(user["email"]), "message": "OTP sent to your registered email."})
 
@@ -634,10 +652,13 @@ def verify_password_reset_otp():
     user, _, _ = get_user_by_login(login_id)
     if not user:
         return json_response({"success": False, "message": "Account not found."}, 404)
-    _, error_message = verify_otp_for_user(user["id"], "password_reset", otp_code)
+    _, error_message, reset_token = consume_otp_for_user(
+        user["id"], "password_reset", otp_code,
+        issue_reset_authorization=True,
+    )
     if error_message:
         return json_response({"success": False, "message": error_message}, 400)
-    return json_response({"success": True, "reset_token": create_reset_token(user["id"], "password_reset")})
+    return json_response({"success": True, "reset_token": reset_token})
 
 
 @auth_blueprint.post("/reset-password")
@@ -649,24 +670,57 @@ def reset_password():
         return json_response({"success": False, "message": "Reset token is required."}, 400)
     if len(new_password) < 8:
         return json_response({"success": False, "field": "password", "message": "Password must be at least 8 characters."}, 400)
-    token_record, error_message = find_valid_reset_token(raw_token, "password_reset")
+    token_record, claim_secret, error_message = claim_reset_token(
+        raw_token, "password_reset"
+    )
     if error_message:
         return json_response({"success": False, "message": error_message}, 400)
-    stamp = timestamp_bundle()
-    with open_db() as db:
-        row = db.execute("SELECT auth_id FROM users WHERE id = %s", (token_record["user_id"],)).fetchone()
-        if not row or not row["auth_id"]:
-            return json_response({"success": False, "message": "Account is not linked to the auth system. Please contact support."}, 500)
-        auth_id = row["auth_id"]
+    if not token_record.get("auth_id"):
+        try:
+            mark_reset_token_reconciliation(token_record["id"], claim_secret)
+        except Exception:
+            current_app.logger.error("Reset authorization reconciliation state could not be persisted.")
+        return json_response(
+            {"success": False, "message": "Password reset service is temporarily unavailable."},
+            503,
+        )
     try:
-        supabase_update_password(auth_id, new_password)
-    except Exception as exc:
-        return json_response({"success": False, "message": f"Could not update password: {exc}"}, 500)
-    with open_db() as db:
-        db.execute("UPDATE users SET updated_at = %s WHERE id = %s", (stamp["iso"], token_record["user_id"]))
-        db.execute("UPDATE reset_tokens SET used = 1 WHERE id = %s", (token_record["id"],))
-        db.execute("UPDATE password_reset_otps SET verified = 1 WHERE user_id = %s AND purpose = 'password_reset'", (token_record["user_id"],))
-        db.commit()
+        supabase_update_password(token_record["auth_id"], new_password)
+    except Exception:
+        try:
+            mark_reset_token_reconciliation(token_record["id"], claim_secret)
+        except Exception:
+            current_app.logger.error("Reset authorization reconciliation state could not be persisted.")
+        current_app.logger.error("Auth provider password reset failed.")
+        return json_response(
+            {
+                "success": False,
+                "message": "Password reset could not be completed. Request a new code.",
+            },
+            503,
+        )
+    try:
+        with open_db() as db:
+            db.execute(
+                "UPDATE users SET updated_at = now() WHERE id = %s",
+                (token_record["user_id"],),
+            )
+            if finalize_reset_token_claim(
+                db, token_record["id"], claim_secret, completed=True
+            ) != 1:
+                raise RuntimeError("Reset authorization finalization lost its claim.")
+    except Exception:
+        current_app.logger.error("Password reset finalization requires reconciliation.")
+        return json_response(
+            {
+                "success": False,
+                "message": (
+                    "Password was changed, but confirmation is pending. "
+                    "Request a new code if you cannot sign in."
+                ),
+            },
+            503,
+        )
     return json_response({"success": True, "message": "Password reset successful."})
 
 

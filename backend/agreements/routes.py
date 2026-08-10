@@ -973,6 +973,9 @@ def process_payments():
     role_error = require_admin_role(request.current_user)
     if role_error:
         return role_error
+    err = csrf_error()
+    if err:
+        return err
     with open_db() as db:
         result = run_process_payments(db)
     return json_response({"success": True, **result})
@@ -985,6 +988,9 @@ def apply_penalties():
     role_error = require_admin_role(request.current_user)
     if role_error:
         return role_error
+    err = csrf_error()
+    if err:
+        return err
     with open_db() as db:
         result = run_apply_penalties(db)
     return json_response({"success": True, **result})

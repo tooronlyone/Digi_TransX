@@ -280,8 +280,9 @@ All configuration lives in `.env` (project root) — see [.env.example](.env.exa
 | `SUPABASE_DB_URL` | Postgres connection string used by the backend pool |
 | `SUPABASE_STORAGE_BUCKET` | Storage bucket name (default `shipment-documents`) |
 | `APP_TIMEZONE` | Timezone for app timestamps (default `Asia/Karachi`) |
-| `FLASK_SECRET_KEY` | Session signing key — **must change in production** |
-| `FLASK_HOST` / `FLASK_PORT` / `FLASK_DEBUG` / `FLASK_ENV` | Flask server settings |
+| `DIGITRANSX_ENVIRONMENT` | Required runtime mode: `local`, `test`, `staging`, or `production`; only explicit loopback-local/test mode permits non-Secure cookies |
+| `FLASK_SECRET_KEY` | Session signing key — required and non-placeholder outside explicit local/test mode |
+| `FLASK_HOST` / `FLASK_PORT` / `FLASK_DEBUG` | Flask server settings; `local` mode requires a loopback host |
 | `DIGITRANSX_SMTP_*` | SMTP settings for OTP / password-reset emails |
 | `TEST_SUPABASE_DB_URL` | **Tests only** — connection string of a dedicated PostgreSQL test database for the integration tests (never point this at the application database) |
 
