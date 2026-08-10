@@ -123,6 +123,30 @@ test('deduplicates in-flight signals and throttles repeated interaction', async 
   assert.equal(sent, 2)
 })
 
+test('a failed request remains throttled and cannot create a retry storm', async () => {
+  const documentRef = fakeDocument()
+  let observedAt = 10_000
+  let sent = 0
+  const handler = createGenuineActivityHandler({
+    documentRef,
+    send: async () => {
+      sent += 1
+      throw new Error('sentinel provider failure')
+    },
+    now: () => observedAt,
+    throttleMs: 1_000,
+  })
+
+  assert.equal(handler({ isTrusted: true }), true)
+  await flush()
+  assert.equal(handler({ isTrusted: true }), false)
+  assert.equal(sent, 1)
+  observedAt += 1_000
+  assert.equal(handler({ isTrusted: true }), true)
+  await flush()
+  assert.equal(sent, 2)
+})
+
 test('StrictMode-style cleanup and remount leaves exactly one listener per type', () => {
   const documentRef = fakeDocument()
   const first = createGenuineActivityHandler({ documentRef, send: async () => true })
@@ -146,6 +170,17 @@ test('installs no passive activity sources or broad browser interception', () =>
     'touchstart',
     'keydown',
   ])
+  const documentRef = fakeDocument()
+  const cleanup = installGenuineActivityListeners(documentRef, () => true)
+  for (const passive of [
+    'scroll',
+    'mousemove',
+    'focus',
+    'visibilitychange',
+  ]) {
+    assert.equal(documentRef.listeners.has(passive), false)
+  }
+  cleanup()
 })
 
 test('analytics, notification polling, and chat polling do not own activity refresh', async () => {

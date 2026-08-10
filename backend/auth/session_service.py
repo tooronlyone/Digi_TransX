@@ -262,8 +262,11 @@ def record_genuine_activity(
         """
         UPDATE user_sessions
            SET last_genuine_activity_at = now(),
-               inactivity_expires_at = greatest(
-                   inactivity_expires_at, now() + (%s * interval '1 day')
+               inactivity_expires_at = least(
+                   absolute_expires_at,
+                   greatest(
+                       inactivity_expires_at, now() + (%s * interval '1 day')
+                   )
                ),
                updated_at = now()
          WHERE session_id = %s

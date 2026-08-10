@@ -1331,9 +1331,12 @@ def test_no_activity_expires_and_cannot_be_revived(auth_client):
         ("revoked", 401),
         ("blocked", 401),
         ("device_expired", 401),
+        ("device_revoked", 401),
         ("device_mismatch", 401),
         ("absolute_expired", 401),
         ("access_locked", 423),
+        ("proof_missing", 423),
+        ("proof_expired", 423),
     ],
 )
 def test_ineligible_authentication_states_never_refresh(
@@ -1355,6 +1358,11 @@ def test_ineligible_authentication_states_never_refresh(
             elif state == "device_expired":
                 cursor.execute(
                     "update trusted_devices set created_at=now()-interval '2 days',expires_at=now()-interval '1 day' where id=%s",
+                    (device_id,),
+                )
+            elif state == "device_revoked":
+                cursor.execute(
+                    "update trusted_devices set revoked_at=now() where id=%s",
                     (device_id,),
                 )
             elif state == "device_mismatch":
@@ -1380,6 +1388,13 @@ def test_ineligible_authentication_states_never_refresh(
                     "update user_sessions set access_locked=true,access_locked_at=now(),access_proof_digest=null,access_proof_expires_at=null,updated_at=now() where session_id=%s",
                     (session_id,),
                 )
+            elif state == "proof_expired":
+                cursor.execute(
+                    "update user_sessions set access_proof_expires_at=now()-interval '1 hour' where session_id=%s",
+                    (session_id,),
+                )
+    if state == "proof_missing":
+        client.delete_cookie("dtx_access_proof")
     before = _genuine_activity_session(url, session_id)
 
     response = client.post(
@@ -1391,7 +1406,13 @@ def test_ineligible_authentication_states_never_refresh(
     assert after["last_genuine_activity_at"] == before["last_genuine_activity_at"]
     assert after["inactivity_expires_at"] == before["inactivity_expires_at"]
     assert after["absolute_expires_at"] == before["absolute_expires_at"]
-    assert _event_rows(url) == []
+    events = _event_rows(url)
+    if state in {"proof_missing", "proof_expired"}:
+        assert [event["event_name"] for event in events] == [
+            "security.session.access_locked"
+        ]
+    else:
+        assert events == []
 
 
 @pytest.mark.parametrize("csrf", [None, "wrong-csrf"])
@@ -1468,6 +1489,66 @@ def test_later_signal_after_database_throttle_boundary_refreshes(auth_client):
     ).status_code == 204
     after = _genuine_activity_session(url, session_id)
     assert after["last_genuine_activity_at"] > boundary["last_genuine_activity_at"]
+    assert len(_event_rows(url)) == 1
+
+
+def test_refresh_never_shortens_a_later_valid_inactivity_deadline(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, _, session_id = _authenticate_client(client, url, user_id)
+    _age_valid_session(url, session_id)
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "update user_sessions set inactivity_expires_at="
+                "now()+interval '10 days' where session_id=%s",
+                (session_id,),
+            )
+    before = _genuine_activity_session(url, session_id)
+
+    response = client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    )
+
+    assert response.status_code == 204
+    after = _genuine_activity_session(url, session_id)
+    assert after["last_genuine_activity_at"] > before["last_genuine_activity_at"]
+    assert after["inactivity_expires_at"] == before["inactivity_expires_at"]
+    assert after["absolute_expires_at"] == before["absolute_expires_at"]
+    assert len(_event_rows(url)) == 1
+
+
+def test_refresh_caps_inactivity_at_the_absolute_boundary(auth_client):
+    client, url = auth_client
+    user_id = _seed_user(url)
+    _, _, _, session_id = _authenticate_client(client, url, user_id)
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                """
+                update user_sessions
+                   set created_at=now()-interval '29 days',
+                       authenticated_at=now()-interval '29 days',
+                       last_genuine_activity_at=now()-interval '13 hours',
+                       inactivity_expires_at=now()+interval '6 hours',
+                       absolute_expires_at=now()+interval '1 day',
+                       access_proof_expires_at=now()+interval '1 hour',
+                       updated_at=now()
+                 where session_id=%s
+                """,
+                (session_id,),
+            )
+    before = _genuine_activity_session(url, session_id)
+
+    response = client.post(
+        "/auth/session/activity", headers={"X-CSRF-Token": "csrf-test"}
+    )
+
+    assert response.status_code == 204
+    after = _genuine_activity_session(url, session_id)
+    assert after["last_genuine_activity_at"] > before["last_genuine_activity_at"]
+    assert after["inactivity_expires_at"] == after["absolute_expires_at"]
+    assert after["absolute_expires_at"] == before["absolute_expires_at"]
     assert len(_event_rows(url)) == 1
 
 
