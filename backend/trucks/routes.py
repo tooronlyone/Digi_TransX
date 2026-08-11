@@ -11,6 +11,7 @@ from .helpers import (
     STATUS_OPTIONS,
     STATUS_REASON_LABELS,
     TRUCK_TYPES,
+    TruckUploadValidationError,
     UPLOADS_DIR,
     build_truck_payload,
     build_configuration_payload,
@@ -551,7 +552,7 @@ def update_truck_configuration(truck_id):
         if request.files.get("rc_book_photo") and request.files["rc_book_photo"].filename:
             rc_book_photo_path = make_upload_relative_path(truck_id, request.files["rc_book_photo"])
             new_documents.append((rc_book_photo_path, "rc_book", request.files["rc_book_photo"]))
-    except ValueError as exc:
+    except TruckUploadValidationError as exc:
         return json_response({"success": False, "message": str(exc)}, 400)
     except Exception:
         logging.getLogger(__name__).error("Truck document storage upload failed.")

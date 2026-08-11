@@ -70,6 +70,103 @@ def test_upload_keys_are_opaque_unique_and_reject_executable_extension(monkeypat
         )
 
 
+def test_truck_upload_validation_is_bounded_and_provider_valueerror_is_sanitized(
+    client, monkeypatch, caplog
+):
+    owner = _user(1, "logistics_provider")
+    client.login(owner)
+    truck_id = client.db.execute(
+        "insert into vehicles "
+        "(owner_user_id,truck_number,truck_company,truck_model,truck_type,"
+        "capacity_tons,payload_min_tons,payload_max_tons,current_city,"
+        "current_lat,current_lng,service_radius_km,status) "
+        "values (1,'UPLOAD-1','Test Motors','Model 1','Open Body',"
+        "5,1,5,'Gujranwala',32.1877,74.1945,100,'active') returning id"
+    ).fetchone()["id"]
+    client.db.commit()
+
+    def form(filename, content=b"image"):
+        return {
+            "truck_number": "UPLOAD-1",
+            "truck_company": "Test Motors",
+            "truck_model": "Model 1",
+            "truck_type": "Open Body",
+            "max_capacity": "5",
+            "payload_min_tons": "1",
+            "payload_max_tons": "5",
+            "chassis_number": "ABCDEFGH123456789",
+            "operating_provinces": "Punjab",
+            "current_city": "Gujranwala",
+            "current_lat": "32.1877",
+            "current_lng": "74.1945",
+            "service_radius_km": "100",
+            "truck_photo": (BytesIO(content), filename),
+        }
+
+    provider_calls = []
+    sentinel = "SENTINEL_STORAGE_VALUEERROR_SECRET_URL_CREDENTIAL"
+
+    def provider_failure(path, _file):
+        provider_calls.append(path)
+        raise ValueError(sentinel)
+
+    monkeypatch.setattr(storage, "upload_file_storage", provider_failure)
+    provider_response = client.put(
+        f"/api/trucks/{truck_id}/configuration",
+        data=form("valid.jpg"),
+        headers=CSRF,
+    )
+    assert provider_response.status_code == 503
+    assert provider_response.get_json() == {
+        "success": False,
+        "message": "Document upload is temporarily unavailable.",
+    }
+    assert sentinel not in provider_response.get_data(as_text=True)
+    assert sentinel not in caplog.text
+    assert len(provider_calls) == 1
+
+    provider_calls.clear()
+    validation_response = client.put(
+        f"/api/trucks/{truck_id}/configuration",
+        data=form("payload.exe", b"executable"),
+        headers=CSRF,
+    )
+    assert validation_response.status_code == 400
+    assert validation_response.get_json() == {
+        "success": False,
+        "message": "Truck files must be JPG, JPEG, PNG, WEBP, or PDF.",
+    }
+    assert provider_calls == []
+
+    uploaded = []
+    monkeypatch.setattr(
+        storage,
+        "upload_file_storage",
+        lambda path, _file: uploaded.append(path) or path,
+    )
+    stored_path = make_upload_relative_path(
+        truck_id,
+        FileStorage(
+            stream=BytesIO(b"image"), filename="customer-private-name.jpg"
+        ),
+    )
+    assert len(uploaded) == 1
+    assert stored_path == uploaded[0]
+    assert re.fullmatch(
+        rf"uploads/trucks/{truck_id}_[0-9a-f]{{32}}\.jpg", uploaded[0]
+    )
+    assert "customer-private-name" not in uploaded[0]
+
+    client.login(_user(2, "logistics_provider"))
+    forbidden = client.put(
+        f"/api/trucks/{truck_id}/configuration",
+        data=form("other.jpg"),
+        headers=CSRF,
+    )
+    assert forbidden.status_code == 403
+    assert len(uploaded) == 1
+
+
 def test_chat_download_requires_exact_thread_relationship(client, monkeypatch):
     _register_chat_once(client)
     db = client.db
