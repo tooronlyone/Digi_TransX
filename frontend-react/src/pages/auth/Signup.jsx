@@ -4,6 +4,7 @@ import AuthCard from '../../components/common/AuthCard'
 import InputField from '../../components/common/InputField'
 import Notification from '../../components/common/Notification'
 import '../../styles/pages/auth.css'
+import { setSignupBasicDraft } from '../../auth/signupDraft'
 
 function getPasswordStrength(password) {
   let score = 0
@@ -47,16 +48,13 @@ export default function Signup() {
     }
 
     setErrors({})
-    sessionStorage.setItem(
-      'signup_basic',
-      JSON.stringify({
-        name: form.name.trim(),
-        email: form.email.trim().toLowerCase(),
-        phone: form.phone.trim(),
-        password: form.password,
-        cnic: form.cnic.trim(),
-      })
-    )
+    setSignupBasicDraft({
+      name: form.name.trim(),
+      email: form.email.trim().toLowerCase(),
+      phone: form.phone.trim(),
+      password: form.password,
+      cnic: form.cnic.trim(),
+    })
     navigate('/signup/role')
   }
 

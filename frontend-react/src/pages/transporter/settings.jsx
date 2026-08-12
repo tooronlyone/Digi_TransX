@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/exhaustive-deps */
 import { useState, useEffect } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
@@ -14,7 +15,6 @@ export default function Settings() {
   const [account, setAccount] = useState({ companyName: '', email: '', phone: '', address: '', about: '' })
   const [notifs, setNotifs] = useState({ email: true, sms: true, whatsapp: true, push: true, jobAlerts: true, payments: true, system: false, promo: false })
   const [security, setSecurity] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
-  const [mpinForm, setMpinForm] = useState({ mpin: '', confirmMpin: '' })
   const [otpSent, setOtpSent] = useState(false)
   const [otpCode, setOtpCode] = useState('')
   const [prefs, setPrefs] = useState({ language: 'en', currency: 'PKR', timezone: 'PKT', dateFormat: 'DD/MM/YYYY', theme: 'light', autoRefresh: true, tips: false })
@@ -156,36 +156,6 @@ export default function Settings() {
     try { await post('/api/profile/password/request-otp', {}); showToast('OTP resent!') }
     catch { showToast('Failed to resend OTP', 'error') }
     finally { setSaving(false) }
-  }
-
-  async function saveMpin() {
-    if (!/^\d{4}$/.test(mpinForm.mpin)) return showToast('MPIN must be exactly 4 digits', 'error')
-    if (mpinForm.mpin !== mpinForm.confirmMpin) return showToast('MPIN values do not match', 'error')
-    setSaving(true)
-    try {
-      const res = await post('/auth/fast-login/setup', { mpin: mpinForm.mpin })
-      if (res.success) {
-        setUser(prev => ({ ...(prev || {}), mpin_enabled: true }))
-        setMpinForm({ mpin: '', confirmMpin: '' })
-        showToast('MPIN enabled successfully!')
-      } else showToast(res.message || 'Failed to save MPIN', 'error')
-    } catch (e) {
-      showToast(e.message || 'Failed to save MPIN', 'error')
-    } finally { setSaving(false) }
-  }
-
-  async function disableMpin() {
-    setSaving(true)
-    try {
-      const res = await post('/auth/fast-login/disable', {})
-      if (res.success) {
-        setUser(prev => ({ ...(prev || {}), mpin_enabled: false }))
-        setMpinForm({ mpin: '', confirmMpin: '' })
-        showToast('MPIN disabled successfully.')
-      } else showToast(res.message || 'Failed to disable MPIN', 'error')
-    } catch (e) {
-      showToast(e.message || 'Failed to disable MPIN', 'error')
-    } finally { setSaving(false) }
   }
 
   async function savePreferences() {
@@ -406,46 +376,13 @@ export default function Settings() {
                     : 'Enter a new password and click Update Security to receive an OTP on your email.'}
                 </p>
                 <div className="transporter-settings__mpin-panel">
-                  <h4 className="transporter-settings__mpin-title">Fast Login MPIN</h4>
+                  <h4 className="transporter-settings__mpin-title">Software Access MPIN</h4>
                   <p className="transporter-settings__help-text">
-                    Optional 4 digit MPIN for the last logged-in account on this device.
+                    Manage secure MPIN unlock for this trusted signed-in session on the canonical Security page.
                   </p>
-                  <div className="transporter-settings__form-row">
-                    <div className="transporter-settings__form-group">
-                      <label className="transporter-settings__label">4 Digit MPIN</label>
-                      <input
-                        type="password"
-                        className="transporter-settings__input"
-                        inputMode="numeric"
-                        maxLength="4"
-                        value={mpinForm.mpin}
-                        onChange={e => setMpinForm(p => ({ ...p, mpin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
-                        placeholder="Enter 4 digits"
-                      />
-                    </div>
-                    <div className="transporter-settings__form-group">
-                      <label className="transporter-settings__label">Confirm MPIN</label>
-                      <input
-                        type="password"
-                        className="transporter-settings__input"
-                        inputMode="numeric"
-                        maxLength="4"
-                        value={mpinForm.confirmMpin}
-                        onChange={e => setMpinForm(p => ({ ...p, confirmMpin: e.target.value.replace(/\D/g, '').slice(0, 4) }))}
-                        placeholder="Re-enter 4 digits"
-                      />
-                    </div>
-                  </div>
-                  <div className="transporter-settings__btn-group">
-                    <button type="button" className="transporter-settings__btn transporter-settings__btn--primary" onClick={saveMpin} disabled={saving}>
-                      <i className="fas fa-lock"></i> {user?.mpin_enabled ? 'Update MPIN' : 'Enable MPIN'}
-                    </button>
-                    {user?.mpin_enabled && (
-                      <button type="button" className="transporter-settings__btn transporter-settings__btn--secondary" onClick={disableMpin} disabled={saving}>
-                        <i className="fas fa-lock-open"></i> Disable MPIN
-                      </button>
-                    )}
-                  </div>
+                  <Link className="transporter-settings__btn transporter-settings__btn--primary" to="/transporter/security">
+                    <i className="fas fa-shield-halved"></i> Manage MPIN security
+                  </Link>
                 </div>
                 <div className="transporter-settings__cards">
                   <div className="transporter-settings__card"

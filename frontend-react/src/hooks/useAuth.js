@@ -1,16 +1,12 @@
 import { useNavigate } from 'react-router-dom'
+import { cacheAuthPresentation, clearAuthPresentation } from '../auth/presentation'
 
 export function useAuthSession() {
   const navigate = useNavigate()
 
   function cacheUser(data) {
     if (!data?.user) return
-    sessionStorage.setItem('user', JSON.stringify(data.user))
-    sessionStorage.setItem('user_id', String(data.user.id))
-    sessionStorage.setItem('user_role', data.user.role || '')
-    if (data.csrf_token) sessionStorage.setItem('csrf_token', data.csrf_token)
-    if (data.session?.last_active_at)
-      sessionStorage.setItem('session_last_active_at', String(data.session.last_active_at))
+    cacheAuthPresentation(data)
     window.AuthSession = {
       kind: 'user',
       user: data.user,
@@ -20,10 +16,7 @@ export function useAuthSession() {
   }
 
   function clearCache() {
-    ;['user','user_id','user_role','admin_id','admin_level','csrf_token',
-      'session_last_active_at','session_expires_at','session_inactivity_window_days',
-      'signup_basic','signup_role','auth_mode']
-      .forEach(k => sessionStorage.removeItem(k))
+    clearAuthPresentation()
   }
 
   function resolveRedirect(data) {

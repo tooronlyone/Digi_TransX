@@ -1,4 +1,4 @@
-/* eslint-disable no-unused-vars, no-empty, react-hooks/exhaustive-deps, react-hooks/set-state-in-effect */
+/* eslint-disable no-unused-vars, no-empty, react-hooks/exhaustive-deps */
 import { useState, useEffect, useCallback } from 'react'
 import { Link } from 'react-router-dom'
 import Notification from '../../components/common/Notification'
@@ -11,7 +11,6 @@ export default function Login() {
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
   const [notification, setNotification] = useState({ type: '', message: '' })
-  const [showFastLogin, setShowFastLogin] = useState(false)
 
   const isValidEmail = (v) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(v)
   const isValidCnic = (v) => /^\d{13}$/.test(String(v || '').replace(/\D/g, ''))
@@ -25,9 +24,6 @@ export default function Login() {
         window.location.href = resolveRedirect(data)
       } else {
         clearCache()
-        const optRes = await fetch('/auth/fast-login/options', { credentials: 'include' })
-        const optData = await optRes.json()
-        setShowFastLogin(!!(optRes.ok && optData?.available))
       }
     } catch (_) {}
   }, [])
@@ -164,22 +160,6 @@ export default function Login() {
               {!loading && <i className="fas fa-arrow-right-to-bracket" aria-hidden="true"></i>}
               {loading ? 'Signing in...' : 'Sign In'}
             </button>
-
-            {showFastLogin && (
-              <>
-                <div className="auth-shell__divider">
-                  <span>or</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => navigate('/unlock?source=user')}
-                  className="auth-shell__ghost"
-                >
-                  <i className="fas fa-fingerprint" aria-hidden="true"></i>
-                  Use Fast Login
-                </button>
-              </>
-            )}
 
             <p className="auth-shell__footer">
               Don't have an account?{' '}

@@ -3,12 +3,12 @@ import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ActivityTracker from './components/ActivityTracker'
 import GenuineActivity from './components/GenuineActivity'
 import GlobalAiAssistant from './components/ai/GlobalAiAssistant'
+import AccessLockProvider from './components/security/AccessLockProvider'
 
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
 import RoleSelect from './pages/auth/RoleSelect'
 import ResetPassword from './pages/auth/ResetPassword'
-import Unlock from './pages/auth/Unlock'
 import MainPage from './pages/main/MainPage'
 
 import ServiceSeekerDetails from './pages/auth/roledetails/ServiceSeekerDetails'
@@ -103,6 +103,7 @@ import AdminDisputeChat from './pages/admin/AdminDisputeChat'
 import AdminPayments from './pages/admin/AdminPayments'
 import AdminPlatformSettings from './pages/admin/AdminPlatformSettings'
 import ClientTerms from './pages/client/Terms'
+import SecuritySettings from './pages/shared/SecuritySettings'
 
 function ClientGuard({ children }) {
   const { ready } = useClientAuth()
@@ -192,6 +193,7 @@ function ClientPortal() {
           <Route path="wallet" element={<Wallet />} />
           <Route path="balance" element={<Wallet />} />
           <Route path="account" element={<ClientAccount />} />
+          <Route path="security" element={<SecuritySettings />} />
           <Route path="messages" element={<ClientMessages />} />
           <Route path="terms" element={<ClientTerms />} />
           <Route path="*" element={<Navigate to="/client/dashboard" replace />} />
@@ -220,6 +222,7 @@ function EverydayPortal() {
               (agreements/wallet pages remain hidden for this surface). */}
           <Route path="messages" element={<ClientMessages />} />
           <Route path="terms" element={<ClientTerms />} />
+          <Route path="security" element={<SecuritySettings />} />
           <Route path="*" element={<Navigate to="/everyday/dashboard" replace />} />
         </Routes>
       </EverydayLayout>
@@ -261,6 +264,7 @@ function TransporterPortal() {
 
           <Route path="profile" element={<Profile />} />
           <Route path="settings" element={<Settings />} />
+          <Route path="security" element={<SecuritySettings />} />
 
           <Route path="leaderboard" element={<Leaderboard />} />
 
@@ -351,8 +355,9 @@ export default function App() {
   return (
     <BrowserRouter>
       <GenuineActivity />
-      <ActivityTracker>
-        <>
+      <AccessLockProvider>
+        <ActivityTracker>
+          <>
           <Routes>
             <Route path="/" element={<Login />} />
             <Route path="/login" element={<Login />} />
@@ -365,7 +370,7 @@ export default function App() {
             <Route path="/signup/details/fuel-station" element={<FuelStationDetails />} />
             <Route path="/signup/details/shopkeeper" element={<ShopkeeperDetails />} />
             <Route path="/reset-password" element={<ResetPassword />} />
-            <Route path="/unlock" element={<Unlock />} />
+            <Route path="/unlock" element={<Navigate to="/login" replace />} />
             <Route path="/ai-chat" element={<AiChat />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/*" element={<AdminPortal />} />
@@ -389,8 +394,9 @@ export default function App() {
             <Route path="*" element={<Login />} />
           </Routes>
           <GlobalAiAssistant />
-        </>
-      </ActivityTracker>
+          </>
+        </ActivityTracker>
+      </AccessLockProvider>
     </BrowserRouter>
   )
 }

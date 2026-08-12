@@ -1,0 +1,168 @@
+.access-lock {
+  position: fixed;
+  inset: 0;
+  z-index: 10000;
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  padding: 16px;
+  overflow-y: auto;
+  background: #0b1220;
+  color: #0f172a;
+}
+
+.access-lock__dialog {
+  width: min(100%, 440px);
+  max-height: calc(100dvh - 32px);
+  overflow-y: auto;
+  border: 1px solid #dbeafe;
+  border-radius: 20px;
+  background: #fff;
+  padding: clamp(20px, 6vw, 36px);
+  box-shadow: 0 28px 80px rgb(0 0 0 / 45%);
+}
+
+.access-lock__checking-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  border-radius: 14px;
+  background: #fff;
+  padding: 18px 22px;
+  color: #334155;
+  font-weight: 700;
+  box-shadow: 0 20px 60px rgb(0 0 0 / 35%);
+}
+
+.access-lock__spinner {
+  width: 22px;
+  height: 22px;
+  border: 3px solid #bfdbfe;
+  border-top-color: #2563eb;
+  border-radius: 999px;
+  animation: access-lock-spin .8s linear infinite;
+}
+
+@keyframes access-lock-spin { to { transform: rotate(360deg); } }
+
+@media (prefers-reduced-motion: reduce) {
+  .access-lock__spinner { animation: none; }
+}
+
+.access-lock__icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin-bottom: 18px;
+  border-radius: 16px;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 22px;
+}
+
+.access-lock h1,
+.security-settings-page h1,
+.mpin-management h2,
+.mpin-management h3 { margin: 0; color: #0f172a; }
+.access-lock h1 { font-size: clamp(1.5rem, 6vw, 2rem); }
+.access-lock__dialog > p { margin: 10px 0 22px; color: #475569; line-height: 1.55; }
+.access-lock__form { display: grid; gap: 14px; }
+.access-lock__account,
+.access-lock__note { margin: 0; color: #64748b; font-size: .875rem; }
+
+.mpin-control { min-width: 0; }
+.mpin-control__label,
+.security-field > span { display: block; margin-bottom: 8px; color: #334155; font-size: .875rem; font-weight: 700; }
+.mpin-control__input-wrap { position: relative; height: 60px; }
+.mpin-control__input {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  opacity: .01;
+  color: transparent;
+  caret-color: transparent;
+}
+.mpin-control__input:focus { outline: none; }
+.mpin-control__slots { display: grid; grid-template-columns: repeat(4, minmax(44px, 1fr)); gap: 10px; height: 100%; }
+.mpin-control__slots span {
+  display: grid;
+  place-items: center;
+  min-width: 0;
+  border: 2px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+  font-size: 1.8rem;
+  line-height: 1;
+}
+.mpin-control__input:focus + .mpin-control__slots { border-radius: 14px; outline: 3px solid #bfdbfe; outline-offset: 2px; }
+.mpin-control__input:focus + .mpin-control__slots span.is-current { border-color: #2563eb; }
+.mpin-control__hint { margin: 7px 0 0; color: #64748b; font-size: .78rem; }
+
+.security-field input {
+  width: 100%;
+  min-height: 46px;
+  border: 1px solid #cbd5e1;
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: #0f172a;
+  background: #fff;
+}
+.security-field input:focus { border-color: #2563eb; outline: 3px solid #dbeafe; }
+.security-primary,
+.security-secondary,
+.security-danger,
+.security-link,
+.security-logout { min-height: 44px; border-radius: 10px; padding: 10px 14px; font-weight: 700; cursor: pointer; }
+.security-primary { border: 1px solid #1d4ed8; background: #2563eb; color: #fff; }
+.security-secondary { border: 1px solid #cbd5e1; background: #fff; color: #334155; }
+.security-danger { border: 1px solid #b91c1c; background: #b91c1c; color: #fff; }
+.security-link,
+.security-logout { border: 0; background: transparent; color: #1d4ed8; text-decoration: underline; }
+.security-logout { width: 100%; margin-top: 12px; color: #475569; }
+.security-primary:focus-visible,
+.security-secondary:focus-visible,
+.security-danger:focus-visible,
+.security-link:focus-visible,
+.security-logout:focus-visible { outline: 3px solid #93c5fd; outline-offset: 2px; }
+button:disabled { cursor: not-allowed; opacity: .62; }
+.security-message { margin: 12px 0; border-radius: 10px; background: #f1f5f9; padding: 11px 13px; color: #334155; }
+.security-message.is-error { background: #fef2f2; color: #991b1b; }
+.security-message.is-success { background: #ecfdf5; color: #065f46; }
+
+.security-settings-page { width: min(100%, 980px); margin: 0 auto; padding: clamp(16px, 3vw, 28px); }
+.security-settings-page__header { margin-bottom: 20px; }
+.security-settings-page__header p,
+.mpin-management__eyebrow { margin: 0 0 5px; color: #2563eb; font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; }
+.security-settings-page__header span { display: block; margin-top: 8px; color: #64748b; }
+.mpin-management { min-width: 0; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; padding: clamp(16px, 4vw, 28px); box-shadow: 0 10px 28px rgb(15 23 42 / 6%); }
+.mpin-management__header { display: flex; align-items: start; justify-content: space-between; gap: 12px; }
+.mpin-management__intro { max-width: 66ch; color: #64748b; line-height: 1.55; }
+.mpin-status { display: flex; align-items: center; gap: 14px; margin: 20px 0; border-radius: 12px; padding: 14px; background: #f8fafc; }
+.mpin-status > i { font-size: 1.25rem; color: #2563eb; }
+.mpin-status.is-locked > i { color: #b91c1c; }
+.mpin-status strong,
+.mpin-status span { display: block; }
+.mpin-status span { margin-top: 3px; color: #64748b; font-size: .875rem; }
+.mpin-management__form { display: grid; gap: 16px; min-width: 0; margin-top: 18px; border-top: 1px solid #e2e8f0; padding-top: 20px; }
+.mpin-management__grid,
+.mpin-management__columns { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.mpin-management__grid .security-field { align-self: end; }
+.mpin-management__columns .mpin-management__form { align-content: start; }
+.mpin-management__form.is-danger { border: 1px solid #fecaca; border-radius: 12px; padding: 18px; }
+
+@media (max-width: 767px) {
+  .mpin-management__grid,
+  .mpin-management__columns { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-width: 374px) {
+  .access-lock { padding: 10px; }
+  .access-lock__dialog { max-height: calc(100dvh - 20px); padding: 18px 14px; border-radius: 14px; }
+  .mpin-control__slots { gap: 6px; }
+  .mpin-control__slots span { min-width: 0; }
+  .mpin-management__header { align-items: stretch; flex-direction: column; }
+}

@@ -5,6 +5,7 @@ import { NAV_ITEMS } from './navItems'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
+import { clearAuthPresentation } from '../../auth/presentation'
 
 function getTransporterDisplayName(u = {}) {
   const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
@@ -95,7 +96,7 @@ export default function TransporterLayout({ children }) {
       const csrf = await getCsrfToken()
       await fetch('/auth/logout', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': csrf } })
     } catch { /* logout is best-effort */ }
-    sessionStorage.clear()
+    clearAuthPresentation()
     navigate('/login')
   }
 

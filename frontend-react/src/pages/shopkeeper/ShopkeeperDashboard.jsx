@@ -1,5 +1,7 @@
+/* eslint-disable no-unused-vars, no-empty */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { clearAuthPresentation } from '../../auth/presentation'
 
 function formatDate(iso) {
   if (!iso) return '—'
@@ -17,7 +19,7 @@ async function logout() {
       credentials: 'include',
     })
   } catch (_) {}
-  sessionStorage.clear()
+  clearAuthPresentation()
   window.location.replace('/login')
 }
 

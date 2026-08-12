@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { clearAuthPresentation } from '../auth/presentation'
 
 // The /everyday/* surface is for everyday individual users only. Business
 // service seekers are sent to their /client/* surface; everyone else to login.
@@ -59,13 +60,13 @@ export default function useEverydayAuth() {
           sessionStorage.setItem('user', JSON.stringify(data.user || {}))
           navigate(data.redirect, { replace: true })
         } else {
-          sessionStorage.clear()
+          clearAuthPresentation()
           navigate('/login', { replace: true })
         }
       })
       .catch(() => {
         if (!active) return
-        sessionStorage.clear()
+        clearAuthPresentation()
         navigate('/login', { replace: true })
       })
 

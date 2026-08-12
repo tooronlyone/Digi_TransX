@@ -1,3 +1,4 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react'
 import {
   PageTitle,
@@ -8,6 +9,7 @@ import {
   apiGet,
   apiSend,
 } from './clientUtils'
+import { Link } from 'react-router-dom'
 
 const emptyProfile = {
   first_name: '',
@@ -97,9 +99,9 @@ export default function ClientAccount() {
         title="Profile Settings"
         actions={
           <>
-            <a href="/client/security-settings.html" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+            <Link to="/client/security" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
               <i className="fas fa-shield-alt" aria-hidden="true"></i> Security Settings
-            </a>
+            </Link>
             <SecondaryButton type="button" onClick={loadProfile} disabled={loading}>
               <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`} aria-hidden="true"></i>
               Reload
@@ -190,13 +192,13 @@ export default function ClientAccount() {
         )}
       </SectionCard>
 
-      <SectionCard title="Fast Login Security">
+      <SectionCard title="Software Access Security">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-600">Configure MPIN or biometric unlock for quick and secure access.</p>
-          <a href="/client/security-settings.html" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+          <p className="text-sm text-slate-600">Configure MPIN unlock for your current trusted signed-in session.</p>
+          <Link to="/client/security" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
             <i className="fas fa-fingerprint" aria-hidden="true"></i>
             Manage Security
-          </a>
+          </Link>
         </div>
       </SectionCard>
 

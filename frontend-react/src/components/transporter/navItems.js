@@ -8,6 +8,7 @@ export const NAV_ITEMS = [
   { path: '/transporter/wallet',       icon: 'fa-credit-card',    label: 'Wallet' },
   { path: '/transporter/profile',      icon: 'fa-user-circle',    label: 'My Profile' },
   { path: '/transporter/settings',     icon: 'fa-cog',            label: 'Settings' },
+  { path: '/transporter/security',     icon: 'fa-shield-halved',  label: 'Security' },
 ]
 
 export const FOOTER_LINKS = [

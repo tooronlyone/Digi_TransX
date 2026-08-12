@@ -5,6 +5,7 @@ import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
 import PendingTransporterReviewGate from '../common/PendingTransporterReviewGate'
 import '../../styles/pages/client.css'
+import { clearAuthPresentation } from '../../auth/presentation'
 
 // Everyday users get the simple one-time-order flow only: NO wallet, NO
 // agreements, NO saved cards, NO company/business configuration. The shared
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { label: 'My Orders', icon: 'fa-clipboard-list', path: '/everyday/orders' },
   { label: 'Messages', icon: 'fa-comments', path: '/everyday/messages' },
   { label: 'Terms & Fees', icon: 'fa-file-lines', path: '/everyday/terms' },
+  { label: 'Security', icon: 'fa-shield-halved', path: '/everyday/security' },
 ]
 
 // Read the display name from the session cache once (lazy init) so there is no
@@ -54,7 +56,7 @@ export default function EverydayLayout({ children }) {
         headers: { 'X-CSRF-Token': csrf },
       })
     } catch { /* logout is best-effort */ }
-    sessionStorage.clear()
+    clearAuthPresentation()
     navigate('/login', { replace: true })
   }
 

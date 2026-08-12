@@ -1,5 +1,7 @@
+/* eslint-disable no-unused-vars, no-empty, react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { clearAuthPresentation } from '../../auth/presentation'
 
 export default function ShopkeeperGuard({ children }) {
   const navigate = useNavigate()
@@ -34,13 +36,13 @@ export default function ShopkeeperGuard({ children }) {
           }
           setReady(true)
         } else {
-          sessionStorage.clear()
+          clearAuthPresentation()
           navigate('/login', { replace: true })
         }
       })
       .catch(() => {
         if (!active) return
-        sessionStorage.clear()
+        clearAuthPresentation()
         navigate('/login', { replace: true })
       })
 

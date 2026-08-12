@@ -1,5 +1,7 @@
+/* eslint-disable no-unused-vars, no-empty, react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import { clearAuthPresentation } from '../auth/presentation'
 
 // /client/* is the BUSINESS service-seeker surface only. Everyday users have
 // their own /everyday/* surface and are redirected there.
@@ -66,13 +68,13 @@ export default function useClientAuth() {
           sessionStorage.setItem('user', JSON.stringify(data.user || {}))
           navigate(data.redirect, { replace: true })
         } else {
-          sessionStorage.clear()
+          clearAuthPresentation()
           navigate('/login', { replace: true })
         }
       })
       .catch(() => {
         if (!active) return
-        sessionStorage.clear()
+        clearAuthPresentation()
         navigate('/login', { replace: true })
       })
 

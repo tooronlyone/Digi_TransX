@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import '../../styles/pages/auth.css'
+import { getSignupBasicDraft, setSignupRole } from '../../auth/signupDraft'
 
 const ROLES = [
   {
@@ -51,12 +52,12 @@ export default function RoleSelect() {
   const navigate = useNavigate()
 
   function handleSelect(role) {
-    const basic = sessionStorage.getItem('signup_basic')
+    const basic = getSignupBasicDraft()
     if (!basic) {
       navigate('/signup')
       return
     }
-    sessionStorage.setItem('signup_role', role)
+    setSignupRole(role)
     navigate(ROLE_NEXT[role])
   }
 

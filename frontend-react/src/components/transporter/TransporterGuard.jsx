@@ -1,6 +1,8 @@
+/* eslint-disable no-empty, react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { getTransporterDefaultRoute, isTransporterPathAllowed } from './accessControl'
+import { clearAuthPresentation } from '../../auth/presentation'
 
 export default function TransporterGuard({ children }) {
   const navigate = useNavigate()
@@ -61,13 +63,13 @@ export default function TransporterGuard({ children }) {
           if (!authorize({ ...data.user, organization_default_route: data.redirect })) return
           setReady(true)
         } else {
-          sessionStorage.clear()
+          clearAuthPresentation()
           navigate('/login', { replace: true })
         }
       })
       .catch(() => {
         if (!active) return
-        sessionStorage.clear()
+        clearAuthPresentation()
         navigate('/login', { replace: true })
       })
 

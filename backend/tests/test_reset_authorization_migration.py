@@ -6,7 +6,13 @@ import subprocess
 import psycopg2
 import pytest
 
-from tests._life_helpers import SCHEMA_SQL, STUBS, make_disposable, require_test_db_url
+from tests._life_helpers import (
+    SCHEMA_SQL,
+    STUBS,
+    make_disposable,
+    require_test_db_url,
+    schema_before_migration_or_skip,
+)
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -40,9 +46,7 @@ def _metadata(conn):
 
 def test_reset_claim_migration_converges_reapplies_and_invalidates_legacy():
     base = require_test_db_url()
-    main_schema = subprocess.check_output(
-        ["git", "show", "origin/main:supabase/schema.sql"], cwd=ROOT, text=True
-    )
+    main_schema = schema_before_migration_or_skip(MPIN_MIGRATION)
     mpin_sql = MPIN_MIGRATION.read_text(encoding="utf-8")
     claim_sql = CLAIM_MIGRATION.read_text(encoding="utf-8")
     assert "cascade" not in claim_sql.lower()
@@ -88,9 +92,7 @@ def test_reset_claim_migration_converges_reapplies_and_invalidates_legacy():
 
 def test_reset_claim_migration_aborts_partial_and_corrupt_states_without_repair():
     base = require_test_db_url()
-    main_schema = subprocess.check_output(
-        ["git", "show", "origin/main:supabase/schema.sql"], cwd=ROOT, text=True
-    )
+    main_schema = schema_before_migration_or_skip(MPIN_MIGRATION)
     partial_url, partial_cleanup = make_disposable(
         base,
         STUBS,

@@ -1,7 +1,9 @@
+/* eslint-disable no-unused-vars, no-empty, react-hooks/set-state-in-effect, react-hooks/exhaustive-deps */
 import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 import '../../styles/pages/profile.css'
+import { clearAuthPresentation } from '../../auth/presentation'
 
 function getInitials(user) {
   const first = (user?.first_name || '').trim()
@@ -40,7 +42,7 @@ export default function Profile() {
     try {
       await post('/auth/logout', {})
     } catch {}
-    sessionStorage.clear()
+    clearAuthPresentation()
     navigate('/login', { replace: true })
   }
 

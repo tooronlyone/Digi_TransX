@@ -7,7 +7,6 @@ import importlib
 import os
 from pathlib import Path
 import secrets
-import subprocess
 import sys
 import threading
 from urllib.parse import urlsplit
@@ -21,7 +20,13 @@ import auth.helpers as auth_helpers
 from auth import mpin_service, session_service
 import auth.routes as auth_routes
 from shared.db import Db
-from tests._life_helpers import SCHEMA_SQL, STUBS, make_disposable, require_test_db_url
+from tests._life_helpers import (
+    SCHEMA_SQL,
+    STUBS,
+    make_disposable,
+    require_test_db_url,
+    schema_before_migration_or_skip,
+)
 from tests.test_canonical_event_acl_hardening import _semantic_signature
 
 
@@ -572,9 +577,7 @@ def test_concurrent_unlock_responses_leave_one_database_usable_proof(mpin_client
 
 
 def test_migration_converges_reapplies_invalidates_legacy_and_rejects_corruption():
-    main_schema = subprocess.check_output(
-        ["git", "show", "origin/main:supabase/schema.sql"], cwd=ROOT, text=True
-    )
+    main_schema = schema_before_migration_or_skip(MIGRATION)
     migration = MIGRATION.read_text(encoding="utf-8")
     activity_migration = GENUINE_ACTIVITY_MIGRATION.read_text(encoding="utf-8")
     assert "cascade" not in migration.lower()
@@ -683,6 +686,7 @@ def test_application_registers_all_mpin_operations_under_api_auth(monkeypatch):
 
     monkeypatch.setattr(shared_db, "check_connection", lambda: None)
     monkeypatch.setenv("DIGITRANSX_ENABLE_SCHEDULER", "0")
+    monkeypatch.setenv("DIGITRANSX_ENVIRONMENT", "test")
     sys.modules.pop("app", None)
     app = importlib.import_module("app").app
 

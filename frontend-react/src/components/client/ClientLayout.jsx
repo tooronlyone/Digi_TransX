@@ -5,6 +5,7 @@ import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
 import PendingTransporterReviewGate from '../common/PendingTransporterReviewGate'
 import '../../styles/pages/client.css'
+import { clearAuthPresentation } from '../../auth/presentation'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: 'fa-home', path: '/client/dashboard' },
@@ -15,6 +16,7 @@ const NAV_ITEMS = [
   { label: 'Messages', icon: 'fa-comments', path: '/client/messages' },
   { label: 'Your Wallet', icon: 'fa-wallet', path: '/client/wallet', match: ['/client/balance'] },
   { label: 'Your Account', icon: 'fa-user-circle', path: '/client/account' },
+  { label: 'Security', icon: 'fa-shield-halved', path: '/client/security' },
 ]
 
 export default function ClientLayout({ children }) {
@@ -96,7 +98,7 @@ export default function ClientLayout({ children }) {
         headers: { 'X-CSRF-Token': csrf },
       })
     } catch { /* best-effort; ignore */ }
-    sessionStorage.clear()
+    clearAuthPresentation()
     navigate('/login', { replace: true })
   }
 

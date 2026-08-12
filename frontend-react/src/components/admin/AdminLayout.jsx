@@ -1,6 +1,8 @@
+/* eslint-disable no-unused-vars, no-empty */
 import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { adminRequest, adminUser } from '../../pages/admin/adminApi'
+import { clearAuthPresentation } from '../../auth/presentation'
 
 const NAV_ITEMS = [
   { path: '/admin/dashboard',   label: 'Dashboard',    icon: 'fa-gauge-high' },
@@ -23,7 +25,7 @@ export default function AdminLayout({ children }) {
 
   async function logout() {
     try { await adminRequest('/auth/logout', { method: 'POST', body: JSON.stringify({}) }) } catch (_) {}
-    sessionStorage.clear()
+    clearAuthPresentation()
     navigate('/admin/login', { replace: true })
   }
 
