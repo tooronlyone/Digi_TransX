@@ -6,6 +6,7 @@ import {
   ACCESS_STATES,
   createAccessLockCoordinator,
   createLatestRequestGate,
+  createSafeReplayDescriptor,
   deriveAccessState,
   installAccessFetchInterceptor,
   isFullLogin401,
@@ -85,18 +86,112 @@ test('public auth routing does not mistake every protected path as public', () =
   for (const path of ['/client/orders', '/transporter/dashboard', '/everyday/security']) assert.equal(isPublicAuthPath(path), false)
 })
 
-test('safe replay permits only bodyless same-origin GET without query or high-risk prefix', () => {
+test('automatic replay is a fail-closed exact positive policy', () => {
   const locationRef = { origin: 'https://app.test' }
-  assert.equal(isSafeReplayableRead('/api/orders', {}, locationRef), true)
+  const safePath = '/api/platform/terms/current'
+  assert.equal(isSafeReplayableRead(safePath, {}, locationRef), true)
+  assert.equal(isSafeReplayableRead(safePath, { method: 'GET', credentials: 'same-origin' }, locationRef), true)
+  assert.equal(isSafeReplayableRead(`https://app.test${safePath}`, {}, locationRef), true)
+
   for (const [url, init] of [
-    ['/api/orders', { method: 'POST' }],
-    ['/api/orders?secret=value', {}],
-    ['/api/payments', {}],
-    ['/api/wallet', {}],
-    ['/uploads/trucks/file', {}],
+    ['/api/unknown', {}],
+    [`${safePath}?page=1`, {}],
+    [`${safePath}#section`, {}],
+    [`https://evil.test${safePath}`, {}],
+    [`//app.test${safePath}`, {}],
+    [`https://user:password@app.test${safePath}`, {}],
+    ['/api/platform%2fterms/current', {}],
+    ['/api/platform%5cterms/current', {}],
+    ['/api/platform/%2e%2e/terms/current', {}],
+    ['/api/platform/../platform/terms/current', {}],
+    ['/api//platform/terms/current', {}],
+    ['/api/platform/%ZZ/terms/current', {}],
+    [`${safePath}/`, {}],
+    [`${safePath}/unsafe-operation`, {}],
+    ['/api/platform/terms/currently', {}],
+    [safePath, { method: 'get' }],
+    [safePath, { method: 'POST' }],
+    [safePath, { method: 'PUT' }],
+    [safePath, { method: 'PATCH' }],
+    [safePath, { method: 'DELETE' }],
+    [safePath, { body: '{}' }],
+    [safePath, { signal: new AbortController().signal }],
+    [safePath, { headers: { Authorization: 'sensitive' } }],
+    [safePath, { credentials: 'omit' }],
     ['/auth/me', {}],
-    ['https://evil.test/api/orders', {}],
+    ['/auth/mpin/status', {}],
+    ['/auth/mpin/unlock', {}],
+    ['/auth/access/unlock/password', {}],
+    ['/auth/logout', {}],
+    ['/track', {}],
+    ['/api/session/activity', {}],
+    ['/uploads/trucks/file', {}],
+    ['/uploads/chat/file', {}],
+    ['/api/chat/threads/1/messages/media', {}],
+    ['/api/agreements/42/trips', {}],
+    ['/api/agreements/trips/7/live-location', {}],
+    ['/api/trucks/9/live-location', {}],
+    ['/api/orders/42/bids/7/payment-quote', {}],
+    ['/api/orders/my-bids', {}],
+    ['/api/payment-methods', {}],
+    ['/api/wallet', {}],
+    ['/api/agreements/42/payments', {}],
+    ['/api/notifications/1/read', {}],
+    ['/admin/payments', {}],
+    ['/api/admin/reports/export', {}],
   ]) assert.equal(isSafeReplayableRead(url, init, locationRef), false, url)
+
+  assert.equal(isSafeReplayableRead(new URL(`https://app.test${safePath}`), {}, locationRef), false)
+  assert.equal(isSafeReplayableRead(new Request(`https://app.test${safePath}`), {}, locationRef), false)
+  assert.equal(isSafeReplayableRead(safePath, {}, {}), false)
+  assert.equal(isSafeReplayableRead(safePath, Object.assign(Object.create({ body: '{}' }), { method: 'GET' }), locationRef), false)
+})
+
+test('safe replay descriptor contains only the audited non-sensitive path', () => {
+  const descriptor = createSafeReplayDescriptor(
+    '/api/platform/terms/current',
+    { method: 'GET', credentials: 'include' },
+    { origin: 'https://app.test' },
+  )
+  assert.deepEqual(descriptor, { path: '/api/platform/terms/current' })
+  assert.equal(Object.isFrozen(descriptor), true)
+  assert.deepEqual(Object.keys(descriptor), ['path'])
+  for (const key of ['body', 'headers', 'signal', 'password', 'mpin', 'token', 'file', 'provider']) {
+    assert.equal(key in descriptor, false)
+  }
+})
+
+test('the sole allowlisted route is a component-used SELECT-only provider-free JSON read', async () => {
+  const termsRoutes = await source('../../backend/terms/routes.py')
+  const commissions = await source('../../backend/shared/commissions.py')
+  const notice = await source('../src/components/common/TermsUpdateNotice.jsx')
+  const handler = termsRoutes.slice(
+    termsRoutes.indexOf('@terms_blueprint.get("/api/platform/terms/current")'),
+    termsRoutes.indexOf('@terms_blueprint.get("/api/platform/terms/history")'),
+  )
+  assert.match(handler, /@login_required/)
+  assert.match(handler, /with open_db\(\) as db/)
+  assert.match(handler, /return json_response/)
+  assert.match(notice, /apiGet\('\/api\/platform\/terms\/current'\)/)
+
+  const helperNames = [
+    'get_policy_by_id', 'get_current_terms_version', 'get_terms_version_by_number',
+    'has_acknowledged', 'changed_policy_types', 'requires_acknowledgement',
+    'serialize_policy', 'serialize_terms_version',
+  ]
+  const audited = [handler]
+  for (const name of helperNames) {
+    const start = commissions.indexOf(`def ${name}(`)
+    const next = commissions.indexOf('\ndef ', start + 1)
+    assert.notEqual(start, -1, name)
+    audited.push(commissions.slice(start, next === -1 ? commissions.length : next))
+  }
+  const combined = audited.join('\n').toLowerCase()
+  for (const forbidden of [
+    'db.commit', ' insert ', ' update ', ' delete ', 'download_bytes', 'upload_file_storage',
+    'get_latest_position', 'register_device', 'supabase', 'send_file',
+    'send_from_directory', 'signed_url', 'requests.', 'httpx.',
+  ]) assert.equal(combined.includes(forbidden), false, forbidden)
 })
 
 test('concurrent access locks emit one overlay event and retain at most one replay', async () => {
@@ -107,14 +202,73 @@ test('concurrent access locks emit one overlay event and retain at most one repl
   assert.equal(coordinator.notifyAccessLocked(), false)
   assert.equal(locks, 1)
   const fallback = { status: 423 }
-  const first = coordinator.waitForOneReplay(async () => ({ status: 200 }), fallback)
-  assert.equal(coordinator.waitForOneReplay(async () => ({ status: 201 }), fallback), null)
+  const descriptor = { path: '/api/platform/terms/current' }
+  const first = coordinator.captureReplay(descriptor, fallback, async () => ({ status: 200 }))
+  assert.equal(coordinator.captureReplay(descriptor, fallback, async () => ({ status: 201 })), null)
   assert.equal(await coordinator.markUnlocked(), true)
   assert.equal((await first).status, 200)
   assert.equal(await coordinator.markUnlocked(), false)
 })
 
-test('fetch interception replays at most one safe GET and never replays a mutation', async () => {
+test('pending replay is consumed before execution and failure cannot loop', async () => {
+  const coordinator = createAccessLockCoordinator()
+  const fallback = { status: 423 }
+  const descriptor = { path: '/api/platform/terms/current' }
+  coordinator.notifyAccessLocked()
+  let executions = 0
+  const waiting = coordinator.captureReplay(descriptor, fallback, async () => {
+    executions += 1
+    assert.equal(coordinator.hasPendingReplay(), false)
+    assert.equal(coordinator.captureReplay(descriptor, fallback, async () => ({})), null)
+    throw new Error('replay failed')
+  })
+  assert.equal(await coordinator.markUnlocked(), true)
+  assert.equal(await waiting, fallback)
+  assert.equal(executions, 1)
+  assert.equal(coordinator.hasPendingReplay(), false)
+  assert.equal(await coordinator.markUnlocked(), false)
+})
+
+test('new lock, logout, full-login, and route abandonment invalidate pending replay', async () => {
+  const descriptor = { path: '/api/platform/terms/current' }
+  const fallback = { status: 423 }
+
+  const stale = createAccessLockCoordinator()
+  stale.notifyAccessLocked()
+  let release
+  const staleWaiting = stale.captureReplay(descriptor, fallback, () => new Promise((resolve) => { release = resolve }))
+  const unlocking = stale.markUnlocked()
+  assert.equal(stale.notifyAccessLocked(), true)
+  release({ status: 200 })
+  assert.equal(await unlocking, true)
+  assert.equal(await staleWaiting, fallback)
+
+  for (const cleanup of ['logout', 'full_login_required', 'route_abandonment']) {
+    const coordinator = createAccessLockCoordinator()
+    coordinator.notifyAccessLocked()
+    const waiting = coordinator.captureReplay(descriptor, fallback, async () => ({ status: 200 }))
+    if (cleanup === 'route_abandonment') coordinator.cancelReplay()
+    else coordinator.notifyFullLoginRequired({ reason: cleanup })
+    assert.equal(await waiting, fallback, cleanup)
+    assert.equal(coordinator.hasPendingReplay(), false, cleanup)
+    assert.equal(await coordinator.markUnlocked(), false, cleanup)
+  }
+})
+
+test('unlock failure retains one descriptor only within the current lock generation', () => {
+  const coordinator = createAccessLockCoordinator()
+  coordinator.notifyAccessLocked()
+  const waiting = coordinator.captureReplay(
+    { path: '/api/platform/terms/current' },
+    { status: 423 },
+    async () => ({ status: 200 }),
+  )
+  assert.equal(typeof waiting?.then, 'function')
+  assert.equal(coordinator.hasPendingReplay(), true)
+  coordinator.cancelReplay()
+})
+
+test('fetch interception replays one exact safe GET and never replays prohibited requests', async () => {
   const coordinator = createAccessLockCoordinator()
   const calls = []
   const responses = [
@@ -127,14 +281,60 @@ test('fetch interception replays at most one safe GET and never replays a mutati
     fetch: async (url, init) => { calls.push({ url, init }); return responses.shift() },
   }
   const uninstall = installAccessFetchInterceptor({ globalRef, coordinator })
-  const read = globalRef.fetch('/api/orders')
-  const mutation = await globalRef.fetch('/api/orders', { method: 'POST', body: '{}' })
-  assert.equal(mutation.status, 423)
+  const read = globalRef.fetch('/api/platform/terms/current')
+  const prohibited = await globalRef.fetch('/api/agreements/42/trips')
+  assert.equal(prohibited.status, 423)
   assert.equal(calls.length, 2)
   await coordinator.markUnlocked()
   assert.equal((await read).status, 200)
   assert.equal(calls.length, 3)
+  assert.equal(calls[2].url, '/api/platform/terms/current')
+  assert.deepEqual(calls[2].init, { method: 'GET', credentials: 'same-origin' })
   uninstall()
+})
+
+test('concurrent safe 423 responses retain one replay and replayed 423 cannot recurse', async () => {
+  const coordinator = createAccessLockCoordinator()
+  let calls = 0
+  const globalRef = {
+    location: { origin: 'https://app.test', pathname: '/client/orders' },
+    fetch: async () => {
+      calls += 1
+      return new Response(JSON.stringify({ code: 'access_locked' }), {
+        status: 423,
+        headers: { 'content-type': 'application/json' },
+      })
+    },
+  }
+  installAccessFetchInterceptor({ globalRef, coordinator })
+  const first = globalRef.fetch('/api/platform/terms/current')
+  const second = await globalRef.fetch('/api/platform/terms/current')
+  assert.equal(second.status, 423)
+  assert.equal(calls, 2)
+  await coordinator.markUnlocked()
+  assert.equal((await first).status, 423)
+  assert.equal(calls, 3)
+  assert.equal(coordinator.hasPendingReplay(), false)
+  assert.equal(await coordinator.markUnlocked(), false)
+})
+
+test('ordinary 401 clears a pending replay before full-login transition', async () => {
+  const coordinator = createAccessLockCoordinator()
+  const responses = [
+    new Response(JSON.stringify({ code: 'access_locked' }), { status: 423 }),
+    new Response('{}', { status: 401 }),
+  ]
+  const globalRef = {
+    location: { origin: 'https://app.test', pathname: '/client/orders' },
+    fetch: async () => responses.shift(),
+  }
+  installAccessFetchInterceptor({ globalRef, coordinator })
+  const waiting = globalRef.fetch('/api/platform/terms/current')
+  await new Promise((resolve) => setTimeout(resolve, 0))
+  assert.equal(coordinator.hasPendingReplay(), true)
+  await globalRef.fetch('/api/orders/my-orders')
+  assert.equal((await waiting).status, 423)
+  assert.equal(coordinator.hasPendingReplay(), false)
 })
 
 test('unlock endpoints do not recursively trigger full-login handling', async () => {
@@ -150,6 +350,14 @@ test('unlock endpoints do not recursively trigger full-login handling', async ()
   assert.equal(fullLogin, 0)
   await globalRef.fetch('/api/orders')
   assert.equal(fullLogin, 1)
+  await globalRef.fetch('/api/orders', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: '{}',
+  })
+  assert.equal(fullLogin, 2)
+  await globalRef.fetch('https://provider.test/private')
+  assert.equal(fullLogin, 2)
 })
 
 test('latest-request gate rejects stale and invalidated responses', () => {
@@ -211,6 +419,7 @@ test('global lock is blocking, focus-trapped, escape-resistant, and keeps logout
   assert.match(provider, /\/auth\/logout/)
   assert.match(provider, /Unlock with password/)
   assert.match(provider, /setMpin\(''\)/)
+  assert.match(provider, /accessLockCoordinator\.cancelReplay\(\)/)
   assert.equal(/remaining attempts?/i.test(provider), false)
 })
 

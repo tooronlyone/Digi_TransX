@@ -270,6 +270,7 @@ export default function AccessLockProvider({ children }) {
     return () => {
       window.clearTimeout(timer)
       controller.current?.abort()
+      accessLockCoordinator.cancelReplay()
     }
   }, [refreshAuthority])
 

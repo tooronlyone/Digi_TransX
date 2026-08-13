@@ -34,14 +34,17 @@ const AUTH_401_DOMAIN_ENDPOINTS = new Set([
   '/api/profile/password',
 ])
 
-const NEVER_REPLAY_PREFIXES = [
-  '/auth/',
-  '/api/payments',
-  '/api/wallet',
-  '/api/agreements/process-payments',
-  '/api/agreements/apply-penalties',
-  '/uploads/',
-]
+// Sole positive owner for automatic replay. The exact current-Terms read is
+// used by the global Terms notice and is safe because its backend handler and
+// helpers perform SELECT-only local database reads: no commit, activity or
+// expiry refresh, provider/storage I/O, file/stream response, signed URL,
+// token generation, acknowledgement, reservation, claim, or transition.
+// Every other route fails closed and must be refreshed by its component owner.
+const SAFE_AUTOMATIC_REPLAY_PATHS = new Set([
+  '/api/platform/terms/current',
+])
+
+const SAFE_REPLAY_INIT_KEYS = new Set(['method', 'credentials'])
 
 export function normalizeRole(role) {
   return String(role || '').trim().toLowerCase()
@@ -119,23 +122,63 @@ function requestDescriptor(input, init = {}, locationRef = globalThis.location) 
   } catch {
     return null
   }
-  const method = String(init.method || input?.method || 'GET').toUpperCase()
   return {
-    method,
+    method: String(init.method || input?.method || 'GET').toUpperCase(),
     url,
     pathname: url.pathname,
     sameOrigin: !locationRef?.origin || url.origin === locationRef.origin,
-    hasBody: init.body != null || (typeof input !== 'string' && input?.body != null),
   }
 }
 
-export function isSafeReplayableRead(input, init = {}, locationRef = globalThis.location) {
+export function createSafeReplayDescriptor(input, init = {}, locationRef = globalThis.location) {
+  // Request and URL objects are intentionally not retained or normalized for
+  // replay. A plain canonical string is the only accepted URL owner.
+  if (typeof input !== 'string' || !input) return null
+  if (!init || typeof init !== 'object') return null
+  if (typeof locationRef?.origin !== 'string' || !locationRef.origin) return null
+  const initPrototype = Object.getPrototypeOf(init)
+  if (initPrototype !== Object.prototype && initPrototype !== null) return null
+  if (Reflect.ownKeys(init).some((key) => typeof key !== 'string' || !SAFE_REPLAY_INIT_KEYS.has(key))) return null
+
+  const rawUrl = input
+  if (
+    rawUrl.startsWith('//')
+    || rawUrl.includes('?')
+    || rawUrl.includes('#')
+    || rawUrl.includes('%')
+    || rawUrl.includes('\\')
+    || [...rawUrl].some((character) => {
+      const codePoint = character.codePointAt(0)
+      return codePoint < 32 || codePoint === 127
+    })
+  ) return null
+
   const descriptor = requestDescriptor(input, init, locationRef)
-  if (!descriptor || descriptor.method !== 'GET' || descriptor.hasBody || !descriptor.sameOrigin) {
-    return false
-  }
-  if (descriptor.url.search || descriptor.url.hash) return false
-  return !NEVER_REPLAY_PREFIXES.some((prefix) => descriptor.pathname.startsWith(prefix))
+  if (!descriptor) return null
+  const { url } = descriptor
+  const canonical = rawUrl.startsWith('/')
+    ? rawUrl === url.pathname
+    : rawUrl === `${url.origin}${url.pathname}`
+  const pathSegments = url.pathname.split('/')
+  if (
+    (init.method !== undefined && init.method !== 'GET')
+    || !descriptor.sameOrigin
+    || !canonical
+    || url.username
+    || url.password
+    || url.pathname.includes('//')
+    || pathSegments.includes('.')
+    || pathSegments.includes('..')
+    || (init.credentials !== undefined && !['same-origin', 'include'].includes(init.credentials))
+    || descriptor.url.search
+    || descriptor.url.hash
+    || !SAFE_AUTOMATIC_REPLAY_PATHS.has(descriptor.pathname)
+  ) return null
+  return Object.freeze({ path: descriptor.pathname })
+}
+
+export function isSafeReplayableRead(input, init = {}, locationRef = globalThis.location) {
+  return createSafeReplayDescriptor(input, init, locationRef) !== null
 }
 
 export function createLatestRequestGate() {
@@ -157,6 +200,7 @@ export function createLatestRequestGate() {
 export function createAccessLockCoordinator() {
   const listeners = new Set()
   let lockLatched = false
+  let lockGeneration = 0
   let pendingReplay = null
 
   function emit(event) {
@@ -170,41 +214,41 @@ export function createAccessLockCoordinator() {
     },
     notifyAccessLocked(detail = {}) {
       if (lockLatched) return false
+      this.cancelReplay()
       lockLatched = true
-      emit({ type: 'access_locked', ...detail })
+      lockGeneration += 1
+      emit({ type: 'access_locked', generation: lockGeneration, ...detail })
       return true
     },
     notifyFullLoginRequired(detail = {}) {
       lockLatched = false
+      lockGeneration += 1
       this.cancelReplay()
       emit({ type: 'full_login_required', ...detail })
     },
-    waitForOneReplay(replay, fallbackResponse, signal) {
-      if (pendingReplay) return null
+    captureReplay(descriptor, fallbackResponse, executeReplay) {
+      if (!lockLatched || pendingReplay || !descriptor || typeof executeReplay !== 'function') return null
       return new Promise((resolve) => {
-        let abortHandler
-        const finish = (value) => {
-          if (abortHandler && signal) signal.removeEventListener('abort', abortHandler)
-          resolve(value)
-        }
-        pendingReplay = { replay, fallbackResponse, finish }
-        if (signal) {
-          abortHandler = () => {
-            if (pendingReplay?.finish === finish) pendingReplay = null
-            finish(fallbackResponse)
-          }
-          if (signal.aborted) abortHandler()
-          else signal.addEventListener('abort', abortHandler, { once: true })
+        pendingReplay = {
+          descriptor,
+          executeReplay,
+          fallbackResponse,
+          finish: resolve,
+          generation: lockGeneration,
         }
       })
     },
     async markUnlocked() {
       lockLatched = false
       const pending = pendingReplay
+      // Consume before execution so the replay cannot recursively schedule
+      // itself and concurrent unlock completions cannot execute it twice.
       pendingReplay = null
       if (!pending) return false
       try {
-        pending.finish(await pending.replay())
+        const response = await pending.executeReplay(pending.descriptor)
+        const stillCurrent = pending.generation === lockGeneration && !lockLatched
+        pending.finish(stillCurrent ? response : pending.fallbackResponse)
       } catch {
         pending.finish(pending.fallbackResponse)
       }
@@ -220,6 +264,7 @@ export function createAccessLockCoordinator() {
     },
     resetForTests() {
       lockLatched = false
+      lockGeneration = 0
       this.cancelReplay()
       listeners.clear()
     },
@@ -245,6 +290,10 @@ export function installAccessFetchInterceptor({
 
   const originalFetch = globalRef.fetch.bind(globalRef)
   const locationRef = globalRef.location
+  const executeSafeReplay = (descriptor) => originalFetch(descriptor.path, {
+    method: 'GET',
+    credentials: 'same-origin',
+  })
 
   async function accessAwareFetch(input, init = {}) {
     const descriptor = requestDescriptor(input, init, locationRef)
@@ -256,16 +305,17 @@ export function installAccessFetchInterceptor({
         coordinator.notifyAccessLocked({
           returnPath: safeRelativePath(locationRef?.pathname || '/'),
         })
-        if (isSafeReplayableRead(input, init, locationRef)) {
-          const waiting = coordinator.waitForOneReplay(
-            () => originalFetch(input, init),
+        const replayDescriptor = createSafeReplayDescriptor(input, init, locationRef)
+        if (replayDescriptor) {
+          const waiting = coordinator.captureReplay(
+            replayDescriptor,
             response,
-            init.signal || input?.signal,
+            executeSafeReplay,
           )
           if (waiting) return waiting
         }
       }
-    } else if (descriptor && isFullLogin401(descriptor.pathname, response.status)) {
+    } else if (descriptor?.sameOrigin && isFullLogin401(descriptor.pathname, response.status)) {
       coordinator.notifyFullLoginRequired({
         returnPath: safeRelativePath(locationRef?.pathname || '/'),
       })
