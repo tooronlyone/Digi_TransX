@@ -4,9 +4,11 @@ import InputField from '../../../components/common/InputField'
 import Notification from '../../../components/common/Notification'
 import { useAuthSession } from '../../../hooks/useAuth'
 import { submitSignup } from './_submitHelper'
+import { useSignupWizard } from '../../../auth/signupWizardContext'
 
 export default function ShopkeeperDetails() {
   const { cacheUser, resolveRedirect } = useAuthSession()
+  const { store } = useSignupWizard()
   const [form, setForm] = useState({ shop_name: '', city: '', business_type: '' })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
@@ -22,7 +24,11 @@ export default function ShopkeeperDetails() {
   async function handleSubmit(e) {
     e.preventDefault()
     const errs = validate()
-    if (Object.keys(errs).length) { setErrors(errs); return }
+    if (Object.keys(errs).length) {
+      store.clear({ preserveNonSensitive: true, failure: 'Review the required fields and re-enter your password.' })
+      setErrors(errs)
+      return
+    }
     setErrors({})
     setLoading(true)
     try {
@@ -30,14 +36,14 @@ export default function ShopkeeperDetails() {
         shop_name:     form.shop_name.trim(),
         city:          form.city.trim(),
         business_type: form.business_type || undefined,
-      }, cacheUser, resolveRedirect)
+      }, cacheUser, resolveRedirect, store)
       if (result.ok) {
         setNotification({ type: 'success', message: 'Account created! Redirecting...' })
       } else {
         if (result.field) setErrors({ [result.field]: result.message })
         setNotification({ type: 'error', message: result.message })
       }
-    } catch (_) {
+    } catch {
       setNotification({ type: 'error', message: 'Network error. Please try again.' })
     } finally {
       setLoading(false)

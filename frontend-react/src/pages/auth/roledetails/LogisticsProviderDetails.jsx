@@ -4,9 +4,11 @@ import InputField from '../../../components/common/InputField'
 import Notification from '../../../components/common/Notification'
 import { useAuthSession } from '../../../hooks/useAuth'
 import { submitSignup } from './_submitHelper'
+import { useSignupWizard } from '../../../auth/signupWizardContext'
 
 export default function LogisticsProviderDetails() {
   const { cacheUser, resolveRedirect } = useAuthSession()
+  const { store } = useSignupWizard()
   const [form, setForm] = useState({ fleet_size: '', city: '', company_name: '' })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
@@ -22,6 +24,7 @@ export default function LogisticsProviderDetails() {
     e.preventDefault()
     const errs = validate()
     if (Object.keys(errs).length) {
+      store.clear({ preserveNonSensitive: true, failure: 'Review the required fields and re-enter your password.' })
       setErrors(errs)
       return
     }
@@ -32,14 +35,14 @@ export default function LogisticsProviderDetails() {
         fleet_size: form.fleet_size || undefined,
         city: form.city.trim(),
         company_name: form.company_name.trim() || undefined,
-      }, cacheUser, resolveRedirect)
+      }, cacheUser, resolveRedirect, store)
       if (result.ok) {
         setNotification({ type: 'success', message: 'Account created! Redirecting...' })
       } else {
         if (result.field) setErrors({ [result.field]: result.message })
         setNotification({ type: 'error', message: result.message })
       }
-    } catch (_) {
+    } catch {
       setNotification({ type: 'error', message: 'Network error. Please try again.' })
     } finally {
       setLoading(false)

@@ -19,7 +19,7 @@ import {
   sanitizeMpinInput,
 } from '../src/auth/accessLock.js'
 import { requestJson } from '../src/auth/api.js'
-import { clearSignupDraft, getSignupBasicDraft, setSignupBasicDraft } from '../src/auth/signupDraft.js'
+import { createSignupDraftStore } from '../src/auth/signupDraft.js'
 
 const source = (relative) => readFile(new URL(relative, import.meta.url), 'utf8')
 
@@ -179,12 +179,14 @@ test('every JSON mutation carries the approved CSRF header and secrets stay in t
   assert.equal(calls[0].options.credentials, 'same-origin')
 })
 
-test('signup password draft is process-memory only and can be cleared', () => {
-  clearSignupDraft()
-  setSignupBasicDraft({ email: 'user@example.test', password: 'not-persisted' })
-  assert.deepEqual(getSignupBasicDraft(), { email: 'user@example.test', password: 'not-persisted' })
-  clearSignupDraft()
-  assert.equal(getSignupBasicDraft(), null)
+test('signup password draft is isolated to one store instance and can be cleared', () => {
+  const first = createSignupDraftStore()
+  const second = createSignupDraftStore()
+  first.begin({ email: 'user@example.test', password: 'not-persisted' })
+  assert.equal(first.read().basic.password, 'not-persisted')
+  assert.equal(second.read().basic, null)
+  first.clear()
+  assert.equal(first.read().basic, null)
 })
 
 test('MPIN control has one masked accessible input and four presentation-only slots', async () => {

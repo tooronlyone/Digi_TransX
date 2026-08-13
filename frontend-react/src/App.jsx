@@ -4,6 +4,7 @@ import ActivityTracker from './components/ActivityTracker'
 import GenuineActivity from './components/GenuineActivity'
 import GlobalAiAssistant from './components/ai/GlobalAiAssistant'
 import AccessLockProvider from './components/security/AccessLockProvider'
+import SignupWizardProvider, { RequireSignupBasic, RequireSignupDraft } from './components/auth/SignupWizardProvider'
 
 import Login from './pages/auth/Login'
 import Signup from './pages/auth/Signup'
@@ -362,13 +363,16 @@ export default function App() {
             <Route path="/" element={<Login />} />
             <Route path="/login" element={<Login />} />
             <Route path="/main" element={<MainPage />} />
-            <Route path="/signup" element={<Signup />} />
-            <Route path="/signup/role" element={<RoleSelect />} />
-            <Route path="/signup/details/service-seeker" element={<ServiceSeekerDetails />} />
-            <Route path="/signup/details/logistics-provider" element={<LogisticsProviderDetails />} />
-            <Route path="/signup/details/everyday-user" element={<EverydayUserDetails />} />
-            <Route path="/signup/details/fuel-station" element={<FuelStationDetails />} />
-            <Route path="/signup/details/shopkeeper" element={<ShopkeeperDetails />} />
+            <Route path="/signup" element={<SignupWizardProvider />}>
+              <Route index element={<Signup />} />
+              <Route path="role" element={<RequireSignupBasic><RoleSelect /></RequireSignupBasic>} />
+              <Route path="details/service-seeker" element={<RequireSignupDraft role="service_seeker"><ServiceSeekerDetails /></RequireSignupDraft>} />
+              <Route path="details/logistics-provider" element={<RequireSignupDraft role="logistics_provider"><LogisticsProviderDetails /></RequireSignupDraft>} />
+              <Route path="details/everyday-user" element={<RequireSignupDraft role="everyday_user"><EverydayUserDetails /></RequireSignupDraft>} />
+              <Route path="details/fuel-station" element={<RequireSignupDraft role="fuel_station_manager"><FuelStationDetails /></RequireSignupDraft>} />
+              <Route path="details/shopkeeper" element={<RequireSignupDraft role="shopkeeper"><ShopkeeperDetails /></RequireSignupDraft>} />
+              <Route path="*" element={<Navigate to="/signup" replace />} />
+            </Route>
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/unlock" element={<Navigate to="/login" replace />} />
             <Route path="/ai-chat" element={<AiChat />} />

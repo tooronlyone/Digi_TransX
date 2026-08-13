@@ -4,7 +4,7 @@ import AuthCard from '../../components/common/AuthCard'
 import InputField from '../../components/common/InputField'
 import Notification from '../../components/common/Notification'
 import '../../styles/pages/auth.css'
-import { setSignupBasicDraft } from '../../auth/signupDraft'
+import { useSignupWizard } from '../../auth/signupWizardContext'
 
 function getPasswordStrength(password) {
   let score = 0
@@ -20,9 +20,19 @@ const strengthColors = ['', 'bg-red-400', 'bg-yellow-400', 'bg-blue-400', 'bg-gr
 
 export default function Signup() {
   const navigate = useNavigate()
-  const [form, setForm] = useState({ name: '', email: '', phone: '', password: '', cnic: '' })
+  const { draft, store } = useSignupWizard()
+  const [form, setForm] = useState(() => ({
+    name: draft.basic?.name || '',
+    email: draft.basic?.email || '',
+    phone: draft.basic?.phone || '',
+    password: '',
+    cnic: draft.basic?.cnic || '',
+  }))
   const [errors, setErrors] = useState({})
-  const [notification, setNotification] = useState({ type: '', message: '' })
+  const [notification, setNotification] = useState(() => ({
+    type: draft.failure ? 'error' : '',
+    message: draft.failure || '',
+  }))
   const strength = getPasswordStrength(form.password)
 
   function validate() {
@@ -48,7 +58,7 @@ export default function Signup() {
     }
 
     setErrors({})
-    setSignupBasicDraft({
+    store.begin({
       name: form.name.trim(),
       email: form.email.trim().toLowerCase(),
       phone: form.phone.trim(),

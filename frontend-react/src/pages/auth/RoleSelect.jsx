@@ -1,6 +1,7 @@
 import { Link, useNavigate } from 'react-router-dom'
 import '../../styles/pages/auth.css'
-import { getSignupBasicDraft, setSignupRole } from '../../auth/signupDraft'
+import { hasCompleteSignupBasic } from '../../auth/signupDraft.js'
+import { useSignupWizard } from '../../auth/signupWizardContext'
 
 const ROLES = [
   {
@@ -50,14 +51,14 @@ const ROLE_NEXT = {
 
 export default function RoleSelect() {
   const navigate = useNavigate()
+  const { draft, store } = useSignupWizard()
 
   function handleSelect(role) {
-    const basic = getSignupBasicDraft()
-    if (!basic) {
+    if (!hasCompleteSignupBasic(draft.basic)) {
       navigate('/signup')
       return
     }
-    setSignupRole(role)
+    if (!store.selectRole(role)) return
     navigate(ROLE_NEXT[role])
   }
 

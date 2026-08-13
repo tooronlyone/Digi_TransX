@@ -4,9 +4,11 @@ import InputField from '../../../components/common/InputField'
 import Notification from '../../../components/common/Notification'
 import { useAuthSession } from '../../../hooks/useAuth'
 import { submitSignup } from './_submitHelper'
+import { useSignupWizard } from '../../../auth/signupWizardContext'
 
 export default function FuelStationDetails() {
   const { cacheUser, resolveRedirect } = useAuthSession()
+  const { store } = useSignupWizard()
   const [form, setForm] = useState({ station_name: '', city: '', pumps_count: '', license_no: '' })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
@@ -22,7 +24,11 @@ export default function FuelStationDetails() {
   async function handleSubmit(e) {
     e.preventDefault()
     const errs = validate()
-    if (Object.keys(errs).length) { setErrors(errs); return }
+    if (Object.keys(errs).length) {
+      store.clear({ preserveNonSensitive: true, failure: 'Review the required fields and re-enter your password.' })
+      setErrors(errs)
+      return
+    }
     setErrors({})
     setLoading(true)
     try {
@@ -31,14 +37,14 @@ export default function FuelStationDetails() {
         city:         form.city.trim(),
         pumps_count:  form.pumps_count || undefined,
         license_no:   form.license_no.trim() || undefined,
-      }, cacheUser, resolveRedirect)
+      }, cacheUser, resolveRedirect, store)
       if (result.ok) {
         setNotification({ type: 'success', message: 'Account created! Redirecting...' })
       } else {
         if (result.field) setErrors({ [result.field]: result.message })
         setNotification({ type: 'error', message: result.message })
       }
-    } catch (_) {
+    } catch {
       setNotification({ type: 'error', message: 'Network error. Please try again.' })
     } finally {
       setLoading(false)
