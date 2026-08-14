@@ -570,13 +570,17 @@
   border: none;
 }
 
-/* The one-time form can be narrower than an input's intrinsic width at 320px. */
-.everyday-page .everyday-order-form,
-.everyday-page .everyday-order-form > *,
-.everyday-page .everyday-order-form .lp-field,
-.everyday-page .everyday-order-form .lp-input-row,
-.everyday-page .everyday-order-form .lp-input,
-.everyday-page .everyday-order-form .lp-map {
+/* The shared order form can be narrower than an input's intrinsic width at 320px. */
+.everyday-order-form,
+.everyday-order-form > *,
+.everyday-order-form label,
+.everyday-order-form input,
+.everyday-order-form select,
+.everyday-order-form textarea,
+.everyday-order-form .lp-field,
+.everyday-order-form .lp-input-row,
+.everyday-order-form .lp-input,
+.everyday-order-form .lp-map {
   min-width: 0;
   max-width: 100%;
 }
@@ -600,6 +604,22 @@
 }
 
 @media (max-width: 768px) {
+  .client-form-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .lp-input-row {
+    min-width: 0;
+  }
+
+  .lp-input {
+    min-width: 0;
+  }
+
+  .lp-map-btn {
+    flex: 0 0 auto;
+  }
+
   .dashboard-page-title h1 {
     font-size: 24px;
   }
@@ -641,14 +661,61 @@
   .dashboard-card-value {
     font-size: 24px;
   }
+
+  .dashboard-stat-card {
+    min-height: 0;
+    padding: 16px;
+  }
+
+  .dashboard-card-icon {
+    width: 44px;
+    height: 44px;
+    font-size: 19px;
+  }
+
   .dashboard-actions-grid {
     grid-template-columns: 1fr 1fr;
     gap: 12px;
   }
   .dashboard-action-tile {
-    min-height: 120px;
-    padding: 18px 12px;
+    min-height: 98px;
+    padding: 12px 9px;
   }
+
+  .dashboard-action-tile__icon {
+    width: 36px;
+    height: 36px;
+    font-size: 16px;
+  }
+
+  .client-order-card {
+    padding: 16px;
+  }
+
+  .client-order-card__top {
+    min-width: 0;
+    flex-direction: column;
+  }
+
+  .client-order-card__route {
+    min-width: 0;
+    flex-wrap: wrap;
+    overflow-wrap: anywhere;
+  }
+
+  .t-page-card {
+    padding: 16px;
+  }
+
+  .lp-map-btn span {
+    display: none;
+  }
+
+  .lp-map-btn {
+    width: 44px;
+    padding: 0;
+  }
+
   .dashboard-action-tile > div {
     display: none;
   }

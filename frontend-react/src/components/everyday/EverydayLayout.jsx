@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
+import MobileBottomNavigation from '../common/MobileBottomNavigation'
 import PendingTransporterReviewGate from '../common/PendingTransporterReviewGate'
 import '../../styles/pages/client.css'
 import { clearAuthPresentation } from '../../auth/presentation'
@@ -66,7 +67,7 @@ export default function EverydayLayout({ children }) {
   }
 
   const sidebar = (
-    <nav className="sidebar" aria-label="Everyday navigation">
+    <nav className="sidebar role-sidebar" aria-label="Everyday navigation">
       <ul className="nav-menu">
         {NAV_ITEMS.map((item) => {
           const active = isActive(item)
@@ -117,6 +118,7 @@ export default function EverydayLayout({ children }) {
       </nav>
 
       {sidebar}
+      <MobileBottomNavigation items={NAV_ITEMS} isActive={isActive} label="Everyday navigation" />
 
       <main className="main-content">
         <TermsUpdateNotice termsPath="/everyday/terms" />

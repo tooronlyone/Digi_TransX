@@ -510,16 +510,18 @@
   }
 
   .dashboard-kpi-grid {
-    gap: 16px;
+    gap: 12px;
     margin-bottom: 24px;
   }
 
   .dashboard-stat-card {
-    padding: 18px;
+    padding: 14px 16px;
   }
 
   .dashboard-stat-card__header {
-    flex-direction: column;
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 10px;
   }
 
   .dashboard-card-value {
@@ -528,14 +530,16 @@
   }
 
   .dashboard-card-icon {
-    width: 48px;
-    height: 48px;
-    font-size: 20px;
-    margin-top: 8px;
-    align-self: flex-start;
+    width: 44px;
+    height: 44px;
+    font-size: 19px;
+    margin-top: 0;
+    align-self: center;
   }
 
   .dashboard-card-footer {
+    margin-top: 10px;
+    padding-top: 10px;
     font-size: 12px;
     flex-direction: row;
     align-items: center;

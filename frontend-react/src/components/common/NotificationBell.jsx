@@ -23,20 +23,6 @@ function timeAgo(iso) {
   return `${Math.floor(hrs / 24)}d ago`
 }
 
-const S = {
-  wrap: { position: 'relative', marginRight: 12 },
-  btn: { position: 'relative', background: 'none', border: 'none', cursor: 'pointer', color: '#334155', fontSize: 20, padding: 6, lineHeight: 1 },
-  badge: { position: 'absolute', top: -2, right: -2, minWidth: 16, height: 16, padding: '0 4px', borderRadius: 8, background: '#dc2626', color: '#fff', fontSize: 10, fontWeight: 700, display: 'flex', alignItems: 'center', justifyContent: 'center' },
-  panel: { position: 'absolute', right: 0, top: 40, width: 320, maxHeight: 420, overflowY: 'auto', background: '#fff', border: '1px solid #e2e8f0', borderRadius: 12, boxShadow: '0 12px 32px rgba(0,0,0,0.14)', zIndex: 60 },
-  head: { display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '12px 14px', borderBottom: '1px solid #f1f5f9', position: 'sticky', top: 0, background: '#fff' },
-  headTitle: { fontWeight: 700, fontSize: 14, color: '#0f172a' },
-  markAll: { background: 'none', border: 'none', cursor: 'pointer', color: '#2563eb', fontSize: 12, fontWeight: 600 },
-  item: (unread) => ({ display: 'block', width: '100%', textAlign: 'left', padding: '10px 14px', borderBottom: '1px solid #f8fafc', cursor: 'pointer', background: unread ? '#eff6ff' : '#fff', border: 'none' }),
-  itemMsg: { fontSize: 13, color: '#1e293b' },
-  itemMeta: { fontSize: 11, color: '#94a3b8', marginTop: 2 },
-  empty: { padding: 24, textAlign: 'center', color: '#94a3b8', fontSize: 13 },
-}
-
 export default function NotificationBell({ orderPath }) {
   const navigate = useNavigate()
   const [items, setItems] = useState([])
@@ -101,29 +87,29 @@ export default function NotificationBell({ orderPath }) {
   }
 
   return (
-    <div style={S.wrap} ref={wrapRef}>
+    <div className="notification-center" ref={wrapRef}>
       <button
         type="button"
-        style={S.btn}
+        className="notification-center__button"
         onClick={() => setOpen((o) => !o)}
         aria-label={`Notifications${unread ? ` (${unread} unread)` : ''}`}
       >
         <i className="fas fa-bell" aria-hidden="true"></i>
-        {unread > 0 && <span style={S.badge}>{unread > 9 ? '9+' : unread}</span>}
+        {unread > 0 && <span className="notification-center__badge">{unread > 9 ? '9+' : unread}</span>}
       </button>
       {open && (
-        <div style={S.panel}>
-          <div style={S.head}>
-            <span style={S.headTitle}>Notifications</span>
-            {unread > 0 && <button type="button" style={S.markAll} onClick={markAll}>Mark all read</button>}
+        <div className="notification-center__panel">
+          <div className="notification-center__header">
+            <span>Notifications</span>
+            {unread > 0 && <button type="button" className="notification-center__mark-all" onClick={markAll}>Mark all read</button>}
           </div>
           {items.length === 0 ? (
-            <div style={S.empty}>No notifications yet.</div>
+            <div className="notification-center__empty">No notifications yet.</div>
           ) : (
             items.map((n) => (
-              <button key={n.id} type="button" style={S.item(!n.is_read)} onClick={() => openNotification(n)}>
-                <div style={S.itemMsg}>{n.message}</div>
-                <div style={S.itemMeta}>Order #{n.order_id} · {timeAgo(n.created_at)}</div>
+              <button key={n.id} type="button" className={`notification-center__item${!n.is_read ? ' is-unread' : ''}`} onClick={() => openNotification(n)}>
+                <div className="notification-center__message">{n.message}</div>
+                <div className="notification-center__meta">Order #{n.order_id} · {timeAgo(n.created_at)}</div>
               </button>
             ))
           )}

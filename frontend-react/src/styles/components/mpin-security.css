@@ -155,8 +155,17 @@ button:disabled { cursor: not-allowed; opacity: .62; }
 .mpin-management__form.is-danger { border: 1px solid #fecaca; border-radius: 12px; padding: 18px; }
 
 @media (max-width: 767px) {
+  .security-settings-page { padding: 0; }
   .mpin-management__grid,
   .mpin-management__columns { grid-template-columns: minmax(0, 1fr); }
+}
+
+@media (max-height: 620px) and (orientation: landscape) {
+  .access-lock { place-items: start center; padding: 8px; }
+  .access-lock__dialog { max-height: calc(100dvh - 16px); padding: 16px; }
+  .access-lock__icon { width: 42px; height: 42px; margin-bottom: 10px; }
+  .access-lock__dialog > p { margin: 6px 0 12px; }
+  .access-lock__form { gap: 9px; }
 }
 
 @media (max-width: 374px) {

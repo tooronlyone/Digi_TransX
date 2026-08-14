@@ -5,6 +5,7 @@ import { NAV_ITEMS } from './navItems'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
+import MobileBottomNavigation from '../common/MobileBottomNavigation'
 import { clearAuthPresentation } from '../../auth/presentation'
 
 function getTransporterDisplayName(u = {}) {
@@ -161,7 +162,7 @@ export default function TransporterLayout({ children }) {
       </nav>
 
       {/* Sidebar */}
-      <nav className="sidebar">
+      <nav className="sidebar role-sidebar" aria-label="Logistics provider navigation">
         <ul className="nav-menu">
           {visibleNavItems.map((item) => {
             return (
@@ -180,6 +181,7 @@ export default function TransporterLayout({ children }) {
 
         </ul>
       </nav>
+      <MobileBottomNavigation items={visibleNavItems} isActive={(item) => activePath === item.path} label="Logistics provider navigation" />
 
       {/* Main Content */}
       <div className={`main-content${isMessagesPage ? ' main-content--messages' : ''}`}>

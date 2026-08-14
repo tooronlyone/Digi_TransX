@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
+import MobileBottomNavigation from '../common/MobileBottomNavigation'
 import PendingTransporterReviewGate from '../common/PendingTransporterReviewGate'
 import '../../styles/pages/client.css'
 import { clearAuthPresentation } from '../../auth/presentation'
@@ -22,8 +23,6 @@ const NAV_ITEMS = [
 export default function ClientLayout({ children }) {
   const location = useLocation()
   const navigate = useNavigate()
-  const [menuOpen, setMenuOpen] = useState(false)
-  const [isMobile, setIsMobile] = useState(false)
   const [user, setUser] = useState({ name: 'Client', role: 'Service Seeker' })
   const [unreadTotal, setUnreadTotal] = useState(0)
 
@@ -57,17 +56,6 @@ export default function ClientLayout({ children }) {
       mounted = false
       window.clearInterval(intervalId)
     }
-  }, [])
-
-  useEffect(() => {
-    function checkViewport() {
-      const mobile = window.innerWidth < 768
-      setIsMobile(mobile)
-      if (!mobile) setMenuOpen(false)
-    }
-    checkViewport()
-    window.addEventListener('resize', checkViewport)
-    return () => window.removeEventListener('resize', checkViewport)
   }, [])
 
   const initials = useMemo(() => {
@@ -109,7 +97,7 @@ export default function ClientLayout({ children }) {
   }
 
   const sidebar = (
-    <nav className="sidebar">
+    <nav className="sidebar role-sidebar" aria-label="Service seeker navigation">
       <ul className="nav-menu">
         {navItems.map((item) => {
           const active = isActive(item)
@@ -118,7 +106,6 @@ export default function ClientLayout({ children }) {
               <Link
                 to={item.path}
                 className={`nav-link${active ? ' active' : ''}`}
-                onClick={() => setMenuOpen(false)}
               >
                 <i className={`fas ${item.icon}`} aria-hidden="true"></i>
                 <span className="nav-text">{item.label}</span>
@@ -136,16 +123,6 @@ export default function ClientLayout({ children }) {
     <div className="transporter-page service-seeker-page">
       <nav className="navbar">
         <div className="navbar-left">
-          {isMobile && (
-            <button
-              type="button"
-              className="logout-btn"
-              onClick={() => setMenuOpen((open) => !open)}
-              aria-label="Toggle navigation"
-            >
-              <i className={`fas ${menuOpen ? 'fa-times' : 'fa-bars'}`} aria-hidden="true"></i>
-            </button>
-          )}
           <Link to="/client/dashboard" className="navbar-logo">
             <div className="logo-icon">
               <i className="fas fa-truck" aria-hidden="true"></i>
@@ -169,8 +146,8 @@ export default function ClientLayout({ children }) {
         </div>
       </nav>
 
-      {!isMobile && sidebar}
-      {isMobile && menuOpen && sidebar}
+      {sidebar}
+      <MobileBottomNavigation items={navItems} isActive={isActive} label="Service seeker navigation" />
 
       <main className="main-content">
         <TermsUpdateNotice termsPath="/client/terms" />
