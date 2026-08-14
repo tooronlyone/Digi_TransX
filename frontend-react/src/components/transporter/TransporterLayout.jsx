@@ -2,11 +2,18 @@ import { useState, useEffect } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { getTransporterAllowedPaths, isTransporterPathAllowed } from './accessControl'
 import { NAV_ITEMS } from './navItems'
-import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
+import { apiGet } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
 import MobileBottomNavigation from '../common/MobileBottomNavigation'
-import { clearAuthPresentation } from '../../auth/presentation'
+import { logoutCurrentSession } from '../../auth/logout'
+
+const MOBILE_NAV_ITEMS = [
+  { path: '/transporter/dashboard', icon: 'fa-tachometer-alt', label: 'Dashboard' },
+  { path: '/transporter/trucks', icon: 'fa-truck', label: 'Trucks' },
+  { path: '/transporter/bids', icon: 'fa-gavel', label: 'Bids', match: ['/transporter/available-bids', '/transporter/agreement-bids', '/transporter/my-agreements'] },
+  { path: '/transporter/messages', icon: 'fa-comments', label: 'Messages' },
+]
 
 function getTransporterDisplayName(u = {}) {
   const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
@@ -93,12 +100,7 @@ export default function TransporterLayout({ children }) {
   }, [])
 
   async function handleLogout() {
-    try {
-      const csrf = await getCsrfToken()
-      await fetch('/auth/logout', { method: 'POST', credentials: 'include', headers: { 'X-CSRF-Token': csrf } })
-    } catch { /* logout is best-effort */ }
-    clearAuthPresentation()
-    navigate('/login')
+    await logoutCurrentSession(navigate)
   }
 
   const initials = getTransporterInitials(user.name)
@@ -117,6 +119,18 @@ export default function TransporterLayout({ children }) {
     if (!best || item.path.length > best.length) return item.path
     return best
   }, '')
+  const mobileNavItems = MOBILE_NAV_ITEMS
+    .filter((item) => isTransporterPathAllowed(user, item.path))
+    .map((item) => (
+      item.path === '/transporter/messages'
+        ? { ...item, badge: unreadTotal > 0 ? String(unreadTotal) : '' }
+        : item
+    ))
+
+  function isMobileItemActive(item) {
+    if (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) return true
+    return item.match?.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`)) || false
+  }
 
   const isMessagesPage = location.pathname === '/transporter/messages'
 
@@ -148,14 +162,14 @@ export default function TransporterLayout({ children }) {
 
         <div className="navbar-right">
           <NotificationBell orderPath={(id) => `/transporter/order/${id}`} />
-          <div className="user-info">
+          <Link to="/transporter/profile" className="user-info header-account-link" aria-label="Open My Profile">
             <div className="user-avatar">{initials}</div>
             <div className="user-details">
               <h3>{user.name}</h3>
               <p>{user.role}</p>
             </div>
-          </div>
-          <button className="logout-btn" onClick={handleLogout} title="Logout">
+          </Link>
+          <button className="logout-btn header-logout" onClick={handleLogout} title="Logout" aria-label="Logout">
             <i className="fas fa-sign-out-alt"></i>
           </button>
         </div>
@@ -181,7 +195,7 @@ export default function TransporterLayout({ children }) {
 
         </ul>
       </nav>
-      <MobileBottomNavigation items={visibleNavItems} isActive={(item) => activePath === item.path} label="Logistics provider navigation" />
+      <MobileBottomNavigation items={mobileNavItems} isActive={isMobileItemActive} label="Logistics provider navigation" />
 
       {/* Main Content */}
       <div className={`main-content${isMessagesPage ? ' main-content--messages' : ''}`}>

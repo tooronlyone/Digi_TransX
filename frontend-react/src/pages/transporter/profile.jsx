@@ -3,7 +3,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 import '../../styles/pages/profile.css'
-import { clearAuthPresentation } from '../../auth/presentation'
+import { logoutCurrentSession } from '../../auth/logout'
 
 function getInitials(user) {
   const first = (user?.first_name || '').trim()
@@ -15,7 +15,7 @@ function getInitials(user) {
 
 export default function Profile() {
   const navigate = useNavigate()
-  const { get, post } = useApi()
+  const { get } = useApi()
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
   const [logoutLoading, setLogoutLoading] = useState(false)
@@ -39,11 +39,7 @@ export default function Profile() {
 
   async function handleLogout() {
     setLogoutLoading(true)
-    try {
-      await post('/auth/logout', {})
-    } catch {}
-    clearAuthPresentation()
-    navigate('/login', { replace: true })
+    await logoutCurrentSession(navigate)
   }
 
   function fullName() {
@@ -100,19 +96,6 @@ export default function Profile() {
               <Link to="/transporter/settings" className="profile-btn profile-btn-primary">
                 <i className="fas fa-edit"></i> Edit Profile
               </Link>
-              <a className="profile-btn profile-btn-secondary" href="/security-settings">
-                <i className="fas fa-shield-halved"></i> Security Settings
-              </a>
-              <button
-                className="profile-btn profile-btn-secondary"
-                onClick={handleLogout}
-                disabled={logoutLoading}
-              >
-                {logoutLoading
-                  ? <><i className="fas fa-spinner fa-spin"></i> Logging out...</>
-                  : <><i className="fas fa-sign-out-alt"></i> Logout</>
-                }
-              </button>
             </div>
           </div>
 
@@ -153,9 +136,6 @@ export default function Profile() {
                   <div className="detail-row"><span className="detail-label">Account ID:</span><span className="detail-value">{val(user?.id)}</span></div>
                   <div className="detail-row"><span className="detail-label">Registered Role:</span><span className="detail-value">{val(user?.registered_role || user?.role)}</span></div>
                 </div>
-                <a href="/security-settings" className="edit-btn">
-                  <i className="fas fa-shield-alt"></i> Security
-                </a>
               </div>
 
               {/* Quick Links */}
@@ -167,24 +147,30 @@ export default function Profile() {
                 <div className="detail-content">
                   <div className="detail-row"><Link to="/transporter/trucks" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-truck"></i> My Trucks</Link></div>
                   <div className="detail-row"><Link to="/transporter/available-bids" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-briefcase"></i> Available Bids</Link></div>
+                  <div className="detail-row"><Link to="/transporter/my-agreements" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-file-contract"></i> My Agreements</Link></div>
+                  <div className="detail-row"><Link to="/transporter/wallet" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-credit-card"></i> Wallet</Link></div>
                   <div className="detail-row"><Link to="/transporter/earnings" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-wallet"></i> Earnings</Link></div>
                   <div className="detail-row"><Link to="/transporter/settings" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-cog"></i> Settings</Link></div>
                 </div>
               </div>
 
-              {/* Danger Zone */}
+              {/* Security and session */}
               <div className="detail-card">
                 <div className="detail-header">
-                  <div className="detail-icon" style={{ background: '#fee2e2' }}><i className="fas fa-exclamation-triangle" style={{ color: '#dc2626' }}></i></div>
-                  <h3 className="detail-title">Session</h3>
+                  <div className="detail-icon"><i className="fas fa-shield-halved"></i></div>
+                  <h3 className="detail-title">Security &amp; Session</h3>
                 </div>
                 <div className="detail-content">
-                  <p style={{ color: '#64748b', fontSize: '0.9rem' }}>End your current session. You will be redirected to the login page.</p>
+                  <p style={{ color: '#64748b', fontSize: '0.9rem' }}>Manage MPIN access or securely end your current session.</p>
                 </div>
-                <button className="edit-btn" style={{ background: '#fee2e2', color: '#dc2626', border: '1px solid #fca5a5' }}
-                  onClick={handleLogout} disabled={logoutLoading}>
-                  <i className="fas fa-sign-out-alt"></i> {logoutLoading ? 'Logging out...' : 'Logout'}
-                </button>
+                <div className="profile-session-actions">
+                  <Link to="/transporter/security" className="edit-btn">
+                    <i className="fas fa-fingerprint"></i> Security Settings
+                  </Link>
+                  <button className="edit-btn profile-logout-action" onClick={handleLogout} disabled={logoutLoading}>
+                    <i className="fas fa-sign-out-alt"></i> {logoutLoading ? 'Logging out...' : 'Logout'}
+                  </button>
+                </div>
               </div>
             </div>
           </div>

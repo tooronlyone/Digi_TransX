@@ -1,7 +1,10 @@
+/* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { getCsrfToken } from '../client/clientUtils'
 import '../../styles/pages/my-bids.css'
+import { currentPresentedUser } from '../../auth/presentation'
+import { isTransporterPathAllowed } from '../../components/transporter/accessControl'
 
 function formatMoney(value) {
   const amount = Number(value || 0)
@@ -10,6 +13,7 @@ function formatMoney(value) {
 }
 
 export default function MyBids() {
+  const presentedUser = currentPresentedUser() || {}
   const [bids, setBids] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -74,13 +78,26 @@ export default function MyBids() {
           <h1>My Bids</h1>
           <p>Track every bid you have placed and manage your active orders.</p>
         </div>
-        <Link
-          to="/transporter/available-bids"
-          className="mybids-primary-link"
-        >
-          <i className="fas fa-clipboard-list" aria-hidden="true"></i>
-          Available Orders
-        </Link>
+        <div className="mybids-page-actions">
+          {isTransporterPathAllowed(presentedUser, '/transporter/available-bids') && (
+            <Link to="/transporter/available-bids" className="mybids-primary-link">
+              <i className="fas fa-clipboard-list" aria-hidden="true"></i>
+              Available Orders
+            </Link>
+          )}
+          {isTransporterPathAllowed(presentedUser, '/transporter/agreement-bids') && (
+            <Link to="/transporter/agreement-bids" className="mybids-secondary-link">
+              <i className="fas fa-file-circle-check" aria-hidden="true"></i>
+              Agreement Jobs
+            </Link>
+          )}
+          {isTransporterPathAllowed(presentedUser, '/transporter/my-agreements') && (
+            <Link to="/transporter/my-agreements" className="mybids-secondary-link">
+              <i className="fas fa-file-contract" aria-hidden="true"></i>
+              My Agreements
+            </Link>
+          )}
+        </div>
       </div>
 
       {loading && <div className="mybids-message mybids-message--loading">Loading bids...</div>}

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { loadTruckCatalog } from '../../lib/truckCatalog'
 import { PageTitle, PrimaryButton, SecondaryButton, SectionCard, StateMessage, apiSend } from './clientUtils'
+import OrderWorkspaceNavigation from '../../components/client/OrderWorkspaceNavigation'
 
 const SERVICE_AREAS = ['Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan', 'Islamabad', 'Karachi', 'Lahore', 'Faisalabad', 'Rawalpindi', 'Multan', 'Peshawar', 'Quetta']
 const CARGO_TYPES = ['General goods', 'FMCG', 'Construction material', 'Textile', 'Pharmaceuticals', 'Chemicals', 'Perishables', 'Milk', 'Fuel', 'Other']
@@ -57,7 +58,8 @@ export default function PostAgreement() {
 
   return (
     <>
-      <PageTitle title="Post Agreement" subtitle="Create a long-term shipment requirement for GPS-enabled transporters." />
+      <PageTitle title="Post Order" subtitle="Choose Agreemental Order for a recurring, long-term shipment requirement." />
+      <OrderWorkspaceNavigation mode="agreemental" />
       <SectionCard title="Agreement Shipment" icon="fa-file-contract">
         {loading && <StateMessage type="loading">Loading truck catalog...</StateMessage>}
         {error && <StateMessage type="error">{error}</StateMessage>}

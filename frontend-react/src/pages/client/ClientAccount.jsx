@@ -9,7 +9,9 @@ import {
   apiGet,
   apiSend,
 } from './clientUtils'
-import { Link } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
+import useClientBasePath from '../../hooks/useClientBasePath'
+import { logoutCurrentSession } from '../../auth/logout'
 
 const emptyProfile = {
   first_name: '',
@@ -22,11 +24,15 @@ const emptyProfile = {
 }
 
 export default function ClientAccount() {
+  const navigate = useNavigate()
+  const base = useClientBasePath()
+  const isEveryday = base === '/everyday'
   const [profile, setProfile] = useState(emptyProfile)
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
+  const [logoutLoading, setLogoutLoading] = useState(false)
 
   async function loadProfile() {
     setLoading(true)
@@ -64,15 +70,20 @@ export default function ClientAccount() {
     setMessage('')
     try {
       const billingAddress = profile.billing_address || ''
-      const json = await apiSend('/api/profile', {
+      const payload = {
         first_name: profile.first_name || null,
         last_name: profile.last_name || null,
         phone: profile.phone || null,
-        company_name: profile.company_name || null,
-        contact_phone: profile.contact_phone || null,
-        billing_address: billingAddress || null,
-        address: billingAddress || null,
-      }, 'PUT')
+      }
+      if (!isEveryday) {
+        Object.assign(payload, {
+          company_name: profile.company_name || null,
+          contact_phone: profile.contact_phone || null,
+          billing_address: billingAddress || null,
+          address: billingAddress || null,
+        })
+      }
+      const json = await apiSend('/api/profile', payload, 'PUT')
       const loaded = json.user || json.profile || json.data?.profile || {}
       setProfile((current) => ({
         ...current,
@@ -91,17 +102,19 @@ export default function ClientAccount() {
     }
   }
 
+  async function handleLogout() {
+    setLogoutLoading(true)
+    await logoutCurrentSession(navigate)
+  }
+
   return (
     <>
-      <PageTitle title="Account Settings" subtitle="Manage your profile information and account preferences." />
+      <PageTitle title="My Account" subtitle="Manage your profile, security settings and current session." />
 
       <SectionCard
         title="Profile Settings"
         actions={
           <>
-            <Link to="/client/security" className="inline-flex min-h-10 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-              <i className="fas fa-shield-alt" aria-hidden="true"></i> Security Settings
-            </Link>
             <SecondaryButton type="button" onClick={loadProfile} disabled={loading}>
               <i className={`fas ${loading ? 'fa-spinner fa-spin' : 'fa-sync-alt'}`} aria-hidden="true"></i>
               Reload
@@ -157,48 +170,61 @@ export default function ClientAccount() {
                 placeholder="+92 XXX XXXXXXX"
               />
             </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">Company Name</span>
-              <input
-                value={profile.company_name}
-                onChange={(event) => updateField('company_name', event.target.value)}
-                maxLength={180}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                placeholder="Your company or business name"
-              />
-            </label>
-            <label className="block">
-              <span className="text-sm font-semibold text-slate-700">Contact Phone</span>
-              <input
-                value={profile.contact_phone}
-                onChange={(event) => updateField('contact_phone', event.target.value)}
-                maxLength={32}
-                className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                placeholder="Alternative contact number"
-              />
-            </label>
-            <label className="block md:col-span-2">
-              <span className="text-sm font-semibold text-slate-700">Billing Address</span>
-              <textarea
-                value={profile.billing_address}
-                onChange={(event) => updateField('billing_address', event.target.value)}
-                maxLength={600}
-                rows={4}
-                className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
-                placeholder="Enter your complete billing address"
-              />
-            </label>
+            {!isEveryday && (
+              <>
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">Company Name</span>
+                  <input
+                    value={profile.company_name}
+                    onChange={(event) => updateField('company_name', event.target.value)}
+                    maxLength={180}
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Your company or business name"
+                  />
+                </label>
+                <label className="block">
+                  <span className="text-sm font-semibold text-slate-700">Contact Phone</span>
+                  <input
+                    value={profile.contact_phone}
+                    onChange={(event) => updateField('contact_phone', event.target.value)}
+                    maxLength={32}
+                    className="mt-1 h-10 w-full rounded-lg border border-slate-300 px-3 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Alternative contact number"
+                  />
+                </label>
+                <label className="block md:col-span-2">
+                  <span className="text-sm font-semibold text-slate-700">Billing Address</span>
+                  <textarea
+                    value={profile.billing_address}
+                    onChange={(event) => updateField('billing_address', event.target.value)}
+                    maxLength={600}
+                    rows={4}
+                    className="mt-1 w-full rounded-lg border border-slate-300 px-3 py-2 text-sm outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100"
+                    placeholder="Enter your complete billing address"
+                  />
+                </label>
+              </>
+            )}
           </form>
         )}
       </SectionCard>
 
-      <SectionCard title="Software Access Security">
-        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-          <p className="text-sm text-slate-600">Configure MPIN unlock for your current trusted signed-in session.</p>
-          <Link to="/client/security" className="inline-flex min-h-10 items-center justify-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
-            <i className="fas fa-fingerprint" aria-hidden="true"></i>
-            Manage Security
-          </Link>
+      <SectionCard title="Security & Session" icon="fa-shield-halved">
+        <div className="account-session-actions">
+          <div>
+            <h3>Security Settings</h3>
+            <p>Manage MPIN unlock for this trusted signed-in device.</p>
+          </div>
+          <div className="account-session-actions__buttons">
+            <Link to={`${base}/security`} className="account-security-link">
+              <i className="fas fa-fingerprint" aria-hidden="true"></i>
+              Security Settings
+            </Link>
+            <button type="button" className="account-logout-button" onClick={handleLogout} disabled={logoutLoading}>
+              <i className={`fas ${logoutLoading ? 'fa-spinner fa-spin' : 'fa-sign-out-alt'}`} aria-hidden="true"></i>
+              {logoutLoading ? 'Logging out...' : 'Logout'}
+            </button>
+          </div>
         </div>
       </SectionCard>
 

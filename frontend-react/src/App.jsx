@@ -223,6 +223,7 @@ function EverydayPortal() {
               (agreements/wallet pages remain hidden for this surface). */}
           <Route path="messages" element={<ClientMessages />} />
           <Route path="terms" element={<ClientTerms />} />
+          <Route path="account" element={<ClientAccount />} />
           <Route path="security" element={<SecuritySettings />} />
           <Route path="*" element={<Navigate to="/everyday/dashboard" replace />} />
         </Routes>

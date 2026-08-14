@@ -1,12 +1,11 @@
 import { useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { getCsrfToken } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
 import MobileBottomNavigation from '../common/MobileBottomNavigation'
 import PendingTransporterReviewGate from '../common/PendingTransporterReviewGate'
 import '../../styles/pages/client.css'
-import { clearAuthPresentation } from '../../auth/presentation'
+import { logoutCurrentSession } from '../../auth/logout'
 
 // Everyday users get the simple one-time-order flow only: NO wallet, NO
 // agreements, NO saved cards, NO company/business configuration. The shared
@@ -18,6 +17,13 @@ const NAV_ITEMS = [
   { label: 'Messages', icon: 'fa-comments', path: '/everyday/messages' },
   { label: 'Terms & Fees', icon: 'fa-file-lines', path: '/everyday/terms' },
   { label: 'Security', icon: 'fa-shield-halved', path: '/everyday/security' },
+]
+
+const MOBILE_NAV_ITEMS = [
+  { label: 'Dashboard', icon: 'fa-home', path: '/everyday/dashboard' },
+  { label: 'Post Order', icon: 'fa-shipping-fast', path: '/everyday/post-order' },
+  { label: 'My Orders', icon: 'fa-clipboard-list', path: '/everyday/orders' },
+  { label: 'Messages', icon: 'fa-comments', path: '/everyday/messages' },
 ]
 
 // Read the display name from the session cache once (lazy init) so there is no
@@ -49,16 +55,7 @@ export default function EverydayLayout({ children }) {
   }, [user.name])
 
   async function handleLogout() {
-    try {
-      const csrf = await getCsrfToken()
-      await fetch('/auth/logout', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'X-CSRF-Token': csrf },
-      })
-    } catch { /* logout is best-effort */ }
-    clearAuthPresentation()
-    navigate('/login', { replace: true })
+    await logoutCurrentSession(navigate)
   }
 
   function isActive(item) {
@@ -104,21 +101,21 @@ export default function EverydayLayout({ children }) {
           <div className="everyday-notifications">
             <NotificationBell orderPath={(id) => `/everyday/order/${id}`} />
           </div>
-          <div className="user-info">
+          <Link to="/everyday/account" className="user-info header-account-link" aria-label="Open My Account">
             <div className="user-avatar">{initials}</div>
             <div className="user-details">
               <h3>{user.name}</h3>
               <p>{user.role}</p>
             </div>
-          </div>
-          <button type="button" onClick={handleLogout} className="logout-btn" title="Logout" aria-label="Logout">
+          </Link>
+          <button type="button" onClick={handleLogout} className="logout-btn header-logout" title="Logout" aria-label="Logout">
             <i className="fas fa-sign-out-alt" aria-hidden="true"></i>
           </button>
         </div>
       </nav>
 
       {sidebar}
-      <MobileBottomNavigation items={NAV_ITEMS} isActive={isActive} label="Everyday navigation" />
+      <MobileBottomNavigation items={MOBILE_NAV_ITEMS} isActive={isActive} label="Everyday navigation" />
 
       <main className="main-content">
         <TermsUpdateNotice termsPath="/everyday/terms" />

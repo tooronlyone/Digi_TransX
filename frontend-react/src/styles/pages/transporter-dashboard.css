@@ -708,3 +708,12 @@
     font-size: 13px;
   }
 }
+
+/* Shared responsive type ownership for the logistics-provider dashboard. */
+.dashboard-page-title h1 { font-size: var(--type-page-title); }
+.dashboard-page-title p { font-size: var(--type-body); }
+.dashboard-section-title { font-size: var(--type-section-title); }
+.dashboard-card-title,
+.dashboard-truck-card__top strong { font-size: var(--type-card-title); }
+.dashboard-action-tile span,
+.dashboard-action-small { font-size: var(--type-button); }

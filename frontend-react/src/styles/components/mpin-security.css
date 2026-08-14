@@ -65,16 +65,34 @@
 .security-settings-page h1,
 .mpin-management h2,
 .mpin-management h3 { margin: 0; color: #0f172a; }
-.access-lock h1 { font-size: clamp(1.5rem, 6vw, 2rem); }
-.access-lock__dialog > p { margin: 10px 0 22px; color: #475569; line-height: 1.55; }
+.access-lock h1,
+.security-settings-page h1 { font-size: var(--type-page-title, 2rem); }
+.mpin-management h2 { font-size: var(--type-section-title, 1.5rem); }
+.mpin-management h3 { font-size: var(--type-card-title, 1rem); }
+.access-lock__dialog > p { margin: 10px 0 22px; color: #475569; font-size: var(--type-body, .9375rem); line-height: var(--leading-body, 1.55); }
 .access-lock__form { display: grid; gap: 14px; }
 .access-lock__account,
 .access-lock__note { margin: 0; color: #64748b; font-size: .875rem; }
 
-.mpin-control { min-width: 0; }
+.mpin-control {
+  --mpin-slot-size: 48px;
+  --mpin-slot-gap: 10px;
+  min-width: 0;
+}
 .mpin-control__label,
-.security-field > span { display: block; margin-bottom: 8px; color: #334155; font-size: .875rem; font-weight: 700; }
-.mpin-control__input-wrap { position: relative; height: 60px; }
+.security-field > span { display: block; margin-bottom: 8px; color: #334155; font-size: var(--type-label, .875rem); font-weight: 700; }
+.mpin-control__label,
+.mpin-control__hint {
+  width: min(100%, calc((var(--mpin-slot-size) * 4) + (var(--mpin-slot-gap) * 3)));
+  margin-right: auto;
+  margin-left: auto;
+}
+.mpin-control__input-wrap {
+  position: relative;
+  width: min(100%, calc((var(--mpin-slot-size) * 4) + (var(--mpin-slot-gap) * 3)));
+  height: var(--mpin-slot-size);
+  margin-inline: auto;
+}
 .mpin-control__input {
   position: absolute;
   inset: 0;
@@ -87,7 +105,7 @@
   caret-color: transparent;
 }
 .mpin-control__input:focus { outline: none; }
-.mpin-control__slots { display: grid; grid-template-columns: repeat(4, minmax(44px, 1fr)); gap: 10px; height: 100%; }
+.mpin-control__slots { display: grid; grid-template-columns: repeat(4, var(--mpin-slot-size)); gap: var(--mpin-slot-gap); height: 100%; }
 .mpin-control__slots span {
   display: grid;
   place-items: center;
@@ -95,12 +113,12 @@
   border: 2px solid #cbd5e1;
   border-radius: 12px;
   background: #fff;
-  font-size: 1.8rem;
+  font-size: 1.25rem;
   line-height: 1;
 }
 .mpin-control__input:focus + .mpin-control__slots { border-radius: 14px; outline: 3px solid #bfdbfe; outline-offset: 2px; }
 .mpin-control__input:focus + .mpin-control__slots span.is-current { border-color: #2563eb; }
-.mpin-control__hint { margin: 7px 0 0; color: #64748b; font-size: .78rem; }
+.mpin-control__hint { margin-top: 7px; color: #64748b; font-size: var(--type-helper, .8125rem); }
 
 .security-field input {
   width: 100%;
@@ -155,6 +173,7 @@ button:disabled { cursor: not-allowed; opacity: .62; }
 .mpin-management__form.is-danger { border: 1px solid #fecaca; border-radius: 12px; padding: 18px; }
 
 @media (max-width: 767px) {
+  .mpin-control { --mpin-slot-size: 42px; --mpin-slot-gap: 8px; }
   .security-settings-page { padding: 0; }
   .mpin-management__grid,
   .mpin-management__columns { grid-template-columns: minmax(0, 1fr); }

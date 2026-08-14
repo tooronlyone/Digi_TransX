@@ -19,6 +19,7 @@ import { FALLBACK_TRUCK_TYPES } from '../../lib/truckCatalog'
 import LocationPicker from '../../components/common/LocationPicker'
 import { openPendingReviewModal } from '../../components/common/reviewEvents'
 import useClientBasePath from '../../hooks/useClientBasePath'
+import OrderWorkspaceNavigation from '../../components/client/OrderWorkspaceNavigation'
 
 const TRUCK_LABELS = Object.fromEntries(FALLBACK_TRUCK_TYPES.map((t) => [t.type_key, t.display_name]))
 function truckLabel(key) {
@@ -172,7 +173,14 @@ export default function PostOrder() {
       <PageTitle
         title="Post Order"
         subtitle="Create a shipment request and let matching transporters compete with reverse bids."
+        actions={base === '/everyday' ? (
+          <Link to={`${base}/orders`} className="order-workspace-nav__record-link">
+            <i className="fas fa-clipboard-list" aria-hidden="true" /> My Orders
+          </Link>
+        ) : null}
       />
+
+      {base === '/client' && <OrderWorkspaceNavigation mode="one-time" />}
 
       <SectionCard title="Shipment Details" icon="fa-boxes-stacked">
         {error && (

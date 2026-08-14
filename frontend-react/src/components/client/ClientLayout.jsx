@@ -1,12 +1,12 @@
 import { useEffect, useMemo, useState } from 'react'
 import { Link, useLocation, useNavigate } from 'react-router-dom'
-import { apiGet, getCsrfToken } from '../../pages/client/clientUtils'
+import { apiGet } from '../../pages/client/clientUtils'
 import TermsUpdateNotice from '../common/TermsUpdateNotice'
 import NotificationBell from '../common/NotificationBell'
 import MobileBottomNavigation from '../common/MobileBottomNavigation'
 import PendingTransporterReviewGate from '../common/PendingTransporterReviewGate'
 import '../../styles/pages/client.css'
-import { clearAuthPresentation } from '../../auth/presentation'
+import { logoutCurrentSession } from '../../auth/logout'
 
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: 'fa-home', path: '/client/dashboard' },
@@ -18,6 +18,13 @@ const NAV_ITEMS = [
   { label: 'Your Wallet', icon: 'fa-wallet', path: '/client/wallet', match: ['/client/balance'] },
   { label: 'Your Account', icon: 'fa-user-circle', path: '/client/account' },
   { label: 'Security', icon: 'fa-shield-halved', path: '/client/security' },
+]
+
+const MOBILE_NAV_ITEMS = [
+  { label: 'Dashboard', icon: 'fa-home', path: '/client/dashboard' },
+  { label: 'Post Order', icon: 'fa-shipping-fast', path: '/client/post-order', match: ['/client/post-agreement'] },
+  { label: 'Wallet', icon: 'fa-wallet', path: '/client/wallet', match: ['/client/balance'] },
+  { label: 'Messages', icon: 'fa-comments', path: '/client/messages' },
 ]
 
 export default function ClientLayout({ children }) {
@@ -77,17 +84,17 @@ export default function ClientLayout({ children }) {
     [unreadTotal],
   )
 
+  const mobileNavItems = useMemo(
+    () => MOBILE_NAV_ITEMS.map((item) => (
+      item.path === '/client/messages'
+        ? { ...item, badge: unreadTotal > 0 ? String(unreadTotal) : '' }
+        : item
+    )),
+    [unreadTotal],
+  )
+
   async function handleLogout() {
-    try {
-      const csrf = await getCsrfToken()
-      await fetch('/auth/logout', {
-        method: 'POST',
-        credentials: 'same-origin',
-        headers: { 'X-CSRF-Token': csrf },
-      })
-    } catch { /* best-effort; ignore */ }
-    clearAuthPresentation()
-    navigate('/login', { replace: true })
+    await logoutCurrentSession(navigate)
   }
 
   function isActive(item) {
@@ -133,21 +140,21 @@ export default function ClientLayout({ children }) {
 
         <div className="navbar-right">
           <NotificationBell orderPath={(id) => `/client/order/${id}`} />
-          <div className="user-info">
+          <Link to="/client/account" className="user-info header-account-link" aria-label="Open My Account">
             <div className="user-avatar">{initials}</div>
             <div className="user-details">
               <h3>{user.name}</h3>
               <p>{user.role}</p>
             </div>
-          </div>
-          <button type="button" onClick={handleLogout} className="logout-btn" title="Logout">
+          </Link>
+          <button type="button" onClick={handleLogout} className="logout-btn header-logout" title="Logout" aria-label="Logout">
             <i className="fas fa-sign-out-alt" aria-hidden="true"></i>
           </button>
         </div>
       </nav>
 
       {sidebar}
-      <MobileBottomNavigation items={navItems} isActive={isActive} label="Service seeker navigation" />
+      <MobileBottomNavigation items={mobileNavItems} isActive={isActive} label="Service seeker navigation" />
 
       <main className="main-content">
         <TermsUpdateNotice termsPath="/client/terms" />

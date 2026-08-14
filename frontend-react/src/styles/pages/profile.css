@@ -189,12 +189,15 @@
 }
 
 .detail-content {
+  min-width: 0;
   display: grid;
   gap: 10px;
   flex: 1 1 auto;
 }
 
 .detail-row {
+  min-width: 0;
+  width: 100%;
   min-height: 36px;
   display: flex;
   align-items: center;
@@ -247,16 +250,29 @@ a.detail-value:hover {
   min-width: 94px;
 }
 
-.detail-card:last-child .detail-icon {
-  background: rgba(220, 38, 38, 0.1) !important;
-  color: #dc2626;
-}
-
-.detail-card:last-child .edit-btn {
+.profile-logout-action {
   border-color: rgba(220, 38, 38, 0.22) !important;
   background: rgba(220, 38, 38, 0.08) !important;
   color: #b91c1c !important;
 }
+
+.profile-session-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 16px;
+}
+
+.profile-session-actions .edit-btn { margin-top: 0; }
+
+/* Shared responsive type ownership for profile/account content. */
+.page-profile .page-title h1 { font-size: var(--type-page-title); }
+.page-profile .page-title p { font-size: var(--type-body); }
+.profile-name { font-size: var(--type-section-title); }
+.section-title { font-size: var(--type-section-title); }
+.detail-title { font-size: var(--type-card-title); }
+.profile-btn,
+.edit-btn { font-size: var(--type-button); }
 
 .page-profile > div[style] {
   border: 1px solid rgba(16, 185, 129, 0.2) !important;
@@ -289,6 +305,13 @@ a.detail-value:hover {
 }
 
 @media (max-width: 768px) {
+  .page-profile .top-bar { margin-bottom: 16px; padding-bottom: 14px; }
+  .profile-card { padding: 18px; }
+  .profile-img-placeholder { width: 76px !important; height: 76px !important; border-radius: 20px !important; font-size: 24px !important; }
+  .profile-name { font-size: var(--type-section-title); }
+  .detail-card { padding: 16px; }
+  .detail-header { margin-bottom: 12px; }
+  .detail-icon { width: 38px; height: 38px; }
   .details-grid {
     grid-template-columns: 1fr;
   }
@@ -307,4 +330,6 @@ a.detail-value:hover {
     width: 100%;
     text-align: left;
   }
+
+  .profile-session-actions > * { flex: 1 1 140px; }
 }
