@@ -178,7 +178,7 @@ Digi_TransX/
 │       ├── transporter/        # Transporter dashboard, trucks, bids, earnings, tracking
 │       ├── admin/              # Admin dashboard, users, trucks, withdrawals, disputes
 │       ├── shopkeeper/         # POS / inventory / sales analytics module
-│       ├── org/                # Organization portal (admin / partner / departments)
+│       ├── org/                # Fail-closed landing page for the Planned organization portal
 │       └── shared/             # Shared components (AI chat, etc.)
 ├── .env.example                # Environment template (Supabase keys, SMTP, Flask)
 └── supabase/

@@ -61,22 +61,7 @@ import AnalysisView from './pages/shopkeeper/AnalysisView'
 import InventoryPage from './pages/shopkeeper/InventoryPage'
 import POSPage from './pages/shopkeeper/POSPage'
 import SalesAnalyticsPage from './pages/shopkeeper/SalesAnalyticsPage'
-import OrgUserRegister from './pages/org/user/Register'
-import OrgUserLogin from './pages/org/user/Login'
-import OrgUserDepartments from './pages/org/user/Departments'
-import OrgUserDepartmentLogin from './pages/org/user/DepartmentLogin'
-import OrgUserDepartmentPortal from './pages/org/user/DepartmentPortal'
-import OrgAdminRegister from './pages/org/admin/Register'
-import OrgAdminLogin from './pages/org/admin/Login'
-import OrgAdminDashboard from './pages/org/admin/Dashboard'
-import OrgAdminDepartments from './pages/org/admin/Departments'
-import OrgAdminActivity from './pages/org/admin/Activity'
-import OrgAdminPartners from './pages/org/admin/Partners'
-import OrgAdminTransporterProfile from './pages/org/admin/TransporterProfile'
-import OrgPartnerLogin from './pages/org/partner/Login'
-import OrgPartnerDashboard from './pages/org/partner/Dashboard'
-import OrgPartnerDepartments from './pages/org/partner/Departments'
-import OrgPartnerActivity from './pages/org/partner/Activity'
+import OrgUnavailablePage from './components/org/OrgUnavailablePage'
 import ClientDashboard from './pages/client/ClientDashboard'
 import PostOrder from './pages/client/PostOrder'
 import MyOrders from './pages/client/MyOrders'
@@ -310,47 +295,7 @@ function ShopkeeperPortal() {
 }
 
 function OrgPortal() {
-  return (
-    <Routes>
-      <Route path="/" element={<Navigate to="/org/user/login" replace />} />
-      <Route path="user/register" element={<OrgUserRegister />} />
-      <Route path="user/register.html" element={<OrgUserRegister />} />
-      <Route path="user/login" element={<OrgUserLogin />} />
-      <Route path="user/login.html" element={<OrgUserLogin />} />
-      <Route path="user/departments" element={<OrgUserDepartments />} />
-      <Route path="user/departments.html" element={<OrgUserDepartments />} />
-      <Route path="user/department-login" element={<OrgUserDepartmentLogin />} />
-      <Route path="user/department_login.html" element={<OrgUserDepartmentLogin />} />
-      <Route path="user/department-portal" element={<OrgUserDepartmentPortal />} />
-      <Route path="user/department_portal.html" element={<OrgUserDepartmentPortal />} />
-
-      <Route path="admin/register" element={<OrgAdminRegister />} />
-      <Route path="admin/register.html" element={<OrgAdminRegister />} />
-      <Route path="admin/login" element={<OrgAdminLogin />} />
-      <Route path="admin/login.html" element={<OrgAdminLogin />} />
-      <Route path="admin/dashboard" element={<OrgAdminDashboard />} />
-      <Route path="admin/dashboard.html" element={<OrgAdminDashboard />} />
-      <Route path="admin/departments" element={<OrgAdminDepartments />} />
-      <Route path="admin/departments.html" element={<OrgAdminDepartments />} />
-      <Route path="admin/activity" element={<OrgAdminActivity />} />
-      <Route path="admin/activity.html" element={<OrgAdminActivity />} />
-      <Route path="admin/partners" element={<OrgAdminPartners />} />
-      <Route path="admin/partners.html" element={<OrgAdminPartners />} />
-      <Route path="admin/transporter-profile" element={<OrgAdminTransporterProfile />} />
-      <Route path="admin/transporter_profile.html" element={<OrgAdminTransporterProfile />} />
-
-      <Route path="partner/login" element={<OrgPartnerLogin />} />
-      <Route path="partner/login.html" element={<OrgPartnerLogin />} />
-      <Route path="partner/dashboard" element={<OrgPartnerDashboard />} />
-      <Route path="partner/dashboard.html" element={<OrgPartnerDashboard />} />
-      <Route path="partner/departments" element={<OrgPartnerDepartments />} />
-      <Route path="partner/departments.html" element={<OrgPartnerDepartments />} />
-      <Route path="partner/activity" element={<OrgPartnerActivity />} />
-      <Route path="partner/activity.html" element={<OrgPartnerActivity />} />
-
-      <Route path="*" element={<Navigate to="/org/user/login" replace />} />
-    </Routes>
-  )
+  return <OrgUnavailablePage />
 }
 
 export default function App() {

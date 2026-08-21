@@ -170,16 +170,17 @@ def test_provider_neutral_email_syntax_accepts_valid_providers(address):
     assert "email" not in errors
 
 
-def test_organization_registration_is_truthful_and_fail_closed():
+def test_dedicated_organization_portal_is_truthful_and_fail_closed():
     frontend = REPO_ROOT / "frontend-react" / "src"
     production_source = "\n".join(
         path.read_text(encoding="utf-8", errors="replace")
         for path in frontend.rglob("*")
         if path.is_file()
     ).lower()
-    registration = (
-        frontend / "components" / "org" / "OrgRegisterPage.jsx"
+    unavailable = (
+        frontend / "components" / "org" / "OrgUnavailablePage.jsx"
     ).read_text(encoding="utf-8")
+    app_source = (frontend / "App.jsx").read_text(encoding="utf-8")
 
     for gmail_only_claim in (
         "verify gmail",
@@ -190,40 +191,77 @@ def test_organization_registration_is_truthful_and_fail_closed():
     ):
         assert gmail_only_claim not in production_source
     assert "gmail, outlook, yahoo, company domains" in production_source
-    for dead_endpoint in (
-        "/api/org/auth/register",
-        "/api/org/auth/verify/request",
-        "/api/org/auth/verify/confirm",
-    ):
-        assert dead_endpoint not in production_source
+    assert "/api/org/" not in production_source
+    assert "/api/organization/" not in production_source
+    assert "OrgUnavailablePage" in app_source
+    assert 'path="/org/*"' in app_source
+    assert "return <OrgUnavailablePage />" in app_source
+    assert not list((frontend / "pages" / "org").rglob("*.jsx"))
+    assert not (frontend / "lib" / "orgPortal.js").exists()
 
-    assert "Organization registration is not available yet" in registration
-    assert "verification backend is not implemented" in registration
+    assert "Organization portal unavailable" in unavailable
+    assert "has no organization authentication backend yet" in unavailable
+    assert "does not collect credentials" in unavailable
+    assert 'to="/login"' in unavailable
+    assert 'to="/signup"' in unavailable
     for forbidden_owner in (
+        "fetch(",
         "orgRequest(",
+        "orgAuthRequest(",
         "onSubmit",
         'type="password"',
-        "devOtp",
-        "verifyForm",
-        "localStorage",
-        "sessionStorage",
+        "setItem(",
         "history.",
         "console.",
     ):
-        assert forbidden_owner not in registration
+        assert forbidden_owner not in unavailable
+    for legacy_key in (
+        "org_access_token",
+        "org_department_token",
+        "org_department_id",
+    ):
+        assert legacy_key in unavailable
+    assert "localStorage.removeItem(key)" in unavailable
+    assert "sessionStorage.removeItem(key)" in unavailable
 
 
-def test_partner_contact_email_remains_without_fake_verification_claim():
+def test_org_routes_have_no_owner_and_canonical_company_auth_remains():
+    backend_runtime = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in (REPO_ROOT / "backend").rglob("*.py")
+        if "tests" not in path.parts
+    )
+    auth_routes = (
+        REPO_ROOT / "backend" / "auth" / "routes.py"
+    ).read_text(encoding="utf-8")
+    app_source = (
+        REPO_ROOT / "frontend-react" / "src" / "App.jsx"
+    ).read_text(encoding="utf-8")
+    login_source = (
+        REPO_ROOT / "frontend-react" / "src" / "pages" / "auth" / "Login.jsx"
+    ).read_text(encoding="utf-8")
+
+    assert 'url_prefix="/api/org"' not in backend_runtime
+    assert 'url_prefix="/api/organization"' not in backend_runtime
+    assert "/api/org/" not in backend_runtime
+    assert auth_routes.count('@auth_blueprint.post("/login")') == 1
+    assert auth_routes.count('@auth_blueprint.post("/signup")') == 1
+    assert "fetch('/auth/login'" in login_source
+    assert 'path="/login"' in app_source
+    assert 'path="/signup"' in app_source
+    assert 'path="details/service-seeker"' in app_source
+
+
+def test_public_partner_contact_email_surface_remains_unchanged():
     source = (
         REPO_ROOT
         / "frontend-react"
         / "src"
         / "pages"
-        / "org"
-        / "admin"
-        / "Partners.jsx"
+        / "transporter"
+        / "partner_with_us.jsx"
     ).read_text(encoding="utf-8")
-    assert "Partner email" in source
+    assert "Apply to Partner" in source
+    assert "name=\"email\"" in source
     assert 'type="email"' in source
-    assert "legitimate contact email" in source
-    assert "Gmail verified" not in source
+    assert 'placeholder="you@example.com"' in source
