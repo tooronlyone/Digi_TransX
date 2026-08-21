@@ -392,20 +392,29 @@ def test_effective_role_matrix_and_rolled_back_probes(corrected_database_url):
                 """
             )
             security_id = cursor.fetchone()[0]
-            cursor.execute("SAVEPOINT invalid_catalog_event")
-            with pytest.raises(errors.CheckViolation):
-                cursor.execute(
-                    """
-                    INSERT INTO public.security_events (
-                        event_name,event_version,category,actor_type,request_id,
-                        source,provider_mode,environment,retention_class
-                    ) VALUES (
-                        'security.unknown.succeeded',1,'security','system',
-                        'acl.probe.invalid','test','none','test','security_12_months'
-                    )
-                    """
+            for index, event_name in enumerate(
+                (
+                    "security.unknown.succeeded",
+                    "security.signup.sms_otp_sent",
+                    "security.login.sms_otp_sent",
+                    "notification.sms.sent",
                 )
-            cursor.execute("ROLLBACK TO SAVEPOINT invalid_catalog_event")
+            ):
+                cursor.execute("SAVEPOINT invalid_catalog_event")
+                with pytest.raises(errors.CheckViolation):
+                    cursor.execute(
+                        """
+                        INSERT INTO public.security_events (
+                            event_name,event_version,category,actor_type,request_id,
+                            source,provider_mode,environment,retention_class
+                        ) VALUES (
+                            %s,1,'security','system',%s,'test','none','test',
+                            'security_12_months'
+                        )
+                        """,
+                        (event_name, f"acl.probe.invalid.{index}"),
+                    )
+                cursor.execute("ROLLBACK TO SAVEPOINT invalid_catalog_event")
             _denied(
                 cursor,
                 "UPDATE public.security_events SET request_id='changed' "

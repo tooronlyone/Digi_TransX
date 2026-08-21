@@ -22,7 +22,7 @@ const FAQS = [
   { q: 'How do I update my profile information?', a: 'Go to Profile or Settings Ã¢â€ â€™ Account section. Update your name, email, phone, and business details. Changes are saved immediately.' },
   { q: 'What is the Predictive Insights feature?', a: 'Predictive Insights uses your historical data Ã¢â‚¬â€ jobs, fuel, maintenance Ã¢â‚¬â€ to forecast earnings for the next 7, 15, 30, and 90 days. It also gives smart recommendations to grow your business.' },
   { q: 'How do I export my transaction history?', a: 'Go to Account History. Use the date filters if needed, then click "Export Excel" to download a CSV file, or "Export PDF" to print the full transaction list.' },
-  { q: 'How do I change my password or PIN?', a: 'Go to Settings Ã¢â€ â€™ Privacy & Security. Click "Change Password" or use the OTP verification flow. An OTP will be sent to your registered email or phone.' },
+  { q: 'How do I change my password or PIN?', a: 'Go to Settings Ã¢â€ â€™ Privacy & Security. Click "Change Password" or use the OTP verification flow. An OTP will be sent to your registered email.' },
 ]
 
 const ARTICLES = [

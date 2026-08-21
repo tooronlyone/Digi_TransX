@@ -779,8 +779,22 @@ def get_settings_dict(user):
         parsed = {}
     if not isinstance(parsed, dict):
         parsed = {}
-    parsed.setdefault("notifications", {})
-    parsed.setdefault("preferences", {})
+    notifications = parsed.get("notifications")
+    if not isinstance(notifications, dict):
+        notifications = {}
+    else:
+        notifications = dict(notifications)
+    non_preference_keys = {"sms", "payments", "paymentupdates"}
+    for key in tuple(notifications):
+        if (
+            isinstance(key, str)
+            and key.strip().lower() in non_preference_keys
+        ):
+            notifications.pop(key)
+    parsed["notifications"] = notifications
+
+    preferences = parsed.get("preferences")
+    parsed["preferences"] = preferences if isinstance(preferences, dict) else {}
     return parsed
 
 

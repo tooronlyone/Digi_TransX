@@ -13,7 +13,7 @@ export default function Settings() {
   const [saving, setSaving] = useState(false)
 
   const [account, setAccount] = useState({ companyName: '', email: '', phone: '', address: '', about: '' })
-  const [notifs, setNotifs] = useState({ email: true, sms: true, whatsapp: true, push: true, jobAlerts: true, payments: true, system: false, promo: false })
+  const [notifs, setNotifs] = useState({ email: true, whatsapp: true, push: true, jobAlerts: true, system: false, promo: false })
   const [security, setSecurity] = useState({ currentPassword: '', newPassword: '', confirmPassword: '' })
   const [otpSent, setOtpSent] = useState(false)
   const [otpCode, setOtpCode] = useState('')
@@ -35,11 +35,9 @@ export default function Settings() {
   function normalizeNotifications(raw = {}) {
     return {
       email: raw.email !== false,
-      sms: raw.sms !== false,
       whatsapp: raw.whatsapp !== false,
       push: raw.push !== false,
       jobAlerts: raw.jobAlerts !== false,
-      payments: raw.payments ?? raw.paymentUpdates ?? true,
       system: raw.system ?? raw.systemUpdates ?? false,
       promo: raw.promo ?? raw.promotions ?? false,
     }
@@ -115,11 +113,9 @@ export default function Settings() {
     try {
       const res = await put('/api/settings/notifications', {
         email: notifs.email,
-        sms: notifs.sms,
         whatsapp: notifs.whatsapp,
         push: notifs.push,
         jobAlerts: notifs.jobAlerts,
-        paymentUpdates: notifs.payments,
         systemUpdates: notifs.system,
         promotions: notifs.promo,
       })
@@ -300,8 +296,7 @@ export default function Settings() {
                   <p>Control how and when you receive notifications</p>
                 </div>
                 {[
-                  { key: 'email', label: 'Email Notifications', desc: 'Receive notifications via email' },
-                  { key: 'sms',   label: 'SMS Notifications',   desc: 'Get important alerts via SMS' },
+                  { key: 'email', label: 'Optional Operational Email', desc: 'Receive optional email copies for order, bid, trip, and agreement activity' },
                   { key: 'whatsapp', label: 'WhatsApp Notifications', desc: 'Receive time-critical dispatch alerts on WhatsApp' },
                   { key: 'push',  label: 'Push Notifications',  desc: 'Receive real-time browser updates' },
                 ].map(item => (
@@ -314,12 +309,14 @@ export default function Settings() {
                     </label>
                   </div>
                 ))}
+                <p className="transporter-settings__help-text transporter-settings__help-text--spaced">
+                  Security and payment notices are mandatory in-app and by email under the approved policy. External email delivery remains planned; this preference cannot disable those notices.
+                </p>
                 <h4 className="transporter-settings__subsection-title">Notification Types</h4>
                 {[
                   { key: 'jobAlerts', label: 'New Job Alerts',    desc: 'Get notified when matching jobs are posted' },
-                  { key: 'payments',  label: 'Payment Updates',   desc: 'Notifications for payments and withdrawals' },
                   { key: 'system',    label: 'System Updates',    desc: 'Platform updates and new features' },
-                  { key: 'promo',     label: 'Promotional Offers',desc: 'Receive offers and discounts' },
+                  { key: 'promo',     label: 'Promotional Email', desc: 'Optionally receive offers and discounts by email' },
                 ].map(item => (
                   <div key={item.key} className="transporter-settings__toggle-item">
                     <div className="transporter-settings__toggle-text"><strong>{item.label}</strong><p className="transporter-settings__help-text">{item.desc}</p></div>
@@ -705,7 +702,7 @@ export default function Settings() {
                     onClick={() => {
                       if (window.confirm('Reset all settings to default? This cannot be undone.')) {
                         setPrefs({ language: 'en', currency: 'PKR', timezone: 'PKT', dateFormat: 'DD/MM/YYYY', theme: 'light', autoRefresh: true, tips: false })
-                        setNotifs({ email: true, sms: true, whatsapp: true, push: true, jobAlerts: true, payments: true, system: false, promo: false })
+                        setNotifs({ email: true, whatsapp: true, push: true, jobAlerts: true, system: false, promo: false })
                         showToast('All settings reset to defaults!')
                       }
                     }}>

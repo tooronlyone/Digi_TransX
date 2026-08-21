@@ -286,6 +286,19 @@ All configuration lives in `.env` (project root) — see [.env.example](.env.exa
 | `DIGITRANSX_SMTP_*` | SMTP settings for OTP / password-reset emails |
 | `TEST_SUPABASE_DB_URL` | **Tests only** — connection string of a dedicated PostgreSQL test database for the integration tests (never point this at the application database) |
 
+### Communication-channel policy
+
+Digi_TransX has no SMS channel, SMS provider configuration, SMS OTP, or SMS
+notification preference. Phone and CNIC fields remain identity/contact data and
+must not be treated as delivery-channel configuration.
+
+Email is the only external authentication channel. Password reset and password
+change currently send email OTPs. Verified-email signup OTP, full-login OTP for
+an untrusted device, password-plus-email-OTP reset of a locked MPIN, and the
+required email copies of security/payment notifications remain planned until
+their dedicated delivery and security contracts are implemented. In-app
+notifications remain the current application-owned notification surface.
+
 ## Tests
 
 The backend test suite lives in [backend/tests/](backend/tests):

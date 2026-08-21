@@ -47,11 +47,9 @@ def settings_notifications():
     settings_dict["notifications"].update(
         {
             "email": bool(data.get("email", True)),
-            "sms": bool(data.get("sms", True)),
             "whatsapp": bool(data.get("whatsapp", True)),
             "push": bool(data.get("push", True)),
             "jobAlerts": bool(data.get("jobAlerts", True)),
-            "paymentUpdates": bool(data.get("paymentUpdates", True)),
             "systemUpdates": bool(data.get("systemUpdates", False)),
             "promotions": bool(data.get("promotions", False)),
         }

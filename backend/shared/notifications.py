@@ -5,8 +5,8 @@ Notifications are idempotent per (trip, recipient, event type): the unique index
 uniq_notification_event backs the ON CONFLICT DO NOTHING, so replayed
 transitions and repeated deadline sweeps can never create duplicate rows.
 
-No external email/SMS/push is sent in this phase — persistence + the existing
-in-app surfaces are sufficient (see Phase K of the lifecycle spec).
+No external email/push is sent in this phase. This owner persists only the
+current in-app surface; required external email delivery remains planned.
 """
 
 # Canonical lifecycle event types (also the notification_type stored per row).

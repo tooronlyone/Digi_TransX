@@ -24,7 +24,6 @@ from tests._life_helpers import (
     SCHEMA_SQL,
     STUBS,
     make_disposable,
-    origin_main_schema_or_skip,
     require_test_db_url,
     schema_before_migration_or_skip,
 )
@@ -35,6 +34,9 @@ ROOT = Path(__file__).resolve().parents[2]
 MIGRATION = ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
 GENUINE_ACTIVITY_MIGRATION = (
     ROOT / "supabase/migrations/20260801200000_genuine_session_activity.sql"
+)
+MPIN_STEP_UP_MIGRATION = (
+    ROOT / "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql"
 )
 PEPPER = base64.urlsafe_b64encode(b"P" * 32).decode()
 NEW_INTEGRATIONS = {
@@ -583,8 +585,11 @@ def test_migration_converges_reapplies_invalidates_legacy_and_rejects_corruption
     activity_migration = GENUINE_ACTIVITY_MIGRATION.read_text(encoding="utf-8")
     assert "cascade" not in migration.lower()
     sequential_url, sequential_cleanup = make_disposable(_local_url(), STUBS, main_schema)
+    # Compare at the genuine-activity boundary. Today's origin/main includes
+    # the later step-up migration, whose stricter final signature correctly
+    # rejects replay of this older migration.
     fresh_url, fresh_cleanup = make_disposable(
-        _local_url(), STUBS, origin_main_schema_or_skip()
+        _local_url(), STUBS, schema_before_migration_or_skip(MPIN_STEP_UP_MIGRATION)
     )
     try:
         sequential = psycopg2.connect(sequential_url)
