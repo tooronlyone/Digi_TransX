@@ -59,7 +59,7 @@ from .helpers import (
     update_user_settings,
     validate_signup_payload,
 )
-from auth import mpin_service
+from auth import mpin_service, step_up_service
 from auth.trusted_device_service import digest_token, establish_after_full_login
 from auth.session_service import (
     access_lock_reference,
@@ -158,6 +158,24 @@ def _mpin_unavailable_response():
     return json_response(
         {"success": False, "message": "Secure MPIN service is unavailable."}, 503
     )
+
+
+def _step_up_metadata(descriptor, *, authorization_id=None, result_code=None):
+    metadata = {
+        "action_key": descriptor["action_key"],
+        "resource_type": descriptor["resource_type"],
+        "resource_id": descriptor["resource_id"],
+        "request_fingerprint_ref": step_up_service.request_fingerprint_reference(
+            descriptor["request_fingerprint"]
+        ),
+    }
+    if authorization_id is not None:
+        metadata["authorization_ref"] = step_up_service.authorization_reference(
+            authorization_id
+        )
+    if result_code is not None:
+        metadata["result_code"] = result_code
+    return metadata
 
 
 def _record_signup_started(request_id):
@@ -1135,11 +1153,31 @@ def mpin_change():
             if not durable or not user or not device or durable["access_locked"]:
                 raise RuntimeError("Current authentication changed during MPIN change.")
             credential = mpin_service.lock_credential(db, user["id"])
-            if (
-                not credential
-                or credential["permanently_locked"]
-                or not mpin_service.verify_mpin(current_mpin, credential)
-            ):
+            if not credential:
+                return json_response(
+                    {"success": False, "message": "Unable to verify current MPIN."}, 401
+                )
+            if credential["permanently_locked"]:
+                return json_response(
+                    {"success": False, "code": "mpin_locked", "message": "MPIN is locked. Use password recovery."},
+                    423,
+                )
+            if not mpin_service.verify_mpin(current_mpin, credential):
+                outcome, _ = mpin_service.record_failure(db, user["id"])
+                if outcome == "locked":
+                    write_security_event(
+                        db, "security.mpin.locked",
+                        _service_subject_context(request_id, user["id"]),
+                        EventData(metadata={"result_code": "attempt_limit"}),
+                        idempotency_scope="security.mpin.change",
+                        idempotency_key=request_id,
+                    )
+                    return json_response(
+                        {"success": False, "code": "mpin_locked", "message": "MPIN is locked. Use password recovery."},
+                        423,
+                    )
+                if outcome != "failed":
+                    raise RuntimeError("MPIN failure state changed unexpectedly.")
                 return json_response(
                     {"success": False, "message": "Unable to verify current MPIN."}, 401
                 )
@@ -1218,11 +1256,28 @@ def mpin_disable():
                         )
                     except mpin_service.MpinError:
                         current_mpin = None
-                    authorized = bool(
-                        current_mpin
-                        and not credential["permanently_locked"]
-                        and mpin_service.verify_mpin(current_mpin, credential)
-                    )
+                    if credential["permanently_locked"]:
+                        return json_response(
+                            {"success": False, "code": "mpin_locked", "message": "MPIN is locked. Use password recovery."},
+                            423,
+                        )
+                    authorized = bool(current_mpin and mpin_service.verify_mpin(current_mpin, credential))
+                    if current_mpin and not authorized:
+                        outcome, _ = mpin_service.record_failure(db, user["id"])
+                        if outcome == "locked":
+                            write_security_event(
+                                db, "security.mpin.locked",
+                                _service_subject_context(request_id, user["id"]),
+                                EventData(metadata={"result_code": "attempt_limit"}),
+                                idempotency_scope="security.mpin.disable",
+                                idempotency_key=request_id,
+                            )
+                            return json_response(
+                                {"success": False, "code": "mpin_locked", "message": "MPIN is locked. Use password recovery."},
+                                423,
+                            )
+                        if outcome != "failed":
+                            raise RuntimeError("MPIN failure state changed unexpectedly.")
             if not authorized:
                 return json_response(
                     {"success": False, "message": "Unable to authorize MPIN disable."},
@@ -1244,6 +1299,127 @@ def mpin_disable():
         current_app.logger.error("Secure MPIN disable could not be committed.")
         return _mpin_unavailable_response()
     return json_response({"success": True, "message": "MPIN disabled."})
+
+
+@auth_blueprint.post("/mpin/step-up")
+@login_required(refresh_activity=False)
+def mpin_step_up():
+    """Issue a three-minute, action-bound, one-use authorization proof."""
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    try:
+        mpin = mpin_service.validate_mpin(data.get("mpin"))
+        descriptor = step_up_service.normalize_descriptor(data.get("action"))
+        mpin_service.validate_configuration()
+    except (mpin_service.MpinError, step_up_service.StepUpError):
+        return json_response(
+            {"success": False, "message": "A valid MPIN and action descriptor are required."},
+            400,
+        )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    if not mpin_service.role_is_eligible(request.current_user.get("role")):
+        return json_response(
+            {"success": False, "message": "MPIN is not supported for this account."},
+            403,
+        )
+
+    request_id = f"mpin.step_up.{uuid.uuid4().hex}"
+    issued = None
+    try:
+        with open_db() as db:
+            durable, user, device = _lock_current_authentication(db)
+            if (
+                not durable or not user or not device or durable["access_locked"]
+                or not request.current_session.get("access_proof_valid")
+            ):
+                raise RuntimeError("Current authentication changed during MPIN step-up.")
+            credential = mpin_service.lock_credential(db, user["id"])
+            if not credential:
+                return json_response(
+                    {"success": False, "code": "mpin_enrollment_required", "message": "MPIN enrollment is required."},
+                    409,
+                )
+            if credential["permanently_locked"]:
+                write_security_event(
+                    db, "security.mpin.step_up_failed",
+                    _service_subject_context(request_id, user["id"]),
+                    EventData(metadata=_step_up_metadata(descriptor, result_code="rate_limited")),
+                    idempotency_scope="security.mpin.step_up",
+                    idempotency_key=request_id,
+                )
+                return json_response(
+                    {"success": False, "code": "mpin_locked", "message": "MPIN is locked. Use password recovery."},
+                    423,
+                )
+            if not mpin_service.verify_mpin(mpin, credential):
+                outcome, _ = mpin_service.record_failure(db, user["id"])
+                result_code = "rate_limited" if outcome == "locked" else "invalid_mpin"
+                if outcome not in {"failed", "locked"}:
+                    raise RuntimeError("MPIN failure state changed unexpectedly.")
+                write_security_event(
+                    db, "security.mpin.step_up_failed",
+                    _service_subject_context(request_id, user["id"]),
+                    EventData(metadata=_step_up_metadata(descriptor, result_code=result_code)),
+                    idempotency_scope="security.mpin.step_up",
+                    idempotency_key=request_id,
+                )
+                if outcome == "locked":
+                    write_security_event(
+                        db, "security.mpin.locked",
+                        _service_subject_context(request_id, user["id"]),
+                        EventData(metadata={"result_code": "attempt_limit"}),
+                        idempotency_scope="security.mpin.step_up.locked",
+                        idempotency_key=request_id,
+                    )
+                    return json_response(
+                        {"success": False, "code": "mpin_locked", "message": "MPIN is locked. Use password recovery."},
+                        423,
+                    )
+                return json_response(
+                    {"success": False, "message": "Unable to authorize this action."}, 401
+                )
+            if mpin_service.reset_failures(db, user["id"]) != 1:
+                raise RuntimeError("MPIN success could not reset its failure state.")
+            issued = step_up_service.issue_authorization(
+                db, user_id=user["id"], session_id=durable["session_id"],
+                trusted_device_id=device["id"],
+                credential_generation=credential["credential_generation"],
+                descriptor=descriptor,
+            )
+            if issued is None:
+                return json_response(
+                    {"success": False, "code": "step_up_already_issued", "message": "An authorization is already active for this action."},
+                    409,
+                )
+            write_security_event(
+                db, "security.mpin.step_up_succeeded",
+                _auth_event_context(request_id, user=request.current_user),
+                EventData(metadata=_step_up_metadata(
+                    descriptor, authorization_id=issued["authorization_id"]
+                )),
+                idempotency_scope="security.mpin.step_up",
+                idempotency_key=request_id,
+            )
+    except mpin_service.MpinConfigurationError:
+        return _mpin_unavailable_response()
+    except Exception:
+        current_app.logger.error("MPIN step-up authorization could not be committed.")
+        return json_response(
+            {"success": False, "message": "Step-up authorization is temporarily unavailable."},
+            503,
+        )
+    response = json_response(
+        {"success": True, "authorization_id": str(issued["authorization_id"]),
+         "authorization_proof": issued["proof"], "expires_at": issued["expires_at"]}
+    )
+    response.headers["Cache-Control"] = "no-store"
+    response.headers["Pragma"] = "no-cache"
+    return response
 
 
 @auth_blueprint.post("/mpin/reset")

@@ -49,6 +49,7 @@ TRUSTED_DEVICE_MIGRATION = REPO_ROOT / "supabase/migrations/20260801160000_trust
 DURABLE_RUNTIME_MIGRATION = REPO_ROOT / "supabase/migrations/20260801170000_durable_session_runtime_events.sql"
 SECURE_MPIN_MIGRATION = REPO_ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
 GENUINE_ACTIVITY_MIGRATION = REPO_ROOT / "supabase/migrations/20260801200000_genuine_session_activity.sql"
+MPIN_STEP_UP_MIGRATION = REPO_ROOT / "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql"
 GENUINE_ACTIVITY_PRE_SCHEMA_REF = (
     "1211d71e42436a7300eeae6ef4b6d466f515693b:supabase/schema.sql"
 )
@@ -248,6 +249,7 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         _migration_text(DURABLE_RUNTIME_MIGRATION),
         _migration_text(SECURE_MPIN_MIGRATION),
         _migration_text(GENUINE_ACTIVITY_MIGRATION),
+        _migration_text(MPIN_STEP_UP_MIGRATION),
     )
     schema_url, schema_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     migrated = psycopg2.connect(migrated_url)
@@ -258,10 +260,10 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         assert _foundation_metadata(migrated) == expected_metadata
         assert _projection(migrated) == expected_projection == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(schema)
-        assert _semantic_signature(schema) == "b57a59369062e678a7b269cd61d4e01e"
+        assert _semantic_signature(schema) == "82bd918f68377090324c3a15da210769"
         before = _foundation_metadata(schema), _projection(schema), _all_public_counts(schema)
-        _apply(schema, _migration_text(GENUINE_ACTIVITY_MIGRATION))
-        _apply(schema, _migration_text(GENUINE_ACTIVITY_MIGRATION))
+        _apply(schema, _migration_text(MPIN_STEP_UP_MIGRATION))
+        _apply(schema, _migration_text(MPIN_STEP_UP_MIGRATION))
         assert (_foundation_metadata(schema), _projection(schema), _all_public_counts(schema)) == before
     finally:
         migrated.close()
@@ -275,7 +277,9 @@ def test_genuine_activity_activation_converges_reapplies_and_creates_no_rows():
         ["git", "show", GENUINE_ACTIVITY_PRE_SCHEMA_REF], cwd=REPO_ROOT, text=True
     )
     migration = _migration_text(GENUINE_ACTIVITY_MIGRATION)
-    migrated_url, migrated_cleanup = _disposable(STUBS, prior_schema, migration)
+    migrated_url, migrated_cleanup = _disposable(
+        STUBS, prior_schema, migration, _migration_text(MPIN_STEP_UP_MIGRATION)
+    )
     fresh_url, fresh_cleanup = _disposable(
         STUBS, SCHEMA_SQL.read_text(encoding="utf-8")
     )
@@ -284,12 +288,12 @@ def test_genuine_activity_activation_converges_reapplies_and_creates_no_rows():
     try:
         assert _projection(migrated) == _projection(fresh) == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(fresh) == (
-            "b57a59369062e678a7b269cd61d4e01e"
+            "82bd918f68377090324c3a15da210769"
         )
         for conn in (migrated, fresh):
             before = _all_public_counts(conn)
-            _apply(conn, migration)
-            _apply(conn, migration)
+            _apply(conn, _migration_text(MPIN_STEP_UP_MIGRATION))
+            _apply(conn, _migration_text(MPIN_STEP_UP_MIGRATION))
             assert _all_public_counts(conn) == before
             assert _event_counts(conn) == (0, 0)
     finally:
@@ -486,4 +490,4 @@ def test_migration_is_forward_only_and_does_not_mutate_catalog_or_runtime():
     assert not re.search(r"(?im)^\s*delete\s+from\s+", text)
     assert "REVOKE ALL PRIVILEGES ON TABLE public.security_events FROM service_role" in text
     assert "GRANT SELECT, INSERT, DELETE ON TABLE public.security_events TO service_role" in text
-    assert len(CATALOG) == 170
+    assert len(CATALOG) == 172

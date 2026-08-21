@@ -90,6 +90,11 @@ METADATA_KEY_TYPES = {
     "risk_tier": str,
     "is_replay": bool,
     "provider_event_type": str,
+    "authorization_ref": str,
+    "action_key": str,
+    "resource_type": str,
+    "resource_id": int,
+    "request_fingerprint_ref": str,
 }
 
 PROHIBITED_KEYS = frozenset(
@@ -252,6 +257,16 @@ def _validate_scalar_object(value, field_name, type_map, max_bytes):
             len(item) > MAX_STRING_LENGTH or not _CODE_RE.fullmatch(item)
         ):
             raise EventContractError(f"{field_name}.{raw_key} has an invalid value.")
+        if raw_key == "authorization_ref" and not re.fullmatch(
+            r"authorization_[0-9a-f]{32}", item
+        ):
+            raise EventContractError("metadata.authorization_ref has an invalid value.")
+        if raw_key == "request_fingerprint_ref" and not re.fullmatch(
+            r"request_[0-9a-f]{64}", item
+        ):
+            raise EventContractError(
+                "metadata.request_fingerprint_ref has an invalid value."
+            )
         normalized[raw_key] = item
     try:
         encoded = json.dumps(
@@ -366,11 +381,16 @@ def validate_event_data(data, *, definition=None):
                 "Signup failure events require one approved coarse result_code only."
             )
     if definition is not None and definition.actor_policy != "generic":
-        if definition.allowed_result_codes is None:
-            if normalized["metadata"]:
-                raise EventContractError("This event does not permit metadata.")
-        elif set(normalized["metadata"]) != set(definition.allowed_metadata_keys) or normalized["metadata"].get("result_code") not in definition.allowed_result_codes:
-            raise EventContractError("This event requires one approved coarse result code only.")
+        if set(normalized["metadata"]) != set(definition.allowed_metadata_keys):
+            raise EventContractError("Event metadata does not match its canonical contract.")
+        if (
+            definition.allowed_result_codes is not None
+            and normalized["metadata"].get("result_code")
+            not in definition.allowed_result_codes
+        ):
+            raise EventContractError("Event result_code is not approved.")
+        if "resource_id" in normalized["metadata"] and normalized["metadata"]["resource_id"] <= 0:
+            raise EventContractError("metadata.resource_id must be a positive integer.")
     return normalized
 
 

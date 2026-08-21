@@ -1122,6 +1122,8 @@ create table public.user_sessions (
         references public.trusted_devices (id, user_id)
         on delete set null (trusted_device_id),
     constraint user_sessions_token_digest_unique unique (token_digest),
+    constraint user_sessions_step_up_binding_unique unique
+        (session_id, user_id, trusted_device_id),
     constraint user_sessions_access_proof_digest_unique unique (access_proof_digest),
     constraint user_sessions_token_digest_shape check (octet_length(token_digest) = 32),
     constraint user_sessions_access_proof_shape check (
@@ -1167,6 +1169,8 @@ create table public.user_sessions (
     )
 );
 
+create sequence public.mpin_credential_generation_seq;
+
 create table public.mpin_credentials (
     user_id bigint primary key references public.users (id),
     verifier bytea not null,
@@ -1177,7 +1181,12 @@ create table public.mpin_credentials (
     locked_at timestamptz,
     created_at timestamptz not null default now(),
     updated_at timestamptz not null default now(),
+    credential_generation bigint not null default
+        nextval('public.mpin_credential_generation_seq'),
     constraint mpin_credentials_salt_unique unique (salt),
+    constraint mpin_credentials_generation_unique unique
+        (user_id, credential_generation),
+    constraint mpin_credentials_generation_positive check (credential_generation > 0),
     constraint mpin_credentials_verifier_shape check (octet_length(verifier) = 32),
     constraint mpin_credentials_salt_shape check (octet_length(salt) = 32),
     constraint mpin_credentials_kdf_version check (kdf_version = 1),
@@ -1190,6 +1199,97 @@ create table public.mpin_credentials (
         created_at <= updated_at and (locked_at is null or locked_at >= created_at)
     )
 );
+
+create table public.mpin_step_up_authorizations (
+    authorization_id uuid primary key default gen_random_uuid(),
+    user_id bigint not null references public.users (id),
+    session_id uuid not null,
+    trusted_device_id bigint not null,
+    credential_generation bigint not null,
+    proof_digest bytea not null,
+    action_key text not null,
+    resource_type text not null,
+    resource_id bigint not null,
+    amount_minor bigint,
+    currency text,
+    destination_digest bytea,
+    request_fingerprint bytea not null,
+    state text not null default 'available',
+    claim_digest bytea,
+    issued_at timestamptz not null default now(),
+    claimed_at timestamptz,
+    consumed_at timestamptz,
+    expired_at timestamptz,
+    reconciliation_required_at timestamptz,
+    invalidated_at timestamptz,
+    expires_at timestamptz not null default (now() + interval '3 minutes'),
+    constraint mpin_step_up_session_binding_fk
+        foreign key (session_id, user_id, trusted_device_id)
+        references public.user_sessions (session_id, user_id, trusted_device_id),
+    constraint mpin_step_up_device_binding_fk
+        foreign key (trusted_device_id, user_id)
+        references public.trusted_devices (id, user_id),
+    constraint mpin_step_up_proof_unique unique (proof_digest),
+    constraint mpin_step_up_claim_unique unique (claim_digest),
+    constraint mpin_step_up_proof_shape check (octet_length(proof_digest) = 32),
+    constraint mpin_step_up_claim_shape check (
+        claim_digest is null or octet_length(claim_digest) = 32
+    ),
+    constraint mpin_step_up_destination_shape check (
+        destination_digest is null or octet_length(destination_digest) = 32
+    ),
+    constraint mpin_step_up_request_shape check (octet_length(request_fingerprint) = 32),
+    constraint mpin_step_up_descriptor_shape check (
+        credential_generation > 0 and resource_id > 0
+        and action_key ~ '^[a-z][a-z0-9_.]{1,95}$'
+        and resource_type ~ '^[a-z][a-z0-9_]{0,47}$'
+        and (amount_minor is null or amount_minor > 0)
+        and ((amount_minor is null and currency is null)
+          or (amount_minor is not null and currency ~ '^[A-Z]{3}$'))
+    ),
+    constraint mpin_step_up_exact_lifetime check (
+        expires_at = issued_at + interval '3 minutes'
+    ),
+    constraint mpin_step_up_state_shape check (
+        (state='available' and claim_digest is null and claimed_at is null
+            and consumed_at is null and expired_at is null
+            and reconciliation_required_at is null and invalidated_at is null)
+        or (state='claimed' and claim_digest is not null and claimed_at is not null
+            and consumed_at is null and expired_at is null
+            and reconciliation_required_at is null and invalidated_at is null)
+        or (state='consumed' and consumed_at is not null and expired_at is null
+            and reconciliation_required_at is null and invalidated_at is null
+            and ((claim_digest is null and claimed_at is null)
+              or (claim_digest is not null and claimed_at is not null)))
+        or (state='expired' and expired_at is not null and consumed_at is null
+            and reconciliation_required_at is null and invalidated_at is null
+            and ((claim_digest is null and claimed_at is null)
+              or (claim_digest is not null and claimed_at is not null)))
+        or (state='reconciliation_required' and claim_digest is not null
+            and claimed_at is not null and reconciliation_required_at is not null
+            and consumed_at is null and expired_at is null and invalidated_at is null)
+        or (state='invalidated' and invalidated_at is not null
+            and consumed_at is null and expired_at is null
+            and reconciliation_required_at is null)
+    ),
+    constraint mpin_step_up_timestamp_order check (
+        expires_at > issued_at
+        and (claimed_at is null or claimed_at >= issued_at)
+        and (consumed_at is null or consumed_at >= issued_at)
+        and (expired_at is null or expired_at >= issued_at)
+        and (reconciliation_required_at is null or reconciliation_required_at >= issued_at)
+        and (invalidated_at is null or invalidated_at >= issued_at)
+    )
+);
+
+create unique index mpin_step_up_one_available_descriptor
+    on public.mpin_step_up_authorizations
+       (user_id, session_id, action_key, resource_type, resource_id, request_fingerprint)
+    where state = 'available';
+create index mpin_step_up_expiry_state_idx
+    on public.mpin_step_up_authorizations (state, expires_at);
+create index mpin_step_up_user_session_idx
+    on public.mpin_step_up_authorizations (user_id, session_id, issued_at desc);
 
 create table public.user_action_logs (
     id              bigint generated by default as identity primary key,
@@ -1828,6 +1928,17 @@ create policy mpin_credentials_service_role_all on public.mpin_credentials
     for all to service_role using (true) with check (true);
 revoke all privileges on table public.mpin_credentials from public, anon, authenticated, service_role;
 grant select, insert, update, delete on table public.mpin_credentials to service_role;
+revoke all privileges on sequence public.mpin_credential_generation_seq
+    from public, anon, authenticated, service_role;
+grant usage, select on sequence public.mpin_credential_generation_seq to service_role;
+
+alter table public.mpin_step_up_authorizations enable row level security;
+create policy mpin_step_up_authorizations_service_role_all
+    on public.mpin_step_up_authorizations for all to service_role
+    using (true) with check (true);
+revoke all privileges on table public.mpin_step_up_authorizations
+    from public, anon, authenticated, service_role;
+grant select, insert, update on table public.mpin_step_up_authorizations to service_role;
 drop policy admin_all_reset_tokens on public.reset_tokens;
 create policy reset_tokens_service_role_all on public.reset_tokens
     for all to service_role using (true) with check (true);
@@ -2371,8 +2482,10 @@ insert into public.canonical_event_catalog_projection (
     ('security.mpin.unlock_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["invalid_mpin","rate_limited"]}'::jsonb),
     ('security.mpin.locked', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["attempt_limit","security_action"]}'::jsonb),
     ('security.mpin.reset_completed', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["result_code"],"allowed_result_codes":["security_recovery","user_reauthentication"]}'::jsonb),
-    ('security.mpin.step_up_succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":[],"allowed_result_codes":[]}'::jsonb),
-    ('security.mpin.step_up_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["result_code"],"allowed_result_codes":["challenge_expired","challenge_mismatch","invalid_mpin","rate_limited"]}'::jsonb)
+    ('security.mpin.step_up_succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["action_key","authorization_ref","request_fingerprint_ref","resource_id","resource_type"],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.step_up_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"service_subject","allowed_metadata_keys":["action_key","request_fingerprint_ref","resource_id","resource_type","result_code"],"allowed_result_codes":["invalid_mpin","rate_limited"]}'::jsonb),
+    ('security.mpin.step_up_consumed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["action_key","authorization_ref","request_fingerprint_ref","resource_id","resource_type"],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.step_up_reconciliation_required', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["action_key","authorization_ref","request_fingerprint_ref","resource_id","resource_type","result_code"],"allowed_result_codes":["domain_outcome_uncertain"]}'::jsonb)
 on conflict (event_name) do nothing;
 
 create or replace function public.is_bounded_event_json(event_value jsonb, value_kind text)
@@ -2401,10 +2514,12 @@ begin
     elsif value_kind = 'metadata' then
         string_keys := array[
             'result_code', 'currency', 'channel', 'delivery_method', 'risk_tier',
-            'provider_event_type'
+            'provider_event_type', 'authorization_ref', 'action_key',
+            'resource_type', 'request_fingerprint_ref'
         ];
         integer_keys := array[
-            'policy_version', 'attempt_number', 'item_count', 'amount_minor'
+            'policy_version', 'attempt_number', 'item_count', 'amount_minor',
+            'resource_id'
         ];
         boolean_keys := array['is_replay'];
         max_bytes := 2048;
@@ -2425,12 +2540,17 @@ begin
         if item.key = any(string_keys) then
             if item_type <> 'string'
                or length(item.member #>> '{}') > 128
-               or item.member #>> '{}' !~ '^[a-z][a-z0-9_.:-]{0,127}$' then
+               or item.member #>> '{}' !~ '^[a-z][a-z0-9_.:-]{0,127}$'
+               or (item.key = 'authorization_ref'
+                   and item.member #>> '{}' !~ '^authorization_[0-9a-f]{32}$')
+               or (item.key = 'request_fingerprint_ref'
+                   and item.member #>> '{}' !~ '^request_[0-9a-f]{64}$') then
                 return false;
             end if;
         elsif item.key = any(integer_keys) then
             if item_type <> 'number'
-               or item.member::text !~ '^(0|[1-9][0-9]*)$' then
+               or item.member::text !~ '^(0|[1-9][0-9]*)$'
+               or (item.key = 'resource_id' and item.member::text = '0') then
                 return false;
             end if;
         elsif item.key = any(boolean_keys) then

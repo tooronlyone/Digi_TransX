@@ -24,6 +24,7 @@ from tests._life_helpers import (
     SCHEMA_SQL,
     STUBS,
     make_disposable,
+    origin_main_schema_or_skip,
     require_test_db_url,
     schema_before_migration_or_skip,
 )
@@ -583,7 +584,7 @@ def test_migration_converges_reapplies_invalidates_legacy_and_rejects_corruption
     assert "cascade" not in migration.lower()
     sequential_url, sequential_cleanup = make_disposable(_local_url(), STUBS, main_schema)
     fresh_url, fresh_cleanup = make_disposable(
-        _local_url(), STUBS, SCHEMA_SQL.read_text(encoding="utf-8")
+        _local_url(), STUBS, origin_main_schema_or_skip()
     )
     try:
         sequential = psycopg2.connect(sequential_url)
@@ -645,10 +646,15 @@ def test_schema_catalog_acl_and_step_up_contract_remain_bounded(mpin_database_ur
             )
             assert {row[0] for row in cursor.fetchall()} == NEW_INTEGRATIONS
             cursor.execute(
-                "select integrated from public.canonical_event_catalog_projection "
-                "where event_name in ('security.mpin.step_up_succeeded','security.mpin.step_up_failed')"
+                "select event_name,integrated from public.canonical_event_catalog_projection "
+                "where event_name like 'security.mpin.step_up_%' order by event_name"
             )
-            assert cursor.fetchall() == [(False,), (False,)]
+            assert cursor.fetchall() == [
+                ("security.mpin.step_up_consumed", False),
+                ("security.mpin.step_up_failed", True),
+                ("security.mpin.step_up_reconciliation_required", False),
+                ("security.mpin.step_up_succeeded", True),
+            ]
             cursor.execute(
                 "select count(*) from information_schema.role_table_grants where table_schema='public' "
                 "and table_name='mpin_credentials' and grantee in ('PUBLIC','anon','authenticated')"
@@ -699,4 +705,5 @@ def test_application_registers_all_mpin_operations_under_api_auth(monkeypatch):
         "/api/auth/mpin/change",
         "/api/auth/mpin/disable",
         "/api/auth/mpin/reset",
+        "/api/auth/mpin/step-up",
     } <= rules

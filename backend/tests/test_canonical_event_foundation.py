@@ -86,6 +86,7 @@ TRUSTED_DEVICE_MIGRATION = REPO_ROOT / "supabase/migrations/20260801160000_trust
 DURABLE_RUNTIME_MIGRATION = REPO_ROOT / "supabase/migrations/20260801170000_durable_session_runtime_events.sql"
 SECURE_MPIN_MIGRATION = REPO_ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
 GENUINE_ACTIVITY_MIGRATION = REPO_ROOT / "supabase/migrations/20260801200000_genuine_session_activity.sql"
+MPIN_STEP_UP_MIGRATION = REPO_ROOT / "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql"
 EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EVENT_TABLES = ("security_events", "business_audit_events")
 CATALOG_PROJECTION = "canonical_event_catalog_projection"
@@ -399,8 +400,8 @@ def _direct_insert(
 
 
 def test_catalog_is_single_locked_owner_and_deferred_names_are_not_writable():
-    assert len(CATALOG) == 170
-    assert len(PLANNED_EVENT_NAMES) == 162
+    assert len(CATALOG) == 172
+    assert len(PLANNED_EVENT_NAMES) == 164
     assert len(DEFERRED_EVENT_NAMES) == 8
     assert len(set(CATALOG)) == len(CATALOG)
     assert all(CATALOG[name].lifecycle_status == PLANNED for name in PLANNED_EVENT_NAMES)
@@ -431,7 +432,7 @@ def test_committed_database_projection_matches_python_catalog_exactly():
     migration_rows = _committed_projection_rows(EVENT_MIGRATION)
     schema_rows = _committed_projection_rows(SCHEMA_SQL)
     assert len(migration_rows) == 157
-    assert len(expected) == len(schema_rows) == 170
+    assert len(expected) == len(schema_rows) == 172
     assert all(not row[-1] for row in migration_rows)
     assert schema_rows == expected
 
@@ -611,6 +612,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
     durable_runtime_sql = DURABLE_RUNTIME_MIGRATION.read_text(encoding="utf-8")
     secure_mpin_sql = SECURE_MPIN_MIGRATION.read_text(encoding="utf-8")
     genuine_activity_sql = GENUINE_ACTIVITY_MIGRATION.read_text(encoding="utf-8")
+    mpin_step_up_sql = MPIN_STEP_UP_MIGRATION.read_text(encoding="utf-8")
     baseline_sql = BASELINE_MIGRATION.read_text(encoding="utf-8")
     sequence_url, sequence_cleanup = _disposable(
         STUBS,
@@ -627,6 +629,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         durable_runtime_sql,
         secure_mpin_sql,
         genuine_activity_sql,
+        mpin_step_up_sql,
     )
     corrected_url, corrected_cleanup = _disposable(
         STUBS,
@@ -642,6 +645,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         durable_runtime_sql,
         secure_mpin_sql,
         genuine_activity_sql,
+        mpin_step_up_sql,
     )
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
@@ -948,7 +952,7 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
         ),
         key=lambda definition: definition.name,
     )
-    assert len(integrated) == 21
+    assert len(integrated) == 23
     assert len(unintegrated_writable) == 135
     expected_security = sum(definition.category == SECURITY for definition in integrated)
     expected_business = sum(
@@ -987,11 +991,18 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
                     actor_role="service_seeker",
                     subject_user_id=1,
                 )
-            if definition.name == "security.signup.failed":
-                actor_kwargs["metadata"] = '{"result_code":"validation_failed"}'
-            elif definition.allowed_result_codes:
-                result_code = sorted(definition.allowed_result_codes)[0]
-                actor_kwargs["metadata"] = '{"result_code":"' + result_code + '"}'
+            if definition.allowed_metadata_keys:
+                values = {
+                    "result_code": sorted(definition.allowed_result_codes or ("invalid_mpin",))[0],
+                    "authorization_ref": "authorization_" + "a" * 32,
+                    "action_key": "agreement.finalize",
+                    "resource_type": "agreement",
+                    "resource_id": 1,
+                    "request_fingerprint_ref": "request_" + "b" * 64,
+                }
+                actor_kwargs["metadata"] = json.dumps(
+                    {key: values[key] for key in definition.allowed_metadata_keys}
+                )
             _direct_insert(
                 cursor,
                 correct_table,

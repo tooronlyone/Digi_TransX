@@ -128,10 +128,12 @@ def enroll(executor, user_id, mpin, *, environ=None):
 
 def replace(executor, user_id, mpin, *, environ=None):
     salt, verifier = build_credential(mpin, environ=environ)
+    invalidate_available_authorizations(executor, user_id)
     return executor.execute(
         """
         UPDATE mpin_credentials
            SET verifier = %s, salt = %s, kdf_version = %s,
+               credential_generation = nextval('public.mpin_credential_generation_seq'),
                failed_attempts = 0, permanently_locked = false,
                locked_at = NULL, updated_at = now()
          WHERE user_id = %s
@@ -143,6 +145,7 @@ def replace(executor, user_id, mpin, *, environ=None):
 
 def reset_or_enroll(executor, user_id, mpin, *, environ=None):
     salt, verifier = build_credential(mpin, environ=environ)
+    invalidate_available_authorizations(executor, user_id)
     return executor.execute(
         """
         INSERT INTO mpin_credentials
@@ -152,6 +155,7 @@ def reset_or_enroll(executor, user_id, mpin, *, environ=None):
             verifier = excluded.verifier,
             salt = excluded.salt,
             kdf_version = excluded.kdf_version,
+            credential_generation = nextval('public.mpin_credential_generation_seq'),
             failed_attempts = 0,
             permanently_locked = false,
             locked_at = NULL,
@@ -199,6 +203,19 @@ def reset_failures(executor, user_id):
 
 
 def disable(executor, user_id):
+    invalidate_available_authorizations(executor, user_id)
     return executor.execute(
         "DELETE FROM mpin_credentials WHERE user_id = %s", (user_id,)
+    ).rowcount
+
+
+def invalidate_available_authorizations(executor, user_id):
+    """Invalidate all not-yet-claimed proofs after the credential row is locked."""
+    return executor.execute(
+        """
+        UPDATE public.mpin_step_up_authorizations
+           SET state='invalidated', invalidated_at=now()
+         WHERE user_id=%s AND state='available'
+        """,
+        (user_id,),
     ).rowcount

@@ -45,6 +45,7 @@ INTEGRATED = {
     "security.mpin.enrolled", "security.mpin.changed", "security.mpin.disabled",
     "security.mpin.unlock_succeeded", "security.mpin.unlock_failed",
     "security.mpin.locked", "security.mpin.reset_completed",
+    "security.mpin.step_up_succeeded", "security.mpin.step_up_failed",
 }
 HISTORICAL_SIGNUP_INTEGRATED = {
     "security.login.started", "security.login.failed", "security.login.succeeded",
@@ -356,11 +357,11 @@ def test_signup_integration_migration_aborts_partial_state_without_repair():
 
 def test_signup_catalog_totals_and_contracts_are_locked():
     assert {name for name, definition in CATALOG.items() if definition.integrated} == INTEGRATED
-    assert len(CATALOG) == 170
-    assert sum(definition.lifecycle_status == "planned" for definition in CATALOG.values()) == 162
+    assert len(CATALOG) == 172
+    assert sum(definition.lifecycle_status == "planned" for definition in CATALOG.values()) == 164
     assert sum(definition.lifecycle_status == "deferred" for definition in CATALOG.values()) == 8
-    assert sum(definition.writable for definition in CATALOG.values()) == 156
-    assert sum(definition.integrated for definition in CATALOG.values()) == 21
+    assert sum(definition.writable for definition in CATALOG.values()) == 158
+    assert sum(definition.integrated for definition in CATALOG.values()) == 23
     assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 141
     assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 135
 

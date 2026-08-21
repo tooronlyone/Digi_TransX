@@ -1,6 +1,7 @@
 """Focused PostgreSQL proof for Phase 1B-2C0 catalog-contract convergence."""
 
 import os
+import json
 import subprocess
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -74,18 +75,27 @@ def _context(policy):
     return EventContext("slice2.user", "test", "user", actor_id=23, actor_role="user", subject_user_id=23)
 
 
+def _metadata(definition):
+    values = {
+        "result_code": sorted(definition.allowed_result_codes or ("invalid_mpin",))[0],
+        "authorization_ref": "authorization_" + "a" * 32,
+        "action_key": "agreement.finalize",
+        "resource_type": "agreement",
+        "resource_id": 23,
+        "request_fingerprint_ref": "request_" + "b" * 64,
+    }
+    return {key: values[key] for key in definition.allowed_metadata_keys}
+
+
 def test_python_contracts_are_complete_and_sensitive_metadata_is_rejected():
-    assert len(CATALOG) == 170
-    assert sum(item.lifecycle_status == "planned" for item in CATALOG.values()) == 162
-    assert sum(item.writable for item in CATALOG.values()) == 156
-    assert sum(item.integrated for item in CATALOG.values()) == 21
+    assert len(CATALOG) == 172
+    assert sum(item.lifecycle_status == "planned" for item in CATALOG.values()) == 164
+    assert sum(item.writable for item in CATALOG.values()) == 158
+    assert sum(item.integrated for item in CATALOG.values()) == 23
     assert NEW_EVENTS | FORMALIZED_EVENTS <= set(CATALOG)
     for name in NEW_EVENTS | FORMALIZED_EVENTS:
         definition = CATALOG[name]
-        data = EventData(
-            metadata={"result_code": next(iter(definition.allowed_result_codes))}
-            if definition.allowed_result_codes else {}
-        )
+        data = EventData(metadata=_metadata(definition))
         validate_catalog_event_contract(name, _context(definition.actor_policy), data)
         with pytest.raises(EventContractError):
             validate_catalog_event_contract(name, _context(definition.actor_policy), EventData(metadata={"email": "x"}))
@@ -146,12 +156,7 @@ def test_direct_sql_accepts_only_existing_integrated_events():
                     authenticated = definition.actor_policy in {
                         "authenticated_self", "authenticated_self_or_service"
                     }
-                    if name == "security.signup.failed":
-                        metadata = '{"result_code":"validation_failed"}'
-                    elif definition.allowed_result_codes:
-                        metadata = '{"result_code":"' + sorted(definition.allowed_result_codes)[0] + '"}'
-                    else:
-                        metadata = '{}'
+                    metadata = json.dumps(_metadata(definition))
                     cursor.execute(
                         "insert into public.security_events (event_name,event_version,category,actor_type,actor_id,actor_role,subject_user_id,request_id,source,provider_mode,environment,retention_class,metadata) values (%s,1,'security',%s,%s,%s,%s,%s,'test','none','test','security_12_months',%s::jsonb)",
                         (

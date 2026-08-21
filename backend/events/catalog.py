@@ -71,6 +71,8 @@ _SECURITY_NAMES = (
     "security.mpin.reset_completed",
     "security.mpin.step_up_succeeded",
     "security.mpin.step_up_failed",
+    "security.mpin.step_up_consumed",
+    "security.mpin.step_up_reconciliation_required",
 )
 
 _BUSINESS_NAMES = (
@@ -241,6 +243,8 @@ INTEGRATED_EVENT_NAMES = frozenset(
         "security.mpin.unlock_failed",
         "security.mpin.locked",
         "security.mpin.reset_completed",
+        "security.mpin.step_up_succeeded",
+        "security.mpin.step_up_failed",
     }
 )
 
@@ -295,11 +299,26 @@ _CONTRACTS = {
     "security.mpin.reset_completed": (
         "authenticated_self", ("user_reauthentication", "security_recovery"), ("result_code",)
     ),
-    "security.mpin.step_up_succeeded": ("authenticated_self", (), ()),
+    "security.mpin.step_up_succeeded": (
+        "authenticated_self", (),
+        ("authorization_ref", "action_key", "resource_type", "resource_id",
+         "request_fingerprint_ref"),
+    ),
     "security.mpin.step_up_failed": (
         "service_subject",
-        ("invalid_mpin", "rate_limited", "challenge_expired", "challenge_mismatch"),
-        ("result_code",),
+        ("invalid_mpin", "rate_limited"),
+        ("result_code", "action_key", "resource_type", "resource_id",
+         "request_fingerprint_ref"),
+    ),
+    "security.mpin.step_up_consumed": (
+        "authenticated_self", (),
+        ("authorization_ref", "action_key", "resource_type", "resource_id",
+         "request_fingerprint_ref"),
+    ),
+    "security.mpin.step_up_reconciliation_required": (
+        "service_subject", ("domain_outcome_uncertain",),
+        ("result_code", "authorization_ref", "action_key", "resource_type",
+         "resource_id", "request_fingerprint_ref"),
     ),
 }
 
@@ -436,7 +455,7 @@ def catalog_projection_rows():
 def _assert_catalog_integrity():
     if len(_DEFINITIONS) != len(CATALOG):
         raise RuntimeError("Canonical event catalog contains duplicate names.")
-    if len(PLANNED_EVENT_NAMES) != 162 or len(DEFERRED_EVENT_NAMES) != 8:
+    if len(PLANNED_EVENT_NAMES) != 164 or len(DEFERRED_EVENT_NAMES) != 8:
         raise RuntimeError("Canonical event catalog totals do not match the locked registry.")
     for definition in _DEFINITIONS:
         if not _NAME_RE.fullmatch(definition.name):
