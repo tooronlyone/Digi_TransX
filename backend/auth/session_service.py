@@ -63,6 +63,31 @@ def digest_access_proof(raw_proof):
     return hashlib.sha256(raw_proof.encode("utf-8")).digest()
 
 
+def locked_access_proof_is_valid(executor, locked_session, raw_proof):
+    """Revalidate one request proof against the authoritative locked row.
+
+    The caller must already hold the session row lock.  This helper never
+    rotates or extends any session, proof, device, or activity boundary.
+    """
+
+    if not locked_session or locked_session["access_locked"]:
+        return False
+    stored_digest = locked_session["access_proof_digest"]
+    expires_at = locked_session["access_proof_expires_at"]
+    if stored_digest is None or expires_at is None:
+        return False
+    try:
+        presented_digest = digest_access_proof(raw_proof)
+    except SessionFoundationError:
+        return False
+    if not secrets.compare_digest(bytes(stored_digest), presented_digest):
+        return False
+    row = executor.execute(
+        "SELECT %s > now() AS valid", (expires_at,)
+    ).fetchone()
+    return bool(row and row["valid"])
+
+
 def access_lock_reference(session_id):
     """Return a stable non-reversible event replay reference for one session."""
 

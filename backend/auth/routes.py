@@ -66,6 +66,7 @@ from auth.session_service import (
     create_session,
     digest_access_proof,
     digest_opaque_token,
+    locked_access_proof_is_valid,
     lock_session_by_id,
     lock_session_user_and_device,
     record_genuine_activity,
@@ -1335,9 +1336,20 @@ def mpin_step_up():
             durable, user, device = _lock_current_authentication(db)
             if (
                 not durable or not user or not device or durable["access_locked"]
-                or not request.current_session.get("access_proof_valid")
             ):
                 raise RuntimeError("Current authentication changed during MPIN step-up.")
+            raw_access_proof = request.cookies.get(ACCESS_PROOF_COOKIE_NAME, "")
+            if not locked_access_proof_is_valid(db, durable, raw_access_proof):
+                return clear_access_proof_cookie(
+                    json_response(
+                        {
+                            "success": False,
+                            "code": "access_locked",
+                            "message": "Access is locked.",
+                        },
+                        423,
+                    )
+                )
             credential = mpin_service.lock_credential(db, user["id"])
             if not credential:
                 return json_response(

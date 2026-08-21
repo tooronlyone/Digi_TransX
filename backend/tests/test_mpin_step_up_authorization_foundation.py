@@ -1,7 +1,10 @@
 """Phase 1B-2C3C1 action-bound MPIN step-up foundation proofs."""
 
+from contextlib import contextmanager
 import hashlib
 import os
+import secrets
+import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
 from urllib.parse import urlsplit
@@ -11,7 +14,8 @@ from psycopg2 import errors
 import pytest
 
 import auth.helpers as auth_helpers
-from auth import step_up_service
+import auth.routes as auth_routes
+from auth import session_service, step_up_service
 from events.catalog import CATALOG, NonWritableEventName, get_writable_event_definition
 from shared.db import Db
 from tests._life_helpers import (
@@ -55,6 +59,57 @@ def _ledger_row(url):
             )
             columns = [item.name for item in cursor.description]
             return dict(zip(columns, cursor.fetchone()))
+
+
+def _step_up_persistence_counts(url):
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute("select count(*) from public.mpin_step_up_authorizations")
+            authorizations = cursor.fetchone()[0]
+            cursor.execute(
+                "select count(*) from public.security_events "
+                "where event_name='security.mpin.step_up_succeeded'"
+            )
+            successes = cursor.fetchone()[0]
+    return authorizations, successes
+
+
+def _credential_failures(url, user_id):
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "select failed_attempts from public.mpin_credentials where user_id=%s",
+                (user_id,),
+            )
+            return cursor.fetchone()[0]
+
+
+def _device_snapshot(url, device_id):
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            cursor.execute(
+                "select token_digest,previous_token_digest,last_used_at,expires_at,"
+                "revoked_at,rotated_at from public.trusted_devices where id=%s",
+                (device_id,),
+            )
+            return cursor.fetchone()
+
+
+def _route_database_after(url, hook):
+    @contextmanager
+    def interleaved_open_db():
+        hook()
+        conn = psycopg2.connect(url)
+        try:
+            yield Db(conn)
+            conn.commit()
+        except Exception:
+            conn.rollback()
+            raise
+        finally:
+            conn.close()
+
+    return interleaved_open_db
 
 
 @pytest.mark.parametrize(
@@ -116,6 +171,213 @@ def test_issuance_is_digest_only_exactly_three_minutes_and_does_not_refresh(mpin
         "authorization_ref", "action_key", "resource_type", "resource_id",
         "request_fingerprint_ref",
     }
+
+
+def test_locked_issuance_rejects_decorator_validated_proof_after_rotation(
+    mpin_client, monkeypatch, caplog,
+):
+    client, url = mpin_client
+    auth = _authenticate(client, url, with_mpin="1234")
+    original_route_db = auth_routes.open_db
+    rotated = {}
+
+    def rotate_before_locked_issuance():
+        if rotated:
+            return
+        with psycopg2.connect(url) as conn:
+            rotated["proof"] = session_service.rotate_access_proof(
+                Db(conn), auth["session_id"]
+            )
+        rotated["session"] = _session_snapshot(url, auth["session_id"])
+        rotated["device"] = _device_snapshot(url, auth["device_id"])
+
+    monkeypatch.setattr(
+        auth_routes, "open_db", _route_database_after(url, rotate_before_locked_issuance)
+    )
+    stale = _post(client)
+    assert stale.status_code == 423
+    assert stale.get_json() == {
+        "success": False, "code": "access_locked", "message": "Access is locked."
+    }
+    assert _step_up_persistence_counts(url) == (0, 0)
+    assert _credential_failures(url, auth["user_id"]) == 0
+    assert _session_snapshot(url, auth["session_id"]) == rotated["session"]
+    assert _device_snapshot(url, auth["device_id"]) == rotated["device"]
+    assert auth["proof_raw"] not in stale.get_data(as_text=True)
+    assert auth["proof_raw"] not in caplog.text
+
+    monkeypatch.setattr(auth_routes, "open_db", original_route_db)
+    client.set_cookie(auth_helpers.ACCESS_PROOF_COOKIE_NAME, rotated["proof"])
+    current = _post(client)
+    assert current.status_code == 200
+    assert _step_up_persistence_counts(url) == (1, 1)
+
+
+def test_locked_issuance_rejects_proof_expired_after_decorator_validation(
+    mpin_client, monkeypatch, caplog,
+):
+    client, url = mpin_client
+    auth = _authenticate(client, url, with_mpin="1234")
+    expired = {}
+
+    def expire_before_locked_issuance():
+        if expired:
+            return
+        with psycopg2.connect(url) as conn:
+            with conn.cursor() as cursor:
+                cursor.execute(
+                    "update public.user_sessions "
+                    "set access_proof_expires_at=authenticated_at+interval '1 microsecond',"
+                    "updated_at=now() where session_id=%s",
+                    (auth["session_id"],),
+                )
+        expired["session"] = _session_snapshot(url, auth["session_id"])
+        expired["device"] = _device_snapshot(url, auth["device_id"])
+
+    monkeypatch.setattr(
+        auth_routes, "open_db", _route_database_after(url, expire_before_locked_issuance)
+    )
+    response = _post(client)
+    assert response.status_code == 423
+    assert response.get_json()["code"] == "access_locked"
+    assert _step_up_persistence_counts(url) == (0, 0)
+    assert _credential_failures(url, auth["user_id"]) == 0
+    assert _session_snapshot(url, auth["session_id"]) == expired["session"]
+    assert _device_snapshot(url, auth["device_id"]) == expired["device"]
+    assert auth["proof_raw"] not in response.get_data(as_text=True)
+    assert auth["proof_raw"] not in caplog.text
+
+
+@pytest.mark.parametrize("presented", [None, "short", "x" * 43])
+def test_missing_malformed_and_wrong_software_proofs_fail_before_mpin(
+    mpin_client, presented,
+):
+    client, url = mpin_client
+    auth = _authenticate(client, url, with_mpin="1234")
+    if presented is None:
+        client.delete_cookie(auth_helpers.ACCESS_PROOF_COOKIE_NAME)
+    else:
+        client.set_cookie(auth_helpers.ACCESS_PROOF_COOKIE_NAME, presented)
+    response = _post(client)
+    assert response.status_code == 423
+    assert response.get_json()["code"] == "access_locked"
+    assert _step_up_persistence_counts(url) == (0, 0)
+    assert _credential_failures(url, auth["user_id"]) == 0
+
+
+@pytest.mark.parametrize(
+    ("state_kind", "expected_status"),
+    [
+        ("session_revoked", 401),
+        ("session_expired", 401),
+        ("device_revoked", 401),
+        ("device_expired", 401),
+        ("device_mismatched", 401),
+        ("software_locked", 423),
+    ],
+)
+def test_step_up_rejects_inactive_session_device_and_software_state(
+    mpin_client, state_kind, expected_status,
+):
+    client, url = mpin_client
+    auth = _authenticate(client, url, with_mpin="1234")
+    with psycopg2.connect(url) as conn:
+        with conn.cursor() as cursor:
+            if state_kind == "session_revoked":
+                cursor.execute(
+                    "update public.user_sessions set revoked_at=now(),"
+                    "revocation_reason='security_action',updated_at=now() "
+                    "where session_id=%s",
+                    (auth["session_id"],),
+                )
+            elif state_kind == "session_expired":
+                cursor.execute(
+                    "update public.user_sessions set inactivity_expires_at="
+                    "last_genuine_activity_at+interval '1 microsecond',updated_at=now() "
+                    "where session_id=%s",
+                    (auth["session_id"],),
+                )
+            elif state_kind == "device_revoked":
+                cursor.execute(
+                    "update public.trusted_devices set revoked_at=now() where id=%s",
+                    (auth["device_id"],),
+                )
+            elif state_kind == "device_expired":
+                cursor.execute(
+                    "update public.trusted_devices set expires_at="
+                    "created_at+interval '1 microsecond' where id=%s",
+                    (auth["device_id"],),
+                )
+            elif state_kind == "software_locked":
+                cursor.execute(
+                    "update public.user_sessions set access_locked=true,"
+                    "access_locked_at=now(),access_proof_digest=null,"
+                    "access_proof_expires_at=null,updated_at=now() where session_id=%s",
+                    (auth["session_id"],),
+                )
+    if state_kind == "device_mismatched":
+        client.set_cookie(auth_helpers.DEVICE_COOKIE_NAME, secrets.token_urlsafe(32))
+    response = _post(client)
+    assert response.status_code == expected_status
+    if expected_status == 423:
+        assert response.get_json()["code"] == "access_locked"
+    assert _step_up_persistence_counts(url) == (0, 0)
+    assert _credential_failures(url, auth["user_id"]) == 0
+
+
+def test_concurrent_rotation_serializes_before_locked_step_up_issuance(
+    mpin_client, monkeypatch,
+):
+    client, url = mpin_client
+    auth = _authenticate(client, url, with_mpin="1234")
+    waiting_for_session_lock = threading.Event()
+    original_lock = auth_routes._lock_current_authentication
+
+    def signal_then_lock(db):
+        waiting_for_session_lock.set()
+        return original_lock(db)
+
+    monkeypatch.setattr(auth_routes, "_lock_current_authentication", signal_then_lock)
+    contender = client.application.test_client()
+    for cookie_name in (
+        auth_helpers.DEVICE_COOKIE_NAME,
+        auth_helpers.SESSION_TOKEN_COOKIE_NAME,
+        auth_helpers.ACCESS_PROOF_COOKIE_NAME,
+    ):
+        contender.set_cookie(cookie_name, client.get_cookie(cookie_name).value)
+    with contender.session_transaction() as state:
+        state["csrf_token"] = "mpin-csrf"
+
+    rotation_conn = psycopg2.connect(url)
+    try:
+        rotation_db = Db(rotation_conn)
+        session_service.lock_session_by_id(
+            rotation_db, auth["session_id"], auth["user_id"]
+        )
+        current_proof = session_service.rotate_access_proof(
+            rotation_db, auth["session_id"]
+        )
+        with ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_post, contender)
+            assert waiting_for_session_lock.wait(timeout=5)
+            assert not future.done()
+            rotation_conn.commit()
+            stale = future.result(timeout=5)
+    finally:
+        rotation_conn.close()
+
+    assert stale.status_code == 423
+    assert stale.get_json()["code"] == "access_locked"
+    assert _step_up_persistence_counts(url) == (0, 0)
+    assert _credential_failures(url, auth["user_id"]) == 0
+    contender.set_cookie(auth_helpers.ACCESS_PROOF_COOKIE_NAME, current_proof)
+    assert _post(contender).status_code == 200
+    assert _step_up_persistence_counts(url) == (1, 1)
+
+
+def test_step_up_is_the_only_route_consumer_of_cached_access_proof_verdict():
+    route_source = (ROOT / "backend/auth/routes.py").read_text(encoding="utf-8")
+    assert "request.current_session.get(\"access_proof_valid\")" not in route_source
 
 
 def test_wrong_mpin_reuses_one_counter_and_fifth_failure_locks_without_disclosure(mpin_client):
