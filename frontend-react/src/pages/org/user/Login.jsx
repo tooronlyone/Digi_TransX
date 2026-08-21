@@ -5,7 +5,7 @@ export default function OrgUserLogin() {
     <OrgLoginPage
       requiredRole="job_holder"
       title="Job Holder Login"
-      subtitle="Login with your verified Gmail to see only authorized departments."
+      subtitle="Organization access requires an authorized account and will use provider-neutral verified email when verification is implemented."
       dashboardTo="/org/user/departments"
       registerTo="/org/user/register"
       registerLabel="Create account"

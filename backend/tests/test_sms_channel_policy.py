@@ -4,8 +4,9 @@ import json
 from pathlib import Path
 
 from flask import Flask, request
+import pytest
 
-from auth.helpers import get_settings_dict
+from auth.helpers import get_settings_dict, validate_signup_payload
 from events.catalog import CATALOG
 from settings import routes as settings_routes
 
@@ -144,3 +145,85 @@ def test_sms_correction_has_zero_migration_delta():
     assert migrations[-1] == MIGRATION_TAIL
     assert not [name for name in migrations if "sms" in name.lower()]
     assert not [name for name in migrations if name.startswith("20260801220000")]
+
+
+@pytest.mark.parametrize(
+    "address",
+    (
+        "person@gmail.com",
+        "person@outlook.com",
+        "operations@carrier.example",
+    ),
+)
+def test_provider_neutral_email_syntax_accepts_valid_providers(address):
+    errors = validate_signup_payload(
+        {
+            "name": "Provider Neutral User",
+            "email": address,
+            "phone": "03001234567",
+            "password": "bounded-password",
+            "cnic": "3520212345678",
+            "role": "service_seeker",
+            "city": "Lahore",
+        }
+    )
+    assert "email" not in errors
+
+
+def test_organization_registration_is_truthful_and_fail_closed():
+    frontend = REPO_ROOT / "frontend-react" / "src"
+    production_source = "\n".join(
+        path.read_text(encoding="utf-8", errors="replace")
+        for path in frontend.rglob("*")
+        if path.is_file()
+    ).lower()
+    registration = (
+        frontend / "components" / "org" / "OrgRegisterPage.jsx"
+    ).read_text(encoding="utf-8")
+
+    for gmail_only_claim in (
+        "verify gmail",
+        "gmail verified",
+        "verified gmail",
+        "gmail profile",
+        "gmail verification is required",
+    ):
+        assert gmail_only_claim not in production_source
+    assert "gmail, outlook, yahoo, company domains" in production_source
+    for dead_endpoint in (
+        "/api/org/auth/register",
+        "/api/org/auth/verify/request",
+        "/api/org/auth/verify/confirm",
+    ):
+        assert dead_endpoint not in production_source
+
+    assert "Organization registration is not available yet" in registration
+    assert "verification backend is not implemented" in registration
+    for forbidden_owner in (
+        "orgRequest(",
+        "onSubmit",
+        'type="password"',
+        "devOtp",
+        "verifyForm",
+        "localStorage",
+        "sessionStorage",
+        "history.",
+        "console.",
+    ):
+        assert forbidden_owner not in registration
+
+
+def test_partner_contact_email_remains_without_fake_verification_claim():
+    source = (
+        REPO_ROOT
+        / "frontend-react"
+        / "src"
+        / "pages"
+        / "org"
+        / "admin"
+        / "Partners.jsx"
+    ).read_text(encoding="utf-8")
+    assert "Partner email" in source
+    assert 'type="email"' in source
+    assert "legitimate contact email" in source
+    assert "Gmail verified" not in source

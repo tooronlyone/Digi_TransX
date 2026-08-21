@@ -638,6 +638,7 @@ Authentication failure metadata must use safe reason codes. It must not reveal w
 - A verified email address is the mandatory external security identity. Signup Email OTP and password-plus-Email-OTP reset of a locked MPIN remain Planned; password reset and password change already use Email OTP.
 - Full login on an untrusted device requires password plus verified Email OTP when that dedicated flow is implemented. MPIN remains only a trusted-session software unlock and the approved Category A step-up factor; it never replaces full-login or locked-MPIN recovery requirements.
 - Security and payment notices require both in-app and email delivery once the email delivery ledger/provider contract exists. Order, trip, agreement, chat, and other operational email copies are user-optional; their in-app records remain authoritative. Marketing is optional email only.
+- Email policy is provider-neutral: Gmail, Outlook, Yahoo, company domains, and other syntactically valid providers are eligible under the same future verification contract. The organization registration surface is fail-closed because its verification backend is not implemented; it stores no password or verification value and creates no account.
 - Planned sender: `security@digitransx.d-hag.com`.
 - Mailbox/subdomain ownership plus SPF, DKIM, DMARC, and provider setup must be complete before Email OTP implementation.
 - OTP is six digits from a cryptographically secure generator, expires in five minutes, allows at most five attempts, and has a 60-second resend cooldown.

@@ -3,9 +3,8 @@ import OrgRegisterPage from '../../../components/org/OrgRegisterPage'
 export default function OrgAdminRegister() {
   return (
     <OrgRegisterPage
-      role="transporter_admin"
       title="Create Transporter Admin Account"
-      subtitle="Gmail verification is required before login."
+      subtitle="Provider-neutral email verification is required, and organization registration is not available yet."
       loginTo="/org/admin/login"
       loginLabel="Back to login"
     />

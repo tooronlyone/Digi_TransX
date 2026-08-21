@@ -29,6 +29,8 @@ export default function OrgAdminPartners() {
   }
 
   useEffect(() => {
+    // Existing API synchronization updates state only after its awaited request.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     load()
   }, [])
 
@@ -98,7 +100,7 @@ export default function OrgAdminPartners() {
         <div className="org-col-6">
           <section className="org-card">
             <h2 className="org-card__title">Add / Update Partner</h2>
-            <p className="org-card__meta">Partner must already be registered and Gmail verified.</p>
+            <p className="org-card__meta">Use the partner's legitimate contact email. Authoritative organization email verification is not implemented yet.</p>
 
             <form className="org-form-grid" onSubmit={handleSubmit}>
               <div className="org-field">
