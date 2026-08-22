@@ -10,6 +10,7 @@ import {
 } from './clientUtils'
 import TransporterReviewModal from '../../components/common/TransporterReviewModal'
 import useClientBasePath from '../../hooks/useClientBasePath'
+import { useStepUp } from '../../components/security/StepUpProvider'
 import '../../styles/pages/order-detail.css'
 
 const SORTS = [
@@ -60,6 +61,7 @@ function sortBids(bids, sortKey) {
 }
 
 export default function ClientOrderDetail() {
+  const { protectedFetch } = useStepUp()
   const { orderId } = useParams()
   const navigate = useNavigate()
   const base = useClientBasePath()
@@ -119,7 +121,8 @@ export default function ClientOrderDetail() {
     setActionMsg('')
     try {
       const csrf = await getCsrfToken()
-      const response = await fetch(`/api/orders/${orderId}/trips/${trip.id}/confirm-delivery`, {
+      const fetchImpl = decision === 'yes' ? protectedFetch : fetch
+      const response = await fetchImpl(`/api/orders/${orderId}/trips/${trip.id}/confirm-delivery`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },

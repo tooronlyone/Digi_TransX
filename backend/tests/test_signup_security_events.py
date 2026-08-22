@@ -46,6 +46,8 @@ INTEGRATED = {
     "security.mpin.unlock_succeeded", "security.mpin.unlock_failed",
     "security.mpin.locked", "security.mpin.reset_completed",
     "security.mpin.step_up_succeeded", "security.mpin.step_up_failed",
+    "security.mpin.step_up_consumed",
+    "security.mpin.step_up_reconciliation_required",
 }
 HISTORICAL_SIGNUP_INTEGRATED = {
     "security.login.started", "security.login.failed", "security.login.succeeded",
@@ -361,9 +363,9 @@ def test_signup_catalog_totals_and_contracts_are_locked():
     assert sum(definition.lifecycle_status == "planned" for definition in CATALOG.values()) == 164
     assert sum(definition.lifecycle_status == "deferred" for definition in CATALOG.values()) == 8
     assert sum(definition.writable for definition in CATALOG.values()) == 158
-    assert sum(definition.integrated for definition in CATALOG.values()) == 23
-    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 141
-    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 135
+    assert sum(definition.integrated for definition in CATALOG.values()) == 25
+    assert sum(definition.lifecycle_status == "planned" and not definition.integrated for definition in CATALOG.values()) == 139
+    assert sum(definition.writable and not definition.integrated for definition in CATALOG.values()) == 133
 
 
 def test_signup_provider_classification_uses_only_structured_status_and_code(monkeypatch):

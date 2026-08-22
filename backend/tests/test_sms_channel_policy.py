@@ -12,7 +12,7 @@ from settings import routes as settings_routes
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MIGRATION_TAIL = "20260801210000_mpin_step_up_authorization_foundation.sql"
+MIGRATION_TAIL = "20260801220000_mpin_step_up_high_risk_integration.sql"
 
 
 def test_legacy_sms_preferences_are_removed_from_settings_projection():
@@ -94,7 +94,7 @@ def test_runtime_and_catalog_have_no_sms_channel_surface():
     assert sum(item.lifecycle_status == "planned" for item in CATALOG.values()) == 164
     assert sum(item.lifecycle_status == "deferred" for item in CATALOG.values()) == 8
     assert sum(item.writable for item in CATALOG.values()) == 158
-    assert sum(item.integrated for item in CATALOG.values()) == 23
+    assert sum(item.integrated for item in CATALOG.values()) == 25
 
     expected_email_events = {
         "security.signup.email_otp_sent",
@@ -144,7 +144,6 @@ def test_sms_correction_has_zero_migration_delta():
     )
     assert migrations[-1] == MIGRATION_TAIL
     assert not [name for name in migrations if "sms" in name.lower()]
-    assert not [name for name in migrations if name.startswith("20260801220000")]
 
 
 @pytest.mark.parametrize(

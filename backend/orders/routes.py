@@ -1,7 +1,9 @@
 import json
+import uuid
 from flask import Blueprint, request
 from datetime import datetime, timedelta, time
 
+from auth import step_up_service
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
 from .goods_taxonomy import (
@@ -564,16 +566,62 @@ def checkout_bid(order_id, bid_id):
     # the server never invents one (that would defeat idempotency).
     idempotency_key = request.headers.get("Idempotency-Key")
 
+    descriptor = None
+    gate = None
+    request_id = f"one_time.checkout.wallet_only.{uuid.uuid4().hex}"
     with open_db() as db:
         try:
+            if normalize_client_kind(request.current_user.get("role")) == "business":
+                order = fetch_order(db, order_id)
+                if not order:
+                    return json_response({"success": False, "message": "Order not found."}, 404)
+                if order["client_user_id"] != request.current_user["id"]:
+                    return json_response({"success": False, "message": "Access denied."}, 403)
+                bid = db.execute(
+                    "SELECT * FROM shipment_bids WHERE id=%s AND order_id=%s",
+                    (bid_id, order_id),
+                ).fetchone()
+                if not bid:
+                    return json_response({"success": False, "message": "Bid not found."}, 404)
+                quote = build_payment_quote(
+                    db, order, dict(bid), request.current_user
+                )
+                if quote["card_funded_amount"] <= 0:
+                    descriptor = step_up_service.normalize_descriptor({
+                        "action_key": "one_time.checkout.wallet_only",
+                        "resource_type": "order",
+                        "resource_id": order_id,
+                        "amount_minor": step_up_service.money_to_minor(
+                            quote["bid_amount"]
+                        ),
+                        "currency": "PKR",
+                        "funding_source": "wallet",
+                    })
+                    gate = step_up_service.consume_current_request(
+                        db, request, descriptor
+                    )
+                    gate_error = step_up_service.gate_error_response(
+                        gate, descriptor
+                    )
+                    if gate_error:
+                        db.rollback()
+                        return gate_error
             result = perform_checkout(
                 db, request.current_user, order_id, bid_id,
                 payload=payload, idempotency_key=idempotency_key,
+                expected_step_up_descriptor=descriptor,
             )
         except CheckoutError as exc:
             db.rollback()
             return _checkout_error_response(exc)
-        db.commit()
+        if gate and result["replayed"]:
+            db.rollback()
+        else:
+            if gate:
+                step_up_service.write_consumed_event(
+                    db, request_id=request_id, gate=gate, descriptor=descriptor
+                )
+            db.commit()
 
     return json_response({
         "success": True,
@@ -715,15 +763,60 @@ def confirm_delivery(order_id, trip_id):
         except CheckoutError as exc:
             return _checkout_error_response(exc)
 
+    descriptor = None
+    gate = None
+    request_id = f"client.delivery.confirm_release.{uuid.uuid4().hex}"
     with open_db() as db:
         try:
+            if decision == "yes":
+                current = db.execute(
+                    "SELECT st.status, s.client_user_id, p.bid_price "
+                    "FROM shipment_trips st JOIN shipments s ON s.id=st.order_id "
+                    "LEFT JOIN payments p ON p.shipment_id=s.id AND p.trip_id=st.id "
+                    "AND p.status='held' "
+                    "WHERE st.id=%s AND st.order_id=%s",
+                    (trip_id, order_id),
+                ).fetchone()
+                if (
+                    current
+                    and current["status"] != "completed"
+                    and current["client_user_id"] == request.current_user["id"]
+                    and current["bid_price"] is not None
+                ):
+                    descriptor = step_up_service.normalize_descriptor({
+                        "action_key": "client.delivery.confirm_release",
+                        "resource_type": "trip",
+                        "resource_id": trip_id,
+                        "amount_minor": step_up_service.money_to_minor(
+                            current["bid_price"]
+                        ),
+                        "currency": "PKR",
+                    })
+                    gate = step_up_service.consume_current_request(
+                        db, request, descriptor
+                    )
+                    gate_error = step_up_service.gate_error_response(
+                        gate, descriptor
+                    )
+                    if gate_error:
+                        db.rollback()
+                        return gate_error
             result = perform_client_confirm(
-                db, request.current_user, order_id, trip_id, decision, reason=reason, review_payload=review_payload
+                db, request.current_user, order_id, trip_id, decision,
+                reason=reason, review_payload=review_payload,
+                expected_release_descriptor=descriptor,
             )
         except CheckoutError as exc:
             db.rollback()
             return _checkout_error_response(exc)
-        db.commit()
+        if gate and result["already"]:
+            db.rollback()
+        else:
+            if gate:
+                step_up_service.write_consumed_event(
+                    db, request_id=request_id, gate=gate, descriptor=descriptor
+                )
+            db.commit()
 
     payload = {
         "success": True,

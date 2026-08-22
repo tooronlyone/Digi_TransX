@@ -245,6 +245,8 @@ INTEGRATED_EVENT_NAMES = frozenset(
         "security.mpin.reset_completed",
         "security.mpin.step_up_succeeded",
         "security.mpin.step_up_failed",
+        "security.mpin.step_up_consumed",
+        "security.mpin.step_up_reconciliation_required",
     }
 )
 

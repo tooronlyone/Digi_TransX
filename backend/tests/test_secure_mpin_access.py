@@ -655,9 +655,9 @@ def test_schema_catalog_acl_and_step_up_contract_remain_bounded(mpin_database_ur
                 "where event_name like 'security.mpin.step_up_%' order by event_name"
             )
             assert cursor.fetchall() == [
-                ("security.mpin.step_up_consumed", False),
+                ("security.mpin.step_up_consumed", True),
                 ("security.mpin.step_up_failed", True),
-                ("security.mpin.step_up_reconciliation_required", False),
+                ("security.mpin.step_up_reconciliation_required", True),
                 ("security.mpin.step_up_succeeded", True),
             ]
             cursor.execute(

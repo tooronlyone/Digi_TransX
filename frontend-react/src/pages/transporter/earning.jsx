@@ -1,5 +1,6 @@
 /* eslint-disable react-hooks/set-state-in-effect */
 import { useEffect, useState } from 'react'
+import { useStepUp } from '../../components/security/StepUpProvider'
 import '../../styles/pages/earnings.css'
 
 async function getCsrf() {
@@ -15,9 +16,9 @@ async function apiGet(url) {
   return json
 }
 
-async function apiPost(url, body) {
+async function apiPost(url, body, fetchImpl = fetch) {
   const csrf = await getCsrf()
-  const res = await fetch(url, {
+  const res = await fetchImpl(url, {
     method: 'POST',
     credentials: 'same-origin',
     headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
@@ -43,6 +44,7 @@ function formatDate(value) {
 }
 
 export default function Earning() {
+  const { protectedFetch } = useStepUp()
   const [summary, setSummary] = useState(null)
   const [limits, setLimits] = useState(null)
   const [loading, setLoading] = useState(true)
@@ -95,11 +97,11 @@ export default function Earning() {
     if (!amt || amt <= 0) { setError('Enter a valid amount.'); return }
     setWithdrawing(true)
     try {
-      const res = await apiPost('/api/wallet/withdraw-locked', { amount: amt })
+      const res = await apiPost('/api/wallet/withdraw-locked', { amount: amt }, protectedFetch)
       if (res.auto_approved) {
         const remaining = res.remaining_withdrawable ?? 0
         setNotice(
-          `PKR ${Number(res.withdrawn).toLocaleString()} has been transferred to your card. ` +
+          `PKR ${Number(res.withdrawn).toLocaleString()} was approved and recorded. ` +
           `Remaining withdrawable balance: PKR ${Number(remaining).toLocaleString()}.`
         )
       } else {
@@ -128,7 +130,7 @@ export default function Earning() {
     setNotice('')
     setUpgrading(true)
     try {
-      const res = await apiPost('/api/wallet/upgrade-limit', { tier, duration_years })
+      const res = await apiPost('/api/wallet/upgrade-limit', { tier, duration_years }, protectedFetch)
       setNotice(res.message)
       setUpgradeConfirm(null)
       await loadData()
@@ -144,7 +146,7 @@ export default function Earning() {
     setNotice('')
     setSavingCard(true)
     try {
-      await apiPost('/api/wallet/payout-card', cardForm)
+      await apiPost('/api/wallet/payout-card', cardForm, protectedFetch)
       setNotice('Payout card saved successfully.')
       setShowCardForm(false)
       const cardRes = await apiGet('/api/wallet/payout-card')
@@ -160,7 +162,6 @@ export default function Earning() {
   const transactions = summary?.recent_transactions || []
   const maxWithdrawable = Number(limits?.max_withdrawable || 0)
   const hasCard = Boolean(card)
-  const canWithdraw = maxWithdrawable > 0 && hasCard
   const upgradeTiers = Object.entries(limits?.all_tiers || {})
     .filter(([t]) => Number(t) > 0)
     .sort(([a], [b]) => Number(a) - Number(b))

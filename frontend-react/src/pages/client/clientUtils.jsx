@@ -127,9 +127,9 @@ export async function apiGet(url) {
   return unwrapResponse(response)
 }
 
-export async function apiSend(url, payload = {}, method = 'POST') {
+export async function apiSend(url, payload = {}, method = 'POST', fetchImpl = fetch) {
   const csrf = await getCsrfToken()
-  const response = await fetch(url, {
+  const response = await fetchImpl(url, {
     method,
     credentials: 'same-origin',
     headers: {

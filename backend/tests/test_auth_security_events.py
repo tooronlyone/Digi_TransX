@@ -240,11 +240,13 @@ def test_catalog_preserves_login_events_and_adds_only_bounded_signup_events():
         "security.mpin.reset_completed",
         "security.mpin.step_up_succeeded",
         "security.mpin.step_up_failed",
+        "security.mpin.step_up_consumed",
+        "security.mpin.step_up_reconciliation_required",
     }
     assert set(INTEGRATED_EVENT_NAMES) == expected
     assert {name for name, item in CATALOG.items() if item.integrated} == expected
-    assert sum(item.integrated for item in CATALOG.values()) == 23
-    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 141
+    assert sum(item.integrated for item in CATALOG.values()) == 25
+    assert sum(item.lifecycle_status == "planned" and not item.integrated for item in CATALOG.values()) == 139
     assert sum(item.lifecycle_status == "deferred" and not item.integrated for item in CATALOG.values()) == 8
 
 

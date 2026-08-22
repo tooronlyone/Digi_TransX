@@ -7,6 +7,7 @@ import secrets
 import threading
 from concurrent.futures import ThreadPoolExecutor
 from pathlib import Path
+from types import SimpleNamespace
 from urllib.parse import urlsplit
 
 import psycopg2
@@ -37,6 +38,7 @@ def _action(**overrides):
         "resource_id": 41,
         "amount_minor": 12500,
         "currency": "PKR",
+        "funding_source": "wallet",
     }
     value.update(overrides)
     return value
@@ -115,9 +117,9 @@ def _route_database_after(url, hook):
 @pytest.mark.parametrize(
     "value",
     [
-        {"action_key": "one_time.checkout.wallet_only", "resource_type": "order", "resource_id": 1, "amount_minor": 1, "currency": "PKR"},
+        {"action_key": "one_time.checkout.wallet_only", "resource_type": "order", "resource_id": 1, "amount_minor": 1, "currency": "PKR", "funding_source": "wallet"},
         {"action_key": "wallet.withdrawal.request", "resource_type": "wallet", "resource_id": 1, "amount_minor": 1, "currency": "PKR", "destination_fingerprint": "a" * 64},
-        {"action_key": "wallet.withdrawal_limit.purchase", "resource_type": "wallet", "resource_id": 1, "amount_minor": 1, "currency": "PKR"},
+        {"action_key": "wallet.withdrawal_limit.purchase", "resource_type": "wallet", "resource_id": 1, "amount_minor": 1, "currency": "PKR", "funding_source": "wallet"},
         {"action_key": "wallet.payout_destination.replace", "resource_type": "wallet", "resource_id": 1, "destination_fingerprint": "b" * 64},
         {"action_key": "agreement.finalize", "resource_type": "agreement", "resource_id": 1, "amount_minor": 1, "currency": "PKR"},
         {"action_key": "client.delivery.confirm_release", "resource_type": "trip", "resource_id": 1, "amount_minor": 1, "currency": "PKR"},
@@ -593,7 +595,7 @@ def test_reset_disable_and_reenroll_each_invalidate_or_advance_generation(mpin_c
             assert cursor.fetchone()[0] > second["credential_generation"]
 
 
-def test_claim_and_reconciliation_are_one_shot_but_events_remain_unintegrated(mpin_client):
+def test_claim_and_reconciliation_are_one_shot_and_events_are_now_integrated(mpin_client):
     client, url = mpin_client
     auth = _authenticate(client, url, with_mpin="1234")
     response = _post(client)
@@ -627,9 +629,135 @@ def test_claim_and_reconciliation_are_one_shot_but_events_remain_unintegrated(mp
         "security.mpin.step_up_consumed",
         "security.mpin.step_up_reconciliation_required",
     ):
-        assert not CATALOG[name].integrated
-        with pytest.raises(NonWritableEventName):
-            get_writable_event_definition(name)
+        assert CATALOG[name].integrated
+        assert get_writable_event_definition(name).integrated
+
+
+def test_provider_rejection_is_definite_nonreplayable_invalidation(mpin_client):
+    client, url = mpin_client
+    auth = _authenticate(client, url, with_mpin="1234")
+    proof = _post(client).get_json()["authorization_proof"]
+    row = _ledger_row(url)
+    descriptor = step_up_service.normalize_descriptor(_action())
+    binding = dict(
+        raw_proof=proof,
+        user_id=auth["user_id"],
+        session_id=auth["session_id"],
+        trusted_device_id=auth["device_id"],
+        credential_generation=row["credential_generation"],
+        descriptor=descriptor,
+    )
+    with psycopg2.connect(url) as conn:
+        db = Db(conn)
+        claimed, claim = step_up_service.claim_authorization(db, **binding)
+        rejected = step_up_service.finalize_claim(
+            db,
+            authorization_id=claimed["authorization_id"],
+            raw_claim=claim,
+            provider_rejected=True,
+        )
+        assert rejected["state"] == "invalidated"
+        assert rejected["invalidated_at"] is not None
+        assert step_up_service.finalize_claim(
+            db, authorization_id=claimed["authorization_id"], raw_claim=claim
+        ) is None
+        assert step_up_service.claim_authorization(db, **binding) is None
+
+
+def test_provider_success_finalization_revalidates_auth_chain_and_exact_binding(
+    mpin_client,
+):
+    client, url = mpin_client
+    auth = _authenticate(client, url, with_mpin="1234")
+    proof = _post(client).get_json()["authorization_proof"]
+    row = _ledger_row(url)
+    descriptor = step_up_service.normalize_descriptor(_action())
+    binding = dict(
+        raw_proof=proof,
+        user_id=auth["user_id"],
+        session_id=auth["session_id"],
+        trusted_device_id=auth["device_id"],
+        credential_generation=row["credential_generation"],
+        descriptor=descriptor,
+    )
+    with psycopg2.connect(url) as conn:
+        db = Db(conn)
+        claimed, claim = step_up_service.claim_authorization(db, **binding)
+        with conn.cursor() as cursor:
+            cursor.execute("select * from public.users where id=%s", (auth["user_id"],))
+            columns = [item.name for item in cursor.description]
+            user = dict(zip(columns, cursor.fetchone()))
+        request_object = SimpleNamespace(
+            current_user=user,
+            current_session={"session_id": auth["session_id"]},
+            cookies={
+                auth_helpers.DEVICE_COOKIE_NAME: auth["device_raw"],
+                auth_helpers.SESSION_TOKEN_COOKIE_NAME: auth["session_raw"],
+                auth_helpers.ACCESS_PROOF_COOKIE_NAME: auth["proof_raw"],
+            },
+        )
+        gate = step_up_service.ConsumptionGate(
+            "authorized", authorization=dict(claimed), claim_proof=claim
+        )
+        wrong = step_up_service.normalize_descriptor(_action(amount_minor=12501))
+        assert step_up_service.lock_and_finalize_current_request_claim(
+            db, request_object, gate=gate, descriptor=wrong
+        ) is None
+        finalized = step_up_service.lock_and_finalize_current_request_claim(
+            db, request_object, gate=gate, descriptor=descriptor
+        )
+        assert finalized["state"] == "consumed"
+
+
+def test_provider_success_after_access_proof_rotation_requires_reconciliation(
+    mpin_client,
+):
+    client, url = mpin_client
+    auth = _authenticate(client, url, with_mpin="1234")
+    proof = _post(client).get_json()["authorization_proof"]
+    row = _ledger_row(url)
+    descriptor = step_up_service.normalize_descriptor(_action())
+    binding = dict(
+        raw_proof=proof,
+        user_id=auth["user_id"],
+        session_id=auth["session_id"],
+        trusted_device_id=auth["device_id"],
+        credential_generation=row["credential_generation"],
+        descriptor=descriptor,
+    )
+    with psycopg2.connect(url) as conn:
+        db = Db(conn)
+        claimed, claim = step_up_service.claim_authorization(db, **binding)
+        conn.commit()
+    with psycopg2.connect(url) as conn:
+        conn.cursor().execute(
+            "update public.user_sessions set access_proof_digest=%s where session_id=%s",
+            (hashlib.sha256(b"rotated-proof-that-is-long-enough-0000").digest(), auth["session_id"]),
+        )
+    request_object = SimpleNamespace(
+        current_user={"id": auth["user_id"]},
+        current_session={"session_id": auth["session_id"]},
+        cookies={
+            auth_helpers.DEVICE_COOKIE_NAME: auth["device_raw"],
+            auth_helpers.SESSION_TOKEN_COOKIE_NAME: auth["session_raw"],
+            auth_helpers.ACCESS_PROOF_COOKIE_NAME: auth["proof_raw"],
+        },
+    )
+    gate = step_up_service.ConsumptionGate(
+        "authorized", authorization=dict(claimed), claim_proof=claim
+    )
+    with psycopg2.connect(url) as conn:
+        db = Db(conn)
+        assert step_up_service.lock_and_finalize_current_request_claim(
+            db, request_object, gate=gate, descriptor=descriptor
+        ) is None
+        reconciled = step_up_service.finalize_claim(
+            db,
+            authorization_id=claimed["authorization_id"],
+            raw_claim=claim,
+            reconciliation_required=True,
+        )
+        assert reconciled["state"] == "reconciliation_required"
 
 
 def test_forward_migration_converges_reapplies_and_rejects_corruption():

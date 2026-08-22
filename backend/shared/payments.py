@@ -372,6 +372,10 @@ def validate_payout_card(card_data):
     )
 
 
+class PaymentProviderRejected(Exception):
+    """A provider-confirmed rejection: no token was created and retry is unsafe."""
+
+
 class DummyCardProvider:
     """Placeholder processor. A real gateway later only needs to implement
     this same interface (tokenize + charge) and be returned from
@@ -823,7 +827,10 @@ def _find_replay(db, user, order_id, bid_id, idempotency_key):
     return existing
 
 
-def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=None):
+def perform_checkout(
+    db, user, order_id, bid_id, payload=None, idempotency_key=None,
+    expected_step_up_descriptor=None,
+):
     """Atomic pay-and-accept workflow for a one-time order bid.
 
     Runs entirely inside the caller's open transaction; the caller commits.
@@ -915,6 +922,24 @@ def perform_checkout(db, user, order_id, bid_id, payload=None, idempotency_key=N
         ).fetchone()
         wallet = dict(locked)
     quote = build_payment_quote(db, order, bid, user, wallet=wallet, truck=truck)
+    if expected_step_up_descriptor is not None:
+        from auth import step_up_service
+
+        expected = expected_step_up_descriptor
+        if (
+            expected["action_key"] != "one_time.checkout.wallet_only"
+            or expected["resource_id"] != order_id
+            or expected["funding_source"] != "wallet"
+            or quote["card_funded_amount"] > 0
+            or expected["amount_minor"] != step_up_service.money_to_minor(
+                quote["bid_amount"]
+            )
+        ):
+            raise CheckoutError(
+                "The wallet-only checkout details changed. Try again.",
+                409,
+                "step_up_action_changed",
+            )
 
     stamp = timestamp_bundle()
     policy = quote["_policy"]

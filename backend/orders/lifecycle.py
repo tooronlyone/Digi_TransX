@@ -233,7 +233,10 @@ def perform_complete_delivery(db, user, order_id, trip_id, now=None):
 # Phase F — client confirms (Yes) or denies (No)
 # ---------------------------------------------------------------------------
 
-def perform_client_confirm(db, user, order_id, trip_id, decision, reason=None, review_payload=None, now=None):
+def perform_client_confirm(
+    db, user, order_id, trip_id, decision, reason=None, review_payload=None,
+    now=None, expected_release_descriptor=None,
+):
     """Client answers the delivery-completion request. decision in {'yes','no'}.
     'yes' releases the payout once; 'no' opens a dispute. Caller commits."""
     if decision not in ("yes", "no"):
@@ -274,6 +277,21 @@ def perform_client_confirm(db, user, order_id, trip_id, decision, reason=None, r
     payment = _held_payment(db, order_id)
     if not payment or payment["trip_id"] != trip_id:
         raise CheckoutError("Payment for this order is not held.", 409, "payment_not_held")
+    if decision == "yes" and expected_release_descriptor is not None:
+        from auth import step_up_service
+
+        if (
+            expected_release_descriptor["action_key"]
+            != "client.delivery.confirm_release"
+            or expected_release_descriptor["resource_id"] != trip_id
+            or expected_release_descriptor["amount_minor"]
+            != step_up_service.money_to_minor(payment["bid_price"])
+        ):
+            raise CheckoutError(
+                "The payment release details changed. Try again.",
+                409,
+                "step_up_action_changed",
+            )
 
     if decision == "yes":
         review_result = create_review_for_locked_trip(

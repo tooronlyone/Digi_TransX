@@ -194,3 +194,6 @@ button:disabled { cursor: not-allowed; opacity: .62; }
   .mpin-control__slots span { min-width: 0; }
   .mpin-management__header { align-items: stretch; flex-direction: column; }
 }
+.step-up-overlay {
+  z-index: 10000;
+}

@@ -4,6 +4,7 @@ import ActivityTracker from './components/ActivityTracker'
 import GenuineActivity from './components/GenuineActivity'
 import GlobalAiAssistant from './components/ai/GlobalAiAssistant'
 import AccessLockProvider from './components/security/AccessLockProvider'
+import { StepUpProvider } from './components/security/StepUpProvider'
 import SignupWizardProvider, { RequireSignupBasic, RequireSignupDraft } from './components/auth/SignupWizardProvider'
 
 import Login from './pages/auth/Login'
@@ -303,6 +304,7 @@ export default function App() {
     <BrowserRouter>
       <GenuineActivity />
       <AccessLockProvider>
+        <StepUpProvider>
         <ActivityTracker>
           <>
           <Routes>
@@ -346,6 +348,7 @@ export default function App() {
           <GlobalAiAssistant />
           </>
         </ActivityTracker>
+        </StepUpProvider>
       </AccessLockProvider>
     </BrowserRouter>
   )

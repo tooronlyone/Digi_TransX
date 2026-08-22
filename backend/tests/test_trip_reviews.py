@@ -4,11 +4,27 @@ from decimal import Decimal
 
 import pytest
 
+from auth import step_up_service
 from .test_trip_lifecycle import _completed, _open_dispute, seed_ready_order
 
 
 CSRF_JSON = {"X-CSRF-Token": "test-csrf-token", "Content-Type": "application/json"}
 VALID_REVIEW = {"rating": 5, "comment": "Delivered as agreed."}
+
+
+@pytest.fixture(autouse=True)
+def _domain_review_step_up_boundary(monkeypatch):
+    """Keep review/lifecycle tests on their minimal domain-only schema."""
+    monkeypatch.setattr(
+        step_up_service,
+        "consume_current_request",
+        lambda _db, request_object, _descriptor: step_up_service.ConsumptionGate(
+            "authorized", user=request_object.current_user
+        ),
+    )
+    monkeypatch.setattr(
+        step_up_service, "write_consumed_event", lambda *_args, **_kwargs: None
+    )
 
 
 def _post(client, url, payload):

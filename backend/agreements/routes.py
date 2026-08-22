@@ -1,7 +1,9 @@
 from datetime import date, datetime
+import uuid
 
 from flask import Blueprint, request
 
+from auth import step_up_service
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from chat.routes import insert_chat_message
 from shared.db import open_db
@@ -52,6 +54,27 @@ agreements_blueprint = Blueprint("agreements", __name__)
 def fetch_post(db, post_id):
     row = db.execute("SELECT * FROM agreement_posts WHERE id = %s", (post_id,)).fetchone()
     return dict(row) if row else None
+
+
+def _selected_agreement_amount(db, post_id, selected, duration_months, *, lock=False):
+    total_minor = 0
+    suffix = " FOR UPDATE" if lock else ""
+    for item in selected:
+        row = db.execute(
+            "SELECT abt.minimum_monthly_guarantee FROM agreement_bid_trucks abt "
+            "JOIN agreement_bids ab ON ab.id=abt.bid_id "
+            "WHERE abt.bid_id=%s AND abt.truck_id=%s AND ab.post_id=%s" + suffix,
+            (item["bid_id"], item["truck_id"], post_id),
+        ).fetchone()
+        if not row:
+            raise ValueError("Selected truck is not part of the selected bid.")
+        total_minor += (
+            step_up_service.money_to_minor(row["minimum_monthly_guarantee"])
+            * duration_months
+        )
+    if total_minor <= 0:
+        raise ValueError("The agreement value must be positive.")
+    return total_minor
 
 
 def fetch_post_trucks(db, post_id):
@@ -484,6 +507,44 @@ def finalize_agreement():
             return json_response({"success": False, "message": "Agreement post not found."}, 404)
         if post["client_user_id"] != request.current_user["id"]:
             return json_response({"success": False, "message": "You are not allowed to finalize this post."}, 403)
+        try:
+            amount_minor = _selected_agreement_amount(
+                db, post_id, parsed_selected, duration_months
+            )
+        except ValueError as exc:
+            return json_response({"success": False, "message": str(exc)}, 400)
+        descriptor = step_up_service.normalize_descriptor({
+            "action_key": "agreement.finalize",
+            "resource_type": "agreement",
+            "resource_id": post_id,
+            "amount_minor": amount_minor,
+            "currency": "PKR",
+        })
+        gate = step_up_service.consume_current_request(db, request, descriptor)
+        gate_error = step_up_service.gate_error_response(gate, descriptor)
+        if gate_error:
+            db.rollback()
+            return gate_error
+        locked_post = db.execute(
+            "SELECT * FROM agreement_posts WHERE id=%s FOR UPDATE", (post_id,)
+        ).fetchone()
+        try:
+            locked_amount = _selected_agreement_amount(
+                db, post_id, parsed_selected, duration_months, lock=True
+            )
+        except ValueError as exc:
+            db.rollback()
+            return json_response({"success": False, "message": str(exc)}, 400)
+        if (
+            not locked_post
+            or locked_post["client_user_id"] != request.current_user["id"]
+            or locked_amount != descriptor["amount_minor"]
+        ):
+            db.rollback()
+            return json_response(
+                {"success": False, "message": "The agreement details changed. Try again."},
+                409,
+            )
         stamp = timestamp_bundle()["display"]
         # Snapshot the active agreement commission: this agreement keeps this
         # split for its entire lifetime, regardless of later policy changes.
@@ -577,6 +638,12 @@ def finalize_agreement():
             (stamp, post_id),
         )
         db.execute("UPDATE agreement_posts SET status = 'active', updated_at = %s WHERE id = %s", (stamp, post_id))
+        step_up_service.write_consumed_event(
+            db,
+            request_id=f"agreement.finalize.{uuid.uuid4().hex}",
+            gate=gate,
+            descriptor=descriptor,
+        )
         db.commit()
         agreement = fetch_agreement(db, agreement_id)
         trucks = fetch_agreement_trucks(db, agreement_id)

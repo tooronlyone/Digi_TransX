@@ -87,6 +87,7 @@ DURABLE_RUNTIME_MIGRATION = REPO_ROOT / "supabase/migrations/20260801170000_dura
 SECURE_MPIN_MIGRATION = REPO_ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
 GENUINE_ACTIVITY_MIGRATION = REPO_ROOT / "supabase/migrations/20260801200000_genuine_session_activity.sql"
 MPIN_STEP_UP_MIGRATION = REPO_ROOT / "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql"
+HIGH_RISK_STEP_UP_MIGRATION = REPO_ROOT / "supabase/migrations/20260801220000_mpin_step_up_high_risk_integration.sql"
 EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EVENT_TABLES = ("security_events", "business_audit_events")
 CATALOG_PROJECTION = "canonical_event_catalog_projection"
@@ -613,6 +614,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
     secure_mpin_sql = SECURE_MPIN_MIGRATION.read_text(encoding="utf-8")
     genuine_activity_sql = GENUINE_ACTIVITY_MIGRATION.read_text(encoding="utf-8")
     mpin_step_up_sql = MPIN_STEP_UP_MIGRATION.read_text(encoding="utf-8")
+    high_risk_step_up_sql = HIGH_RISK_STEP_UP_MIGRATION.read_text(encoding="utf-8")
     baseline_sql = BASELINE_MIGRATION.read_text(encoding="utf-8")
     sequence_url, sequence_cleanup = _disposable(
         STUBS,
@@ -630,6 +632,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         secure_mpin_sql,
         genuine_activity_sql,
         mpin_step_up_sql,
+        high_risk_step_up_sql,
     )
     corrected_url, corrected_cleanup = _disposable(
         STUBS,
@@ -646,6 +649,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         secure_mpin_sql,
         genuine_activity_sql,
         mpin_step_up_sql,
+        high_risk_step_up_sql,
     )
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
@@ -886,7 +890,7 @@ def test_python_writer_rejects_every_unintegrated_writable_definition_before_sql
     unintegrated = [
         definition for definition in CATALOG.values() if definition.writable and not definition.integrated
     ]
-    assert len(unintegrated) == 135
+    assert len(unintegrated) == 133
     for definition in unintegrated:
         writer = (
             write_security_event
@@ -952,8 +956,8 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
         ),
         key=lambda definition: definition.name,
     )
-    assert len(integrated) == 23
-    assert len(unintegrated_writable) == 135
+    assert len(integrated) == 25
+    assert len(unintegrated_writable) == 133
     expected_security = sum(definition.category == SECURITY for definition in integrated)
     expected_business = sum(
         definition.category == BUSINESS_AUDIT for definition in integrated
@@ -1398,4 +1402,8 @@ def test_only_the_bounded_auth_route_imports_or_emits_canonical_events():
         text = path.read_text(encoding="utf-8", errors="replace")
         if any(token in text for token in forbidden):
             matches.append(path.relative_to(REPO_ROOT).as_posix())
-    assert matches == ["backend/auth/helpers.py", "backend/auth/routes.py"]
+    assert matches == [
+        "backend/auth/helpers.py",
+        "backend/auth/routes.py",
+        "backend/auth/step_up_service.py",
+    ]

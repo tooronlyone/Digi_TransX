@@ -91,7 +91,7 @@ def test_python_contracts_are_complete_and_sensitive_metadata_is_rejected():
     assert len(CATALOG) == 172
     assert sum(item.lifecycle_status == "planned" for item in CATALOG.values()) == 164
     assert sum(item.writable for item in CATALOG.values()) == 158
-    assert sum(item.integrated for item in CATALOG.values()) == 23
+    assert sum(item.integrated for item in CATALOG.values()) == 25
     assert NEW_EVENTS | FORMALIZED_EVENTS <= set(CATALOG)
     for name in NEW_EVENTS | FORMALIZED_EVENTS:
         definition = CATALOG[name]

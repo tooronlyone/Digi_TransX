@@ -15,6 +15,7 @@ import threading
 
 import pytest
 
+from auth import step_up_service
 from shared.payments import get_payment_provider
 
 VALID_CARD = {
@@ -24,6 +25,25 @@ VALID_CARD = {
     "card_holder_name": "Test Payer",
 }
 FULL_PAN = "4242424242424242"
+
+
+@pytest.fixture(autouse=True)
+def _domain_route_step_up_boundary(monkeypatch):
+    """Keep legacy checkout-domain tests scoped to their older test schema.
+
+    Full auth-chain and authorization-ledger behavior is exercised by the
+    dedicated MPIN integration suite against canonical schema.sql.
+    """
+    monkeypatch.setattr(
+        step_up_service,
+        "consume_current_request",
+        lambda _db, request_object, _descriptor: step_up_service.ConsumptionGate(
+            "authorized", user=request_object.current_user
+        ),
+    )
+    monkeypatch.setattr(
+        step_up_service, "write_consumed_event", lambda *_args, **_kwargs: None
+    )
 
 
 # ---------------------------------------------------------------------------

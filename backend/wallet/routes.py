@@ -1,9 +1,13 @@
-from flask import Blueprint, request
+import uuid
 
+from flask import Blueprint, current_app, request
+
+from auth import step_up_service
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
 from shared.payments import (
     CheckoutError,
+    PaymentProviderRejected,
     get_payment_provider,
     perform_wallet_topup,
     validate_payout_card,
@@ -28,6 +32,36 @@ def ensure_transporter_role():
     if role not in {"transporter", "logistics_provider"}:
         return json_response({"success": False, "message": "Transporter account required."}, 403)
     return None
+
+
+def _step_up_request_id(action_key):
+    return f"{action_key}.{uuid.uuid4().hex}"
+
+
+def _mark_payout_reconciliation(gate, descriptor, request_id):
+    with open_db() as db:
+        finalized = step_up_service.finalize_claim(
+            db,
+            authorization_id=gate.authorization["authorization_id"],
+            raw_claim=gate.claim_proof,
+            reconciliation_required=True,
+        )
+        if finalized:
+            step_up_service.write_reconciliation_event(
+                db, request_id=request_id, gate=gate, descriptor=descriptor
+            )
+        db.commit()
+
+
+def _mark_payout_rejected(gate):
+    with open_db() as db:
+        step_up_service.finalize_claim(
+            db,
+            authorization_id=gate.authorization["authorization_id"],
+            raw_claim=gate.claim_proof,
+            provider_rejected=True,
+        )
+        db.commit()
 
 
 @wallet_blueprint.get("/api/wallet")
@@ -333,27 +367,71 @@ def create_locked_withdrawal_request():
     except (TypeError, ValueError):
         return json_response({"success": False, "message": "Amount must be a valid number."}, 400)
 
+    rounded_amount = round_money(amount)
+    with open_db() as db:
+        destination = db.execute(
+            "SELECT payout_card_token FROM transporter_profiles WHERE user_id=%s",
+            (request.current_user["id"],),
+        ).fetchone()
+    if not destination or not destination["payout_card_token"]:
+        return json_response(
+            {"success": False, "message": "A payout destination is required."}, 409
+        )
+    descriptor = step_up_service.normalize_descriptor({
+        "action_key": "wallet.withdrawal.request",
+        "resource_type": "wallet",
+        "resource_id": wallet["id"],
+        "amount_minor": step_up_service.money_to_minor(rounded_amount),
+        "currency": "PKR",
+        "destination_fingerprint": step_up_service.stored_payout_destination_fingerprint(
+            destination["payout_card_token"]
+        ),
+    })
+    request_id = _step_up_request_id("wallet.withdrawal.request")
+
     from wallet.withdrawal_limits import validate_withdrawal, get_limits, get_active_tier
     with open_db() as db:
+        gate = step_up_service.consume_current_request(db, request, descriptor)
+        gate_error = step_up_service.gate_error_response(gate, descriptor)
+        if gate_error:
+            db.rollback()
+            return gate_error
+        locked_destination = db.execute(
+            "SELECT payout_card_token FROM transporter_profiles "
+            "WHERE user_id=%s FOR UPDATE",
+            (request.current_user["id"],),
+        ).fetchone()
+        fresh_wallet_row = db.execute(
+            "SELECT * FROM wallets WHERE id=%s AND user_id=%s FOR UPDATE",
+            (wallet["id"], request.current_user["id"]),
+        ).fetchone()
+        if not locked_destination or not fresh_wallet_row:
+            db.rollback()
+            return json_response({"success": False, "message": "Wallet not found."}, 404)
+        if step_up_service.stored_payout_destination_fingerprint(
+            locked_destination["payout_card_token"]
+        ) != descriptor["destination_fingerprint"]:
+            db.rollback()
+            return json_response(
+                {"success": False, "message": "The payout destination changed. Try again."},
+                409,
+            )
+        fresh_wallet = dict(fresh_wallet_row)
         # request.current_user already carries the transporter_profiles fields
         # (withdrawal_tier, withdrawal_tier_expires_at) merged in by get_user_by_id.
         user_row = dict(request.current_user)
-        error_msg = validate_withdrawal(db, user_row, wallet, amount)
+        error_msg = validate_withdrawal(db, user_row, fresh_wallet, rounded_amount)
         if error_msg:
+            db.rollback()
             return json_response({"success": False, "message": error_msg}, 400)
 
         stamp = timestamp_bundle()
-        rounded_amount = round_money(amount)
         limits = get_limits(user_row)
         active_tier = get_active_tier(user_row)
         within_limits = (
             rounded_amount <= limits["single_max"] and
             rounded_amount <= limits["daily_max"]
         )
-
-        # Re-fetch wallet inside transaction for accuracy
-        fresh_wallet = db.execute("SELECT * FROM wallets WHERE user_id = %s", (request.current_user["id"],)).fetchone()
-        fresh_wallet = dict(fresh_wallet) if fresh_wallet else wallet
 
         if within_limits:
             # Auto-approve: deduct from balance only, preserve locked_balance
@@ -379,6 +457,9 @@ def create_locked_withdrawal_request():
                 description="Auto-approved withdrawal (within tier limit)",
                 reference_id=f"tier_{active_tier}_auto",
             )
+            step_up_service.write_consumed_event(
+                db, request_id=request_id, gate=gate, descriptor=descriptor
+            )
             db.commit()
             remaining = max(round_money(new_balance - 30000), 0)
             return json_response({
@@ -396,6 +477,9 @@ def create_locked_withdrawal_request():
                 VALUES (%s, %s, 'pending', %s, NULL)
                 """,
                 (request.current_user["id"], rounded_amount, stamp["iso"]),
+            )
+            step_up_service.write_consumed_event(
+                db, request_id=request_id, gate=gate, descriptor=descriptor
             )
             db.commit()
             return json_response({
@@ -488,8 +572,38 @@ def upgrade_withdrawal_limit():
 
     expires_at = (datetime.utcnow() + timedelta(days=days)).isoformat()
     stamp = timestamp_bundle()["iso"]
+    descriptor = step_up_service.normalize_descriptor({
+        "action_key": "wallet.withdrawal_limit.purchase",
+        "resource_type": "wallet",
+        "resource_id": wallet["id"],
+        "amount_minor": step_up_service.money_to_minor(fee),
+        "currency": "PKR",
+        "funding_source": "wallet",
+    })
+    request_id = _step_up_request_id("wallet.withdrawal_limit.purchase")
 
     with open_db() as db:
+        gate = step_up_service.consume_current_request(db, request, descriptor)
+        gate_error = step_up_service.gate_error_response(gate, descriptor)
+        if gate_error:
+            db.rollback()
+            return gate_error
+        locked_wallet = db.execute(
+            "SELECT * FROM wallets WHERE id=%s AND user_id=%s FOR UPDATE",
+            (wallet["id"], request.current_user["id"]),
+        ).fetchone()
+        if not locked_wallet:
+            db.rollback()
+            return json_response({"success": False, "message": "Wallet not found."}, 404)
+        locked_spendable = round_money(
+            (locked_wallet["balance"] or 0) - (locked_wallet["locked_balance"] or 0)
+        )
+        if locked_spendable + 1e-9 < fee:
+            db.rollback()
+            return json_response(
+                {"success": False, "message": "Insufficient balance to purchase plan. Please top up your wallet."},
+                400,
+            )
         db.execute(
             "UPDATE wallets SET balance = balance - %s, updated_at = %s WHERE user_id = %s",
             (fee, stamp, request.current_user["id"]),
@@ -520,6 +634,9 @@ def upgrade_withdrawal_limit():
                 withdrawal_tier_expires_at = excluded.withdrawal_tier_expires_at
             """,
             (request.current_user["id"], tier, expires_at),
+        )
+        step_up_service.write_consumed_event(
+            db, request_id=request_id, gate=gate, descriptor=descriptor
         )
         db.commit()
 
@@ -576,31 +693,89 @@ def save_payout_card():
     summary, card_error = validate_payout_card(data)
     if card_error:
         return json_response({"success": False, "message": card_error}, 400)
-    token = get_payment_provider().tokenize(summary)
+    wallet, wallet_error = get_or_create_wallet(request.current_user)
+    if wallet_error:
+        return wallet_error
+    descriptor = step_up_service.normalize_descriptor({
+        "action_key": "wallet.payout_destination.replace",
+        "resource_type": "wallet",
+        "resource_id": wallet["id"],
+        "destination_fingerprint": step_up_service.payout_destination_input_fingerprint(data),
+    })
+    request_id = _step_up_request_id("wallet.payout_destination.replace")
     with open_db() as db:
-        db.execute(
-            """
-            INSERT INTO transporter_profiles (
-                user_id, payout_card_token, payout_card_brand, payout_card_last_four,
-                payout_card_holder, payout_card_expiry, payout_card_bank
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s)
-            ON CONFLICT (user_id) DO UPDATE SET
-                payout_card_token = excluded.payout_card_token,
-                payout_card_brand = excluded.payout_card_brand,
-                payout_card_last_four = excluded.payout_card_last_four,
-                payout_card_holder = excluded.payout_card_holder,
-                payout_card_expiry = excluded.payout_card_expiry,
-                payout_card_bank = excluded.payout_card_bank
-            """,
-            (
-                request.current_user["id"],
-                token,
-                summary["card_brand"],
-                summary["card_last_four"],
-                summary["card_holder"],
-                summary["card_expiry"],
-                summary["bank"],
-            ),
-        )
+        gate = step_up_service.claim_current_request(db, request, descriptor)
+        gate_error = step_up_service.gate_error_response(gate, descriptor)
+        if gate_error:
+            db.rollback()
+            return gate_error
         db.commit()
+    try:
+        token = get_payment_provider().tokenize(summary)
+    except PaymentProviderRejected:
+        _mark_payout_rejected(gate)
+        return json_response(
+            {
+                "success": False,
+                "code": "payout_destination_rejected",
+                "message": "The payout destination was rejected.",
+            },
+            422,
+        )
+    except Exception:
+        current_app.logger.error("Payout destination tokenization outcome is uncertain.")
+        _mark_payout_reconciliation(gate, descriptor, request_id)
+        return json_response(
+            {"success": False, "message": "Payout destination could not be saved."}, 503
+        )
+    needs_reconciliation = False
+    try:
+        with open_db() as db:
+            finalized = step_up_service.lock_and_finalize_current_request_claim(
+                db, request, gate=gate, descriptor=descriptor
+            )
+            locked_wallet = db.execute(
+                "SELECT id FROM wallets WHERE id=%s AND user_id=%s FOR UPDATE",
+                (wallet["id"], request.current_user["id"]),
+            ).fetchone()
+            if not locked_wallet or not finalized:
+                db.rollback()
+                needs_reconciliation = True
+            else:
+                db.execute(
+                """
+                INSERT INTO transporter_profiles (
+                    user_id, payout_card_token, payout_card_brand, payout_card_last_four,
+                    payout_card_holder, payout_card_expiry, payout_card_bank
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+                ON CONFLICT (user_id) DO UPDATE SET
+                    payout_card_token = excluded.payout_card_token,
+                    payout_card_brand = excluded.payout_card_brand,
+                    payout_card_last_four = excluded.payout_card_last_four,
+                    payout_card_holder = excluded.payout_card_holder,
+                    payout_card_expiry = excluded.payout_card_expiry,
+                    payout_card_bank = excluded.payout_card_bank
+                """,
+                (
+                    request.current_user["id"],
+                    token,
+                    summary["card_brand"],
+                    summary["card_last_four"],
+                    summary["card_holder"],
+                    summary["card_expiry"],
+                    summary["bank"],
+                ),
+                )
+                step_up_service.write_consumed_event(
+                    db, request_id=request_id, gate=gate, descriptor=descriptor
+                )
+                db.commit()
+    except Exception:
+        current_app.logger.error("Payout destination persistence outcome is uncertain.")
+        needs_reconciliation = True
+    if needs_reconciliation:
+        _mark_payout_reconciliation(gate, descriptor, request_id)
+        return json_response(
+            {"success": False, "message": "Payout destination could not be saved."}, 503
+        )
     return json_response({"success": True, "message": "Payout card saved successfully."})

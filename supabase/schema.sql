@@ -1213,6 +1213,7 @@ create table public.mpin_step_up_authorizations (
     amount_minor bigint,
     currency text,
     destination_digest bytea,
+    funding_source text,
     request_fingerprint bytea not null,
     state text not null default 'available',
     claim_digest bytea,
@@ -1246,6 +1247,7 @@ create table public.mpin_step_up_authorizations (
         and (amount_minor is null or amount_minor > 0)
         and ((amount_minor is null and currency is null)
           or (amount_minor is not null and currency ~ '^[A-Z]{3}$'))
+        and (funding_source is null or funding_source = 'wallet')
     ),
     constraint mpin_step_up_exact_lifetime check (
         expires_at = issued_at + interval '3 minutes'
@@ -2484,8 +2486,8 @@ insert into public.canonical_event_catalog_projection (
     ('security.mpin.reset_completed', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["result_code"],"allowed_result_codes":["security_recovery","user_reauthentication"]}'::jsonb),
     ('security.mpin.step_up_succeeded', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["action_key","authorization_ref","request_fingerprint_ref","resource_id","resource_type"],"allowed_result_codes":[]}'::jsonb),
     ('security.mpin.step_up_failed', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"service_subject","allowed_metadata_keys":["action_key","request_fingerprint_ref","resource_id","resource_type","result_code"],"allowed_result_codes":["invalid_mpin","rate_limited"]}'::jsonb),
-    ('security.mpin.step_up_consumed', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["action_key","authorization_ref","request_fingerprint_ref","resource_id","resource_type"],"allowed_result_codes":[]}'::jsonb),
-    ('security.mpin.step_up_reconciliation_required', 1, 'security', 'security', 'security_12_months', 'planned', true, false, '{"actor_policy":"service_subject","allowed_metadata_keys":["action_key","authorization_ref","request_fingerprint_ref","resource_id","resource_type","result_code"],"allowed_result_codes":["domain_outcome_uncertain"]}'::jsonb)
+    ('security.mpin.step_up_consumed', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"authenticated_self","allowed_metadata_keys":["action_key","authorization_ref","request_fingerprint_ref","resource_id","resource_type"],"allowed_result_codes":[]}'::jsonb),
+    ('security.mpin.step_up_reconciliation_required', 1, 'security', 'security', 'security_12_months', 'planned', true, true, '{"actor_policy":"service_subject","allowed_metadata_keys":["action_key","authorization_ref","request_fingerprint_ref","resource_id","resource_type","result_code"],"allowed_result_codes":["domain_outcome_uncertain"]}'::jsonb)
 on conflict (event_name) do nothing;
 
 create or replace function public.is_bounded_event_json(event_value jsonb, value_kind text)

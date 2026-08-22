@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useStepUp } from '../../components/security/StepUpProvider'
 import { PageTitle, PrimaryButton, SecondaryButton, SectionCard, StateMessage, StatusBadge, apiGet, apiSend, formatMoney } from './clientUtils'
 
 function todayIso() {
@@ -13,6 +14,7 @@ function addMonths(value, months) {
 }
 
 export default function AgreementBids() {
+  const { protectedFetch } = useStepUp()
   const { postId } = useParams()
   const navigate = useNavigate()
   const [post, setPost] = useState(null)
@@ -41,7 +43,10 @@ export default function AgreementBids() {
   }
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     loadBids()
+    // loadBids is route-scoped; postId is the authority boundary.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [postId])
 
   const selectedTrucks = useMemo(() => {
@@ -81,7 +86,10 @@ export default function AgreementBids() {
       '- Maintenance requires advance notice to client',
       '- Disputes resolved by platform admin',
     ]
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setContractText(lines.join('\n'))
+    // selectedTrucks content is intentionally represented by its selection count.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [post, selectedTrucks.length, duration, startDate])
 
   async function invite(bid) {
@@ -114,7 +122,7 @@ export default function AgreementBids() {
         service_area: post.service_area,
         selected_trucks: selectedTrucks.map(({ bid, truck }) => ({ bid_id: bid.id, truck_id: truck.truck_id })),
         contract_text: contractText,
-      })
+      }, 'POST', protectedFetch)
       setNotice('Agreement finalized.')
       setTimeout(() => navigate(`/client/agreement/${json.agreement.id}`), 700)
     } catch (finalizeError) {

@@ -8,6 +8,7 @@ import {
   getCsrfToken,
 } from './clientUtils'
 import useClientBasePath from '../../hooks/useClientBasePath'
+import { useStepUp } from '../../components/security/StepUpProvider'
 import '../../styles/pages/bid-checkout.css'
 
 const EMPTY_CARD = {
@@ -77,6 +78,7 @@ function getOrCreateIdemKey(orderId, bidId) {
 }
 
 export default function BidCheckout() {
+  const { protectedFetch } = useStepUp()
   const { orderId, bidId } = useParams()
   const navigate = useNavigate()
   const base = useClientBasePath()
@@ -268,7 +270,7 @@ export default function BidCheckout() {
     setSubmitError('')
     try {
       const csrf = await getCsrfToken()
-      const response = await fetch(`/api/orders/${orderId}/bids/${bidId}/checkout`, {
+      const response = await protectedFetch(`/api/orders/${orderId}/bids/${bidId}/checkout`, {
         method: 'POST',
         credentials: 'same-origin',
         headers: {
