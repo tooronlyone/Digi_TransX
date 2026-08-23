@@ -1,9 +1,4 @@
-"""Opt-in, test-only harness for authorized shared TEST step-up probes.
-
-No application imports this module. It refuses every target except the
-explicitly configured authorized TEST project and patches provider behavior only
-inside an in-process test context.
-"""
+"""Opt-in, test-only harness for authorized shared TEST step-up probes."""
 from contextlib import contextmanager
 import base64
 import hashlib
@@ -72,7 +67,6 @@ class DeterministicPayoutProvider:
 
 @contextmanager
 def deterministic_payout_provider(outcome):
-    """Patch the route's imported provider accessor for one test only."""
     provider = DeterministicPayoutProvider(outcome)
     original = wallet_routes.get_payment_provider
     wallet_routes.get_payment_provider = lambda: provider
@@ -82,49 +76,82 @@ def deterministic_payout_provider(outcome):
         wallet_routes.get_payment_provider = original
 
 class SharedTestFixtureLedger:
-    """Exact-row fixture bookkeeping; never truncates or bypasses RLS."""
+    """Owned fixture ledger with exact-row, ownership-checked cleanup."""
+    _SUPPORTED = {"users", "trusted_devices", "user_sessions", "mpin_credentials"}
+
     def __init__(self, url):
         self.url = url
         self.tag = f"dtx_shared_step_up_{secrets.token_hex(8)}"
-        self.rows = []
+        self._owned_rows = []
+        self._cleaned = False
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, exc_type, exc_value, traceback):
+        try:
+            self.cleanup()
+        except Exception as cleanup_error:
+            if exc_value is not None:
+                raise ExceptionGroup("probe and fixture cleanup failed", [exc_value, cleanup_error])
+            raise
+        return False
+
     def connect(self):
         return psycopg2.connect(self.url)
-    def record(self, table, key_column, key_value):
-        if not table.replace("_", "").isalnum() or not key_column.replace("_", "").isalnum():
-            raise SharedTestHarnessError("fixture identifiers must be static SQL identifiers")
-        self.rows.append((table, key_column, key_value))
+
+    def _register_owned(self, table, key_column, key_value, owner_sql, owner_params):
+        if table not in self._SUPPORTED:
+            raise SharedTestHarnessError("unsupported fixture table")
+        self._owned_rows.append((table, key_column, key_value, owner_sql, tuple(owner_params)))
+
     def cleanup(self):
+        if self._cleaned:
+            return
         with self.connect() as conn:
             with conn.cursor() as cursor:
-                for table, key_column, key_value in reversed(self.rows):
+                for table, key_column, key_value, owner_sql, owner_params in reversed(self._owned_rows):
+                    cursor.execute(owner_sql, owner_params)
+                    if cursor.fetchone() is None:
+                        raise SharedTestHarnessError(f"ownership uncertain for {table}:{key_value}")
                     cursor.execute(f"DELETE FROM public.{table} WHERE {key_column}=%s", (key_value,))
+                    if cursor.rowcount != 1:
+                        raise SharedTestHarnessError(f"owned fixture delete was not exact for {table}:{key_value}")
             conn.commit()
-        self.rows.clear()
+        self._owned_rows.clear()
+        self._cleaned = True
+
     def create_user(self, *, legacy_role, app_role):
         with self.connect() as conn, conn.cursor() as cursor:
             email = f"{self.tag}.{secrets.token_hex(4)}@example.invalid"
-            cnic = (secrets.token_hex(7))[:13]
+            cnic = secrets.token_hex(7)[:13]
             cursor.execute(
                 "INSERT INTO public.users(full_name,email,cnic,role,legacy_role) VALUES(%s,%s,%s,%s,%s) RETURNING id",
                 (self.tag, email, cnic, app_role, legacy_role),
             )
             user_id = cursor.fetchone()[0]
             conn.commit()
-        self.record("users", "id", user_id)
+        self._register_owned("users", "id", user_id,
+                             "SELECT id FROM public.users WHERE id=%s AND email=%s AND full_name=%s",
+                             (user_id, email, self.tag))
         return user_id
+
     def attach_authentication(self, user_id):
         device_raw = secrets.token_urlsafe(32)
         session_raw = secrets.token_urlsafe(32)
         access_raw = secrets.token_urlsafe(32)
+        device_digest = hashlib.sha256(device_raw.encode()).digest()
+        session_digest = hashlib.sha256(session_raw.encode()).digest()
+        access_digest = hashlib.sha256(access_raw.encode()).digest()
         with self.connect() as conn, conn.cursor() as cursor:
             cursor.execute(
                 "INSERT INTO public.trusted_devices(token_digest,user_id,expires_at) VALUES(%s,%s,now()+interval '30 days') RETURNING id",
-                (hashlib.sha256(device_raw.encode()).digest(), user_id),
+                (device_digest, user_id),
             )
             device_id = cursor.fetchone()[0]
             cursor.execute(
                 "INSERT INTO public.user_sessions(user_id,token_digest,trusted_device_id,inactivity_expires_at,absolute_expires_at,access_proof_digest,access_proof_expires_at) VALUES(%s,%s,%s,now()+interval '7 days',now()+interval '30 days',%s,now()+interval '8 hours') RETURNING session_id",
-                (user_id, hashlib.sha256(session_raw.encode()).digest(), device_id, hashlib.sha256(access_raw.encode()).digest()),
+                (user_id, session_digest, device_id, access_digest),
             )
             session_id = cursor.fetchone()[0]
             salt, verifier = mpin_service.build_credential("1234")
@@ -133,14 +160,19 @@ class SharedTestFixtureLedger:
                 (user_id, verifier, salt),
             )
             conn.commit()
-        self.record("mpin_credentials", "user_id", user_id)
-        self.record("user_sessions", "session_id", session_id)
-        self.record("trusted_devices", "id", device_id)
+        self._register_owned("mpin_credentials", "user_id", user_id,
+                             "SELECT user_id FROM public.mpin_credentials WHERE user_id=%s AND verifier=%s AND salt=%s",
+                             (user_id, verifier, salt))
+        self._register_owned("user_sessions", "session_id", session_id,
+                             "SELECT session_id FROM public.user_sessions WHERE session_id=%s AND user_id=%s AND token_digest=%s AND access_proof_digest=%s",
+                             (session_id, user_id, session_digest, access_digest))
+        self._register_owned("trusted_devices", "id", device_id,
+                             "SELECT id FROM public.trusted_devices WHERE id=%s AND user_id=%s AND token_digest=%s",
+                             (device_id, user_id, device_digest))
         return {"device_id": device_id, "session_id": session_id, "device_raw": device_raw, "session_raw": session_raw, "access_raw": access_raw}
 
 @contextmanager
 def shared_test_route_app(monkeypatch, fixture):
-    """Patch route DB ownership to the authorized shared TEST connection."""
     url = require_authorized_shared_test_url()
     @contextmanager
     def test_open_db():
@@ -167,4 +199,3 @@ def shared_test_route_app(monkeypatch, fixture):
 
 def open_shared_test_fixture():
     return SharedTestFixtureLedger(require_authorized_shared_test_url())
-
