@@ -329,6 +329,69 @@ def finalize_claim(
     ).fetchone()
 
 
+def reconcile_claim_after_uncertain_outcome(
+    executor, *, gate, descriptor,
+):
+    """Classify and safely reconcile one exact claim after an uncertain commit.
+
+    A reconnect can observe consumed only when the original transaction
+    committed. Otherwise it moves the still-claimed authorization to the
+    terminal reconciliation state. Repeated calls are idempotent and never
+    make an authorization available again.
+    """
+    if (
+        not gate
+        or not gate.authorization
+        or not isinstance(gate.claim_proof, str)
+        or not 32 <= len(gate.claim_proof) <= 512
+    ):
+        return None
+    row = executor.execute(
+        """
+        SELECT *
+          FROM public.mpin_step_up_authorizations
+         WHERE authorization_id=%s AND claim_digest=%s
+           AND user_id=%s AND session_id=%s AND trusted_device_id=%s
+           AND credential_generation=%s
+           AND action_key=%s AND resource_type=%s AND resource_id=%s
+           AND request_fingerprint=%s
+           AND amount_minor IS NOT DISTINCT FROM %s
+           AND currency IS NOT DISTINCT FROM %s
+           AND destination_digest IS NOT DISTINCT FROM %s
+           AND funding_source IS NOT DISTINCT FROM %s
+         FOR UPDATE
+        """,
+        (
+            gate.authorization["authorization_id"], _digest(gate.claim_proof),
+            gate.user["id"], gate.durable_session["session_id"],
+            gate.trusted_device["id"], gate.credential["credential_generation"],
+            descriptor["action_key"], descriptor["resource_type"],
+            descriptor["resource_id"], descriptor["request_fingerprint"],
+            descriptor["amount_minor"], descriptor["currency"],
+            descriptor["destination_digest"], descriptor["funding_source"],
+        ),
+    ).fetchone()
+    if not row or row["state"] not in {
+        "claimed", "consumed", "reconciliation_required",
+    }:
+        return None
+    observed_state = row["state"]
+    if observed_state == "claimed":
+        row = executor.execute(
+            """
+            UPDATE public.mpin_step_up_authorizations
+               SET state='reconciliation_required',
+                   reconciliation_required_at=now()
+             WHERE authorization_id=%s AND state='claimed' AND claim_digest=%s
+             RETURNING *
+            """,
+            (gate.authorization["authorization_id"], _digest(gate.claim_proof)),
+        ).fetchone()
+        if not row:
+            return None
+    return {"authorization": row, "observed_state": observed_state}
+
+
 def lock_and_finalize_current_request_claim(
     executor, request_object, *, gate, descriptor,
 ):

@@ -16,6 +16,7 @@ import psycopg2
 from psycopg2.extras import RealDictCursor
 import pytest
 from supabase_auth.errors import AuthApiError, AuthRetryableError
+from auth import session_service
 
 import auth.helpers as auth_helpers
 import auth.routes as auth_routes
@@ -927,7 +928,7 @@ def test_durable_session_and_exact_device_are_the_only_runtime_authority(auth_cl
         "message": "Authentication required.",
     }
 
-    device_raw, session_raw, _device_id, _session_id = _authenticate_client(
+    device_raw, session_raw, device_id, session_id = _authenticate_client(
         client, url, user_id
     )
     client.delete_cookie("dtx_session_token")
@@ -937,7 +938,18 @@ def test_durable_session_and_exact_device_are_the_only_runtime_authority(auth_cl
     assert client.get("/auth/me").status_code == 401
     client.set_cookie("dtx_session_token", session_raw)
     client.set_cookie("dtx_device_token", device_raw)
-    assert client.get("/auth/me").status_code == 200
+    current = client.get("/auth/me")
+    assert current.status_code == 200
+    body = current.get_json()
+    assert body["security_context"]["session_ref"] == (
+        session_service.session_event_reference(session_id)
+    )
+    assert body["security_context"]["trusted_device_ref"] == (
+        session_service.trusted_device_reference(device_id)
+    )
+    assert body["security_context"]["access_proof_ref"].startswith("proof_")
+    assert session_raw not in current.get_data(as_text=True)
+    assert device_raw not in current.get_data(as_text=True)
 
 
 @pytest.mark.parametrize(

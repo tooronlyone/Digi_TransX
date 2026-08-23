@@ -63,6 +63,7 @@ from auth import mpin_service, step_up_service
 from auth.trusted_device_service import digest_token, establish_after_full_login
 from auth.session_service import (
     access_lock_reference,
+    access_proof_reference,
     create_session,
     digest_access_proof,
     digest_opaque_token,
@@ -73,6 +74,7 @@ from auth.session_service import (
     revoke_session,
     rotate_access_proof,
     session_event_reference,
+    trusted_device_reference,
 )
 
 
@@ -586,6 +588,7 @@ def login():
 @login_required(refresh_activity=False, allow_locked=True)
 def auth_me():
     ensure_csrf_token()
+    current_session = request.current_session
     return json_response(
         {
             "success": True,
@@ -593,7 +596,16 @@ def auth_me():
             "csrf_token": session["csrf_token"],
             "redirect": role_redirect(request.current_user.get("role")),
             "session": {"last_active_at": session.get("last_active_at", "")},
-            "access_locked": bool(request.current_session.get("access_locked")),
+            "access_locked": bool(current_session.get("access_locked")),
+            "security_context": {
+                "session_ref": session_event_reference(current_session["session_id"]),
+                "trusted_device_ref": trusted_device_reference(
+                    current_session["trusted_device_id"]
+                ),
+                "access_proof_ref": access_proof_reference(
+                    current_session.get("access_proof_digest")
+                ),
+            },
         }
     )
 

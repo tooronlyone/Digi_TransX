@@ -40,17 +40,27 @@ def _step_up_request_id(action_key):
 
 def _mark_payout_reconciliation(gate, descriptor, request_id):
     with open_db() as db:
-        finalized = step_up_service.finalize_claim(
-            db,
-            authorization_id=gate.authorization["authorization_id"],
-            raw_claim=gate.claim_proof,
-            reconciliation_required=True,
+        reconciled = step_up_service.reconcile_claim_after_uncertain_outcome(
+            db, gate=gate, descriptor=descriptor
         )
-        if finalized:
-            step_up_service.write_reconciliation_event(
-                db, request_id=request_id, gate=gate, descriptor=descriptor
-            )
+        if not reconciled:
+            raise RuntimeError("Exact payout claim could not be reconciled.")
+        step_up_service.write_reconciliation_event(
+            db, request_id=request_id, gate=gate, descriptor=descriptor
+        )
         db.commit()
+        return reconciled["observed_state"]
+
+
+def _payout_reconciliation_response():
+    return json_response(
+        {
+            "success": False,
+            "code": "reconciliation_required",
+            "message": "Payout destination outcome requires reconciliation.",
+        },
+        503,
+    )
 
 
 def _mark_payout_rejected(gate):
@@ -725,9 +735,7 @@ def save_payout_card():
     except Exception:
         current_app.logger.error("Payout destination tokenization outcome is uncertain.")
         _mark_payout_reconciliation(gate, descriptor, request_id)
-        return json_response(
-            {"success": False, "message": "Payout destination could not be saved."}, 503
-        )
+        return _payout_reconciliation_response()
     needs_reconciliation = False
     try:
         with open_db() as db:
@@ -775,7 +783,5 @@ def save_payout_card():
         needs_reconciliation = True
     if needs_reconciliation:
         _mark_payout_reconciliation(gate, descriptor, request_id)
-        return json_response(
-            {"success": False, "message": "Payout destination could not be saved."}, 503
-        )
+        return _payout_reconciliation_response()
     return json_response({"success": True, "message": "Payout card saved successfully."})

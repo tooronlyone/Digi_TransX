@@ -197,6 +197,18 @@ export function createLatestRequestGate() {
   }
 }
 
+export function authorityContextKey(auth) {
+  const context = auth?.security_context
+  const userId = auth?.user?.id
+  if (userId == null || !context?.session_ref || !context?.trusted_device_ref) return null
+  return JSON.stringify([
+    String(userId),
+    String(context.session_ref),
+    String(context.trusted_device_ref),
+    context.access_proof_ref == null ? null : String(context.access_proof_ref),
+  ])
+}
+
 export function createAccessLockCoordinator() {
   const listeners = new Set()
   let lockLatched = false
@@ -225,6 +237,12 @@ export function createAccessLockCoordinator() {
       lockGeneration += 1
       this.cancelReplay()
       emit({ type: 'full_login_required', ...detail })
+    },
+    notifyIdentityContextChanged(detail = {}) {
+      lockLatched = false
+      lockGeneration += 1
+      this.cancelReplay()
+      emit({ type: 'identity_context_changed', ...detail })
     },
     captureReplay(descriptor, fallbackResponse, executeReplay) {
       if (!lockLatched || pendingReplay || !descriptor || typeof executeReplay !== 'function') return null

@@ -102,6 +102,28 @@ def session_event_reference(session_id):
     return f"session_{access_lock_reference(session_id)[:32]}"
 
 
+def trusted_device_reference(trusted_device_id):
+    """Return a non-reversible browser authority reference for one device."""
+
+    if trusted_device_id is None:
+        raise SessionFoundationError("A trusted-device identifier is required.")
+    digest = hashlib.sha256(
+        f"trusted-device:{trusted_device_id}".encode("ascii")
+    ).hexdigest()
+    return f"device_{digest[:32]}"
+
+
+def access_proof_reference(access_proof_digest):
+    """Return a non-reversible reference that changes on proof rotation."""
+
+    if access_proof_digest is None:
+        return None
+    digest = hashlib.sha256(
+        b"access-proof:" + bytes(access_proof_digest)
+    ).hexdigest()
+    return f"proof_{digest[:32]}"
+
+
 def create_session(executor, user_id, *, trusted_device_id):
     """Issue one device-bound session inside the caller transaction."""
 

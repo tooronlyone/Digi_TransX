@@ -3,6 +3,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import {
   ACCESS_STATES,
   accessLockCoordinator,
+  authorityContextKey,
   createLatestRequestGate,
   deriveAccessState,
   isPublicAuthPath,
@@ -217,12 +218,14 @@ export default function AccessLockProvider({ children }) {
   const [user, setUser] = useState(null)
   const gate = useRef(createLatestRequestGate())
   const controller = useRef(null)
+  const authorityContext = useRef(null)
 
   const requireFullLogin = useCallback((returnPath = location.pathname) => {
     controller.current?.abort()
     gate.current.invalidate()
     setState(ACCESS_STATES.FULL_LOGIN_REQUIRED)
     setUser(null)
+    authorityContext.current = null
     clearAuthPresentation()
     const safePath = safeRelativePath(returnPath)
     if (!isPublicAuthPath(location.pathname)) {
@@ -238,6 +241,12 @@ export default function AccessLockProvider({ children }) {
     try {
       const auth = await requestJson('/auth/me', { signal: requestController.signal })
       if (!gate.current.isCurrent(revision)) return
+      const nextAuthorityContext = authorityContextKey(auth)
+      const previousAuthorityContext = authorityContext.current
+      authorityContext.current = nextAuthorityContext
+      if (previousAuthorityContext !== null && previousAuthorityContext !== nextAuthorityContext) {
+        accessLockCoordinator.notifyIdentityContextChanged()
+      }
       setUser(auth.user)
       cacheAuthPresentation(auth)
       if (!auth.access_locked) {

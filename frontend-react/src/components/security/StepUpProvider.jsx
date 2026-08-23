@@ -34,7 +34,7 @@ export function StepUpProvider({ children }) {
   }, [location.key, cancelChallenge])
 
   useEffect(() => accessLockCoordinator.subscribe((event) => {
-    if (event.type === 'access_locked' || event.type === 'full_login_required') {
+    if (event.type === 'access_locked' || event.type === 'full_login_required' || event.type === 'identity_context_changed') {
       cancelChallenge('Step-up authorization was cancelled because authentication changed.')
     }
   }), [cancelChallenge])

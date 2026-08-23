@@ -4,6 +4,7 @@ import test from 'node:test'
 
 import {
   ACCESS_STATES,
+  authorityContextKey,
   createAccessLockCoordinator,
   createLatestRequestGate,
   createSafeReplayDescriptor,
@@ -466,4 +467,39 @@ test('genuine activity remains the sole trusted interaction owner', async () => 
     assert.equal(candidate.includes('sendGenuineActivity'), false)
     assert.equal(candidate.includes('addEventListener'), false)
   }
+})
+
+test('authority context changes cancel pending work for every auth generation', async () => {
+  const base = {
+    user: { id: 7 },
+    security_context: {
+      session_ref: 'session-a',
+      trusted_device_ref: 'device-a',
+      access_proof_ref: 'proof-a',
+    },
+  }
+  const original = authorityContextKey(base)
+  for (const changed of [
+    { ...base, user: { id: 8 } },
+    { ...base, security_context: { ...base.security_context, session_ref: 'session-b' } },
+    { ...base, security_context: { ...base.security_context, trusted_device_ref: 'device-b' } },
+    { ...base, security_context: { ...base.security_context, access_proof_ref: 'proof-b' } },
+  ]) assert.notEqual(authorityContextKey(changed), original)
+
+  assert.equal(authorityContextKey({ user: { id: 7 } }), null)
+  const coordinator = createAccessLockCoordinator()
+  const events = []
+  coordinator.subscribe((event) => events.push(event.type))
+  coordinator.notifyAccessLocked()
+  const fallback = { status: 423 }
+  const waiting = coordinator.captureReplay(
+    { path: '/api/platform/terms/current' },
+    fallback,
+    async () => ({ status: 200 }),
+  )
+  coordinator.notifyIdentityContextChanged()
+  assert.equal(await waiting, fallback)
+  assert.equal(coordinator.hasPendingReplay(), false)
+  assert.equal(await coordinator.markUnlocked(), false)
+  assert.deepEqual(events, ['access_locked', 'identity_context_changed'])
 })

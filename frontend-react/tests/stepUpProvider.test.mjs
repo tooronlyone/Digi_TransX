@@ -6,6 +6,7 @@ const source = (relative) => readFile(new URL(relative, import.meta.url), 'utf8'
 
 test('StepUpProvider keeps MPIN and proof in memory and replays exactly once', async () => {
   const provider = await source('../src/components/security/StepUpProvider.jsx')
+  const accessProvider = await source('../src/components/security/AccessLockProvider.jsx')
   assert.match(provider, /first\.status !== 428/)
   assert.match(provider, /payload\?\.code !== 'mpin_step_up_required'/)
   assert.match(provider, /requestJson\('\/auth\/mpin\/step-up'/)
@@ -14,6 +15,9 @@ test('StepUpProvider keeps MPIN and proof in memory and replays exactly once', a
   assert.equal((provider.match(/return fetch\(url, \{ \.\.\.options, headers \}\)/g) || []).length, 1)
   assert.match(provider, /location\.key/)
   assert.match(provider, /full_login_required/)
+  assert.match(provider, /identity_context_changed/)
+  assert.match(accessProvider, /authorityContextKey\(auth\)/)
+  assert.match(accessProvider, /notifyIdentityContextChanged\(\)/)
   assert.match(provider, /operationGeneration !== generation\.current/)
   for (const forbidden of ['localStorage', 'sessionStorage']) {
     assert.equal(provider.includes(forbidden), false, forbidden)

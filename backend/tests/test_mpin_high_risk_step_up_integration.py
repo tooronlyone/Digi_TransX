@@ -88,6 +88,9 @@ def test_payout_provider_boundary_has_no_open_database_during_io_and_three_outco
     assert "provider_rejected=True" in source
     assert "_mark_payout_reconciliation" in source
     assert "lock_and_finalize_current_request_claim" in source
+    assert "reconcile_claim_after_uncertain_outcome" in source
+    assert '"code": "reconciliation_required"' in source
+    assert "_payout_reconciliation_response()" in source
     for forbidden in ("str(exc)", "repr(exc)", "authorization_proof", "card_number"):
         assert forbidden not in source[source.index("except PaymentProviderRejected"):]
 

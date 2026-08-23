@@ -792,3 +792,72 @@ def test_forward_migration_converges_reapplies_and_rejects_corruption():
             conn.close()
     finally:
         cleanup()
+
+
+@pytest.mark.parametrize(
+    ("original_commit_succeeded", "observed_state", "final_state"),
+    [
+        (False, "claimed", "reconciliation_required"),
+        (True, "consumed", "consumed"),
+    ],
+)
+def test_uncertain_payout_reconnect_classifies_commit_without_replaying(
+    mpin_client, original_commit_succeeded, observed_state, final_state,
+):
+    client, url = mpin_client
+    auth = _authenticate(client, url, with_mpin="1234")
+    proof = _post(client).get_json()["authorization_proof"]
+    row = _ledger_row(url)
+    descriptor = step_up_service.normalize_descriptor(_action())
+    binding = {
+        "raw_proof": proof,
+        "user_id": auth["user_id"],
+        "session_id": auth["session_id"],
+        "trusted_device_id": auth["device_id"],
+        "credential_generation": row["credential_generation"],
+        "descriptor": descriptor,
+    }
+    with psycopg2.connect(url) as conn:
+        db = Db(conn)
+        claimed, claim = step_up_service.claim_authorization(db, **binding)
+        conn.commit()
+
+    gate = step_up_service.ConsumptionGate(
+        "authorized",
+        authorization=dict(claimed),
+        claim_proof=claim,
+        durable_session={"session_id": auth["session_id"]},
+        user={"id": auth["user_id"]},
+        trusted_device={"id": auth["device_id"]},
+        credential={"credential_generation": row["credential_generation"]},
+    )
+    if original_commit_succeeded:
+        with psycopg2.connect(url) as conn:
+            finalized = step_up_service.finalize_claim(
+                Db(conn),
+                authorization_id=claimed["authorization_id"],
+                raw_claim=claim,
+            )
+            assert finalized["state"] == "consumed"
+            conn.commit()
+
+    wrong = step_up_service.normalize_descriptor(_action(amount_minor=12501))
+    with psycopg2.connect(url) as conn:
+        assert step_up_service.reconcile_claim_after_uncertain_outcome(
+            Db(conn), gate=gate, descriptor=wrong
+        ) is None
+        conn.rollback()
+
+    with psycopg2.connect(url) as conn:
+        result = step_up_service.reconcile_claim_after_uncertain_outcome(
+            Db(conn), gate=gate, descriptor=descriptor
+        )
+        assert result["observed_state"] == observed_state
+        assert result["authorization"]["state"] == final_state
+        conn.commit()
+
+    with psycopg2.connect(url) as conn:
+        repeated = step_up_service.reconcile_claim_after_uncertain_outcome(
+            Db(conn), gate=gate, descriptor=descriptor
+        )
+        assert repeated["authorization"]["state"] == final_state
