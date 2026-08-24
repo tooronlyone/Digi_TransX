@@ -1404,6 +1404,7 @@ def test_only_the_bounded_auth_route_imports_or_emits_canonical_events():
             matches.append(path.relative_to(REPO_ROOT).as_posix())
     assert matches == [
         "backend/auth/helpers.py",
+        "backend/auth/logout_all_service.py",
         "backend/auth/routes.py",
         "backend/auth/step_up_service.py",
     ]

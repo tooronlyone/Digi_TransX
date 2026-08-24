@@ -93,6 +93,10 @@ export function formatDateTime(value) {
   })
 }
 
+export function clearCachedCsrfToken() {
+  cachedCsrfToken = null
+}
+
 export async function getCsrfToken() {
   if (cachedCsrfToken) return cachedCsrfToken
   const stored = sessionStorage.getItem('csrf_token')

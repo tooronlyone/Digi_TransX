@@ -19,14 +19,25 @@ MIGRATION = ROOT / "supabase/migrations/20260801220000_mpin_step_up_high_risk_in
 WALLET_ROUTES = ROOT / "backend/wallet/routes.py"
 
 
-def test_exact_six_actions_and_funding_boundaries():
-    assert set(step_up_service.ACTION_POLICIES) == {
+def test_exact_six_category_a_actions_and_security_extension():
+    category_a = set(step_up_service.ACTION_POLICIES) - {"security.logout_all"}
+    assert category_a == {
         "one_time.checkout.wallet_only",
         "wallet.withdrawal.request",
         "wallet.withdrawal_limit.purchase",
         "wallet.payout_destination.replace",
         "agreement.finalize",
         "client.delivery.confirm_release",
+    }
+    logout_all = step_up_service.normalize_descriptor({
+        "action_key": "security.logout_all",
+        "resource_type": "account_security",
+        "resource_id": 1,
+    })
+    assert step_up_service.public_descriptor(logout_all) == {
+        "action_key": "security.logout_all",
+        "resource_type": "account_security",
+        "resource_id": 1,
     }
     base = {
         "action_key": "one_time.checkout.wallet_only",

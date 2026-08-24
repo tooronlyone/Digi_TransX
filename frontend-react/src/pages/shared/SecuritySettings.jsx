@@ -1,3 +1,4 @@
+import LogoutAllAction from '../../components/security/LogoutAllAction'
 import MpinManagement from '../../components/security/MpinManagement'
 
 export default function SecuritySettings() {
@@ -8,7 +9,10 @@ export default function SecuritySettings() {
         <h1>Security settings</h1>
         <span>Manage software-unlock access for this trusted signed-in device.</span>
       </header>
-      <MpinManagement />
+      <div className="security-settings-page__content">
+        <MpinManagement />
+        <LogoutAllAction />
+      </div>
     </main>
   )
 }

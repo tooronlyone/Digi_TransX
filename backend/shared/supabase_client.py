@@ -52,6 +52,12 @@ def supabase_create_user(email, password, metadata=None):
 class PasswordProviderUnavailable(RuntimeError):
     """Supabase Auth could not make a credential decision."""
 
+    def __init__(self, message="Password provider unavailable.", *, status=503,
+                 code="password_provider_unavailable"):
+        super().__init__(message)
+        self.status = status
+        self.code = code
+
 
 class SignupProviderConflict(RuntimeError):
     """Supabase Auth reported a structured account conflict."""

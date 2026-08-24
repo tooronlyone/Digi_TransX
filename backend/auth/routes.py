@@ -59,7 +59,7 @@ from .helpers import (
     update_user_settings,
     validate_signup_payload,
 )
-from auth import mpin_service, step_up_service
+from auth import logout_all_service, mpin_service, step_up_service
 from auth.trusted_device_service import digest_token, establish_after_full_login
 from auth.session_service import (
     access_lock_reference,
@@ -733,6 +733,94 @@ def logout():
         current_app.logger.error("Canonical logout revocation/evidence could not be persisted.")
     response = json_response({"success": True, "message": "Logged out successfully."})
     return clear_authentication_cookies(response)
+
+
+@auth_blueprint.post("/logout-all")
+@login_required(refresh_activity=False)
+def logout_all():
+    """End the current user's active sessions and trusted devices."""
+    err = csrf_error()
+    if err:
+        return err
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        data = {}
+    request_id = f"auth.logout_all.{uuid.uuid4().hex}"
+    try:
+        result = logout_all_service.logout_all(
+            presented_user=request.current_user,
+            presented_session=request.current_session,
+            raw_session_token=request.cookies.get(SESSION_TOKEN_COOKIE_NAME, ""),
+            raw_device_token=request.cookies.get(DEVICE_COOKIE_NAME, ""),
+            raw_access_proof=request.cookies.get(ACCESS_PROOF_COOKIE_NAME, ""),
+            raw_step_up_proof=request.headers.get(
+                step_up_service.STEP_UP_PROOF_HEADER, ""
+            ),
+            password=data.get("password"),
+            request_id=request_id,
+        )
+    except Exception:
+        current_app.logger.error("Logout-all revocation/evidence could not be committed.")
+        return json_response(
+            {"success": False, "message": "Logout-all is temporarily unavailable."},
+            503,
+        )
+
+    if result.status == "success":
+        response = json_response({
+            "success": True,
+            "session_count": result.session_count,
+            "trusted_device_count": result.trusted_device_count,
+        })
+        return clear_authentication_cookies(response)
+    if result.status == "mpin_required":
+        return json_response(
+            {
+                "success": False,
+                "code": "mpin_step_up_required",
+                "message": "MPIN step-up authorization is required.",
+                "action": step_up_service.public_descriptor(
+                    logout_all_service.LOGOUT_ALL_DESCRIPTOR
+                ),
+            },
+            428,
+        )
+    if result.status == "password_required":
+        return json_response(
+            {
+                "success": False,
+                "code": "current_password_required",
+                "message": "Current password verification is required.",
+            },
+            428,
+        )
+    if result.status == "invalid_password":
+        return _generic_reverification_response()
+    if result.status == "provider_unavailable":
+        return json_response(
+            {
+                "success": False,
+                "code": result.provider_code or "password_provider_unavailable",
+                "message": "Unable to verify current credentials.",
+            },
+            result.provider_status or 503,
+        )
+    if result.status == "confirmation_changed":
+        return json_response(
+            {
+                "success": False,
+                "code": "confirmation_changed",
+                "message": "Confirmation requirements changed. Please try again.",
+            },
+            409,
+        )
+    if result.status == "authentication_required":
+        return clear_authentication_cookies(
+            json_response(
+                {"success": False, "message": "Authentication required."}, 401
+            )
+        )
+    raise RuntimeError("Unknown logout-all result state.")
 
 
 @auth_blueprint.post("/forgot-password")

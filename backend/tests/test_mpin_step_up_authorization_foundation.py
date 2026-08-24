@@ -20,7 +20,7 @@ from auth import session_service, step_up_service
 from events.catalog import CATALOG, NonWritableEventName, get_writable_event_definition
 from shared.db import Db
 from tests._life_helpers import (
-    STUBS, make_disposable, origin_main_schema_or_skip, require_test_db_url,
+    STUBS, make_disposable, require_test_db_url, schema_before_migration_or_skip,
 )
 from tests.test_secure_mpin_access import (
     _authenticate, _csrf, _session_snapshot, mpin_client, mpin_database_url,
@@ -125,11 +125,12 @@ def _route_database_after(url, hook):
         {"action_key": "client.delivery.confirm_release", "resource_type": "trip", "resource_id": 1, "amount_minor": 1, "currency": "PKR"},
     ],
 )
-def test_exact_six_server_recognized_action_descriptors(value):
+def test_exact_six_category_a_descriptors_and_security_extension(value):
     normalized = step_up_service.normalize_descriptor(value)
     assert normalized["action_key"] == value["action_key"]
     assert len(normalized["request_fingerprint"]) == 32
-    assert len(step_up_service.ACTION_POLICIES) == 6
+    assert len(step_up_service.ACTION_POLICIES) == 7
+    assert "security.logout_all" in step_up_service.ACTION_POLICIES
 
 
 def test_issuance_is_digest_only_exactly_three_minutes_and_does_not_refresh(mpin_client):
@@ -766,7 +767,8 @@ def test_forward_migration_converges_reapplies_and_rejects_corruption():
     assert parsed.hostname in {"localhost", "127.0.0.1", "::1"}
     assert url != os.environ.get("SUPABASE_DB_URL", "").strip()
     child, cleanup = make_disposable(
-        url, STUBS, origin_main_schema_or_skip(), MIGRATION.read_text(encoding="utf-8")
+        url, STUBS, schema_before_migration_or_skip(MIGRATION),
+        MIGRATION.read_text(encoding="utf-8")
     )
     try:
         conn = psycopg2.connect(child)

@@ -31,7 +31,8 @@ class ActionPolicy:
     funding_sources: frozenset[str] = frozenset()
 
 
-# Canonical policies for the six approved Category A targets.
+# Canonical policies for approved action-bound targets. Logout-all is a
+# security action, not an alias for one of the six Category A business actions.
 ACTION_POLICIES = {
     "one_time.checkout.wallet_only": ActionPolicy(
         "order", amount_required=True, funding_sources=frozenset({"wallet"})
@@ -47,6 +48,7 @@ ACTION_POLICIES = {
     ),
     "agreement.finalize": ActionPolicy("agreement", amount_required=True),
     "client.delivery.confirm_release": ActionPolicy("trip", amount_required=True),
+    "security.logout_all": ActionPolicy("account_security"),
 }
 
 
