@@ -1,5 +1,6 @@
 import LogoutAllAction from '../../components/security/LogoutAllAction'
 import MpinManagement from '../../components/security/MpinManagement'
+import SessionDeviceManagement from '../../components/security/SessionDeviceManagement'
 
 export default function SecuritySettings() {
   return (
@@ -11,6 +12,7 @@ export default function SecuritySettings() {
       </header>
       <div className="security-settings-page__content">
         <MpinManagement />
+        <SessionDeviceManagement />
         <LogoutAllAction />
       </div>
     </main>

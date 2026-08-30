@@ -60,6 +60,7 @@ from .helpers import (
     validate_signup_payload,
 )
 from auth import logout_all_service, mpin_service, step_up_service
+from auth import session_device_management
 from auth.trusted_device_service import digest_token, establish_after_full_login
 from auth.session_service import (
     access_lock_reference,
@@ -608,6 +609,108 @@ def auth_me():
             },
         }
     )
+
+
+def _active_security_records():
+    try:
+        with open_db() as db:
+            return session_device_management.list_active(
+                db,
+                request.current_user["id"],
+                current_session_id=request.current_session["session_id"],
+                current_device_id=request.current_session["trusted_device_id"],
+            )
+    except Exception:
+        current_app.logger.error("Active security sessions could not be listed.")
+        return None
+
+
+@auth_blueprint.get("/security/sessions")
+@login_required(refresh_activity=False)
+def active_security_sessions():
+    """Return safe active-session management records for the current owner."""
+    result = _active_security_records()
+    if result is None:
+        return json_response(
+            {"success": False, "message": "Security sessions are temporarily unavailable."}, 503
+        )
+    return json_response({"success": True, **result})
+
+
+@auth_blueprint.get("/security/devices")
+@login_required(refresh_activity=False)
+def active_security_devices():
+    """Return safe active trusted-device management records for the owner."""
+    result = _active_security_records()
+    if result is None:
+        return json_response(
+            {"success": False, "message": "Security devices are temporarily unavailable."}, 503
+        )
+    return json_response(
+        {
+            "success": True,
+            "trusted_devices": result["trusted_devices"],
+            "count": len(result["trusted_devices"]),
+        }
+    )
+
+
+@auth_blueprint.delete("/security/sessions/<string:management_ref>")
+@login_required(refresh_activity=False)
+def revoke_security_session(management_ref):
+    err = csrf_error()
+    if err:
+        return err
+    try:
+        with open_db() as db:
+            result = session_device_management.revoke_session(
+                db,
+                user=request.current_user,
+                management_ref=management_ref,
+                current_session_id=request.current_session["session_id"],
+                request_id=f"auth.session_management.{uuid.uuid4().hex}",
+            )
+    except Exception:
+        current_app.logger.error("Managed session revocation could not be committed.")
+        return json_response(
+            {"success": False, "message": "Session management is temporarily unavailable."},
+            503,
+        )
+    if result["status"] != "revoked":
+        return json_response(
+            {"success": False, "code": result["status"], "message": "That session is no longer available."},
+            409,
+        )
+    return json_response({"success": True, "status": "revoked", "session_count": 1})
+
+
+@auth_blueprint.delete("/security/devices/<string:management_ref>")
+@login_required(refresh_activity=False)
+def revoke_security_device(management_ref):
+    err = csrf_error()
+    if err:
+        return err
+    try:
+        with open_db() as db:
+            result = session_device_management.revoke_device(
+                db,
+                user=request.current_user,
+                management_ref=management_ref,
+                current_device_id=request.current_session["trusted_device_id"],
+                request_id=f"auth.device_management.{uuid.uuid4().hex}",
+            )
+    except Exception:
+        current_app.logger.error("Managed device revocation could not be committed.")
+        return json_response(
+            {"success": False, "message": "Device management is temporarily unavailable."},
+            503,
+        )
+    if result["status"] != "revoked":
+        return json_response(
+            {"success": False, "code": result["status"], "message": "That device is no longer available."},
+            409,
+        )
+    return json_response({"success": True, **result})
 
 
 @auth_blueprint.post("/session/activity")

@@ -216,7 +216,26 @@ button:disabled { cursor: not-allowed; opacity: .62; }
 .logout-all-overlay { z-index: 10001; }
 .access-lock__icon.is-danger { background: #fee2e2; color: #b91c1c; }
 
+.security-management { min-width: 0; border: 1px solid #e2e8f0; border-radius: 18px; background: #fff; padding: clamp(16px, 4vw, 28px); box-shadow: 0 10px 28px rgb(15 23 42 / 6%); }
+.security-management > header h2 { margin: 0; color: #0f172a; font-size: var(--type-section-title, 1.5rem); }
+.security-management > header > p:last-child { max-width: 66ch; margin: 8px 0 0; color: #64748b; line-height: 1.55; }
+.security-management__grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-top: 20px; }
+.security-management__grid section { min-width: 0; border-top: 1px solid #e2e8f0; padding-top: 16px; }
+.security-management__grid h3 { margin: 0 0 10px; color: #334155; font-size: 1.05rem; }
+.security-management__grid ul { display: grid; gap: 10px; margin: 0; padding: 0; list-style: none; }
+.security-management__row { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-width: 0; border: 1px solid #e2e8f0; border-radius: 12px; padding: 13px; }
+.security-management__row > div:first-child { min-width: 0; }
+.security-management__row strong, .security-management__row span { display: block; }
+.security-management__row strong { color: #0f172a; }
+.security-management__row span { margin-top: 4px; color: #64748b; font-size: .8125rem; }
+.security-management__actions { display: flex; align-items: center; flex-wrap: wrap; justify-content: flex-end; gap: 8px; flex: 0 0 auto; }
+.security-management__current { color: #047857 !important; font-weight: 700; }
+.security-danger--small { min-height: 38px; padding: 8px 12px; }
+
 @media (max-width: 767px) {
   .logout-all-card { align-items: stretch; flex-direction: column; gap: 18px; }
   .logout-all-card > .security-danger { width: 100%; white-space: normal; }
+  .security-management__grid { grid-template-columns: minmax(0, 1fr); }
+  .security-management__row { align-items: flex-start; flex-direction: column; }
+  .security-management__actions { width: 100%; justify-content: flex-start; }
 }
