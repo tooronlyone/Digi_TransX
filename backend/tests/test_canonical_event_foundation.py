@@ -590,9 +590,13 @@ def test_migration_order_and_no_old_provisional_reference():
         cwd=REPO_ROOT,
         text=True,
     ).splitlines()
+    # Audit the current worktree, including replacements not yet staged.
+    deleted_files = set(subprocess.check_output(
+        ["git", "ls-files", "--deleted"], cwd=REPO_ROOT, text=True,
+    ).splitlines())
     repository_text = "\n".join(
         (REPO_ROOT / path).read_text(encoding="utf-8", errors="replace")
-        for path in source_files
+        for path in source_files if path not in deleted_files
     )
     assert old_stamp not in repository_text
     assert BASELINE_MIGRATION.name < EVENT_MIGRATION.name
@@ -1406,5 +1410,6 @@ def test_only_the_bounded_auth_route_imports_or_emits_canonical_events():
         "backend/auth/helpers.py",
         "backend/auth/logout_all_service.py",
         "backend/auth/routes.py",
+        "backend/auth/session_device_management.py",
         "backend/auth/step_up_service.py",
     ]

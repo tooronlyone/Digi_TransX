@@ -83,7 +83,7 @@ def locked_access_proof_is_valid(executor, locked_session, raw_proof):
     if not secrets.compare_digest(bytes(stored_digest), presented_digest):
         return False
     row = executor.execute(
-        "SELECT %s > now() AS valid", (expires_at,)
+        "SELECT %s > clock_timestamp() AS valid", (expires_at,)
     ).fetchone()
     return bool(row and row["valid"])
 
@@ -124,12 +124,35 @@ def access_proof_reference(access_proof_digest):
     return f"proof_{digest[:32]}"
 
 
+def lock_authentication_owner(executor, user_id):
+    """Serialize conflicting authentication changes on their exact owner first.
+
+    Global order: owner user, existing sessions by session_id, existing devices
+    by id, MPIN credential, authorization, then domain mutations and events.
+    New session/device rows have fresh identities and are inserted only while
+    this owner lock is held. Reacquiring an already held owner lock never waits.
+    """
+    return executor.execute(
+        "SELECT * FROM users WHERE id = %s AND NOT is_blocked FOR UPDATE",
+        (user_id,),
+    ).fetchone()
+
+
 def create_session(executor, user_id, *, trusted_device_id):
     """Issue one device-bound session inside the caller transaction."""
 
     if not trusted_device_id:
         raise SessionFoundationError("A trusted device is required for session issuance.")
 
+    if not lock_authentication_owner(executor, user_id):
+        raise SessionFoundationError("Session owner is unavailable.")
+    device = executor.execute(
+        """SELECT id FROM trusted_devices WHERE id=%s AND user_id=%s
+             AND revoked_at IS NULL AND expires_at>now() FOR UPDATE""",
+        (trusted_device_id, user_id),
+    ).fetchone()
+    if not device:
+        raise SessionFoundationError("Session device is unavailable.")
     raw_token = generate_opaque_token()
     raw_access_proof = generate_access_proof()
     result = executor.execute(
@@ -166,6 +189,21 @@ def find_session_by_token(
 ):
     """Resolve valid authentication and independently evaluate software access."""
 
+    if lock:
+        candidate = find_session_by_token(
+            executor, raw_token, device_digest, raw_access_proof=raw_access_proof,
+        )
+        if not candidate:
+            return None
+        durable, user, device = lock_session_user_and_device(
+            executor, candidate["session_id"], candidate["user_id"], device_digest,
+        )
+        if not durable or not user or not device:
+            return None
+        return find_session_by_token(
+            executor, raw_token, device_digest, raw_access_proof=raw_access_proof,
+        )
+
     proof_digest = None
     if raw_access_proof:
         try:
@@ -174,7 +212,7 @@ def find_session_by_token(
             proof_digest = None
 
     return executor.execute(
-        f"""
+        """
         SELECT s.*,
                (NOT s.access_locked
                 AND s.access_proof_digest IS NOT NULL
@@ -192,15 +230,16 @@ def find_session_by_token(
            AND NOT u.is_blocked
            AND d.revoked_at IS NULL
            AND d.expires_at > now()
-        {"FOR UPDATE OF s, d" if lock else ""}
         """,
         (proof_digest, digest_opaque_token(raw_token), device_digest),
     ).fetchone()
 
 
 def lock_session_by_id(executor, session_id, user_id):
-    """Lock one exact active session before a conflicting revoke operation."""
+    """Lock the owner before one exact active session."""
 
+    if not lock_authentication_owner(executor, user_id):
+        return None
     return executor.execute(
         """SELECT * FROM user_sessions
              WHERE session_id = %s AND user_id = %s AND revoked_at IS NULL
@@ -212,17 +251,17 @@ def lock_session_by_id(executor, session_id, user_id):
 
 
 def lock_session_user_and_device(executor, session_id, user_id, device_digest):
-    """Acquire the deterministic session -> user -> trusted-device lock order."""
+    """Acquire the global user -> session -> trusted-device lock order."""
 
-    durable = lock_session_by_id(executor, session_id, user_id)
-    if not durable:
-        return None, None, None
     user = executor.execute(
         "SELECT * FROM users WHERE id = %s AND NOT is_blocked FOR UPDATE",
         (user_id,),
     ).fetchone()
     if not user:
-        return durable, None, None
+        return None, None, None
+    durable = lock_session_by_id(executor, session_id, user_id)
+    if not durable:
+        return None, user, None
     device = executor.execute(
         """
         SELECT * FROM trusted_devices
@@ -246,9 +285,16 @@ def record_genuine_activity(
 ):
     """Revalidate and throttle one exact session's genuine activity.
 
-    Lock order is session -> user -> trusted device.  The caller owns the
+    Lock order is user -> session -> trusted device.  The caller owns the
     transaction and writes canonical evidence only when ``refreshed`` is true.
     """
+
+    user = executor.execute(
+        "SELECT id FROM users WHERE id = %s AND NOT is_blocked FOR UPDATE",
+        (user_id,),
+    ).fetchone()
+    if not user:
+        return {"status": "invalid_authentication", "refreshed": False}
 
     durable = executor.execute(
         """
@@ -263,13 +309,6 @@ def record_genuine_activity(
         (session_id, user_id, session_digest),
     ).fetchone()
     if not durable:
-        return {"status": "invalid_authentication", "refreshed": False}
-
-    user = executor.execute(
-        "SELECT id FROM users WHERE id = %s AND NOT is_blocked FOR UPDATE",
-        (user_id,),
-    ).fetchone()
-    if not user:
         return {"status": "invalid_authentication", "refreshed": False}
 
     device = executor.execute(
@@ -294,7 +333,7 @@ def record_genuine_activity(
         )
         and durable["access_proof_expires_at"] is not None
         and executor.execute(
-            "SELECT %s > now() AS valid", (durable["access_proof_expires_at"],)
+            "SELECT %s > clock_timestamp() AS valid", (durable["access_proof_expires_at"],)
         ).fetchone()["valid"]
     )
     if not proof_valid:

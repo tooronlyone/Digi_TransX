@@ -668,6 +668,10 @@ def revoke_security_session(management_ref):
                 user=request.current_user,
                 management_ref=management_ref,
                 current_session_id=request.current_session["session_id"],
+                current_device_id=request.current_session["trusted_device_id"],
+                raw_session_token=request.cookies.get(SESSION_TOKEN_COOKIE_NAME, ""),
+                raw_device_token=request.cookies.get(DEVICE_COOKIE_NAME, ""),
+                raw_access_proof=request.cookies.get(ACCESS_PROOF_COOKIE_NAME, ""),
                 request_id=f"auth.session_management.{uuid.uuid4().hex}",
             )
     except Exception:
@@ -676,6 +680,13 @@ def revoke_security_session(management_ref):
             {"success": False, "message": "Session management is temporarily unavailable."},
             503,
         )
+    if result["status"] == "authentication_required":
+        response = json_response(
+            {"success": False, "code": "authentication_required", "message": "Authentication required."},
+            401,
+        )
+        clear_authentication_cookies(response)
+        return response
     if result["status"] != "revoked":
         return json_response(
             {"success": False, "code": result["status"], "message": "That session is no longer available."},
@@ -697,6 +708,10 @@ def revoke_security_device(management_ref):
                 user=request.current_user,
                 management_ref=management_ref,
                 current_device_id=request.current_session["trusted_device_id"],
+                current_session_id=request.current_session["session_id"],
+                raw_session_token=request.cookies.get(SESSION_TOKEN_COOKIE_NAME, ""),
+                raw_device_token=request.cookies.get(DEVICE_COOKIE_NAME, ""),
+                raw_access_proof=request.cookies.get(ACCESS_PROOF_COOKIE_NAME, ""),
                 request_id=f"auth.device_management.{uuid.uuid4().hex}",
             )
     except Exception:
@@ -705,6 +720,13 @@ def revoke_security_device(management_ref):
             {"success": False, "message": "Device management is temporarily unavailable."},
             503,
         )
+    if result["status"] == "authentication_required":
+        response = json_response(
+            {"success": False, "code": "authentication_required", "message": "Authentication required."},
+            401,
+        )
+        clear_authentication_cookies(response)
+        return response
     if result["status"] != "revoked":
         return json_response(
             {"success": False, "code": result["status"], "message": "That device is no longer available."},
@@ -814,6 +836,11 @@ def logout():
         return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
     try:
         with open_db() as db:
+            locked_user = get_user_by_id_with_executor(
+                db, request.current_user["id"], lock=True
+            )
+            if not locked_user or locked_user.get("is_blocked"):
+                raise RuntimeError("Current user could not be locked for logout.")
             locked = lock_session_by_id(
                 db, request.current_session["session_id"], request.current_user["id"]
             )

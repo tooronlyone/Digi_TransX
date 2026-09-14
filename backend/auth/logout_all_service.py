@@ -13,7 +13,7 @@ from auth.session_service import (
     SessionFoundationError,
     digest_opaque_token,
     locked_access_proof_is_valid,
-    lock_session_user_and_device,
+    lock_authentication_owner,
     session_event_reference,
     trusted_device_reference,
 )
@@ -89,7 +89,7 @@ def _same_identity(locked_user, presented_user):
 def _lock_complete_populations(db, user_id):
     sessions = db.execute(
         """
-        SELECT session_id
+        SELECT *
           FROM user_sessions
          WHERE user_id=%s AND revoked_at IS NULL
            AND inactivity_expires_at>now() AND absolute_expires_at>now()
@@ -100,7 +100,7 @@ def _lock_complete_populations(db, user_id):
     ).fetchall()
     devices = db.execute(
         """
-        SELECT id
+        SELECT *
           FROM trusted_devices
          WHERE user_id=%s AND revoked_at IS NULL AND expires_at>now()
          ORDER BY id
@@ -187,14 +187,35 @@ def logout_all(
         return LogoutAllResult("authentication_required")
 
     with open_db() as db:
-        durable, user, device = lock_session_user_and_device(
-            db, presented_session["session_id"], user_id, device_digest
+        # Global order for conflicting authentication mutations:
+        # owner user -> ordered session population -> ordered device population
+        # -> credential/authorization rows.
+        user = lock_authentication_owner(db, user_id)
+        if not user:
+            return LogoutAllResult("authentication_required")
+        sessions, devices = _lock_complete_populations(db, user_id)
+        durable = next(
+            (
+                row
+                for row in sessions
+                if row["session_id"] == presented_session["session_id"]
+            ),
+            None,
+        )
+        device = next(
+            (
+                row
+                for row in devices
+                if durable and row["id"] == durable["trusted_device_id"]
+            ),
+            None,
         )
         if (
             not durable
             or not device
             or not _same_identity(user, presented_user)
             or not secrets.compare_digest(bytes(durable["token_digest"]), session_digest)
+            or not secrets.compare_digest(bytes(device["token_digest"]), device_digest)
             or not locked_access_proof_is_valid(db, durable, raw_access_proof)
         ):
             return LogoutAllResult("authentication_required")
@@ -232,7 +253,6 @@ def logout_all(
         elif not provider_verified:
             return LogoutAllResult("invalid_password")
 
-        sessions, devices = _lock_complete_populations(db, user_id)
         if durable["session_id"] not in {row["session_id"] for row in sessions}:
             raise RuntimeError("Current session was omitted from logout-all selection.")
         if device["id"] not in {row["id"] for row in devices}:

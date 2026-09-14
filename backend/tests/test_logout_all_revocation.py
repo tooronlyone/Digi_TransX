@@ -530,13 +530,13 @@ def test_concurrent_login_and_device_rotation_are_deterministic(logout_all_clien
         except Exception as exc:  # pragma: no cover - asserted below
             thread_errors.append(exc)
 
-    original_lock = logout_all_service.lock_session_user_and_device
+    original_lock = logout_all_service.lock_authentication_owner
 
     def tracked_lock(*args, **kwargs):
         entered_logout_lock.set()
         return original_lock(*args, **kwargs)
 
-    monkeypatch.setattr(logout_all_service, "lock_session_user_and_device", tracked_lock)
+    monkeypatch.setattr(logout_all_service, "lock_authentication_owner", tracked_lock)
     login_thread = threading.Thread(target=concurrent_login)
     login_thread.start()
     assert user_locked.wait(10)
@@ -705,8 +705,8 @@ def test_static_lock_order_and_no_unsafe_route_primitive():
     source = (ROOT / "backend/auth/logout_all_service.py").read_text(encoding="utf-8")
     routes = (ROOT / "backend/auth/routes.py").read_text(encoding="utf-8")
     handler_source = source[source.index("def logout_all("):]
-    assert handler_source.index("lock_session_user_and_device(") < handler_source.index("lock_credential(")
-    assert handler_source.index("lock_credential(") < handler_source.index("_lock_complete_populations(")
+    assert handler_source.index("lock_authentication_owner(") < handler_source.index("_lock_complete_populations(")
+    assert handler_source.index("_lock_complete_populations(") < handler_source.index("lock_credential(")
     assert "ORDER BY session_id\n         FOR UPDATE" in source
     assert "ORDER BY id\n         FOR UPDATE" in source
     assert routes.count('@auth_blueprint.post("/logout-all")') == 1

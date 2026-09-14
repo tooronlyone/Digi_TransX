@@ -103,7 +103,11 @@ def test_service_hashes_tokens_and_is_the_only_runtime_route_owner(monkeypatch):
         executor, 7, trusted_device_id=9
     )
     assert returned == raw and access_proof == raw and session_id == "session-id"
-    statement, values = executor.calls[0]
+    assert "FROM users" in executor.calls[0][0] and "FOR UPDATE" in executor.calls[0][0]
+    assert executor.calls[0][1] == (7,)
+    assert "FROM trusted_devices" in executor.calls[1][0] and "FOR UPDATE" in executor.calls[1][0]
+    assert executor.calls[1][1] == (9, 7)
+    statement, values = executor.calls[2]
     assert raw not in statement and raw not in values
     assert values == (
         7,

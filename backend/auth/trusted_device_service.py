@@ -9,6 +9,8 @@ import hashlib
 import os
 import secrets
 
+from auth.session_service import lock_authentication_owner
+
 
 TOKEN_BYTES = 32
 DIGEST_BYTES = 32
@@ -42,6 +44,8 @@ def digest_token(raw_token):
 
 
 def create_trusted_device(executor, user_id):
+    if not lock_authentication_owner(executor, user_id):
+        raise TrustedDeviceError("Trusted-device owner is unavailable.")
     raw_token = generate_raw_token()
     row = executor.execute(
         """
@@ -79,12 +83,15 @@ def resolve_active_trusted_device(executor, raw_token, *, touch=False):
 
 
 def rotate_trusted_device(executor, user_id, raw_token):
+    """Own the user prerequisite even for a standalone rotation call."""
     digest = digest_token(raw_token)
+    if not lock_authentication_owner(executor, user_id):
+        raise TrustedDeviceError("Trusted-device owner is unavailable.")
     existing = executor.execute(
         """SELECT id FROM public.trusted_devices
              WHERE (token_digest = %s OR previous_token_digest = %s) AND user_id = %s
                AND revoked_at IS NULL AND expires_at > now()
-             FOR UPDATE""",
+             ORDER BY id FOR UPDATE""",
         (digest, digest, user_id),
     ).fetchone()
     if not existing:
