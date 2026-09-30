@@ -19,6 +19,9 @@ env/
 frontend-react/node_modules/
 frontend-react/dist/
 frontend-react/.vite/
+frontend-react/.phase2c6-build/
+frontend-react/.phase2c6-qa.html
+frontend-react/.phase2c6-qa.jsx
 npm-debug.log*
 yarn-error.log*
 
