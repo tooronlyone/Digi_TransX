@@ -1,0 +1,31 @@
+........ssssssssssssssssssssssssssssssssss.ssssssssssssss......sssssssss [  5%]
+ssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssssss [ 10%]
+sss..............sssssssssssssssssssssssssssssssssssssssssssssssssss.... [ 15%]
+.........................sssssssssss.ssssssssss...............ssssssssss [ 20%]
+ssssss.ssssssssssssssss..ss.sss.s.....................s.ssssssss...sss.. [ 25%]
+ssss..........................ssssssssssssssssssssssssssssssss.s.sssssss [ 30%]
+ssssssssssssssssssssssssssssssssssssssssssssssssssssss.ss.ssssssssssssss [ 35%]
+ssssssssssssssssssss.ssssssss....ssssssssssssssssssssssssssss........... [ 40%]
+...................................sssssssssssssssssssssssssssssssssssss [ 45%]
+ssssssssssssssssssssssssssssssssssssssssssssssss........................ [ 50%]
+....sssssssss.ssssssssssssssss...ssssssssssssssssssssssssssssssssssss... [ 55%]
+.s.......sssssssssssss.sssssssssssssssssss........................ssssss [ 60%]
+ssssssssssss............................................sssssssss.s..sss [ 65%]
+.........s...............sssssssssssssssssssssssssssssssssssss.Fssssssss [ 70%]
+ssssssssssssssssssssssssssss....................................sssss... [ 75%]
+...................ssssssssssssss.................................ssssss [ 80%]
+ssssssssssssssssssssssssssssssssssssssssss.....ssss....ssss............. [ 86%]
+.......sssssssssssssssssssssss............................sss........... [ 91%]
+................................ssssssssssssssssssssssssssssssssssssssss [ 96%]
+sss......sssssss..................sssssssssssssssssss..                  [100%]
+================================== FAILURES ===================================
+___________ test_protected_api_routes_are_decorated_or_allowlisted ____________
+backend\tests\test_route_security_static.py:122: in test_protected_api_routes_are_decorated_or_allowlisted
+    assert unknown == []
+E   AssertionError: assert [{'method': '...ignup_terms'}] == []
+E     
+E     Left contains one more item: {'method': 'GET', 'path': '/auth/signup-terms', 'protected': False, 'source': 'auth\\routes.py:342:signup_terms'}
+E     Use -v to get more diff
+=========================== short test summary info ===========================
+FAILED backend/tests/test_route_security_static.py::test_protected_api_routes_are_decorated_or_allowlisted
+1 failed, 544 passed, 878 skipped in 47.01s

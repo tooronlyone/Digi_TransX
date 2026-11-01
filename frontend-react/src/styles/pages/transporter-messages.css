@@ -1,0 +1,32 @@
+/* ============================================
+   TRANSPORTER MESSAGES PAGE
+   ============================================ */
+
+.transporter-messages-page {
+  width: 100%;
+  min-height: calc(100vh - 62px);
+  display: flex !important;
+  flex-direction: column;
+}
+
+.transporter-messages-height {
+  width: 100%;
+  height: calc(100vh - 62px);
+  min-height: 640px;
+  border-radius: 0;
+}
+
+.transporter-page:has(.sidebar:hover) .transporter-messages-height {
+  height: calc(100vh - 62px);
+}
+
+@media (max-width: 768px) {
+  .transporter-messages-page {
+    min-height: auto;
+  }
+
+  .transporter-messages-height {
+    height: auto;
+    min-height: 760px;
+  }
+}

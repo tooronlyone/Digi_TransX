@@ -1,0 +1,67 @@
+{
+  "started_date": "2026-10-27",
+  "completed_date": "2026-10-28",
+  "timezone": "Asia/Karachi",
+  "original_findings": 75,
+  "verified_fixed_removed": 57,
+  "remaining_original_ids": 18,
+  "remaining_original_groups": 17,
+  "new_product_findings": [
+    "REVIEW-001",
+    "REVIEW-002"
+  ],
+  "supplemental_product_findings": 10,
+  "total_product_findings": 29,
+  "test_blockers": [
+    "TEST-03",
+    "TEST-04"
+  ],
+  "separate_feature_gaps": 3,
+  "backend": {
+    "passed": 1419,
+    "failed": 1,
+    "skipped": 3,
+    "errors": 0,
+    "collected": 1423,
+    "duration_seconds": 1747.37
+  },
+  "backend_no_db": {
+    "passed": 544,
+    "failed": 1,
+    "skipped": 878
+  },
+  "frontend_node": {
+    "passed": 103,
+    "failed": 1
+  },
+  "frontend_components": {
+    "passed": 96,
+    "failed": 1
+  },
+  "audit_backend_counterexamples": {
+    "reproduced": 8
+  },
+  "audit_frontend_counterexamples": {
+    "reproduced": 3
+  },
+  "frontend_build": {
+    "passed": true,
+    "seconds": 20.89,
+    "main_js_kb": 1665.4,
+    "main_js_gzip_kb": 432.74
+  },
+  "frontend_lint": {
+    "files": 195,
+    "errors": 0,
+    "warnings": 2
+  },
+  "python_syntax_files": 163,
+  "database_cleanup": {
+    "remaining_test_databases_at_suite_exit": 0,
+    "listener_absent_at_final_check": true,
+    "data_directory_retained": true
+  },
+  "application_source_edited_by_audit": false,
+  "remote_database_verified": false,
+  "browser_walkthrough_performed": false
+}

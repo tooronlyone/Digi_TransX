@@ -1,0 +1,7 @@
+/* Tailwind utility layer.
+   Preflight (global reset) is disabled in tailwind.config.js so this does
+   NOT touch the hand-written transporter/global design system — it only
+   activates the utility classes the client-side pages already use. */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;

@@ -1,0 +1,114 @@
+{
+  "date": "2026-10-25",
+  "timezone": "Asia/Karachi",
+  "packaged_at_utc": "2026-10-25T10:14:50.747240+00:00",
+  "scope": "Owner's additional 15 points / 16 audit IDs; FIN-08 and FIN-09 retained and reverified",
+  "supabase_project": "fysupkvuvhvtowbfgoev",
+  "applied_forward_migrations": [
+    {
+      "name": "20261025010000_driver_workflow_integrity.sql",
+      "sha256": "c704e775d694e306a6e6b1b28e5e8dda58c84eb9215115c84215f76f8ccd1b65"
+    },
+    {
+      "name": "20261025020000_payment_preference_convergence.sql",
+      "sha256": "706623b02198276fe2ffc59fc0dfb447eec2b1ae46d956c847bcad2d970143c5"
+    }
+  ],
+  "previous_four_migration_hashes_unchanged": true,
+  "canonical_new_sql_exact_match": true,
+  "remote_rollout": {
+    "verified": true,
+    "public_tables": 68,
+    "rls_enabled_tables": 68,
+    "all_table_row_counts_preserved": true,
+    "identity_bindings_preserved": true,
+    "wallet_amounts_preserved": true,
+    "auto_charge_consent_preserved": true,
+    "new_auto_charge_consent_granted": false
+  },
+  "python_syntax": {
+    "files": 165,
+    "failures": 0
+  },
+  "git_diff_check": {
+    "exit_code": 0
+  },
+  "backend_selections": {
+    "fleet_database_driver": {
+      "passed": 114,
+      "failed": 0,
+      "seconds": 114.94
+    },
+    "checkout_identity_coordinate_premerge": {
+      "passed": 81,
+      "failed": 0,
+      "seconds": 32.58
+    },
+    "initial_order_card_perf_and_admin": {
+      "passed": 20,
+      "failed": 0,
+      "seconds": 32.0
+    },
+    "final_order_card_perf_and_admin": {
+      "passed": 21,
+      "failed": 0,
+      "seconds": 36.96
+    },
+    "payments_commissions": {
+      "passed": 157,
+      "failed": 0,
+      "seconds": 36.18
+    },
+    "routes_initial": {
+      "passed": 35,
+      "failed": 1,
+      "reason": "Missing owner fixture; corrected without changing product expectation"
+    },
+    "routes_corrected_case": {
+      "passed": 1,
+      "failed": 0,
+      "seconds": 7.22
+    },
+    "overlap_warning": "Selections overlap and must not be summed as unique cases; the final 21-case run supersedes the initial 20-case run."
+  },
+  "frontend_node": {
+    "passed": 103,
+    "failed": 0,
+    "seconds": 5.403606
+  },
+  "frontend_components": {
+    "passed": 63,
+    "failed": 0,
+    "seconds": 23.59,
+    "new_component_cases": 29
+  },
+  "frontend_lint": {
+    "checked_files": 18,
+    "new_errors": 0,
+    "retained_head_baseline_errors": 2,
+    "warnings": 1,
+    "whole_project_clean_claimed": false
+  },
+  "frontend_build": {
+    "files": 14,
+    "bytes": 3031514,
+    "seconds": 13.44,
+    "modules": 976,
+    "copied_node_modules": false
+  },
+  "frontend_reverification_reason": "Final packaging found existing dist size differed from earlier receipt; full Node/component suites and build reran on final source, with earlier build log retained.",
+  "source_manifest_files": 440,
+  "local_runner": {
+    "port": 15477,
+    "stopped": true,
+    "data_directory_retained": true,
+    "cleanup_scope": "Only this task's synthetic cluster; no recursive deletion attempted in this batch"
+  },
+  "limitations": [
+    "No second whole-backend suite run in this batch; current focused coverage and fixture correction are recorded separately",
+    "No clean whole-project ESLint claim; two touched-file HEAD-baseline errors and one warning remain",
+    "Synthetic loopback PostgreSQL runner uses test-only reduced durability settings, not crash-durability evidence",
+    "No real gateway, payout rail, double-entry ledger, physical delivery/GPS or production load validation",
+    "Historical original 75-finding audit and health score were not rescored; this batch does not claim all findings resolved"
+  ]
+}

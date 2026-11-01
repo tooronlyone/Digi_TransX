@@ -1,0 +1,1002 @@
+{
+  "standard_config": {
+    "standard_component": "frontend-react/src/components/common/Notification.jsx",
+    "css_selector": ".app-notification",
+    "css_file": "frontend-react/src/styles/pages/auth.css",
+    "position": "fixed; top: 22px; right: 22px",
+    "duration_ms": {
+      "success": 5000,
+      "error": 8000,
+      "info": 8000
+    },
+    "dismissible": true,
+    "has_close_button": true,
+    "notes": "Requires onClose prop to function. If caller omits onClose, button click does nothing and auto-close timer fails."
+  },
+  "notification_bell_config": {
+    "component": "frontend-react/src/components/common/NotificationBell.jsx",
+    "poll_interval_ms": 45000,
+    "fetch_endpoint": "GET /api/notifications",
+    "read_endpoint": "POST /api/notifications/<id>/read",
+    "read_all_endpoint": "POST /api/notifications/read-all",
+    "used_in": [
+      "frontend-react/src/components/client/ClientLayout.jsx",
+      "frontend-react/src/components/everyday/EverydayLayout.jsx",
+      "frontend-react/src/components/transporter/TransporterLayout.jsx"
+    ]
+  },
+  "ad_hoc_toast_configs": [
+    {
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "function": "showToast",
+      "position": "fixed; top: 92px; right: 28px (.transporter-settings__toast)",
+      "duration_ms": 3500,
+      "dismissible": false,
+      "has_close_button": false,
+      "issue": "Ad-hoc toast instead of Notification component; cannot be dismissed manually"
+    },
+    {
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "function": "showToast",
+      "position": "fixed bottom-6 right-6 (inline Tailwind)",
+      "duration_ms": 3500,
+      "dismissible": false,
+      "has_close_button": false,
+      "issue": "Ad-hoc toast instead of Notification component; cannot be dismissed manually"
+    },
+    {
+      "file": "frontend-react/src/pages/transporter/ac_history.jsx",
+      "function": "showToast",
+      "position": "fixed; bottom: 24; right: 24 (inline style)",
+      "duration_ms": 3000,
+      "dismissible": false,
+      "has_close_button": false,
+      "issue": "Ad-hoc toast instead of Notification component; cannot be dismissed manually"
+    },
+    {
+      "file": "frontend-react/src/pages/transporter/future_features/*.jsx",
+      "function": "showToast",
+      "position": "fixed; bottom: 24; right: 24 (inline style)",
+      "duration_ms": 2500,
+      "dismissible": false,
+      "has_close_button": false,
+      "issue": "Ad-hoc toast in unimported future_features modules; cannot be dismissed manually"
+    }
+  ],
+  "frontend_trigger_count": 101,
+  "frontend_triggers": [
+    {
+      "type": "standard_notification_component",
+      "file": "frontend-react/src/pages/auth/Login.jsx",
+      "line": 114,
+      "has_on_close": true,
+      "snippet": "<Notification",
+      "inconsistent": false,
+      "issue": null
+    },
+    {
+      "type": "standard_notification_component",
+      "file": "frontend-react/src/pages/auth/ResetPassword.jsx",
+      "line": 133,
+      "has_on_close": true,
+      "snippet": "<Notification",
+      "inconsistent": false,
+      "issue": null
+    },
+    {
+      "type": "standard_notification_component",
+      "file": "frontend-react/src/pages/auth/roledetails/DriverDetails.jsx",
+      "line": 66,
+      "has_on_close": false,
+      "snippet": "{notification.message && <Notification type={notification.type} message={notification.message} />}",
+      "inconsistent": true,
+      "issue": "Missing onClose callback; notification cannot be dismissed manually and auto-close fails"
+    },
+    {
+      "type": "standard_notification_component",
+      "file": "frontend-react/src/pages/auth/roledetails/EverydayUserDetails.jsx",
+      "line": 58,
+      "has_on_close": true,
+      "snippet": "<Notification type={notification.type} message={notification.message}",
+      "inconsistent": false,
+      "issue": null
+    },
+    {
+      "type": "standard_notification_component",
+      "file": "frontend-react/src/pages/auth/roledetails/FuelStationDetails.jsx",
+      "line": 61,
+      "has_on_close": true,
+      "snippet": "<Notification type={notification.type} message={notification.message}",
+      "inconsistent": false,
+      "issue": null
+    },
+    {
+      "type": "standard_notification_component",
+      "file": "frontend-react/src/pages/auth/roledetails/LogisticsProviderDetails.jsx",
+      "line": 59,
+      "has_on_close": true,
+      "snippet": "<Notification",
+      "inconsistent": false,
+      "issue": null
+    },
+    {
+      "type": "standard_notification_component",
+      "file": "frontend-react/src/pages/auth/roledetails/ServiceSeekerDetails.jsx",
+      "line": 59,
+      "has_on_close": true,
+      "snippet": "<Notification type={notification.type} message={notification.message}",
+      "inconsistent": false,
+      "issue": null
+    },
+    {
+      "type": "standard_notification_component",
+      "file": "frontend-react/src/pages/auth/roledetails/ShopkeeperDetails.jsx",
+      "line": 60,
+      "has_on_close": true,
+      "snippet": "<Notification type={notification.type} message={notification.message}",
+      "inconsistent": false,
+      "issue": null
+    },
+    {
+      "type": "standard_notification_component",
+      "file": "frontend-react/src/pages/auth/Signup.jsx",
+      "line": 75,
+      "has_on_close": true,
+      "snippet": "<Notification",
+      "inconsistent": false,
+      "issue": null
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/client/ClientAccount.jsx",
+      "line": 241,
+      "args": "'Please contact support to deactivate your account.'",
+      "snippet": "onClick={() => window.alert('Please contact support to deactivate your account.')}",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/client/ClientAccount.jsx",
+      "line": 251,
+      "args": "'Please contact support to permanently delete your account.'",
+      "snippet": "window.alert('Please contact support to permanently delete your account.')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 104,
+      "args": "data.message",
+      "snippet": "alert(data.message)",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 107,
+      "args": "error.message || 'Error updating status'",
+      "snippet": "alert(error.message || 'Error updating status')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 126,
+      "args": "data.message",
+      "snippet": "alert(data.message)",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 129,
+      "args": "error.message || 'The part could not be saved.'",
+      "snippet": "alert(error.message || 'The part could not be saved.')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 143,
+      "args": "'Quote sent to transporter!'",
+      "snippet": "alert('Quote sent to transporter!')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 147,
+      "args": "data.message",
+      "snippet": "alert(data.message)",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 150,
+      "args": "error.message || 'The quote could not be sent.'",
+      "snippet": "alert(error.message || 'The quote could not be sent.')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/ac_history.jsx",
+      "line": 34,
+      "args": "msg, type = 'success'",
+      "snippet": "function showToast(msg, type = 'success') {"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/ac_history.jsx",
+      "line": 42,
+      "args": "'Filters applied'",
+      "snippet": "showToast('Filters applied')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/ac_history.jsx",
+      "line": 83,
+      "args": "'No data to export', 'error'",
+      "snippet": "if (!filtered.length) { showToast('No data to export', 'error'); return }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/ac_history.jsx",
+      "line": 98,
+      "args": "'Excel export downloaded'",
+      "snippet": "showToast('Excel export downloaded')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/ac_history.jsx",
+      "line": 103,
+      "args": "'Opening print dialog for PDF'",
+      "snippet": "showToast('Opening print dialog for PDF')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
+      "line": 39,
+      "args": "msg",
+      "snippet": "function showToast(msg) {"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
+      "line": 129,
+      "args": "'Chart export is available in the full report'",
+      "snippet": "<button className=\"chart-btn\" onClick={() => showToast('Chart export is available in the full report')}>"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 42,
+      "args": "msg, type = 'success'",
+      "snippet": "function showToast(msg, type = 'success') {"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 55,
+      "args": "'Please fill Truck, Date, Amount and Cost fields', 'error'",
+      "snippet": "showToast('Please fill Truck, Date, Amount and Cost fields', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 69,
+      "args": "'Fuel entry added successfully'",
+      "snippet": "showToast('Fuel entry added successfully')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 73,
+      "args": "err.message || 'Failed to add fuel entry', 'error'",
+      "snippet": "showToast(err.message || 'Failed to add fuel entry', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 82,
+      "args": "'Enter fuel amount first', 'error'",
+      "snippet": "if (!liters || liters <= 0) { showToast('Enter fuel amount first', 'error'); return }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 83,
+      "args": "'Enter fuel cost first', 'error'",
+      "snippet": "if (!cost || cost <= 0) { showToast('Enter fuel cost first', 'error'); return }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 95,
+      "args": "`Cost/Liter: PKR ${costPerL}${extra}`",
+      "snippet": "showToast(`Cost/Liter: PKR ${costPerL}${extra}`)"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 135,
+      "args": "'No data to export', 'error'",
+      "snippet": "if (!filtered.length) { showToast('No data to export', 'error'); return }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 143,
+      "args": "'Export downloaded'",
+      "snippet": "showToast('Export downloaded')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
+      "line": 62,
+      "args": "msg, type = 'success'",
+      "snippet": "function showToast(msg, type = 'success') {"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
+      "line": 85,
+      "args": "'Please fill in all required fields', 'error'",
+      "snippet": "return showToast('Please fill in all required fields', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
+      "line": 102,
+      "args": "'Maintenance record saved!'",
+      "snippet": "showToast('Maintenance record saved!')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
+      "line": 106,
+      "args": "res.message || 'Failed to save record', 'error'",
+      "snippet": "showToast(res.message || 'Failed to save record', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
+      "line": 108,
+      "args": "'Failed: ' + e.message, 'error'",
+      "snippet": "} catch (e) { showToast('Failed: ' + e.message, 'error') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/payments.jsx",
+      "line": 24,
+      "args": "msg, type = 'success'",
+      "snippet": "function showToast(msg, type = 'success') {"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/payments.jsx",
+      "line": 72,
+      "args": "`Payment of ${sym}${total.toFixed(2",
+      "snippet": "showToast(`Payment of ${sym}${total.toFixed(2)} processed successfully`)"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 32,
+      "args": "msg, type = 'success'",
+      "snippet": "function showToast(msg, type = 'success') {"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 86,
+      "args": "'Please fill required fields', 'error'",
+      "snippet": "showToast('Please fill required fields', 'error'); return"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 94,
+      "args": "'Maintenance scheduled successfully'",
+      "snippet": "showToast('Maintenance scheduled successfully')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 99,
+      "args": "err.message || 'Failed to schedule maintenance', 'error'",
+      "snippet": "showToast(err.message || 'Failed to schedule maintenance', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 108,
+      "args": "'Please fill required fields', 'error'",
+      "snippet": "showToast('Please fill required fields', 'error'); return"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 119,
+      "args": "'Fuel record added successfully'",
+      "snippet": "showToast('Fuel record added successfully')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 124,
+      "args": "err.message || 'Failed to add fuel record', 'error'",
+      "snippet": "showToast(err.message || 'Failed to add fuel record', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 137,
+      "args": "'Report downloaded'",
+      "snippet": "showToast('Report downloaded')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
+      "line": 50,
+      "args": "msg",
+      "snippet": "function showToast(msg) {"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
+      "line": 57,
+      "args": "'Insights refreshed'",
+      "snippet": "showToast('Insights refreshed')"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+      "line": 114,
+      "args": "'Please enter a delivery address or roadside location.'",
+      "snippet": "alert('Please enter a delivery address or roadside location.')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+      "line": 138,
+      "args": "data.message || 'Order failed. Please check wallet balance.'",
+      "snippet": "alert(data.message || 'Order failed. Please check wallet balance.')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+      "line": 142,
+      "args": "error.message || 'The order outcome could not be confirmed. Please retry with the same cart.'",
+      "snippet": "alert(error.message || 'The order outcome could not be confirmed. Please retry with the same cart.')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+      "line": 167,
+      "args": "data.message || 'Failed to submit request'",
+      "snippet": "alert(data.message || 'Failed to submit request')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+      "line": 171,
+      "args": "error.message || 'The request could not be sent. Please retry.'",
+      "snippet": "alert(error.message || 'The request could not be sent. Please retry.')",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 32,
+      "args": "msg, type = 'success'",
+      "snippet": "function showToast(msg, type = 'success') {"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 89,
+      "args": "'Card saved successfully!'",
+      "snippet": "showToast('Card saved successfully!')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 94,
+      "args": "res.message || 'Failed to save card', 'error'",
+      "snippet": "showToast(res.message || 'Failed to save card', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 96,
+      "args": "'Failed to save card', 'error'",
+      "snippet": "} catch { showToast('Failed to save card', 'error') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 108,
+      "args": "res.success ? 'Account settings saved!' : res.message || 'Failed', res.success ? 'success' : 'error'",
+      "snippet": "showToast(res.success ? 'Account settings saved!' : res.message || 'Failed', res.success ? 'success' : 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 109,
+      "args": "'Failed: ' + e.message, 'error'",
+      "snippet": "} catch (e) { showToast('Failed: ' + e.message, 'error') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 124,
+      "args": "res.success ? 'Notification preferences saved!' : 'Failed', res.success ? 'success' : 'error'",
+      "snippet": "showToast(res.success ? 'Notification preferences saved!' : 'Failed', res.success ? 'success' : 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 125,
+      "args": "'Failed to save', 'error'",
+      "snippet": "} catch { showToast('Failed to save', 'error') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 130,
+      "args": "'Enter your current password', 'error'",
+      "snippet": "if (!security.currentPassword) return showToast('Enter your current password', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 131,
+      "args": "'Enter a new password', 'error'",
+      "snippet": "if (!security.newPassword) return showToast('Enter a new password', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 132,
+      "args": "'Passwords do not match', 'error'",
+      "snippet": "if (security.newPassword !== security.confirmPassword) return showToast('Passwords do not match', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 139,
+      "args": "'OTP sent to your email!'",
+      "snippet": "if (res.success) { setOtpSent(true); showToast('OTP sent to your email!') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 140,
+      "args": "res.message || 'Failed to send OTP', 'error'",
+      "snippet": "else showToast(res.message || 'Failed to send OTP', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 142,
+      "args": "'Enter the OTP code', 'error'",
+      "snippet": "if (!otpCode) return showToast('Enter the OTP code', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 148,
+      "args": "res.message || 'Failed to update password', 'error'",
+      "snippet": "} else showToast(res.message || 'Failed to update password', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 153,
+      "args": "error.message || 'Request failed. Please retry.', 'error'",
+      "snippet": "} else showToast(error.message || 'Request failed. Please retry.', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 166,
+      "args": "'Enter your current password', 'error'",
+      "snippet": "if (!security.currentPassword) return showToast('Enter your current password', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 172,
+      "args": "'OTP resent!'",
+      "snippet": "showToast('OTP resent!')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 173,
+      "args": "error.message || 'Failed to resend OTP', 'error'",
+      "snippet": "} catch (error) { showToast(error.message || 'Failed to resend OTP', 'error') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 189,
+      "args": "res.success ? 'Preferences saved!' : 'Failed', res.success ? 'success' : 'error'",
+      "snippet": "showToast(res.success ? 'Preferences saved!' : 'Failed', res.success ? 'success' : 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 190,
+      "args": "'Failed', 'error'",
+      "snippet": "} catch { showToast('Failed', 'error') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 199,
+      "args": "`Last login: ${res.activity[0]?.created_at || 'N/A'}`",
+      "snippet": "showToast(`Last login: ${res.activity[0]?.created_at || 'N/A'}`)"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 200,
+      "args": "'No activity found'",
+      "snippet": "} else showToast('No activity found')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 201,
+      "args": "'Could not load activity', 'error'",
+      "snippet": "} catch { showToast('Could not load activity', 'error') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 207,
+      "args": "'New API key generated!'",
+      "snippet": "showToast('New API key generated!')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 211,
+      "args": "'Generate an API key first', 'error'",
+      "snippet": "if (!apiKey) return showToast('Generate an API key first', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 212,
+      "args": "'API key copied!'",
+      "snippet": "try { await navigator.clipboard.writeText(apiKey); showToast('API key copied!') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 213,
+      "args": "'Copy failed', 'error'",
+      "snippet": "catch { showToast('Copy failed', 'error') }"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 406,
+      "args": "'Data download request submitted. You will receive an email.'",
+      "snippet": "onClick={() => showToast('Data download request submitted. You will receive an email.')}>"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 412,
+      "args": "'Account deletion request submitted.', 'error'",
+      "snippet": "onClick={() => { if (window.confirm('Permanently delete your account? This cannot be undone.')) showToast('Account deletion request submitted.', 'error') }}>"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 641,
+      "args": "'Cloud storage integration coming soon!'",
+      "snippet": "onClick={() => showToast('Cloud storage integration coming soon!')}>"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 670,
+      "args": "'API documentation coming soon!'",
+      "snippet": "<button type=\"button\" className=\"transporter-settings__btn transporter-settings__btn--secondary\" onClick={() => showToast('API documentation coming soon!')}>"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 715,
+      "args": "'Cache cleared!'",
+      "snippet": "onClick={() => { try { localStorage.clear() } catch { /* ignore unavailable storage */ } showToast('Cache cleared!') }}>"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 726,
+      "args": "'All settings reset to defaults!'",
+      "snippet": "showToast('All settings reset to defaults!')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 166,
+      "args": "msg, type = 'success'",
+      "snippet": "function showToast(msg, type = 'success') {"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 229,
+      "args": "`Complete required fields first: ${missing.map(k => k.replace(/_/g, ' '",
+      "snippet": "showToast(`Complete required fields first: ${missing.map(k => k.replace(/_/g, ' ')).join(', ')}`, 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 233,
+      "args": "'Please select a reason before changing status.', 'error'",
+      "snippet": "showToast('Please select a reason before changing status.', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 243,
+      "args": "'Truck status updated successfully'",
+      "snippet": "showToast('Truck status updated successfully')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 245,
+      "args": "err.message || 'Failed to update status', 'error'",
+      "snippet": "showToast(err.message || 'Failed to update status', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 283,
+      "args": "`Please fill: ${missing.map(k => k.replace(/_/g, ' '",
+      "snippet": "showToast(`Please fill: ${missing.map(k => k.replace(/_/g, ' ')).join(', ')}`, 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 288,
+      "args": "`Service radius must be between 1 and ${MAX_RADIUS_KM} km.`, 'error'",
+      "snippet": "showToast(`Service radius must be between 1 and ${MAX_RADIUS_KM} km.`, 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 292,
+      "args": "'Operating location needs both latitude and longitude, or neither.', 'error'",
+      "snippet": "showToast('Operating location needs both latitude and longitude, or neither.', 'error')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 315,
+      "args": "'Configuration saved successfully'",
+      "snippet": "showToast('Configuration saved successfully')"
+    },
+    {
+      "type": "custom_toast",
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 317,
+      "args": "err.message || 'Failed to save configuration', 'error'",
+      "snippet": "showToast(err.message || 'Failed to save configuration', 'error')"
+    },
+    {
+      "type": "window_alert",
+      "file": "frontend-react/src/pages/transporter/truck_details.jsx",
+      "line": 73,
+      "args": "`${doc.name}: ${doc.value}`",
+      "snippet": "function viewText(doc) { if (doc?.value) window.alert(`${doc.name}: ${doc.value}`) }",
+      "inconsistent": true,
+      "issue": "Raw browser alert() blocks UI thread and violates design system"
+    }
+  ],
+  "backend_trigger_count": 25,
+  "backend_triggers": [
+    {
+      "function": "notify_admins",
+      "file": "backend/driver/business_rules.py",
+      "line": 126,
+      "args_snippet": "db,source['order_id'],assignment['trip_id'],f\"operational_incident:{row['id']}\",f\"Operational incident #{row['id']} requires authorized inve",
+      "snippet": "notify_admins(db,source['order_id'],assignment['trip_id'],f\"operational_incident:{row['id']}\",f\"Operational incident #{row['id']} requires authorized investigation.\")"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/business_lifecycle.py",
+      "line": 81,
+      "args_snippet": "db,order_id,trip_id,order['client_user_id'],notif.DELIVERY_CONFIRMATION_REQUESTED,'Inspect your cargo, then reveal and share the delivery OT",
+      "snippet": "notif.notify(db,order_id,trip_id,order['client_user_id'],notif.DELIVERY_CONFIRMATION_REQUESTED,'Inspect your cargo, then reveal and share the delivery OTP only when you accept delivery.')"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/business_lifecycle.py",
+      "line": 180,
+      "args_snippet": "db,order_id,trip_id,order['client_user_id'],notif.DELIVERY_CONFIRMED,'Delivery OTP verified. Your 90-minute delivery dispute window has star",
+      "snippet": "notif.notify(db,order_id,trip_id,order['client_user_id'],notif.DELIVERY_CONFIRMED,'Delivery OTP verified. Your 90-minute delivery dispute window has started.')"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/business_lifecycle.py",
+      "line": 181,
+      "args_snippet": "db,order_id,trip_id,user['id'],notif.DELIVERY_CONFIRMED,'Delivery verified. First settlement tranche is available; the remainder becomes eli",
+      "snippet": "notif.notify(db,order_id,trip_id,user['id'],notif.DELIVERY_CONFIRMED,'Delivery verified. First settlement tranche is available; the remainder becomes eligible after 120 minutes, subject to disputes.')"
+    },
+    {
+      "function": "notify_admins",
+      "file": "backend/orders/business_lifecycle.py",
+      "line": 206,
+      "args_snippet": "db,order_id,trip_id,notif.DELIVERY_DENIED,f'Investigate delivery dispute on order #{order_id}. No penalty has been applied.'",
+      "snippet": "notif.notify_admins(db,order_id,trip_id,notif.DELIVERY_DENIED,f'Investigate delivery dispute on order #{order_id}. No penalty has been applied.')"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/business_lifecycle.py",
+      "line": 207,
+      "args_snippet": "db,order_id,trip_id,trip['transporter_user_id'],notif.DELIVERY_DENIED,'A delivery dispute is under investigation. The applicable unpaid tran",
+      "snippet": "notif.notify(db,order_id,trip_id,trip['transporter_user_id'],notif.DELIVERY_DENIED,'A delivery dispute is under investigation. The applicable unpaid tranche remains held; no penalty or reserve debit has been applied.')"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/business_lifecycle.py",
+      "line": 292,
+      "args_snippet": "db,order['id'],trip['id'],order['client_user_id'],'settlement_resolved',f'An administrator resolved the delivery investigation. Refund from ",
+      "snippet": "notif.notify(db,order['id'],trip['id'],order['client_user_id'],'settlement_resolved',f'An administrator resolved the delivery investigation. Refund from held funds: PKR {refund:,.2f}.')"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/business_lifecycle.py",
+      "line": 293,
+      "args_snippet": "db,order['id'],trip['id'],trip['transporter_user_id'],'settlement_resolved',f'An administrator resolved the delivery investigation. Remainin",
+      "snippet": "notif.notify(db,order['id'],trip['id'],trip['transporter_user_id'],'settlement_resolved',f'An administrator resolved the delivery investigation. Remaining release: PKR {release:,.2f}.')"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 225,
+      "args_snippet": "db, order_id, trip_id, order[\"client_user_id\"],\n        notif.DELIVERY_CONFIRMATION_REQUESTED,\n        \"The transporter marked your delivery",
+      "snippet": "notif.notify("
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 318,
+      "args_snippet": "db, order_id, trip_id, order[\"client_user_id\"],\n                     notif.DELIVERY_CONFIRMED, \"You confirmed delivery. Payment released to ",
+      "snippet": "notif.notify(db, order_id, trip_id, order[\"client_user_id\"],"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 320,
+      "args_snippet": "db, order_id, trip_id, trip[\"transporter_user_id\"],\n                     notif.DELIVERY_CONFIRMED, \"The client confirmed delivery. Your payo",
+      "snippet": "notif.notify(db, order_id, trip_id, trip[\"transporter_user_id\"],"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 338,
+      "args_snippet": "db, order_id, trip_id, trip[\"transporter_user_id\"],\n                 notif.DELIVERY_DENIED, \"The client reported a problem with the delivery",
+      "snippet": "notif.notify(db, order_id, trip_id, trip[\"transporter_user_id\"],"
+    },
+    {
+      "function": "notify_admins",
+      "file": "backend/orders/lifecycle.py",
+      "line": 340,
+      "args_snippet": "db, order_id, trip_id, notif.DELIVERY_DENIED,\n                        f\"Delivery disputed by the client on order #{order_id}.\"",
+      "snippet": "notif.notify_admins(db, order_id, trip_id, notif.DELIVERY_DENIED,"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 395,
+      "args_snippet": "db, order[\"id\"], trip[\"id\"], order[\"client_user_id\"],\n                     notif.CONFIRMATION_OVERDUE,\n                     \"You did not res",
+      "snippet": "notif.notify(db, order[\"id\"], trip[\"id\"], order[\"client_user_id\"],"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 398,
+      "args_snippet": "db, order[\"id\"], trip[\"id\"], trip[\"transporter_user_id\"],\n                     notif.CONFIRMATION_OVERDUE,\n                     \"The client ",
+      "snippet": "notif.notify(db, order[\"id\"], trip[\"id\"], trip[\"transporter_user_id\"],"
+    },
+    {
+      "function": "notify_admins",
+      "file": "backend/orders/lifecycle.py",
+      "line": 401,
+      "args_snippet": "db, order[\"id\"], trip[\"id\"], notif.CONFIRMATION_OVERDUE,\n                            f\"Delivery confirmation timed out on order #{order['id'",
+      "snippet": "notif.notify_admins(db, order[\"id\"], trip[\"id\"], notif.CONFIRMATION_OVERDUE,"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 493,
+      "args_snippet": "db, order[\"id\"], trip[\"id\"], order[\"client_user_id\"],\n                 notif.DISPUTE_RESOLVED_TRANSPORTER,\n                 \"An admin resolv",
+      "snippet": "notif.notify(db, order[\"id\"], trip[\"id\"], order[\"client_user_id\"],"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 496,
+      "args_snippet": "db, order[\"id\"], trip[\"id\"], order[\"client_user_id\"],\n                 notif.REVIEW_REQUIRED,\n                 \"Your delivery was completed ",
+      "snippet": "notif.notify(db, order[\"id\"], trip[\"id\"], order[\"client_user_id\"],"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 499,
+      "args_snippet": "db, order[\"id\"], trip[\"id\"], trip[\"transporter_user_id\"],\n                 notif.DISPUTE_RESOLVED_TRANSPORTER,\n                 \"An admin re",
+      "snippet": "notif.notify(db, order[\"id\"], trip[\"id\"], trip[\"transporter_user_id\"],"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 526,
+      "args_snippet": "db, order[\"id\"], trip[\"id\"], order[\"client_user_id\"],\n                 notif.DISPUTE_RESOLVED_CLIENT,\n                 \"An admin resolved th",
+      "snippet": "notif.notify(db, order[\"id\"], trip[\"id\"], order[\"client_user_id\"],"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/lifecycle.py",
+      "line": 529,
+      "args_snippet": "db, order[\"id\"], trip[\"id\"], trip[\"transporter_user_id\"],\n                 notif.DISPUTE_RESOLVED_CLIENT,\n                 \"An admin resolve",
+      "snippet": "notif.notify(db, order[\"id\"], trip[\"id\"], trip[\"transporter_user_id\"],"
+    },
+    {
+      "function": "notify",
+      "file": "backend/orders/reviews.py",
+      "line": 235,
+      "args_snippet": "db,\n            order_id,\n            trip_id,\n            trip_row[\"transporter_user_id\"],\n            notif.REVIEW_SUBMITTED,\n            ",
+      "snippet": "notif.notify("
+    },
+    {
+      "function": "notify",
+      "file": "backend/shared/notifications.py",
+      "line": 24,
+      "args_snippet": "db, order_id, trip_id, user_id, notification_type, message",
+      "snippet": "def notify(db, order_id, trip_id, user_id, notification_type, message):"
+    },
+    {
+      "function": "notify_admins",
+      "file": "backend/shared/notifications.py",
+      "line": 42,
+      "args_snippet": "db, order_id, trip_id, notification_type, message",
+      "snippet": "def notify_admins(db, order_id, trip_id, notification_type, message):"
+    },
+    {
+      "function": "notify",
+      "file": "backend/shared/notifications.py",
+      "line": 48,
+      "args_snippet": "db, order_id, trip_id, admin[\"id\"], notification_type, message",
+      "snippet": "if notify(db, order_id, trip_id, admin[\"id\"], notification_type, message):"
+    }
+  ]
+}

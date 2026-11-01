@@ -1,0 +1,1709 @@
+"""Shared payment service — single source of truth for one-time order money.
+
+Owns, for the whole backend:
+  - money rounding (round_money) and every card-fee formula
+  - the card processing fee (default 2.5%, centrally configured via the
+    DIGITRANSX_CARD_FEE_PERCENT environment variable, snapshotted per payment)
+  - wallet/card funding split for one-time checkout
+  - dummy card validation and the replaceable payment-provider interface
+  - payment quote generation and the commission/payment audit breakdown
+  - the atomic checkout + start-trip workflows for one-time orders
+  - saved payment methods (tokenized) and user payment preferences
+
+One-time checkout math (additive fee — the wallet/hold receives exactly the
+card-funded amount, never a grossed-up figure):
+    processing_fee   = round(card_funded_amount * fee_percent / 100, 2)
+    total_card_charge = card_funded_amount + processing_fee
+
+Platform commission is computed only on the transporter's gross bid amount
+via shared.commissions; the card processing fee is never commission and
+never platform revenue.
+
+Card data policy: full card numbers and CVC codes are validated in memory
+only. They are never stored, never logged, and never returned. Persisted
+saved methods carry only a generated provider token, brand, last four
+digits, expiry and default flag. The provider token itself is backend-only:
+it is never serialized into any API response.
+
+Idempotency contract (also binding for a future real gateway):
+  - Every checkout request carries a client-generated Idempotency-Key that is
+    persisted on the payment row under a unique index and passed through to
+    the provider's charge() call.
+  - The provider MUST be idempotent per key: charging the same key twice
+    returns the same charge (the dummy provider derives a deterministic
+    reference from the key).
+  - A real provider integration must additionally support reconciliation for
+    the crash window where the provider charge succeeded but the local
+    database transaction failed: on retry, look the charge up by idempotency
+    key at the provider and attach it instead of charging again; a recovery
+    job should sweep provider charges that have no matching payment row and
+    refund or attach them.
+"""
+
+import hashlib
+import json
+import os
+import re
+import secrets
+from datetime import date, datetime
+from decimal import Decimal, InvalidOperation, ROUND_CEILING, ROUND_HALF_UP
+
+from flask import current_app, has_app_context
+
+from auth.helpers import timestamp_bundle
+from shared.commissions import (
+    POLICY_TYPE_ONE_TIME,
+    get_active_policy,
+    get_current_terms_version,
+    policy_company_share,
+    split_final_amount,
+    transporter_share_percent_for,
+)
+from shared.db import IntegrityError
+
+
+TWO_PLACES = Decimal("0.01")
+HUNDRED = Decimal("100")
+
+DEFAULT_CARD_FEE_PERCENT = Decimal("2.5")
+CARD_FEE_PERCENT_ENV = "DIGITRANSX_CARD_FEE_PERCENT"
+
+# Client-role classification lives in shared.roles (single implementation).
+# Re-exported here so existing `from shared.payments import normalize_client_kind`
+# callers keep working without a second definition.
+from shared.roles import (  # noqa: F401
+    EVERYDAY_ROLES,
+    BUSINESS_CLIENT_ROLES,
+    normalize_client_kind,
+)
+
+
+class CheckoutError(Exception):
+    """Business-rule failure inside the payment workflows.
+
+    Raising this aborts the surrounding transaction (the caller rolls back),
+    so no partial mutations can survive a failed checkout.
+    """
+
+    def __init__(self, message, status=400, code=None):
+        super().__init__(message)
+        self.message = message
+        self.status = status
+        self.code = code
+
+
+# ---------------------------------------------------------------------------
+# Money + fee math
+# ---------------------------------------------------------------------------
+
+def round_money(value):
+    return float(Decimal(str(value or 0)).quantize(TWO_PLACES, rounding=ROUND_HALF_UP))
+
+
+# Largest amount the numeric(12,2) audit columns can hold.
+MAX_MONEY_AMOUNT = Decimal("9999999999.99")
+
+
+def parse_money_amount(value, label="Amount"):
+    """Strict Decimal-based money parser for user-supplied amounts.
+
+    Accepts finite, positive numbers with at most two decimal places, within
+    the numeric storage limit. Rejects None, booleans, NaN, Infinity, zero,
+    negatives, more than two decimals and oversized values. Returns a Decimal
+    quantized to two places; raises ValueError with a user-facing message.
+    """
+    if value is None or (isinstance(value, str) and not value.strip()):
+        raise ValueError(f"{label} is required.")
+    if isinstance(value, bool):
+        raise ValueError(f"{label} must be a valid number.")
+    try:
+        parsed = Decimal(str(value).strip())
+    except (InvalidOperation, ValueError):
+        raise ValueError(f"{label} must be a valid number.")
+    if not parsed.is_finite():
+        raise ValueError(f"{label} must be a valid number.")
+    if parsed <= 0:
+        raise ValueError(f"{label} must be greater than 0.")
+    if parsed > MAX_MONEY_AMOUNT:
+        raise ValueError(f"{label} is too large.")
+    if parsed != parsed.quantize(TWO_PLACES):
+        raise ValueError(f"{label} supports at most two decimal places.")
+    return parsed.quantize(TWO_PLACES)
+
+
+def parse_positive_id(value, label="Id"):
+    """Strict positive-integer id parser (rejects booleans, floats, strings
+    that are not plain integers)."""
+    if isinstance(value, bool):
+        raise ValueError(f"{label} must be a positive whole number.")
+    if isinstance(value, int):
+        parsed = value
+    elif isinstance(value, str) and re.fullmatch(r"\d+", value.strip()):
+        parsed = int(value.strip())
+    else:
+        raise ValueError(f"{label} must be a positive whole number.")
+    if parsed <= 0:
+        raise ValueError(f"{label} must be a positive whole number.")
+    return parsed
+
+
+def parse_optional_bool(value, label="Value", default=False):
+    """Strict optional-boolean parser.
+
+    Only a real JSON boolean (`true`/`false`) is accepted. Missing/None falls
+    back to `default`; strings ("true"/"false"), numbers (0/1), arrays and
+    objects are rejected. This is what stops `save_card: "false"` from being
+    read as truthy (or a stray `"true"` from granting permission).
+    """
+    if value is None:
+        return default
+    if isinstance(value, bool):
+        return value
+    raise ValueError(f"{label} must be true or false.")
+
+
+def build_provider_idempotency_key(scope, *parts):
+    """Build a fixed-length, backend-scoped provider idempotency key.
+
+    The raw client Idempotency-Key is never sent to the provider directly.
+    Instead it is combined with a logical scope and non-sensitive identifiers
+    (user id, order/bid ids) and hashed, so:
+      - the same client key used by two users maps to different provider keys
+      - the same client key used for checkout vs wallet top-up cannot collide
+    Only non-sensitive identifiers are hashed — never PAN, CVC, tokens or
+    other secrets. Returns 64 hex chars (well within provider length limits).
+    """
+    raw = ":".join([str(scope)] + [str(part) for part in parts])
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def provider_request_fingerprint(*parts):
+    """Safe fingerprint of the charge parameters (amount, scope) used by the
+    provider to detect a reused key with incompatible parameters. Contains no
+    card data."""
+    raw = ":".join(str(part) for part in parts)
+    return hashlib.sha256(raw.encode()).hexdigest()[:32]
+
+
+IDEMPOTENCY_KEY_RE = re.compile(r"^[A-Za-z0-9_.:-]{8,128}$")
+
+
+def validate_idempotency_key(raw):
+    """Validate the client-supplied Idempotency-Key header.
+
+    Returns the key, or raises CheckoutError(400). The key is required — a
+    fresh random key per retry would defeat idempotency entirely, so the
+    server never invents one on the client's behalf.
+    """
+    key = (raw or "").strip()
+    if not key:
+        raise CheckoutError(
+            "Idempotency-Key header is required for checkout. Generate one key per "
+            "checkout attempt and reuse it for retries.",
+            400, "idempotency_key_required",
+        )
+    if not IDEMPOTENCY_KEY_RE.fullmatch(key):
+        raise CheckoutError(
+            "Idempotency-Key must be 8-128 characters of letters, digits, '_', '.', ':' or '-'.",
+            400, "idempotency_key_invalid",
+        )
+    return key
+
+
+def card_processing_fee_percent():
+    """Configured dummy card fee percent (default 2.5)."""
+    raw = os.environ.get(CARD_FEE_PERCENT_ENV, "").strip()
+    if raw:
+        try:
+            value = Decimal(raw)
+            if value.is_finite() and 0 <= value < 100:
+                return value.quantize(TWO_PLACES)
+        except InvalidOperation:
+            pass
+    return DEFAULT_CARD_FEE_PERCENT.quantize(TWO_PLACES)
+
+
+def calculate_card_processing_fee(card_funded_amount, fee_percent=None):
+    """processing_fee = round(card_funded_amount * fee%, 2). Additive fee."""
+    percent = Decimal(str(fee_percent)) if fee_percent is not None else card_processing_fee_percent()
+    amount = Decimal(str(card_funded_amount or 0))
+    fee = (amount * percent / HUNDRED).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    return float(fee)
+
+
+def calculate_total_card_charge(card_funded_amount, fee_percent=None):
+    """Return (processing_fee, total_card_charge) for a card-funded amount."""
+    fee = calculate_card_processing_fee(card_funded_amount, fee_percent)
+    total = round_money(Decimal(str(card_funded_amount or 0)) + Decimal(str(fee)))
+    return fee, total
+
+
+def split_funding(bid_amount, wallet_available):
+    """Split a bid into (wallet_funded, card_funded); wallet money first."""
+    bid = Decimal(str(bid_amount or 0)).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    available = Decimal(str(max(wallet_available or 0, 0))).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    wallet_funded = min(bid, available)
+    card_funded = bid - wallet_funded
+    return float(wallet_funded), float(card_funded)
+
+
+def calculate_gateway_fee(gross_amount):
+    """Top-up semantics (existing wallet flow): fee is taken OUT of the gross
+    amount and the wallet is credited with the remainder."""
+    gross = Decimal(str(gross_amount or 0))
+    rate = card_processing_fee_percent() / HUNDRED
+    fee = (gross * rate).quantize(TWO_PLACES, rounding=ROUND_HALF_UP)
+    net = gross - fee
+    return round_money(fee), round_money(net)
+
+
+def calculate_required_gross_for_net(net_amount_needed):
+    """Top-up semantics: smallest gross that credits at least the target net."""
+    net = Decimal(str(max(net_amount_needed or 0, 0)))
+    if net <= 0:
+        return 0.0
+    rate = card_processing_fee_percent() / HUNDRED
+    gross = (net / (Decimal("1") - rate)).quantize(TWO_PLACES, rounding=ROUND_CEILING)
+    fee, credited = calculate_gateway_fee(gross)
+    while Decimal(str(credited)) < net:
+        gross += TWO_PLACES
+        fee, credited = calculate_gateway_fee(gross)
+    return round_money(gross)
+
+
+# ---------------------------------------------------------------------------
+# Dummy card validation + replaceable provider interface
+# ---------------------------------------------------------------------------
+
+_CARD_BRAND_PREFIXES = (
+    ("4", "visa"),
+    ("5", "mastercard"),
+    ("34", "amex"),
+    ("37", "amex"),
+    ("6", "discover"),
+)
+
+
+def detect_card_brand(card_number_digits):
+    for prefix, brand in _CARD_BRAND_PREFIXES:
+        if card_number_digits.startswith(prefix):
+            return brand
+    return "card"
+
+
+def parse_card_expiry(raw):
+    """Parse an MM/YY (or MM/YYYY) expiry. Single source of truth for expiry
+    validation, reused by both the checkout and payout card validators.
+
+    Returns (month, year, None) on success or (None, None, error_message) for
+    an unparseable or already-expired card.
+    """
+    match = re.fullmatch(r"(\d{1,2})\s*/\s*(\d{2}|\d{4})", str(raw or "").strip())
+    if not match:
+        return None, None, "Card expiry must be in MM/YY format."
+    month = int(match.group(1))
+    year = int(match.group(2))
+    if year < 100:
+        year += 2000
+    if not 1 <= month <= 12:
+        return None, None, "Card expiry month is invalid."
+    today = date.today()
+    if (year, month) < (today.year, today.month):
+        return None, None, "This card has expired."
+    return month, year, None
+
+
+def validate_dummy_card(card_data):
+    """Validate raw dummy-card input.
+
+    Returns (card_summary, None) on success or (None, error_message).
+    The summary NEVER contains the card number or CVC — only brand, last
+    four, expiry and holder name.
+    """
+    data = card_data or {}
+    number = re.sub(r"\D", "", str(data.get("card_number") or ""))
+    if not 12 <= len(number) <= 19:
+        return None, "Enter a valid card number."
+    holder = str(data.get("card_holder_name") or "").strip()
+    if not holder:
+        return None, "Card holder name is required."
+    cvc = str(data.get("card_cvc") or "").strip()
+    if not re.fullmatch(r"\d{3,4}", cvc):
+        return None, "Enter a valid card security code."
+    month, year, expiry_error = parse_card_expiry(data.get("card_expiry"))
+    if expiry_error:
+        return None, expiry_error
+    return (
+        {
+            "card_brand": detect_card_brand(number),
+            "card_last_four": number[-4:],
+            "expiry_month": month,
+            "expiry_year": year,
+            "card_holder_name": holder,
+        },
+        None,
+    )
+
+
+def validate_payout_card(card_data):
+    """Validate a transporter payout-card entry (no CVC is collected for
+    payout destinations). Returns (summary, None) or (None, error).
+
+    Reuses the same number/expiry rules as validate_dummy_card; the summary
+    never contains the card number — only brand, last four, expiry and the
+    display labels.
+    """
+    data = card_data or {}
+    number = re.sub(r"\D", "", str(data.get("card_number") or ""))
+    if not 12 <= len(number) <= 19:
+        return None, "Valid card number required (12-19 digits)."
+    holder = str(data.get("card_holder") or "").strip()
+    if not holder:
+        return None, "Card holder name required."
+    _month, _year, expiry_error = parse_card_expiry(data.get("card_expiry"))
+    if expiry_error:
+        return None, expiry_error
+    return (
+        {
+            "card_brand": detect_card_brand(number),
+            "card_last_four": number[-4:],
+            "card_holder": holder,
+            "card_expiry": str(data.get("card_expiry") or "").strip(),
+            "bank": str(data.get("bank") or "").strip(),
+        },
+        None,
+    )
+
+
+class PaymentProviderRejected(Exception):
+    """A provider-confirmed rejection: no token was created and retry is unsafe."""
+
+
+class DummyCardProvider:
+    """Placeholder processor. A real gateway later only needs to implement
+    this same interface (tokenize + charge) and be returned from
+    get_payment_provider().
+
+    Idempotency: a scoped idempotency key is bound to a safe request
+    fingerprint (never card data). The same scoped key with the same
+    fingerprint returns the same charge reference (safe retry after a
+    provider-success/DB-failure). The same scoped key with a DIFFERENT
+    fingerprint is rejected rather than silently returning the old charge —
+    the contract a real gateway must also honour server-side.
+    """
+
+    name = "dummycard"
+
+    def __init__(self):
+        # scoped_key -> fingerprint seen for that key (in-process record; a
+        # real provider keeps this server-side).
+        self._seen_fingerprints = {}
+
+    def reset(self):
+        """Test hook: clear the in-process idempotency record."""
+        self._seen_fingerprints = {}
+
+    def tokenize(self, card_summary):
+        """Create a provider token for a validated card. The token is random —
+        it encodes nothing about the card number."""
+        return f"dummytok_{secrets.token_hex(12)}"
+
+    def charge(self, amount, token=None, card_summary=None, description="",
+               idempotency_key=None, fingerprint=None):
+        """Charge a card (saved token or validated one-off card)."""
+        if amount <= 0:
+            return {"provider": self.name, "reference": None, "status": "skipped"}
+        if token is None and card_summary is None:
+            raise CheckoutError("A card is required for this charge.", 400, "card_required")
+        if idempotency_key:
+            fp = fingerprint or ""
+            prior = self._seen_fingerprints.get(idempotency_key)
+            if prior is not None and prior != fp:
+                raise CheckoutError(
+                    "This idempotency key was already used with different charge parameters.",
+                    409, "provider_idempotency_conflict",
+                )
+            self._seen_fingerprints[idempotency_key] = fp
+            digest = hashlib.sha256(f"{self.name}:{idempotency_key}".encode()).hexdigest()[:24]
+            reference = f"dummych_{digest}"
+        else:
+            reference = f"dummych_{secrets.token_hex(12)}"
+        return {
+            "provider": self.name,
+            "reference": reference,
+            "status": "succeeded",
+        }
+
+    def refund(self, amount, reference=None, idempotency_key=None):
+        """Refund a previously-charged amount (dummy phase). Idempotent per key:
+        the same key deterministically returns the same refund reference, so a
+        replayed admin client-win refund never issues a second card refund. No
+        card data is involved — refunds address the original charge."""
+        if amount is None or amount <= 0:
+            return {"provider": self.name, "reference": None, "status": "skipped"}
+        if idempotency_key:
+            digest = hashlib.sha256(f"{self.name}:refund:{idempotency_key}".encode()).hexdigest()[:24]
+            ref = f"dummyrf_{digest}"
+        else:
+            ref = f"dummyrf_{secrets.token_hex(12)}"
+        return {"provider": self.name, "reference": ref, "status": "refunded"}
+
+
+_provider = DummyCardProvider()
+
+
+def get_payment_provider():
+    """Select an injected adapter, or an explicitly enabled local simulator.
+
+    An unconfigured production deployment must never turn fabricated card input
+    into spendable credit. Tests may use Flask TESTING or an explicit test
+    environment; local development additionally requires a simulator opt-in.
+    """
+    app = current_app if has_app_context() else None
+    provider = app.extensions.get("digitransx_payment_provider") if app else None
+    if provider is not None and not isinstance(provider, DummyCardProvider):
+        return provider
+    environment = str(
+        app.config.get("DIGITRANSX_ENVIRONMENT", os.environ.get("DIGITRANSX_ENVIRONMENT", ""))
+        if app else os.environ.get("DIGITRANSX_ENVIRONMENT", "")
+    ).strip().lower()
+    opt_in = (
+        app.config.get("DIGITRANSX_ALLOW_DUMMY_PAYMENTS", os.environ.get("DIGITRANSX_ALLOW_DUMMY_PAYMENTS", ""))
+        if app else os.environ.get("DIGITRANSX_ALLOW_DUMMY_PAYMENTS", "")
+    )
+    explicit_local = environment in {"local", "development"} and str(opt_in).lower() in {"1", "true", "yes"}
+    if environment not in {"production","prod","staging"} and (
+        (app and app.testing) or environment == "test" or explicit_local
+    ):
+        return provider if isinstance(provider, DummyCardProvider) else _provider
+    raise CheckoutError("Card payments are unavailable until a payment provider is configured.",
+                        503, "payment_provider_unavailable")
+
+
+def _confirmed_card_charge(provider, *args, **kwargs):
+    """A pending, declined, or malformed adapter response is never funding."""
+    charge = provider.charge(*args, **kwargs)
+    if (not isinstance(charge, dict) or charge.get("status") != "succeeded"
+            or not isinstance(charge.get("reference"), str) or not charge["reference"]):
+        raise CheckoutError("Card funding was not confirmed; the payment requires reconciliation.",
+                            503, "card_charge_unconfirmed")
+    return charge
+
+
+# ---------------------------------------------------------------------------
+# Saved payment methods + preferences
+# ---------------------------------------------------------------------------
+
+def serialize_saved_method(row):
+    if not row:
+        return None
+    return {
+        "id": row.get("id"),
+        "provider_name": row.get("provider_name"),
+        "card_brand": row.get("card_brand"),
+        "card_last_four": row.get("card_last_four"),
+        "expiry_month": row.get("expiry_month"),
+        "expiry_year": row.get("expiry_year"),
+        "is_default": bool(row.get("is_default")),
+        "created_at": row.get("created_at"),
+    }
+
+
+def list_saved_methods(db, user_id):
+    rows = db.execute(
+        "SELECT * FROM saved_payment_methods WHERE user_id = %s AND status = 'active' "
+        "ORDER BY is_default DESC, id DESC",
+        (user_id,),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def get_saved_method(db, user_id, method_id):
+    row = db.execute(
+        "SELECT * FROM saved_payment_methods WHERE id = %s AND user_id = %s AND status = 'active'",
+        (method_id, user_id),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def get_default_saved_method(db, user_id):
+    row = db.execute(
+        "SELECT * FROM saved_payment_methods WHERE user_id = %s AND status = 'active' AND is_default "
+        "ORDER BY id DESC LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def lock_payment_settings(db, user_id):
+    """Serialize one owner's card/preference writes for this transaction.
+
+    Owner precedes the advisory guard and all shipment/bid/wallet locks. This
+    also matches MPIN's owner lock. NO KEY UPDATE serializes settings writers
+    while allowing implicit foreign-key KEY SHARE locks: a wallet writer may
+    already hold its wallet before inserting a user-linked transaction. A full
+    owner UPDATE lock would deadlock that writer against checkout's wallet lock.
+    Advisory-first could instead deadlock MPIN's existing owner lock.
+    """
+    owner = db.execute("SELECT id FROM users WHERE id=%s FOR NO KEY UPDATE",(user_id,)).fetchone()
+    if not owner:
+        raise CheckoutError("Payment settings owner is unavailable.",403,"payment_owner_unavailable")
+    db.execute(
+        "SELECT pg_advisory_xact_lock(hashtextextended('dtx.payment-settings:' || %s::text,0))",
+        (user_id,),
+    )
+
+
+def create_saved_method(db, user_id, card_summary, set_default=False):
+    """Persist a validated card as a tokenized saved method. Does NOT commit."""
+    provider = get_payment_provider()
+    token = provider.tokenize(card_summary)
+    lock_payment_settings(db,user_id)
+    stamp = timestamp_bundle()["iso"]
+    has_active = db.execute(
+        "SELECT id FROM saved_payment_methods WHERE user_id = %s AND status = 'active' LIMIT 1",
+        (user_id,),
+    ).fetchone()
+    make_default = bool(set_default or not has_active)
+    if make_default:
+        db.execute(
+            "UPDATE saved_payment_methods SET is_default = false, updated_at = %s "
+            "WHERE user_id = %s AND is_default",
+            (stamp, user_id),
+        )
+    new_id = db.execute(
+        """
+        INSERT INTO saved_payment_methods (
+            user_id, provider_name, provider_token, card_brand, card_last_four,
+            expiry_month, expiry_year, is_default, status, created_at, updated_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'active', %s, %s)
+        RETURNING id
+        """,
+        (
+            user_id,
+            provider.name,
+            token,
+            card_summary["card_brand"],
+            card_summary["card_last_four"],
+            card_summary["expiry_month"],
+            card_summary["expiry_year"],
+            make_default,
+            stamp,
+            stamp,
+        ),
+    ).fetchone()["id"]
+    if make_default:
+        # Checkout invokes this helper directly, not the saved-card HTTP route.
+        # Keep both default representations in the same caller transaction and
+        # preserve the owner's existing auto-charge consent.
+        upsert_payment_preferences(db,user_id,default_method_id=new_id)
+    return get_saved_method(db, user_id, new_id)
+
+
+def get_payment_preferences(db, user_id):
+    row = db.execute(
+        "SELECT * FROM user_payment_preferences WHERE user_id = %s", (user_id,)
+    ).fetchone()
+    if row:
+        return dict(row)
+    return {
+        "user_id": user_id,
+        "default_payment_method_id": None,
+        "auto_shortfall_charge_enabled": False,
+    }
+
+
+def upsert_payment_preferences(db, user_id, auto_enabled=None, default_method_id=None,
+                               clear_default=False):
+    """Create/update the user's payment preferences. Does NOT commit."""
+    lock_payment_settings(db,user_id)
+    stamp = timestamp_bundle()["iso"]
+    current = get_payment_preferences(db, user_id)
+    next_auto = current["auto_shortfall_charge_enabled"] if auto_enabled is None else bool(auto_enabled)
+    if clear_default:
+        next_default = None
+    elif default_method_id is not None:
+        next_default = default_method_id
+    else:
+        next_default = current["default_payment_method_id"]
+    db.execute(
+        """
+        INSERT INTO user_payment_preferences (
+            user_id, default_payment_method_id, auto_shortfall_charge_enabled, created_at, updated_at
+        ) VALUES (%s, %s, %s, %s, %s)
+        ON CONFLICT (user_id) DO UPDATE SET
+            default_payment_method_id = excluded.default_payment_method_id,
+            auto_shortfall_charge_enabled = excluded.auto_shortfall_charge_enabled,
+            updated_at = excluded.updated_at
+        """,
+        (user_id, next_default, next_auto, stamp, stamp),
+    )
+    return get_payment_preferences(db, user_id)
+
+
+def _method_expired(method):
+    today = date.today()
+    return (int(method["expiry_year"]), int(method["expiry_month"])) < (today.year, today.month)
+
+
+# ---------------------------------------------------------------------------
+# Quote
+# ---------------------------------------------------------------------------
+
+def build_payment_quote(db, order, bid, user, wallet=None, truck=None):
+    """Server-calculated quote for paying one bid. Never trusts client input.
+
+    `wallet` may be passed when the caller already holds a locked row;
+    otherwise the wallet is read here (business clients only).
+
+    `truck` may be passed when the caller already holds the locked vehicle row
+    (checkout); otherwise it is read here (the quote endpoint). Either way the
+    truck is revalidated against the current order — an inactive, re-owned or
+    no-longer-matching truck raises CheckoutError(bid_truck_unavailable, 409)
+    so a quote can never be built for an unpayable bid.
+    """
+    # One shared validation for the comparison view, the quote and checkout.
+    from orders.helpers import validate_bid_truck
+
+    kind = normalize_client_kind(user.get("role"))
+    if kind is None:
+        raise CheckoutError("Client account required.", 403)
+
+    if truck is None:
+        truck_row = db.execute(
+            "SELECT * FROM vehicles WHERE id = %s", (bid["truck_id"],)
+        ).fetchone()
+        truck = dict(truck_row) if truck_row else None
+    truck_reason = validate_bid_truck(order, bid["transporter_user_id"], truck)
+    if truck_reason:
+        raise CheckoutError(truck_reason, 409, "bid_truck_unavailable")
+
+    bid_amount = Decimal(str(bid["bid_price"])).quantize(TWO_PLACES)
+    wallet_available = Decimal('0.00')
+    if kind == "business":
+        if wallet is None:
+            row = db.execute_exact(
+                "SELECT * FROM wallets WHERE user_id = %s", (user["id"],)
+            ).fetchone()
+            wallet = dict(row) if row else None
+        if wallet:
+            wallet_available = max(Decimal('0.00'),Decimal(str(wallet.get('balance') or 0))-Decimal(str(wallet.get('locked_balance') or 0)))
+
+    # New bookings require 100% authoritative wallet funding. Card settings and
+    # old card-funded payment snapshots remain available for historical rows.
+    from shared.commissions import itemized_fee
+    fees = itemized_fee(bid_amount,'freight')
+    wallet_funded, card_funded = bid_amount, Decimal('0.00')
+    fee_percent = processing_fee = total_card_charge = Decimal('0.00')
+    policy = None
+    company_share = Decimal('20.00')
+    commission_amount = Decimal(fees['total_fee'])
+    transporter_payout = Decimal(fees['net_amount'])
+
+    default_method = None
+    can_auto_charge = False
+    preferences = None
+    if kind == "business":
+        preferences = get_payment_preferences(db, user["id"])
+        default_method = get_default_saved_method(db, user["id"])
+        can_auto_charge = bool(
+            preferences["auto_shortfall_charge_enabled"]
+            and default_method
+            and not _method_expired(default_method)
+        )
+
+    return {
+        "bid_id": bid["id"],
+        "order_id": order["id"],
+        "client_kind": kind,
+        "bid_amount": bid_amount,
+        "wallet_available": wallet_available,
+        "wallet_funded_amount": wallet_funded,
+        "card_funded_amount": card_funded,
+        "processing_fee_percent": float(fee_percent),
+        "processing_fee_amount": processing_fee,
+        "total_card_charge": total_card_charge,
+        "platform_commission_amount": commission_amount,
+        "transporter_payout_amount": transporter_payout,
+        "company_share_percent": float(company_share),
+        "transporter_share_percent": float(transporter_share_percent_for(company_share)),
+        "requires_card": False,
+        "can_auto_charge": False,
+        "wallet_escrow_required": True,
+        "wallet_supported": kind == 'business',
+        "blocked_reason": None if kind == 'business' else 'Wallet onboarding for Everyday Users requires an explicitly approved policy before accepting a booking.',
+        "wallet_shortfall": format(max(Decimal('0'),bid_amount-wallet_available),'.2f'),
+        "can_checkout": kind == 'business' and wallet_available >= bid_amount,
+        "commission_breakdown": fees,
+        "financial_terms_snapshot": approved_booking_financial_terms(fees),
+        "client_platform_commission": '0.00',
+        "auto_shortfall_charge_enabled": bool(preferences["auto_shortfall_charge_enabled"]) if preferences else False,
+        "default_card": serialize_saved_method(default_method),
+        "_policy": policy,          # internal: reused by checkout, stripped by routes
+        "_wallet": wallet,          # internal
+    }
+
+
+def public_quote(quote):
+    """Quote payload safe to return to the browser."""
+    return {key: value for key, value in quote.items() if not key.startswith("_")}
+
+
+def approved_booking_financial_terms(fee_breakdown):
+    """Explicit approved policy; legacy general Terms never override this split."""
+    from orders.business_lifecycle import INSURANCE_NOTICE,RULES_VERSION
+    return {
+        'rules_version':RULES_VERSION,
+        'currency':'PKR',
+        'freight_fees':fee_breakdown,
+        'client_platform_commission_percent':'0.00',
+        'funding_policy':'Full booking fare from authoritative available Client wallet; no partial escrow or card fallback.',
+        'insurance_notice':INSURANCE_NOTICE,
+        'insurance_notice_version':RULES_VERSION,
+        'insurance_notice_legal_scope':'This notice does not override mandatory legal obligations or liability established through verified misconduct.',
+        'delivery_verification':'Client MPIN-authorized, time-limited, single-use delivery OTP.',
+        'settlement_tranches_percent':['50.00','50.00'],
+        'settlement_basis':'Net earnings after authorized fuel-credit recovery and separately approved reserve contributions.',
+        'dispute_window_minutes':90,
+        'release_eligibility_minutes':120,
+        'timestamp_basis':'Authoritative server-side delivery completion timestamp in UTC.',
+        'release_processing':'At or after release eligibility, as promptly as the configured periodic worker processes due settlements; qualifying disputes keep the applicable money held.',
+        'legacy_terms_reference_scope':'General terms only. The financial authority for this booking is this immutable snapshot.'
+    }
+
+
+# ---------------------------------------------------------------------------
+# Checkout (atomic bid payment + acceptance)
+# ---------------------------------------------------------------------------
+
+def serialize_payment_summary(payment, viewer="client"):
+    """Payment summary without any card data. Transporters see only the
+    amounts that concern them; funding details stay with the payer."""
+    if not payment:
+        return None
+    base = {
+        "id": payment.get("id"),
+        "invoice_number": payment.get("invoice_number"),
+        "status": payment.get("status"),
+        "bid_amount": round_money(payment.get("bid_price")),
+        "held_at": payment.get("held_at"),
+        "released_at": payment.get("released_at"),
+        "business_rules_version": payment.get('business_rules_version'),
+        "commission_breakdown": json.loads(payment['fee_breakdown']) if isinstance(payment.get('fee_breakdown'),str) else payment.get('fee_breakdown'),
+        "client_platform_commission": '0.00',
+        "financial_terms_snapshot": json.loads(payment['financial_terms_snapshot']) if isinstance(payment.get('financial_terms_snapshot'),str) else payment.get('financial_terms_snapshot'),
+        "financial_policy_source": 'financial_terms_snapshot' if payment.get('business_rules_version') == 'rules-1-4-v1' else 'legacy_commission_snapshot',
+        "general_terms_version_id": payment.get('terms_version_id'),
+    }
+    if viewer == "transporter":
+        base["transporter_amount"] = round_money(payment.get("transporter_amount"))
+        if payment.get('fuel_credit_recovered'):
+            base.update({key:payment[key] for key in ('transporter_entitlement','fuel_credit_recovered','wallet_credit_amount')})
+        return base
+    base.update({
+        "funding_source": payment.get("funding_source"),
+        "wallet_funded_amount": round_money(payment.get("wallet_funded_amount")),
+        "card_funded_amount": round_money(payment.get("card_funded_amount")),
+        "processing_fee_percent": float(payment.get("processing_fee_percent") or 0),
+        "processing_fee_amount": round_money(payment.get("processing_fee_amount")),
+        "total_card_charge": round_money(payment.get("total_card_charge")) if payment.get("total_card_charge") is not None else None,
+        "company_fee": round_money(payment.get("company_fee")),
+        "transporter_amount": round_money(payment.get("transporter_amount")),
+        "provider_name": payment.get("provider_name"),
+        "provider_reference": payment.get("provider_reference"),
+        "refunded_at": payment.get("refunded_at"),
+    })
+    return base
+
+
+def get_active_payment_for_shipment(db, shipment_id, statuses=("processing", "held", "released")):
+    placeholders = ",".join("%s" for _ in statuses)
+    row = db.execute(
+        f"SELECT * FROM payments WHERE shipment_id = %s AND status IN ({placeholders}) "
+        "ORDER BY id DESC LIMIT 1",
+        (shipment_id, *statuses),
+    ).fetchone()
+    if not row:
+        return None
+    from shared.fuel_credit import annotate_legacy_earnings
+    return annotate_legacy_earnings(db,[row],'legacy_freight')[0]
+
+
+def _checkout_result(db, order_id, payment, replayed=False):
+    order_row = db.execute("SELECT * FROM shipments WHERE id = %s", (order_id,)).fetchone()
+    trip_row = db.execute(
+        "SELECT * FROM shipment_trips WHERE id = %s", (payment["trip_id"],)
+    ).fetchone()
+    return {
+        "order": dict(order_row) if order_row else None,
+        "trip": dict(trip_row) if trip_row else None,
+        "payment": dict(payment),
+        "replayed": replayed,
+    }
+
+
+def _resolve_card_charge(db, user, kind, quote, payload, provider_key=None, fingerprint=None):
+    """Decide how the card-funded portion is charged. Returns
+    (charge_result, saved_method_used, card_summary_or_None).
+
+    Never mutates money — only validates and performs the dummy charge.
+    Raises CheckoutError when confirmation or card data is missing/invalid.
+    `provider_key` is the backend-scoped provider idempotency key (never the
+    raw client key).
+    """
+    provider = get_payment_provider()
+    payload = payload or {}
+    card_funded = quote["card_funded_amount"]
+    total_charge = quote["total_card_charge"]
+    raw_card = payload.get("card")
+
+    if raw_card:
+        card_summary, error = validate_dummy_card(raw_card)
+        if error:
+            raise CheckoutError(error, 400, "invalid_card")
+        charge = _confirmed_card_charge(provider, total_charge, card_summary=card_summary,
+                                 description=f"One-time order shortfall {card_funded}",
+                                 idempotency_key=provider_key, fingerprint=fingerprint)
+        saved = None
+        if kind == "business" and payload.get("save_card"):
+            saved = create_saved_method(db, user["id"], card_summary,
+                                        set_default=bool(payload.get("set_default")))
+        return charge, saved, card_summary
+
+    if kind == "everyday":
+        raise CheckoutError("Card details are required to pay for this order.", 400, "card_required")
+
+    method = None
+    explicit = False
+    if payload.get("saved_method_id") is not None:
+        try:
+            method_id = parse_positive_id(payload.get("saved_method_id"), "Saved card")
+        except ValueError as exc:
+            raise CheckoutError(str(exc), 400, "invalid_saved_method")
+        method = get_saved_method(db, user["id"], method_id)
+        if not method:
+            raise CheckoutError("Saved card not found.", 404, "card_not_found")
+        explicit = True
+    else:
+        method = quote["default_card"] and get_saved_method(db, user["id"], quote["default_card"]["id"])
+        if not method:
+            raise CheckoutError(
+                "A card is required for the remaining amount. Add a card or enter card details.",
+                402, "card_required",
+            )
+    if _method_expired(method):
+        raise CheckoutError("The selected card has expired.", 400, "card_expired")
+    if not explicit and not quote["can_auto_charge"] and not payload.get("confirm_card_charge"):
+        raise CheckoutError(
+            "Automatic card charging is disabled. Confirm the card charge to continue.",
+            402, "card_confirmation_required",
+        )
+    charge = _confirmed_card_charge(provider, total_charge, token=method["provider_token"],
+                             description=f"One-time order shortfall {card_funded}",
+                             idempotency_key=provider_key, fingerprint=fingerprint)
+    return charge, method, None
+
+
+def _find_replay(db, user, order_id, bid_id, idempotency_key):
+    """Look up a previous checkout for this idempotency key.
+
+    Returns the payment row for a legitimate replay, None when the key is
+    unused, and raises 409 when the key was used for a DIFFERENT checkout
+    (different client, shipment, or accepted bid/trip).
+    """
+    existing = db.execute(
+        "SELECT * FROM payments WHERE idempotency_key = %s", (idempotency_key,)
+    ).fetchone()
+    if not existing:
+        return None
+    existing = dict(existing)
+    trip = db.execute(
+        "SELECT * FROM shipment_trips WHERE id = %s", (existing["trip_id"],)
+    ).fetchone()
+    if (
+        existing["client_user_id"] != user["id"]
+        or existing["shipment_id"] != order_id
+        or not trip
+        or trip["accepted_bid_id"] != bid_id
+    ):
+        raise CheckoutError(
+            "This Idempotency-Key was already used for a different checkout.",
+            409, "idempotency_key_conflict",
+        )
+    return existing
+
+
+def perform_checkout(
+    db, user, order_id, bid_id, payload=None, idempotency_key=None,
+    expected_step_up_descriptor=None,
+):
+    """Atomic pay-and-accept workflow for a one-time order bid.
+
+    Runs entirely inside the caller's open transaction; the caller commits.
+    Any CheckoutError (or database error) leaves every row untouched once the
+    caller rolls back. Returns {"order", "trip", "payment", "quote", "replayed"}.
+    """
+    from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user
+
+    payload = dict(payload or {})
+    kind = normalize_client_kind(user.get("role"))
+    if kind is None:
+        raise CheckoutError("Client account required.", 403)
+    idempotency_key = validate_idempotency_key(idempotency_key)
+
+    # Strict JSON booleans: "false"/"true"/0/1 are rejected so a string can
+    # never be read as confirmation or permission to save a card.
+    try:
+        payload["save_card"] = parse_optional_bool(payload.get("save_card"), "save_card")
+        payload["set_default"] = parse_optional_bool(payload.get("set_default"), "set_default")
+        payload["confirm_card_charge"] = parse_optional_bool(
+            payload.get("confirm_card_charge"), "confirm_card_charge"
+        )
+    except ValueError as exc:
+        raise CheckoutError(str(exc), 400, "invalid_boolean")
+
+    if kind == "business":
+        # A checkout that saves/replaces a default card must enter the same
+        # owner guard as standalone card settings before taking domain locks.
+        lock_payment_settings(db,user["id"])
+
+    # Idempotent replay (fast path): a repeated successful request returns
+    # the original result without charging again.
+    replay = _find_replay(db, user, order_id, bid_id, idempotency_key)
+    if replay:
+        result = _checkout_result(db, order_id, replay, replayed=True)
+        result["quote"] = None
+        return result
+
+    # 1-5. Lock and validate the shipment + bid.
+    order_row = db.execute(
+        "SELECT * FROM shipments WHERE id = %s FOR UPDATE", (order_id,)
+    ).fetchone()
+    if not order_row:
+        raise CheckoutError("Order not found.", 404)
+    order = dict(order_row)
+    if order["client_user_id"] != user["id"]:
+        raise CheckoutError("Access denied.", 403)
+
+    # Recheck idempotency AFTER acquiring the shipment lock: a concurrent
+    # request with the same key may have committed while we waited, and must
+    # be replayed instead of failing on "order not open".
+    replay = _find_replay(db, user, order_id, bid_id, idempotency_key)
+    if replay:
+        result = _checkout_result(db, order_id, replay, replayed=True)
+        result["quote"] = None
+        return result
+
+    if order["status"] != "open":
+        raise CheckoutError("This order is no longer open for checkout.", 409, "order_not_open")
+
+    bid_row = db.execute_exact(
+        "SELECT * FROM shipment_bids WHERE id = %s AND order_id = %s FOR UPDATE",
+        (bid_id, order_id),
+    ).fetchone()
+    if not bid_row:
+        raise CheckoutError("Bid not found.", 404)
+    bid = dict(bid_row)
+    if bid["status"] != "pending":
+        raise CheckoutError("This bid can no longer be accepted.", 409, "bid_not_pending")
+
+    # Lock the selected vehicle row THIRD and revalidate it under the lock,
+    # before any provider charge or wallet mutation. A truck that became
+    # inactive / re-owned / no-longer-matching since the bid was placed aborts
+    # here with 409 bid_truck_unavailable — no charge, no wallet change, no
+    # accepted bid, no trip, no payment. build_payment_quote runs the shared
+    # validation on this exact locked row (no duplicated validation logic).
+    from orders.helpers import validate_bid_truck
+    truck_row = db.execute(
+        "SELECT * FROM vehicles WHERE id = %s FOR UPDATE", (bid["truck_id"],)
+    ).fetchone()
+    truck = dict(truck_row) if truck_row else None
+    truck_reason = validate_bid_truck(order, bid["transporter_user_id"], truck)
+    if truck_reason:
+        raise CheckoutError(truck_reason, 409, "bid_truck_unavailable")
+
+    # 6-7. Recalculate the full quote server-side (wallet + vehicle rows locked).
+    # Create both participants' rows before taking either wallet lock, then use
+    # the same user-id ordering as agreement payouts and dispute resolution.
+    # This prevents opposing Client/Transporter wallet-id creation order from
+    # producing a rare cross-flow deadlock.
+    wallet = None
+    if kind == "business":
+        wallet, wallet_error = get_or_create_wallet_for_user(db, user)
+        if wallet_error is not None or wallet is None:
+            raise CheckoutError("Wallet is not available for this account.", 403)
+        transporter_wallet, transporter_wallet_error = get_or_create_wallet_for_user(
+            db,
+            {"id": bid["transporter_user_id"], "role": "transporter"},
+        )
+        if transporter_wallet_error is not None or transporter_wallet is None:
+            raise CheckoutError("Transporter wallet is not available.", 409)
+        locked_wallets = db.execute_exact(
+            "SELECT * FROM wallets WHERE user_id = ANY(%s) ORDER BY user_id FOR UPDATE",
+            ([user["id"], bid["transporter_user_id"]],),
+        ).fetchall()
+        locked_by_user = {row["user_id"]: dict(row) for row in locked_wallets}
+        wallet = locked_by_user.get(user["id"])
+        if wallet is None or bid["transporter_user_id"] not in locked_by_user:
+            raise CheckoutError("Booking wallets are not available.", 409)
+    quote = build_payment_quote(db, order, bid, user, wallet=wallet, truck=truck)
+    if kind != 'business':
+        raise CheckoutError('A funded wallet is required to accept this bid. Wallet onboarding for this account type requires an approved policy.',409,'wallet_onboarding_required')
+    shortfall = Decimal(quote['wallet_shortfall'])
+    if shortfall > 0:
+        raise CheckoutError(f'Insufficient balance. Please top up PKR {shortfall:,.2f} to accept this bid.',400,'insufficient_wallet_balance')
+    from shared.reserves import ensure_security_reserve
+    ensure_security_reserve(db,bid['transporter_user_id'])
+    if expected_step_up_descriptor is not None:
+        from auth import step_up_service
+
+        expected = expected_step_up_descriptor
+        if (
+            expected["action_key"] != "one_time.checkout.wallet_only"
+            or expected["resource_id"] != order_id
+            or expected["funding_source"] != "wallet"
+            or quote["card_funded_amount"] > 0
+            or expected["amount_minor"] != step_up_service.money_to_minor(
+                quote["bid_amount"]
+            )
+        ):
+            raise CheckoutError(
+                "The wallet-only checkout details changed. Try again.",
+                409,
+                "step_up_action_changed",
+            )
+
+    stamp = timestamp_bundle()
+    policy = quote["_policy"]
+    terms = get_current_terms_version(db)
+    company_share = Decimal('20.00')
+    transporter_share = transporter_share_percent_for(company_share)
+
+    # 8. Dummy card funding where required (validation errors abort before any
+    # money moves). The provider gets a backend-scoped key, not the raw client
+    # key, so the same client key can never collide across users or flows.
+    charge = None
+    if quote["card_funded_amount"] > 0:
+        provider_key = build_provider_idempotency_key(
+            "checkout", user["id"], order_id, bid_id, idempotency_key,
+        )
+        fingerprint = provider_request_fingerprint(
+            "checkout", user["id"], order_id, bid_id, quote["total_card_charge"],
+        )
+        charge, _method, _summary = _resolve_card_charge(
+            db, user, kind, quote, payload, provider_key=provider_key, fingerprint=fingerprint,
+        )
+
+    # Wallet mutations (business only): credit exactly the card-funded
+    # shortfall, then deduct the full bid amount into the platform hold.
+    if kind == "business":
+        if quote["card_funded_amount"] > 0:
+            credit_error = adjust_wallet_balance(
+                db, wallet, user["id"], quote["card_funded_amount"], "card_shortfall_topup",
+                description=f"Card shortfall funding for order #{order_id}",
+                reference_id=idempotency_key,
+                gross_amount=quote["total_card_charge"],
+                gateway_fee=quote["processing_fee_amount"],
+            )
+            if credit_error is not None:
+                raise CheckoutError("Card funding could not be credited.", 500)
+        debited = db.execute_exact('UPDATE wallets SET balance=balance-%s,updated_at=now() WHERE user_id=%s AND balance-locked_balance>=%s RETURNING id,balance',(quote['bid_amount'],user['id'],quote['bid_amount'])).fetchone()
+        if not debited:
+            raise CheckoutError('Insufficient wallet balance for this order.',400,'insufficient_wallet_balance')
+        db.execute_exact('INSERT INTO wallet_transactions(wallet_id,user_id,type,amount,reference_id,balance_after,description) VALUES(%s,%s,%s,%s,%s,%s,%s)',(debited['id'],user['id'],'order_payment',-quote['bid_amount'],idempotency_key,debited['balance'],f'Booking escrow for order #{order_id}'))
+
+    # 11-13. Accept the bid, reject the others, create exactly one trip.
+    db.execute(
+        "UPDATE shipment_bids SET status = 'accepted', updated_at = %s WHERE id = %s",
+        (stamp["display"], bid_id),
+    )
+    db.execute(
+        "UPDATE shipment_bids SET status = 'rejected', updated_at = %s "
+        "WHERE order_id = %s AND id != %s AND status = 'pending'",
+        (stamp["display"], order_id, bid_id),
+    )
+    trip_id = db.execute(
+        """
+        INSERT INTO shipment_trips (
+            order_id, accepted_bid_id, transporter_user_id, truck_id, status, created_at, updated_at
+        ) VALUES (%s, %s, %s, %s, 'ready_to_start', %s, %s)
+        RETURNING id
+        """,
+        (order_id, bid_id, bid["transporter_user_id"], bid["truck_id"], stamp["display"], stamp["display"]),
+    ).fetchone()["id"]
+    db.execute(
+        "INSERT INTO shipment_no_show_tracking (trip_id, status, created_at, updated_at) "
+        "VALUES (%s, 'tracking', %s, %s)",
+        (trip_id, stamp["display"], stamp["display"]),
+    )
+
+    # Open the single one-time chat thread at the earliest accepted-trip point so
+    # client and transporter can talk from ready_to_start onward (Phase J).
+    from chat.helpers import ensure_one_time_thread
+    ensure_one_time_thread(db, order_id, trip_id, user["id"], bid["transporter_user_id"])
+
+    # 14. Shipment snapshot + status.
+    db.execute(
+        """
+        UPDATE shipments
+        SET status = 'ready_to_start', accepted_bid_id = %s, payment_amount = %s,
+            payment_status = 'held',
+            company_share_percent_snapshot = %s, transporter_share_percent_snapshot = %s,
+            commission_policy_id = %s, terms_version_id = %s, updated_at = %s
+        WHERE id = %s
+        """,
+        (
+            bid_id,
+            quote["bid_amount"],
+            float(company_share),
+            float(transporter_share),
+            policy["id"] if policy else None,
+            terms["id"] if terms else None,
+            stamp["display"],
+            order_id,
+        ),
+    )
+
+    # 9-10. Held payment/audit record with commission, Terms and fee snapshots.
+    funding_source = (
+        "wallet" if quote["card_funded_amount"] <= 0
+        else ("card" if quote["wallet_funded_amount"] <= 0 else "wallet_card")
+    )
+    provider = get_payment_provider()
+    try:
+        payment_id = db.execute(
+            """
+            INSERT INTO payments (
+                trip_id, shipment_id, invoice_number, client_user_id, transporter_user_id,
+                bid_price, company_fee, transporter_amount,
+                company_share_percent, transporter_share_percent, commission_policy_id,
+                terms_version_id,
+                wallet_funded_amount, card_funded_amount,
+                processing_fee_percent, processing_fee_amount, total_card_charge,
+                funding_source, provider_name, provider_reference, idempotency_key,
+                payment_method, status, held_at, created_at
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                      %s, %s, %s, %s, %s, 'held', %s, %s)
+            RETURNING id
+            """,
+            (
+                trip_id,
+                order_id,
+                f"ORD-{order_id}-{trip_id}-{datetime.now().strftime('%Y%m%d')}",
+                user["id"],
+                bid["transporter_user_id"],
+                quote["bid_amount"],
+                quote["platform_commission_amount"],
+                quote["transporter_payout_amount"],
+                float(company_share),
+                float(transporter_share),
+                policy["id"] if policy else None,
+                terms["id"] if terms else None,
+                quote["wallet_funded_amount"],
+                quote["card_funded_amount"],
+                quote["processing_fee_percent"],
+                quote["processing_fee_amount"],
+                quote["total_card_charge"] if quote["card_funded_amount"] > 0 else None,
+                funding_source,
+                provider.name if charge else None,
+                (charge or {}).get("reference"),
+                idempotency_key,
+                funding_source,
+                stamp["iso"],
+                stamp["display"],
+            ),
+        ).fetchone()["id"]
+    except IntegrityError:
+        # Partial unique indexes: an active payment already exists for this
+        # shipment or the idempotency key raced another request.
+        raise CheckoutError("A payment for this order is already in progress.", 409, "duplicate_payment")
+
+    payment_row = dict(db.execute("SELECT * FROM payments WHERE id = %s", (payment_id,)).fetchone())
+    # Agreement acceptance is recorded at signup. A booking reminder is optional
+    # and must never be recorded as a new insurance acceptance.
+    db.execute('UPDATE payments SET business_rules_version=%s,fee_breakdown=%s,financial_terms_snapshot=%s WHERE id=%s',('rules-1-4-v1',json.dumps(quote['commission_breakdown']),json.dumps(approved_booking_financial_terms(quote['commission_breakdown'])),payment_id))
+    from shared.financial_ledger import post_journal
+    post_journal(db,f'freight:escrow:{payment_id}','freight_escrow',str(payment_id),[(f'wallet:{user["id"]}',-Decimal(str(quote['bid_amount']))),(f'escrow:{payment_id}',Decimal(str(quote['bid_amount'])))])
+    payment_row = dict(db.execute('SELECT * FROM payments WHERE id=%s',(payment_id,)).fetchone())
+    result = _checkout_result(db, order_id, payment_row)
+    result["quote"] = public_quote(quote)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# Start trip (transporter)
+# ---------------------------------------------------------------------------
+
+def perform_start_trip(db, user, order_id, trip_id):
+    """Transporter starts a paid, ready trip. Idempotent. Caller commits.
+
+    Verifies, under row locks: the trip belongs to the order AND to the
+    authenticated accepted transporter, it is the order's accepted trip/bid,
+    the held payment is for exactly this shipment AND this trip, and both the
+    shipment and trip are ready_to_start. Never releases the payout.
+    """
+    # Lock the shipment first (same order as checkout, avoiding deadlocks),
+    # then the trip.
+    order_row = db.execute(
+        "SELECT * FROM shipments WHERE id = %s FOR UPDATE", (order_id,)
+    ).fetchone()
+    if not order_row:
+        raise CheckoutError("Order not found.", 404)
+    order = dict(order_row)
+
+    trip_row = db.execute(
+        "SELECT * FROM shipment_trips WHERE id = %s AND order_id = %s FOR UPDATE",
+        (trip_id, order_id),
+    ).fetchone()
+    if not trip_row:
+        raise CheckoutError("Trip not found.", 404)
+    trip = dict(trip_row)
+    if trip["transporter_user_id"] != user["id"]:
+        raise CheckoutError("Access denied.", 403)
+
+    # The trip must be the order's accepted trip (bid accepted via checkout).
+    if order.get("accepted_bid_id") != trip["accepted_bid_id"]:
+        raise CheckoutError("This trip is not the accepted trip for the order.", 409, "trip_not_accepted")
+    accepted_bid = db.execute(
+        "SELECT id, status, transporter_user_id FROM shipment_bids WHERE id = %s AND order_id = %s",
+        (trip["accepted_bid_id"], order_id),
+    ).fetchone()
+    if not accepted_bid or accepted_bid["status"] != "accepted" \
+            or accepted_bid["transporter_user_id"] != user["id"]:
+        raise CheckoutError("This trip is not the accepted trip for the order.", 409, "trip_not_accepted")
+
+    if trip["status"] == "in_progress":
+        return {"trip": trip, "already_started": True}
+    if trip["status"] != "ready_to_start":
+        raise CheckoutError("This trip cannot be started.", 409, "trip_not_ready")
+    if order["status"] != "ready_to_start":
+        raise CheckoutError("This order is not ready to start.", 409, "order_not_ready")
+
+    payment = get_active_payment_for_shipment(
+        db, order_id, statuses=("processing", "held", "disputed", "released")
+    )
+    if not payment or payment["status"] != "held":
+        raise CheckoutError("Payment for this order is not held yet.", 409, "payment_not_held")
+    # The held payment must be for exactly this shipment and this trip.
+    if payment["shipment_id"] != order_id or payment["trip_id"] != trip_id:
+        raise CheckoutError("The held payment does not match this trip.", 409, "payment_trip_mismatch")
+
+    stamp = timestamp_bundle()["display"]
+    db.execute(
+        "UPDATE shipment_trips SET status = 'in_progress', trip_started_at = %s, updated_at = %s "
+        "WHERE id = %s",
+        (stamp, stamp, trip_id),
+    )
+    db.execute(
+        "UPDATE shipments SET status = 'in_progress', updated_at = %s WHERE id = %s",
+        (stamp, order_id),
+    )
+    updated = dict(db.execute("SELECT * FROM shipment_trips WHERE id = %s", (trip_id,)).fetchone())
+    return {"trip": updated, "already_started": False}
+
+
+# ---------------------------------------------------------------------------
+# Wallet top-up (atomic, idempotent) — single production service
+# ---------------------------------------------------------------------------
+
+def _topup_requested_amount(row, wallet_role):
+    """The originally requested amount stored on a top-up transaction, per
+    role semantics: business/client stores the credited amount, transporter
+    stores the gross charge."""
+    if wallet_role == "client":
+        return Decimal(str(row["amount"])).quantize(TWO_PLACES)
+    return Decimal(str(row["gross_amount"])).quantize(TWO_PLACES)
+
+
+def _serialize_topup(row, replayed):
+    return {
+        "replayed": replayed,
+        "gross_amount": round_money(row["gross_amount"]),
+        "gateway_fee": round_money(row["gateway_fee"]),
+        "net_amount": round_money(row["amount"]),
+        "new_balance": round_money(row["balance_after"]),
+        "provider_name": row.get("provider_name"),
+        "provider_reference": row.get("provider_reference"),
+    }
+
+
+def _find_topup_replay(db, user_id, wallet_role, client_key, requested_amount):
+    """Look up a prior top-up for this user + client key.
+
+    Returns a serialized replay result, None if unused, or raises 409 when the
+    key was used with a different amount (incompatible request).
+    """
+    row = db.execute_exact(
+        "SELECT * FROM wallet_transactions WHERE user_id = %s AND type = 'topup' AND reference_id = %s",
+        (user_id, client_key),
+    ).fetchone()
+    if not row:
+        return None
+    row = dict(row)
+    if _topup_requested_amount(row, wallet_role) != Decimal(str(requested_amount)).quantize(TWO_PLACES):
+        raise CheckoutError(
+            "This Idempotency-Key was already used for a top-up with a different amount.",
+            409, "idempotency_key_conflict",
+        )
+    return _serialize_topup(row, replayed=True)
+
+
+def perform_wallet_topup(db, user, amount_raw, card_data, client_key):
+    """Atomic, idempotent wallet top-up. Runs in the caller's transaction.
+
+    Ordering guarantees (no mutation before validation):
+      1. The Idempotency-Key is validated FIRST — before the wallet is
+         created or any row is touched.
+      2. The requested amount is parsed.
+      3. A prior top-up for (user, key) is looked up: a same-amount replay
+         returns the stored result WITHOUT requiring card data again; a
+         different amount raises 409 idempotency_key_conflict with no charge.
+      4. Only for a genuinely new top-up is card validation mandatory.
+      5. The wallet is created/locked, the record re-checked under the lock,
+         the provider charged with a backend-scoped key, and the credit +
+         transaction written.
+
+    Returns the structured result from _serialize_topup (+ "message").
+    """
+    from wallet.helpers import (
+        adjust_wallet_balance,
+        calculate_gateway_fee,
+        calculate_required_gross_for_net,
+        get_or_create_wallet_for_user,
+        insert_wallet_transaction,
+        normalize_wallet_role,
+    )
+
+    # 1. Idempotency key first — before any wallet creation or mutation.
+    client_key = validate_idempotency_key(client_key)
+
+    # 2. Stable requested amount + role semantics (no DB yet).
+    try:
+        amount = parse_money_amount(amount_raw, "Amount")
+    except ValueError as exc:
+        raise CheckoutError(str(exc), 400, "invalid_amount")
+    wallet_role = normalize_wallet_role(user.get("role"))
+    if wallet_role is None:
+        raise CheckoutError("Wallet is not available for this account role.", 403)
+    user_id = user["id"]
+
+    # 3. Replay / conflict check (read-only; never creates a wallet). A valid
+    # same-amount replay returns here without needing card data.
+    replay = _find_topup_replay(db, user_id, wallet_role, client_key, amount)
+    if replay:
+        replay["message"] = "Wallet top-up already processed."
+        return replay
+
+    # 4. New top-up: card validation is mandatory before any charge.
+    card_summary, card_error = validate_dummy_card(card_data)
+    if card_error:
+        raise CheckoutError(card_error, 400, "invalid_card")
+
+    # 5. Create + lock the wallet, then re-check the record under the lock.
+    wallet, wallet_error = get_or_create_wallet_for_user(db, user)
+    if wallet_error is not None or wallet is None:
+        raise CheckoutError("Wallet is not available for this account role.", 403)
+    locked = db.execute_exact("SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (user_id,)).fetchone()
+    wallet = dict(locked)
+
+    replay = _find_topup_replay(db, user_id, wallet_role, client_key, amount)
+    if replay:
+        replay["message"] = "Wallet top-up already processed."
+        return replay
+
+    # Role-specific amounts from the locked wallet row.
+    if wallet["role"] == "client":
+        # Business/client: entered amount is the desired credit; card is
+        # charged amount + processing fee.
+        gateway_fee = (amount * card_processing_fee_percent() / HUNDRED).quantize(TWO_PLACES,rounding=ROUND_HALF_UP)
+        gross_amount = amount + gateway_fee
+        net_amount = amount
+    else:
+        # Transporter: legacy gross semantics kept unchanged.
+        gross_amount = amount
+        gateway_fee = (gross_amount * card_processing_fee_percent() / HUNDRED).quantize(TWO_PLACES,rounding=ROUND_HALF_UP)
+        net_amount = gross_amount - gateway_fee
+        projected_balance = wallet["balance"] + net_amount
+        if not wallet["is_minimum_met"] and projected_balance < wallet["minimum_required"]:
+            net_shortfall = wallet["minimum_required"] - wallet["balance"]
+            required_gross = calculate_required_gross_for_net(net_shortfall)
+            raise CheckoutError(
+                f"Minimum balance of Rs {wallet['minimum_required']:.2f} required. "
+                f"Please add at least Rs {required_gross:.2f} to meet the minimum.",
+                400, "minimum_balance_required",
+            )
+
+    # Charge the provider with a backend-scoped key (never the raw client key)
+    # bound to a safe fingerprint.
+    provider = get_payment_provider()
+    provider_key = build_provider_idempotency_key("wallet-topup", user_id, client_key)
+    # Preserve the provider's historical fingerprint serialization on retries;
+    # all financial calculations above remain Decimal.
+    fingerprint = provider_request_fingerprint("wallet-topup", user_id, round_money(gross_amount))
+    charge = _confirmed_card_charge(
+        provider, gross_amount, card_summary=card_summary,
+        description="Wallet top-up", idempotency_key=provider_key, fingerprint=fingerprint,
+    )
+
+    stamp = timestamp_bundle()["display"]
+    new_balance = wallet["balance"] + net_amount
+    is_minimum_met = bool(wallet["is_minimum_met"] or new_balance >= wallet["minimum_required"])
+    current_locked_balance = wallet["locked_balance"]
+    should_restore_minimum_lock = (
+        wallet["role"] == "transporter"
+        and new_balance >= wallet["minimum_required"]
+        and current_locked_balance < wallet["minimum_required"]
+    )
+    balance_error = adjust_wallet_balance(
+        db, wallet, user_id, net_amount, "topup",
+        description="Wallet top-up", reference_id=client_key,
+        gross_amount=gross_amount, gateway_fee=gateway_fee,
+        provider_name=charge.get("provider"), provider_reference=charge.get("reference"),
+    )
+    if balance_error is not None:
+        raise CheckoutError("Wallet top-up could not be credited.", 500, "topup_failed")
+    db.execute(
+        "UPDATE wallets SET is_minimum_met = %s, updated_at = %s WHERE id = %s AND user_id = %s",
+        (is_minimum_met, stamp, wallet["id"], user_id),
+    )
+    wallet["is_minimum_met"] = is_minimum_met
+    wallet["updated_at"] = stamp
+    if should_restore_minimum_lock:
+        target_lock = Decimal(str(wallet["minimum_required"]))
+        lock_delta = target_lock - current_locked_balance
+        db.execute(
+            "UPDATE wallets SET locked_balance = %s, updated_at = %s WHERE id = %s AND user_id = %s",
+            (target_lock, stamp, wallet["id"], user_id),
+        )
+        wallet["locked_balance"] = target_lock
+        wallet["updated_at"] = stamp
+        insert_wallet_transaction(
+            db, wallet, user_id, "lock", lock_delta,
+            description="Transporter minimum security deposit locked",
+            reference_id="minimum_security_deposit",
+        )
+
+    return {
+        "replayed": False,
+        "message": "Wallet topped up successfully",
+        "gross_amount": round_money(gross_amount),
+        "gateway_fee": round_money(gateway_fee),
+        "net_amount": round_money(net_amount),
+        "new_balance": round_money(new_balance),
+        "provider_name": charge.get("provider"),
+        "provider_reference": charge.get("reference"),
+    }
+
+
+# ---------------------------------------------------------------------------
+# Canonical held-payment RELEASE and REFUND (single services)
+# ---------------------------------------------------------------------------
+# One production release service and one production refund service for a
+# one-time held payment. Used by Client-Yes, the admin dispute resolutions and
+# any compatible legacy delivery-confirmation route. All money math is Decimal
+# via the saved commission snapshot on the payment row — never a live policy
+# lookup for an already-accepted order — and the card processing fee is never
+# treated as commission. Both are replay-safe (payment-status guarded under the
+# row lock) with a unique wallet-transaction reference as the double-credit
+# backstop. Callers hold the shipment + trip locks; these lock payment + wallet.
+
+def _lock_payment(db, payment_id):
+    row = db.execute_exact(
+        "SELECT * FROM payments WHERE id = %s FOR UPDATE", (payment_id,)
+    ).fetchone()
+    return dict(row) if row else None
+
+
+def release_one_time_payment(db, payment_id, now_iso=None):
+    """Release a held one-time payment to the transporter exactly once.
+
+    Locks the payment, credits the snapshotted transporter entitlement less
+    separately recorded new fuel-debt recovery, retains the saved commission
+    (payments.company_fee) and marks the payment released. Returns a dict with
+    "released" (False on an idempotent replay of an already-released payment).
+    Raises CheckoutError if the payment is missing or not in a releasable state.
+    """
+    from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user
+    from shared.fuel_credit import legacy_earnings_recovery, recover_legacy_earnings
+
+    recovery_reference = f"legacy_freight:{payment_id}"
+
+    payment = _lock_payment(db, payment_id)
+    if not payment:
+        raise CheckoutError("Payment not found.", 404, "payment_not_found")
+    if payment.get('business_rules_version') == 'rules-1-4-v1':
+        raise CheckoutError('Versioned bookings require verified delivery OTP and tranche settlement. Use the authorized settlement resolution flow for disputes.',409,'delivery_otp_required')
+    if payment["status"] == "released":
+        entitlement = Decimal(str(payment["transporter_amount"]))
+        recovered = legacy_earnings_recovery(db, recovery_reference)
+        return {"released": False, "already_released": True, "payment": payment,
+                "transporter_entitlement": round_money(entitlement),
+                "fuel_credit_recovered": round_money(recovered),
+                "wallet_credit_amount": round_money(entitlement - recovered),
+                "payout_amount": round_money(entitlement - recovered)}
+    if payment["status"] != "held":
+        raise CheckoutError(
+            "Only a held payment can be released.", 409, "payment_not_held"
+        )
+
+    bid_price = Decimal(str(payment["bid_price"]))
+    company_fee = Decimal(str(payment["company_fee"]))
+    transporter_amount = Decimal(str(payment["transporter_amount"]))
+    # Invariant: commission + payout == bid (processing fee lives outside this).
+    if (company_fee + transporter_amount).quantize(TWO_PLACES) != bid_price.quantize(TWO_PLACES):
+        raise CheckoutError(
+            "Payment split is inconsistent; refusing to release.", 409, "split_mismatch"
+        )
+
+    stamp = now_iso or timestamp_bundle()["iso"]
+    trip_id = payment["trip_id"]
+    transporter_id = payment["transporter_user_id"]
+
+    # Settle the transporter's future entitlement once. The unique (type, reference_id)
+    # index on order_payout is the double-credit backstop; the payment-status
+    # guard above plus the row lock is the primary idempotency guarantee.
+    wallet, _err = get_or_create_wallet_for_user(
+        db, {"id": transporter_id, "role": "transporter"}
+    )
+    if wallet is None:
+        raise CheckoutError("Transporter wallet unavailable.", 500, "wallet_unavailable")
+    wallet = dict(db.execute_exact(
+        "SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (transporter_id,)
+    ).fetchone())
+    recovered = recover_legacy_earnings(db, transporter_id, transporter_amount, recovery_reference)
+    payout = transporter_amount - recovered
+    if recovered:
+        from shared.financial_ledger import post_journal
+        # Recognize only the new recovery against this future payable. The
+        # historical fare, commission and net entitlement remain untouched.
+        post_journal(db, f"fuel_recovery_source:{recovery_reference}", "legacy_earnings_fuel_recovery", str(payment_id),
+                     [(f"legacy_freight_payable:{payment_id}", -recovered),
+                      (f"fuel_credit_recovery:{recovery_reference}", recovered)])
+    if payout:
+        credit_error = adjust_wallet_balance(
+            db, wallet, transporter_id, payout, "order_payout",
+            description=f"Payout released for order #{payment['shipment_id']}",
+            reference_id=f"payout:trip:{trip_id}",
+        )
+        if credit_error is not None:
+            raise CheckoutError("Payout could not be credited.", 500, "payout_failed")
+
+    db.execute(
+        "UPDATE payments SET status = 'released', released_at = %s WHERE id = %s AND status = 'held'",
+        (stamp, payment_id),
+    )
+    if payment.get("shipment_id"):
+        db.execute(
+            "UPDATE shipments SET payment_status = 'released', updated_at = %s WHERE id = %s",
+            (stamp, payment["shipment_id"]),
+        )
+    payment = _lock_payment(db, payment_id)
+    return {
+        "released": True,
+        "already_released": False,
+        "payout_amount": round_money(payout),
+        "transporter_entitlement": round_money(transporter_amount),
+        "fuel_credit_recovered": round_money(recovered),
+        "wallet_credit_amount": round_money(payout),
+        "company_fee": round_money(company_fee),
+        "payment": payment,
+    }
+
+
+def refund_one_time_payment(db, payment_id, now_iso=None):
+    """Refund a held one-time payment to the client exactly once (dummy phase).
+
+    Restores the wallet-funded portion to a business seeker's wallet (once) and
+    issues a dummy card refund for the FULL card charge — card-funded amount
+    plus the dummy processing fee. Everyday users have no wallet, so their whole
+    payment was card-funded and is refunded on the card. No commission and no
+    transporter payout ever occur. Replay-safe (payment-status guarded).
+    """
+    from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user
+
+    payment = _lock_payment(db, payment_id)
+    if not payment:
+        raise CheckoutError("Payment not found.", 404, "payment_not_found")
+    if payment.get('business_rules_version') == 'rules-1-4-v1':
+        settled = db.execute('SELECT id FROM freight_settlements WHERE payment_id=%s',(payment_id,)).fetchone()
+        if settled:
+            raise CheckoutError('A partially paid settlement requires an explicit evidence-based allocation of the remaining held amount.',409,'settlement_resolution_required')
+        if payment['status']=='refunded':
+            return {'refunded':False,'already_refunded':True,'payment':payment}
+        if payment['status']!='held':
+            raise CheckoutError('Only held booking escrow can be refunded.',409,'payment_not_held')
+        amount=Decimal(str(payment['wallet_funded_amount']))
+        if amount != Decimal(str(payment['bid_price'])) or Decimal(str(payment['card_funded_amount'])) != 0:
+            raise CheckoutError('Versioned booking funding is inconsistent.',409,'escrow_funding_mismatch')
+        client_id=payment['client_user_id']
+        db.execute_exact('SELECT id FROM wallets WHERE user_id=%s FOR UPDATE',(client_id,))
+        from orders.business_lifecycle import _wallet_credit
+        _wallet_credit(db,client_id,amount,'order_refund',f'refund:trip:{payment["trip_id"]}')
+        from shared.financial_ledger import post_journal
+        post_journal(db,f'freight:refund:{payment_id}','freight_refund',str(payment_id),[(f'escrow:{payment_id}',-amount),(f'wallet:{client_id}',amount)])
+        db.execute("UPDATE payments SET status='refunded',refunded_at=%s WHERE id=%s",(now_iso or datetime.now().astimezone().isoformat(),payment_id))
+        db.execute("UPDATE shipments SET payment_status='refunded',updated_at=now() WHERE id=%s",(payment['shipment_id'],))
+        return {'refunded':True,'already_refunded':False,'wallet_refund_amount':amount,'card_refund_amount':Decimal('0.00'),'refund_provider_reference':None,'payment':_lock_payment(db,payment_id)}
+    if payment["status"] == "refunded":
+        return {"refunded": False, "already_refunded": True, "payment": payment}
+    if payment["status"] != "held":
+        raise CheckoutError(
+            "Only a held payment can be refunded.", 409, "payment_not_held"
+        )
+
+    stamp = now_iso or timestamp_bundle()["iso"]
+    trip_id = payment["trip_id"]
+    client_id = payment["client_user_id"]
+    wallet_funded = round_money(payment.get("wallet_funded_amount") or 0)
+    total_card_charge = payment.get("total_card_charge")
+    total_card_charge = round_money(total_card_charge) if total_card_charge is not None else 0.0
+
+    # 1. Restore the wallet-funded portion to the business client's wallet once.
+    if wallet_funded > 0:
+        wallet, _err = get_or_create_wallet_for_user(
+            db, {"id": client_id, "role": "client"}
+        )
+        if wallet is None:
+            raise CheckoutError("Client wallet unavailable.", 500, "wallet_unavailable")
+        wallet = dict(db.execute(
+            "SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (client_id,)
+        ).fetchone())
+        restore_error = adjust_wallet_balance(
+            db, wallet, client_id, wallet_funded, "order_refund",
+            description=f"Refund of held payment for order #{payment['shipment_id']}",
+            reference_id=f"refund:trip:{trip_id}",
+        )
+        if restore_error is not None:
+            raise CheckoutError("Wallet refund could not be credited.", 500, "refund_failed")
+
+    # 2. Dummy card refund for the full card charge (incl. dummy processing fee).
+    refund_reference = payment.get("refund_provider_reference")
+    if total_card_charge > 0:
+        provider = get_payment_provider()
+        provider_key = build_provider_idempotency_key("refund", client_id, payment_id)
+        refund = provider.refund(total_card_charge, idempotency_key=provider_key)
+        refund_reference = refund.get("reference")
+
+    db.execute(
+        "UPDATE payments SET status = 'refunded', refunded_at = %s, refund_provider_reference = %s "
+        "WHERE id = %s AND status = 'held'",
+        (stamp, refund_reference, payment_id),
+    )
+    if payment.get("shipment_id"):
+        db.execute(
+            "UPDATE shipments SET payment_status = 'refunded', updated_at = %s WHERE id = %s",
+            (stamp, payment["shipment_id"]),
+        )
+    payment = _lock_payment(db, payment_id)
+    if payment.get('business_rules_version') == 'rules-1-4-v1':
+        from shared.financial_ledger import post_journal
+        amount=Decimal(str(payment['wallet_funded_amount']))
+        post_journal(db,f'freight:refund:{payment_id}','freight_refund',str(payment_id),[(f'escrow:{payment_id}',-amount),(f'wallet:{client_id}',amount)])
+    return {
+        "refunded": True,
+        "already_refunded": False,
+        "wallet_refund_amount": wallet_funded,
+        "card_refund_amount": total_card_charge,
+        "refund_provider_reference": refund_reference,
+        "payment": payment,
+    }

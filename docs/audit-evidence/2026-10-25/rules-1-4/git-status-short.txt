@@ -1,0 +1,239 @@
+ M .env.example
+ M README.md
+ M backend/admin/routes.py
+ M backend/agreements/helpers.py
+ M backend/agreements/routes.py
+ M backend/app.py
+ M backend/auth/helpers.py
+ M backend/auth/routes.py
+ M backend/auth/session_service.py
+ M backend/auth/step_up_service.py
+ M backend/orders/helpers.py
+ M backend/orders/lifecycle.py
+ M backend/orders/routes.py
+ M backend/payments/routes.py
+ M backend/profile/routes.py
+ M backend/scheduler.py
+ M backend/scripts/create_admin.py
+ M backend/scripts/process_overdue_confirmations.py
+ M backend/shared/commissions.py
+ M backend/shared/db.py
+ M backend/shared/payments.py
+ M backend/shared/roles.py
+ M backend/shared/supabase_client.py
+ M backend/tests/conftest.py
+ M backend/tests/test_auth_security_events.py
+ M backend/tests/test_canonical_event_foundation.py
+ M backend/tests/test_everyday_separation.py
+ M backend/tests/test_mpin_high_risk_routes_postgres.py
+ M backend/tests/test_mpin_high_risk_step_up_integration.py
+ M backend/tests/test_mpin_step_up_authorization_foundation.py
+ M backend/tests/test_payments.py
+ M backend/tests/test_premerge_route_security.py
+ M backend/tests/test_routes.py
+ M backend/tests/test_scheduler.py
+ M backend/tests/test_signup_security_events.py
+ M backend/tests/test_sms_channel_policy.py
+ M backend/tests/test_trip_reviews.py
+ M backend/trucks/helpers.py
+ M backend/trucks/routes.py
+ M backend/wallet/helpers.py
+ M backend/wallet/routes.py
+ M backend/wallet/withdrawal_limits.py
+ M frontend-react/eslint.config.js
+ M frontend-react/package-lock.json
+ M frontend-react/package.json
+ M frontend-react/src/App.jsx
+ M frontend-react/src/auth/accessLock.js
+ M frontend-react/src/auth/logout.js
+ M frontend-react/src/auth/presentation.js
+ M frontend-react/src/components/AgreementTripMap.jsx
+ M frontend-react/src/components/ai/GlobalAiAssistant.jsx
+ M frontend-react/src/components/chat/ChatWindow.jsx
+ M frontend-react/src/components/client/ClientLayout.jsx
+ M frontend-react/src/components/common/LocationPicker.jsx
+ M frontend-react/src/components/everyday/EverydayGuard.jsx
+ M frontend-react/src/components/everyday/EverydayLayout.jsx
+ M frontend-react/src/components/security/AccessLockProvider.jsx
+ M frontend-react/src/components/security/SessionDeviceManagement.jsx
+ M frontend-react/src/components/security/StepUpProvider.jsx
+ M frontend-react/src/components/transporter/TransporterLayout.jsx
+ M frontend-react/src/components/transporter/navItems.js
+ M frontend-react/src/components/wallet/WalletWorkspace.jsx
+ M frontend-react/src/hooks/useAuth.js
+ M frontend-react/src/lib/aiAssistant.js
+ M frontend-react/src/pages/admin/AdminAgreements.jsx
+ M frontend-react/src/pages/admin/AdminDisputes.jsx
+ M frontend-react/src/pages/admin/AdminLogin.jsx
+ M frontend-react/src/pages/admin/AdminPayments.jsx
+ M frontend-react/src/pages/admin/AdminTrucks.jsx
+ M frontend-react/src/pages/admin/AdminUserDetail.jsx
+ M frontend-react/src/pages/admin/AdminUsers.jsx
+ M frontend-react/src/pages/admin/AdminWithdrawals.jsx
+ M frontend-react/src/pages/auth/Login.jsx
+ M frontend-react/src/pages/auth/ResetPassword.jsx
+ M frontend-react/src/pages/auth/RoleSelect.jsx
+ M frontend-react/src/pages/auth/Signup.jsx
+ M frontend-react/src/pages/auth/roledetails/EverydayUserDetails.jsx
+ M frontend-react/src/pages/auth/roledetails/FuelStationDetails.jsx
+ M frontend-react/src/pages/auth/roledetails/LogisticsProviderDetails.jsx
+ M frontend-react/src/pages/auth/roledetails/ServiceSeekerDetails.jsx
+ M frontend-react/src/pages/auth/roledetails/ShopkeeperDetails.jsx
+ M frontend-react/src/pages/auth/roledetails/_submitHelper.js
+ M frontend-react/src/pages/client/AgreementBids.jsx
+ M frontend-react/src/pages/client/AgreementDetail.jsx
+ M frontend-react/src/pages/client/Agreements.jsx
+ M frontend-react/src/pages/client/Balance.jsx
+ M frontend-react/src/pages/client/BidCheckout.jsx
+ M frontend-react/src/pages/client/ClientAccount.jsx
+ M frontend-react/src/pages/client/ClientDashboard.jsx
+ M frontend-react/src/pages/client/ClientOrderDetail.jsx
+ M frontend-react/src/pages/client/MyOrders.jsx
+ M frontend-react/src/pages/client/PostOrder.jsx
+ M frontend-react/src/pages/client/clientUtils.jsx
+ M frontend-react/src/pages/future/service_history.jsx
+ M frontend-react/src/pages/main/MainPage.jsx
+ M frontend-react/src/pages/shared/AiChat.jsx
+ M frontend-react/src/pages/shopkeeper/AnalysisView.jsx
+ M frontend-react/src/pages/shopkeeper/CreateTable.jsx
+ M frontend-react/src/pages/shopkeeper/InventoryPage.jsx
+ M frontend-react/src/pages/shopkeeper/POSPage.jsx
+ M frontend-react/src/pages/shopkeeper/SalesAnalyticsPage.jsx
+ M frontend-react/src/pages/shopkeeper/ShopkeeperDashboard.jsx
+ M frontend-react/src/pages/shopkeeper/TableView.jsx
+ M frontend-react/src/pages/shopkeeper/posUtils.js
+ M frontend-react/src/pages/transporter/AgreementBids.jsx
+ M frontend-react/src/pages/transporter/AvailableBids.jsx
+ M "frontend-react/src/pages/transporter/My Truck.jsx"
+ M frontend-react/src/pages/transporter/MyAgreements.jsx
+ M frontend-react/src/pages/transporter/MyBids.jsx
+ M frontend-react/src/pages/transporter/OrderTracking.jsx
+ M frontend-react/src/pages/transporter/ac_history.jsx
+ M frontend-react/src/pages/transporter/add_truck.jsx
+ M frontend-react/src/pages/transporter/earning.jsx
+ M frontend-react/src/pages/transporter/future_features/Maintenance.jsx
+ M frontend-react/src/pages/transporter/future_features/analytics.jsx
+ M frontend-react/src/pages/transporter/future_features/customer_rating.jsx
+ M frontend-react/src/pages/transporter/future_features/fuel_management.jsx
+ M frontend-react/src/pages/transporter/future_features/personal_info.jsx
+ M frontend-react/src/pages/transporter/future_features/pred_insights.jsx
+ D frontend-react/src/pages/transporter/partner_with_us.jsx
+ M frontend-react/src/pages/transporter/profile.jsx
+ M frontend-react/src/pages/transporter/settings.jsx
+ M frontend-react/src/pages/transporter/track_truck.jsx
+ M frontend-react/src/pages/transporter/transporter_dashboard.jsx
+ M frontend-react/src/pages/transporter/truck_configuration.jsx
+ M frontend-react/src/pages/transporter/truck_details.jsx
+ M frontend-react/src/styles/global.css
+ M frontend-react/tests/authShellBootstrap.test.mjs
+ M frontend-react/tests/mpinAccess.test.mjs
+ M frontend-react/tests/signupDraftLifecycle.test.mjs
+ M frontend-react/tests/stepUpProvider.test.mjs
+ M frontend-react/vite.config.js
+ M supabase/schema.sql
+?? .agents/
+?? .codex/
+?? .frontend_hardening_lint.json
+?? AUTH_AUDIT.md
+?? AUTH_SYSTEM_FULL_MAP.md
+?? PROJECT_AUDIT_REPORT.md
+?? backend/auth/credential_changes.py
+?? backend/auth/session_cache.py
+?? backend/contact/
+?? backend/driver/
+?? backend/fuelstation/
+?? backend/marketplace/
+?? backend/orders/business_lifecycle.py
+?? backend/orders/market_pricing.py
+?? backend/scripts/reconcile_business_rules.py
+?? backend/scripts/reconcile_password_change.py
+?? backend/shared/financial_ledger.py
+?? backend/shared/fuel_credit.py
+?? backend/shared/reserves.py
+?? backend/shared/validation.py
+?? backend/shopkeeper/
+?? backend/tests/remediation_harness.py
+?? backend/tests/test_audit_auth_inventory_fixes.py
+?? backend/tests/test_business_driver_rules.py
+?? backend/tests/test_business_escrow_settlement.py
+?? backend/tests/test_business_fuel_credit.py
+?? backend/tests/test_business_legacy_earnings_recovery.py
+?? backend/tests/test_business_migrations.py
+?? backend/tests/test_business_pricing_fees.py
+?? backend/tests/test_database_authorization_hardening.py
+?? backend/tests/test_driver_workflow_hardening.py
+?? backend/tests/test_financial_marketplace_hardening.py
+?? backend/tests/test_fixes_withdraw_history_contact.py
+?? backend/tests/test_fleet_consent_database.py
+?? backend/tests/test_fuel_station_portal.py
+?? backend/tests/test_marketplace_checkout_identity.py
+?? backend/tests/test_remaining_order_payment_performance.py
+?? backend/tests/test_route_security_static.py
+?? backend/tests/test_signup_credential_race.py
+?? backend/wallet/earnings.py
+?? docs/BUSINESS_RULES_FRONTEND_2026-10-25.md
+?? docs/BUSINESS_RULES_IMPLEMENTATION_2026-10-25.md
+?? docs/CLEANUP_AUDIT.md
+?? docs/SECURITY_REMEDIATION_2026-10-24.md
+?? docs/SECURITY_REMEDIATION_2026-10-25.md
+?? docs/TRACKING_REMAINING_WORK_NOTES.md
+?? docs/audit-evidence/
+?? frontend-react/build/
+?? frontend-react/src/components/business/
+?? frontend-react/src/components/driver/
+?? frontend-react/src/components/fuelstation/
+?? frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx
+?? frontend-react/src/components/transporter/DriverAssignmentPanel.jsx
+?? frontend-react/src/lib/exactMoney.js
+?? frontend-react/src/pages/auth/roledetails/DriverDetails.jsx
+?? frontend-react/src/pages/client/agreementDates.mjs
+?? frontend-react/src/pages/driver/
+?? frontend-react/src/pages/fuelstation/
+?? frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx
+?? frontend-react/src/pages/shopkeeper/ShopkeeperProfile.jsx
+?? frontend-react/src/pages/shopkeeper/posAmounts.js
+?? frontend-react/src/pages/shopkeeper/receiptPrinting.js
+?? frontend-react/src/pages/transporter/DeliveryHandoffCode.jsx
+?? frontend-react/src/pages/transporter/PartsCartPage.jsx
+?? frontend-react/src/pages/transporter/PartsMarketplace.jsx
+?? frontend-react/src/pages/transporter/PartsOrdersPage.jsx
+?? frontend-react/src/pages/transporter/PartsRequestsPage.jsx
+?? frontend-react/src/pages/transporter/PartsStoreDashboard.jsx
+?? frontend-react/src/pages/transporter/marketplaceApi.js
+?? frontend-react/src/pages/transporter/partsCart.js
+?? frontend-react/src/pages/transporter/partsCartStorage.mjs
+?? frontend-react/src/styles/pages/driver.css
+?? frontend-react/src/styles/pages/fuelstation.css
+?? frontend-react/src/styles/pages/parts-marketplace.css
+?? frontend-react/src/styles/pages/parts-store-dashboard-layout.css
+?? frontend-react/src/styles/pages/parts-store-pages.css
+?? frontend-react/src/styles/pages/shopkeeper.css
+?? frontend-react/tests/agreementDatesAndCart.test.mjs
+?? frontend-react/tests/assistantPrivacy.test.mjs
+?? frontend-react/tests/businessRules.test.jsx
+?? frontend-react/tests/frontendSecurityFixes.test.jsx
+?? frontend-react/tests/marketplaceSecurity.test.jsx
+?? frontend-react/tests/receiptAndStaticAssets.test.mjs
+?? frontend-react/tests/remainingWorkflowSecurity.test.jsx
+?? frontend-react/tests/settingsPasswordLifecycle.test.jsx
+?? frontend-react/vitest.config.js
+?? skills-lock.json
+?? supabase/migrations/20261021200000_truck_parts_marketplace.sql
+?? supabase/migrations/20261022100000_shop_inventory_products.sql
+?? supabase/migrations/20261022110000_shop_sales_pos.sql
+?? supabase/migrations/20261022160000_contact_messages.sql
+?? supabase/migrations/20261022170000_fuel_station_portal.sql
+?? supabase/migrations/20261022180000_driver_role_and_tracking.sql
+?? supabase/migrations/20261023190000_driver_fuel_logs.sql
+?? supabase/migrations/20261023203500_unrated_new_drivers.sql
+?? supabase/migrations/20261024010000_database_authorization_hardening.sql
+?? supabase/migrations/20261024020000_marketplace_financial_controls.sql
+?? supabase/migrations/20261024030000_private_operational_read_surfaces.sql
+?? supabase/migrations/20261024040000_validate_wallet_money_invariants.sql
+?? supabase/migrations/20261025010000_driver_workflow_integrity.sql
+?? supabase/migrations/20261025020000_payment_preference_convergence.sql
+?? supabase/migrations/20261026000000_financial_journal.sql
+?? supabase/migrations/20261026010000_market_pricing_fees.sql
+?? supabase/migrations/20261026020000_business_escrow_settlement.sql
+?? supabase/migrations/20261026030000_fuel_credit_owner_operator.sql
+?? traces/

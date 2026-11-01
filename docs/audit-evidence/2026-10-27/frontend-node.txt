@@ -1,0 +1,393 @@
+✔ agreement preview preserves the calendar day in Pakistan and other browser timezones (2101.9584ms)
+✔ calendar month-end and leap-year clamping matches the backend date rule (1.3497ms)
+✔ empty, malformed and out-of-range calendar inputs do not crash preview rendering (100.0937ms)
+✔ cart storage requires an explicit valid owner and never adopts the legacy global cart (1.4329ms)
+✔ cart counts and malformed rows remain scoped to their account (1.03ms)
+✔ disabled persistence falls back to isolated in-memory carts instead of crashing (1.0116ms)
+✔ assistant conversations, memory and microphone preferences stay within the verified account (15.1192ms)
+✔ Flask index injects auth-state bootstrap with no-store caching (5.3343ms)
+✔ frontend auth presentation can hydrate display cache from bootstrap (3.8345ms)
+✔ secure access owner initializes from fresh bootstrap without blocking shell (1.4587ms)
+✔ role guards consume shared auth verification without owning auth/me (3.7247ms)
+✔ shell layouts render before verified but protected data and content wait (3.883ms)
+✔ auth owner handles locked, 401, and transient failures distinctly (1.1758ms)
+✔ AI assistant waits for verified auth before protected assistant APIs (1.1802ms)
+✔ AI assistant quietly disables unavailable preference and capability endpoints (1.973ms)
+✔ unlock route is not a dead login redirect (1.2933ms)
+✔ extracts the real dispute detail response shape (5.5129ms)
+✔ normalizes safe numeric and numeric-string dispute ids (0.6783ms)
+✔ accepts only the latest response for the selected dispute (0.511ms)
+✔ enables resolution only for matching evidence (0.9583ms)
+✔ ignores aborted, stale, and unmounted request failures (0.7578ms)
+✔ returns a visible error for the current mounted request (0.511ms)
+✔ sends only the empty same-origin CSRF-backed activity signal (33.9415ms)
+✔ does not send without an existing CSRF-backed browser session (0.9426ms)
+✔ rejects synthetic and background events and accepts trusted interaction types (17.8652ms)
+✔ deduplicates in-flight signals and throttles repeated interaction (4.5911ms)
+✔ a failed request remains throttled and cannot create a retry storm (2.7923ms)
+✔ StrictMode-style cleanup and remount leaves exactly one listener per type (0.8789ms)
+✔ installs no passive activity sources or broad browser interception (19.2157ms)
+✔ analytics, notification polling, and chat polling do not own activity refresh (56.4397ms)
+✔ builds only the fixed safe page-visit payload and removes query/fragment (7.544ms)
+✔ rejects absolute, traversal, user-content, and oversized paths (0.9158ms)
+✔ sends CSRF only as a header and never as analytics identity (1.1792ms)
+✔ does not send anonymous tracking without a CSRF-backed session (3.0899ms)
+✔ ActivityTracker has no fetch, click, form, body, or text interception (58.5311ms)
+✔ shared Security page owns one standalone logout-all danger action (66.2826ms)
+✔ explicit confirmation routes MPIN through StepUpProvider and password only through memory state (3.9424ms)
+✔ logout-all transport has no automatic retry and success clears all local auth presentation (4.5215ms)
+✔ dialog has keyboard focus, error announcement, and mobile containment (15.1156ms)
+✔ accepts exactly four ASCII digits and rejects Unicode, whitespace, and invalid types (25.6503ms)
+✔ typing, deletion, correction, and valid paste preserve one coherent value (0.7099ms)
+✔ derives the seven canonical states from backend authority (3.6318ms)
+✔ eligible role surface is exact and excludes admin and adjacent roles (0.8881ms)
+✔ only the exact structured 423 is a software lock (0.7377ms)
+✔ credential-domain 401 stays local while ordinary 401 requires full login (0.6193ms)
+✔ return destinations are same-origin paths stripped of private query and fragments (1.0372ms)
+✔ public auth routing does not mistake every protected path as public (0.772ms)
+✔ automatic replay is a fail-closed exact positive policy (139.0534ms)
+✔ safe replay descriptor contains only the audited non-sensitive path (6.6181ms)
+✔ the sole allowlisted route is a component-used SELECT-only provider-free JSON read (97.6479ms)
+✔ concurrent access locks emit one overlay event and retain at most one replay (10.4923ms)
+✔ pending replay is consumed before execution and failure cannot loop (1.5531ms)
+✔ new lock, logout, full-login, and route abandonment invalidate pending replay (1.7302ms)
+✔ unlock failure retains one descriptor only within the current lock generation (0.4267ms)
+✔ fetch interception replays one exact safe GET and never replays prohibited requests (17.4782ms)
+✔ concurrent safe 423 responses retain one replay and replayed 423 cannot recurse (3.4384ms)
+✔ ordinary 401 clears a pending replay before full-login transition (17.3556ms)
+✔ unlock endpoints do not recursively trigger full-login handling (2.2462ms)
+✔ anonymous 401 responses on public auth pages do not reset an active signup wizard (1.1348ms)
+✔ latest-request gate rejects stale and invalidated responses (0.5333ms)
+✔ every JSON mutation carries the approved CSRF header and secrets stay in the body (1.0604ms)
+✔ signup password draft is isolated to one store instance and can be cleared (1.2613ms)
+✔ MPIN control has one masked accessible input and four presentation-only slots (6.4354ms)
+✔ global lock is blocking, focus-trapped, escape-resistant, and keeps logout available (2.3561ms)
+✔ one canonical management component owns all operations and all three role routes (3.0412ms)
+✔ legacy MPIN endpoints and browser-persisted signup secrets have no frontend callers (4.2499ms)
+✔ responsive CSS covers required breakpoints without global overflow concealment (2.1771ms)
+✔ genuine activity remains the sole trusted interaction owner (33.8181ms)
+✔ authority context changes cancel pending work for every auth generation (1.3279ms)
+✔ loads orders for initial and refresh requests (6.1843ms)
+✔ surfaces API errors (1.9362ms)
+✔ rejects stale or aborted results (0.5448ms)
+✔ receipt fields remain literal text and cannot execute scripts or install event handlers (651.0656ms)
+✔ POS computes exact cash comparison and rounds each measured line before summing (4.2618ms)
+✔ build manifest emits only the declared SVG assets, never the public directory tree (6.4149ms)
+✔ dev and preview static middleware serves only exact asset URLs and supports HEAD (6.0917ms)
+✔ mobile headers have no hamburger or visible standalone logout and avatars own account navigation (45.58ms)
+✔ service-seeker mobile navigation is exactly Dashboard, Post Order, Wallet and Messages (21.2346ms)
+✔ the removed More sheet has no component, state, handler, accessibility or CSS owner (4.3506ms)
+✔ profile/account pages own Security Settings and one canonical Logout action (11.1396ms)
+✖ Post Order exposes canonical order modes and contextual records without duplicate forms (10.1586ms)
+✔ all secondary destinations moved out of mobile navigation remain reachable contextually (8.4271ms)
+✔ MPIN visuals are compact while the single masked accessible input architecture is unchanged (2.7735ms)
+✔ mobile and desktop typography resolve through distinct shared tokens (4.1351ms)
+✔ transporter mobile navigation remains permission-filtered and contextual routes stay authorized (2.9642ms)
+✔ shared shell keeps responsive width containment without concealing document overflow (6.3014ms)
+✔ pre-fix singleton APIs are absent and separate wizard instances share nothing (48.6722ms)
+✔ password survives legitimate steps only inside its active wizard (0.8918ms)
+✔ terms are required and changing role clears the earlier agreement (1.2616ms)
+✔ failed, conflict, and persistence outcomes clear password and require entry again (3.126ms)
+✔ provider or network failure clears password before propagating a bounded error owner (2.2479ms)
+✔ success clears the draft and navigates without an intermediate signup redirect (5.0287ms)
+✔ clear models cancellation, logout, provider teardown, route departure, history, and refresh (1.3578ms)
+✔ canonical full-login auth reset clears the active wizard through one subscription (1.0364ms)
+✔ duplicate submission is rejected before a second network call (1.1743ms)
+✔ abandonment aborts an in-flight claim and prevents the signup POST (2.2755ms)
+✔ a stale failure cannot clear or corrupt a newer wizard generation (0.6103ms)
+✔ direct later routes are guarded and provider teardown is the route cleanup owner (28.2116ms)
+✔ StrictMode cannot share a discarded provider store or clear a different instance (0.4856ms)
+✔ password has no persistence, router-state, URL, tracking, logging, or DOM attribute owner (5.8358ms)
+✔ every production details caller uses the canonical route-scoped store (6.3952ms)
+✔ StepUpProvider keeps MPIN and proof in memory and replays exactly once (49.0321ms)
+✔ MPIN enrollment-required response opens setup UI and routes by role without retrying (4.1983ms)
+✔ exactly six approved UI actions use protectedFetch (26.2224ms)
+ℹ tests 104
+ℹ suites 0
+ℹ pass 103
+ℹ fail 1
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 4826.5098
+
+✖ failing tests:
+
+test at tests\responsiveInterface.test.mjs:73:1
+✖ Post Order exposes canonical order modes and contextual records without duplicate forms (10.1586ms)
+  AssertionError [ERR_ASSERTION]: The input did not match the regular expression /OrderWorkspaceNavigation mode="one-time"/. Input:
+  
+  "import { useEffect, useMemo, useState } from 'react'\r\n" +
+    "import { Link, useNavigate, useSearchParams } from 'react-router-dom'\r\n" +
+    'import {\r\n' +
+    '  PageTitle,\r\n' +
+    '  PrimaryButton,\r\n' +
+    '  SectionCard,\r\n' +
+    '  StateMessage,\r\n' +
+    '  apiGet,\r\n' +
+    '  apiSend,\r\n' +
+    "} from './clientUtils'\r\n" +
+    'import {\r\n' +
+    '  CATEGORY_TREE,\r\n' +
+    '  F,\r\n' +
+    '  fieldsFor,\r\n' +
+    '  flagsFor,\r\n' +
+    '  requiredFieldsFor,\r\n' +
+    '  getCommodity,\r\n' +
+    "} from '../../lib/goodsTaxonomy'\r\n" +
+    "import { FALLBACK_TRUCK_TYPES } from '../../lib/truckCatalog'\r\n" +
+    "import LocationPicker from '../../components/common/LocationPicker'\r\n" +
+    "import { openPendingReviewModal } from '../../components/common/reviewEvents'\r\n" +
+    "import useClientBasePath from '../../hooks/useClientBasePath'\r\n" +
+    "import { pickupBounds, pickupScheduleError } from '../../lib/pickupSchedule'\r\n" +
+    '\r\n' +
+    'const TRUCK_LABELS = Object.fromEntries(FALLBACK_TRUCK_TYPES.map((t) => [t.type_key, t.display_name]))\r\n' +
+    'function truckLabel(key) {\r\n' +
+    "  return TRUCK_LABELS[key] || key.replace(/_/g, ' ')\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    "const EMPTY_LOCATION = { location: '', lat: null, lng: null }\r\n" +
+    '\r\n' +
+    'const INITIAL_FORM = {\r\n' +
+    "  pickup_date: '',\r\n" +
+    "  pickup_time: '',\r\n" +
+    '  // goods taxonomy\r\n' +
+    "  goods_category: '',\r\n" +
+    "  goods_form: '',\r\n" +
+    "  goods_commodity: '',\r\n" +
+    '  // measurements\r\n' +
+    "  goods_weight_tons: '',\r\n" +
+    "  goods_volume_cbm: '',\r\n" +
+    "  volume_liters: '',\r\n" +
+    "  length_cm: '',\r\n" +
+    "  width_cm: '',\r\n" +
+    "  height_cm: '',\r\n" +
+    "  quantity: '',\r\n" +
+    "  animal_count: '',\r\n" +
+    "  temperature_c: '',\r\n" +
+    "  estimated_budget: '',\r\n" +
+    "  notes: '',\r\n" +
+    '}\r\n' +
+    '\r\n' +
+    "const inputCls = 'rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100'\r\n" +
+    "const labelCls = 'grid gap-2 text-sm font-medium text-slate-700'\r\n" +
+    '\r\n' +
+    'export default function PostOrder() {\r\n' +
+    '  const navigate = useNavigate()\r\n' +
+    '  const [searchParams] = useSearchParams()\r\n' +
+    '  const base = useClientBasePath()\r\n' +
+    '  const [form, setForm] = useState(INITIAL_FORM)\r\n' +
+    '  const [pickup, setPickup] = useState(EMPTY_LOCATION)\r\n' +
+    '  const [dropoff, setDropoff] = useState(EMPTY_LOCATION)\r\n' +
+    '  const [submitting, setSubmitting] = useState(false)\r\n' +
+    "  const [error, setError] = useState('')\r\n" +
+    "  const [success, setSuccess] = useState('')\r\n" +
+    '  const [scheduleNow, setScheduleNow] = useState(Date.now)\r\n' +
+    '\r\n' +
+    '  useEffect(() => {\r\n' +
+    '    const timer = setInterval(() => setScheduleNow(Date.now()), 30_000)\r\n' +
+    '    return () => clearInterval(timer)\r\n' +
+    '  }, [])\r\n' +
+    '\r\n' +
+    '  // Pre-fill form if duplicating an existing order (?copy=<order_id>)\r\n' +
+    '  useEffect(() => {\r\n' +
+    "    const copyId = searchParams.get('copy')\r\n" +
+    '    if (!copyId) return\r\n' +
+    '    let cancelled = false\r\n' +
+    '    apiGet(`/api/orders/${copyId}`)\r\n' +
+    '      .then((res) => {\r\n' +
+    '        if (cancelled || !res || !res.order) return\r\n' +
+    '        const o = res.order\r\n' +
+    '        setForm((prev) => ({\r\n' +
+    '          ...prev,\r\n' +
+    "          goods_category: o.goods_category || '',\r\n" +
+    "          goods_form: o.goods_form || '',\r\n" +
+    "          goods_commodity: o.goods_commodity || '',\r\n" +
+    "          goods_weight_tons: o.goods_weight_tons != null ? String(o.goods_weight_tons) : '',\r\n" +
+    "          goods_volume_cbm: o.goods_volume_cbm != null ? String(o.goods_volume_cbm) : '',\r\n" +
+    "          volume_liters: o.volume_liters != null ? String(o.volume_liters) : '',\r\n" +
+    "          length_cm: o.length_cm != null ? String(o.length_cm) : '',\r\n" +
+    "          width_cm: o.width_cm != null ? String(o.width_cm) : '',\r\n" +
+    "          height_cm: o.height_cm != null ? String(o.height_cm) : '',\r\n" +
+    "          quantity: o.quantity != null ? String(o.quantity) : '',\r\n" +
+    "          animal_count: o.animal_count != null ? String(o.animal_count) : '',\r\n" +
+    "          temperature_c: o.temperature_c != null ? String(o.temperature_c) : '',\r\n" +
+    "          estimated_budget: o.estimated_budget != null ? String(o.estimated_budget) : '',\r\n" +
+    "          notes: o.notes || '',\r\n" +
+    '        }))\r\n' +
+    '        if (o.pickup_location || o.pickup_city) {\r\n' +
+    '          setPickup({\r\n' +
+    "            location: o.pickup_location || o.pickup_city || '',\r\n" +
+    '            lat: o.pickup_lat || null,\r\n' +
+    '            lng: o.pickup_lng || null,\r\n' +
+    '          })\r\n' +
+    '        }\r\n' +
+    '        if (o.dropoff_location || o.dropoff_city) {\r\n' +
+    '          setDropoff({\r\n' +
+    "            location: o.dropoff_location || o.dropoff_city || '',\r\n" +
+    '            lat: o.dropoff_lat || null,\r\n' +
+    '            lng: o.dropoff_lng || null,\r\n' +
+    '          })\r\n' +
+    '        }\r\n' +
+    '      })\r\n' +
+    '      .catch((err) => {\r\n' +
+    "        console.warn('Could not load order to duplicate:', err)\r\n" +
+    '      })\r\n' +
+    '    return () => {\r\n' +
+    '      cancelled = true\r\n' +
+    '    }\r\n' +
+    '  }, [searchParams])\r\n' +
+    '\r\n' +
+    '  // Lock out past dates/times plus the required lead time for the transporter.\r\n' +
+    '  const { earliest, latest } = pickupBounds(scheduleNow)\r\n' +
+    '  const minDate = earliest.date\r\n' +
+    "  const minTime = form.pickup_date === earliest.date ? earliest.time : '00:00'\r\n" +
+    "  const maxTime = form.pickup_date === latest.date ? latest.time : '23:59'\r\n" +
+    '\r\n' +
+    '  const category = useMemo(() => CATEGORY_TREE.find((c) => c.key === form.goods_category) || null, [form.goods_category])\r\n' +
+    '  const hasForms = !!(category && category.forms && category.forms.length)\r\n' +
+    '  const formNode = useMemo(\r\n' +
+    '    () => (hasForms ? category.forms.find((f) => f.key === form.goods_form) || null : null),\r\n' +
+    '    [category, hasForms, form.goods_form],\r\n' +
+    '  )\r\n' +
+    '  const commodityList = hasForms ? (formNode ? formNode.commodities : []) : category ? category.commodities : []\r\n' +
+    '\r\n' +
+    '  const commodityMeta = getCommodity(form.goods_commodity)\r\n' +
+    '  const activeFields = form.goods_commodity ? fieldsFor(form.goods_commodity) : []\r\n' +
+    '  const requiredFields = form.goods_commodity ? requiredFieldsFor(form.goods_commodity) : []\r\n' +
+    '  const flags = form.goods_commodity ? flagsFor(form.goods_commodity) : {}\r\n' +
+    '  const suitableTrucks = commodityMeta ? commodityMeta.trucks || [] : []\r\n' +
+    '\r\n' +
+    '  function has(field) {\r\n' +
+    '    return activeFields.includes(field)\r\n' +
+    '  }\r\n' +
+    '  function req(field) {\r\n' +
+    '    return requiredFields.includes(field)\r\n' +
+    '  }\r\n' +
+    '\r\n' +
+    '  function updateField(event) {\r\n' +
+    '    const { name, value } = event.target\r\n' +
+    '    setForm((current) => ({ ...current, [name]: value }))\r\n' +
+    '  }\r\n' +
+    '\r\n' +
+    '  function onCategory(event) {\r\n' +
+    "    setForm((current) => ({ ...current, goods_category: event.target.value, goods_form: '', goods_commodity: '' }))\r\n" +
+    '  }\r\n' +
+    '  function onForm(event) {\r\n' +
+    "    setForm((current) => ({ ...current, goods_form: event.target.value, goods_commodity: '' }))\r\n" +
+    '  }\r\n' +
+    '\r\n' +
+    '  async function handleSubmit(event) {\r\n' +
+    '    event.preventDefault()\r\n' +
+    '    setSubmitting(true)\r\n' +
+    "    setError('')\r\n" +
+    "    setSuccess('')\r\n" +
+    '\r\n' +
+    '    if (!pickup.location.trim() || !dropoff.location.trim()) {\r\n' +
+    "      setError('Please enter both pickup and dropoff locations.')\r\n" +
+    '      setSubmitting(false)\r\n' +
+    '      return\r\n' +
+    '    }\r\n' +
+    '    if (!form.goods_commodity) {\r\n' +
+    "      setError('Please choose the goods category and commodity.')\r\n" +
+    '      setSubmitting(false)\r\n' +
+    '      return\r\n' +
+    '    }\r\n' +
+    '    if (form.pickup_date && form.pickup_time) {\r\n' +
+    '      const scheduleError = pickupScheduleError(form.pickup_date, form.pickup_time)\r\n' +
+    '      if (scheduleError) {\r\n' +
+    '        setError(scheduleError)\r\n' +
+    '        setSubmitting(false)\r\n' +
+    '        return\r\n' +
+    '      }\r\n' +
+    '    }\r\n' +
+    '\r\n' +
+    '    const payload = {\r\n' +
+    '      ...form,\r\n' +
+    '      pickup_location: pickup.location.trim(),\r\n' +
+    '      pickup_lat: pickup.lat,\r\n' +
+    '      pickup_lng: pickup.lng,\r\n' +
+    '      dropoff_location: dropoff.location.trim(),\r\n' +
+    '      dropoff_lat: dropoff.lat,\r\n' +
+    '      dropoff_lng: dropoff.lng,\r\n' +
+    '    }\r\n' +
+    '\r\n' +
+    '    try {\r\n' +
+    "      await apiSend('/api/orders', payload)\r\n" +
+    "      setSuccess('Order posted successfully. Matching transporters can start bidding now.')\r\n" +
+    '      setForm(INITIAL_FORM)\r\n' +
+    '      setPickup(EMPTY_LOCATION)\r\n' +
+    '      setDropoff(EMPTY_LOCATION)\r\n' +
+    '      setTimeout(() => navigate(`${base}/orders`), 900)\r\n' +
+    '    } catch (submitError) {\r\n' +
+    "      if (submitError.code === 'review_required' && submitError.payload?.pending_review) {\r\n" +
+    '        openPendingReviewModal(submitError.payload.pending_review)\r\n' +
+    '      }\r\n' +
+    "      setError(submitError.message || 'Unable to post order right now.')\r\n" +
+    '    } finally {\r\n' +
+    '      setSubmitting(false)\r\n' +
+    '    }\r\n' +
+    '  }\r\n' +
+    '\r\n' +
+    '  return (\r\n' +
+    '    <>\r\n' +
+    '      <PageTitle\r\n' +
+    '        title="Post Order"\r\n' +
+    '        subtitle="Create a shipment request and let matching transporters compete with reverse bids."\r\n' +
+    "        actions={base === '/everyday' ? (\r\n" +
+    '          <Link to={`${base}/orders`} className="order-workspace-nav__record-link">\r\n' +
+    '            <i className="fas fa-clipboard-list" aria-hidden="true" /> My Orders\r\n' +
+    '          </Link>\r\n' +
+    '        ) : null}\r\n' +
+    '      />\r\n' +
+    '\r\n' +
+    '      <SectionCard title="Shipment Details" icon="fa-boxes-stacked">\r\n' +
+    '        {error && (\r\n' +
+    '          <StateMessage type="error" title="Order could not be posted">\r\n' +
+    '            <p>{error}</p>\r\n' +
+    '          </StateMessage>\r\n' +
+    '        )}\r\n' +
+    '        {success && <StateMessage type="success">{success}</StateMessage>}\r\n' +
+    '\r\n' +
+    '        <form className="everyday-order-form grid gap-5" onSubmit={handleSubmit}>\r\n' +
+    '          {/* ---- Route: single detailed location + map picker ---- */}\r\n' +
+    '          <div className="grid gap-5 md:grid-cols-2">\r\n' +
+    '            <LocationPicker\r\n' +
+    '              label="Pickup location"\r\n' +
+    '              required\r\n' +
+    '              value={pickup}\r\n' +
+    '              onChange={setPickup}\r\n' +
+    '              placeholder="Shop / house, street, area, city"\r\n' +
+    '            />\r\n' +
+    '            <LocationPicker\r\n' +
+    '              label="Dropoff location"\r\n' +
+    '              required\r\n' +
+    '              value={dropoff}\r\n' +
+    '              onChange={setDropoff}\r\n' +
+    '              placeholder="Shop / house, street, area, city"\r\n' +
+    '            />\r\n' +
+    '          </div>\r\n' +
+    '\r\n' +
+    '          {/* ---- Schedule ---- */}\r\n' +
+    '          <div className="grid gap-4 md:grid-cols-2">\r\n' +
+    '            <label className={labelCls}>\r\n' +
+    '              Pickup date\r\n' +
+    '              <input className={inputCls} type="date" name="pickup_date" min={minDate} max={latest.date} value={form.pickup_date} onChange={updateField} aria-describedby="pickup-schedule-help" required />\r\n' +
+    '            </label>\r\n' +
+    '            <label className={labelCls}>\r\n' +
+    '              Pickup time\r\n' +
+    '              <input className={inputCls} type="time" name="pickup_time" min={minTime} max={maxTime} value={form.pickup_time} onChange={updateField} aria-describedby="pickup-schedule-help" required />\r\n' +
+    '            </label>\r\n' +
+    '            <p id="pickup-schedule-help" className="text-sm text-slate-600 md:col-span-2">\r\n' +
+    '              Choose a pickup within the next 24 hours, with '... 7980 more characters
+  
+      at TestContext.<anonymous> (file:///D:/New%20folder/templates/Digi_TransX/frontend-react/tests/responsiveInterface.test.mjs:85:10)
+      at async Test.run (node:internal/test_runner/test:1208:7)
+      at async Test.processPendingSubtests (node:internal/test_runner/test:831:7) {
+    generatedMessage: true,
+    code: 'ERR_ASSERTION',
+    actual: 'import { useEffect, useMemo, useState } from \'react\'\r\nimport { Link, useNavigate, useSearchParams } from \'react-router-dom\'\r\nimport {\r\n  PageTitle,\r\n  PrimaryButton,\r\n  SectionCard,\r\n  StateMessage,\r\n  apiGet,\r\n  apiSend,\r\n} from \'./clientUtils\'\r\nimport {\r\n  CATEGORY_TREE,\r\n  F,\r\n  fieldsFor,\r\n  flagsFor,\r\n  requiredFieldsFor,\r\n  getCommodity,\r\n} from \'../../lib/goodsTaxonomy\'\r\nimport { FALLBACK_TRUCK_TYPES } from \'../../lib/truckCatalog\'\r\nimport LocationPicker from \'../../components/common/LocationPicker\'\r\nimport { openPendingReviewModal } from \'../../components/common/reviewEvents\'\r\nimport useClientBasePath from \'../../hooks/useClientBasePath\'\r\nimport { pickupBounds, pickupScheduleError } from \'../../lib/pickupSchedule\'\r\n\r\nconst TRUCK_LABELS = Object.fromEntries(FALLBACK_TRUCK_TYPES.map((t) => [t.type_key, t.display_name]))\r\nfunction truckLabel(key) {\r\n  return TRUCK_LABELS[key] || key.replace(/_/g, \' \')\r\n}\r\n\r\nconst EMPTY_LOCATION = { location: \'\', lat: null, lng: null }\r\n\r\nconst INITIAL_FORM = {\r\n  pickup_date: \'\',\r\n  pickup_time: \'\',\r\n  // goods taxonomy\r\n  goods_category: \'\',\r\n  goods_form: \'\',\r\n  goods_commodity: \'\',\r\n  // measurements\r\n  goods_weight_tons: \'\',\r\n  goods_volume_cbm: \'\',\r\n  volume_liters: \'\',\r\n  length_cm: \'\',\r\n  width_cm: \'\',\r\n  height_cm: \'\',\r\n  quantity: \'\',\r\n  animal_count: \'\',\r\n  temperature_c: \'\',\r\n  estimated_budget: \'\',\r\n  notes: \'\',\r\n}\r\n\r\nconst inputCls = \'rounded-lg border border-slate-300 px-3 py-2.5 outline-none focus:border-blue-500 focus:ring-2 focus:ring-blue-100\'\r\nconst labelCls = \'grid gap-2 text-sm font-medium text-slate-700\'\r\n\r\nexport default function PostOrder() {\r\n  const navigate = useNavigate()\r\n  const [searchParams] = useSearchParams()\r\n  const base = useClientBasePath()\r\n  const [form, setForm] = useState(INITIAL_FORM)\r\n  const [pickup, setPickup] = useState(EMPTY_LOCATION)\r\n  const [dropoff, setDropoff] = useState(EMPTY_LOCATION)\r\n  const [submitting, setSubmitting] = useState(false)\r\n  const [error, setError] = useState(\'\')\r\n  const [success, setSuccess] = useState(\'\')\r\n  const [scheduleNow, setScheduleNow] = useState(Date.now)\r\n\r\n  useEffect(() => {\r\n    const timer = setInterval(() => setScheduleNow(Date.now()), 30_000)\r\n    return () => clearInterval(timer)\r\n  }, [])\r\n\r\n  // Pre-fill form if duplicating an existing order (?copy=<order_id>)\r\n  useEffect(() => {\r\n    const copyId = searchParams.get(\'copy\')\r\n    if (!copyId) return\r\n    let cancelled = false\r\n    apiGet(`/api/orders/${copyId}`)\r\n      .then((res) => {\r\n        if (cancelled || !res || !res.order) return\r\n        const o = res.order\r\n        setForm((prev) => ({\r\n          ...prev,\r\n          goods_category: o.goods_category || \'\',\r\n          goods_form: o.goods_form || \'\',\r\n          goods_commodity: o.goods_commodity || \'\',\r\n          goods_weight_tons: o.goods_weight_tons != null ? String(o.goods_weight_tons) : \'\',\r\n          goods_volume_cbm: o.goods_volume_cbm != null ? String(o.goods_volume_cbm) : \'\',\r\n          volume_liters: o.volume_liters != null ? String(o.volume_liters) : \'\',\r\n          length_cm: o.length_cm != null ? String(o.length_cm) : \'\',\r\n          width_cm: o.width_cm != null ? String(o.width_cm) : \'\',\r\n          height_cm: o.height_cm != null ? String(o.height_cm) : \'\',\r\n          quantity: o.quantity != null ? String(o.quantity) : \'\',\r\n          animal_count: o.animal_count != null ? String(o.animal_count) : \'\',\r\n          temperature_c: o.temperature_c != null ? String(o.temperature_c) : \'\',\r\n          estimated_budget: o.estimated_budget != null ? String(o.estimated_budget) : \'\',\r\n          notes: o.notes || \'\',\r\n        }))\r\n        if (o.pickup_location || o.pickup_city) {\r\n          setPickup({\r\n            location: o.pickup_location || o.pickup_city || \'\',\r\n            lat: o.pickup_lat || null,\r\n            lng: o.pickup_lng || null,\r\n          })\r\n        }\r\n        if (o.dropoff_location || o.dropoff_city) {\r\n          setDropoff({\r\n            location: o.dropoff_location || o.dropoff_city || \'\',\r\n            lat: o.dropoff_lat || null,\r\n            lng: o.dropoff_lng || null,\r\n          })\r\n        }\r\n      })\r\n      .catch((err) => {\r\n        console.warn(\'Could not load order to duplicate:\', err)\r\n      })\r\n    return () => {\r\n      cancelled = true\r\n    }\r\n  }, [searchParams])\r\n\r\n  // Lock out past dates/times plus the required lead time for the transporter.\r\n  const { earliest, latest } = pickupBounds(scheduleNow)\r\n  const minDate = earliest.date\r\n  const minTime = form.pickup_date === earliest.date ? earliest.time : \'00:00\'\r\n  const maxTime = form.pickup_date === latest.date ? latest.time : \'23:59\'\r\n\r\n  const category = useMemo(() => CATEGORY_TREE.find((c) => c.key === form.goods_category) || null, [form.goods_category])\r\n  const hasForms = !!(category && category.forms && category.forms.length)\r\n  const formNode = useMemo(\r\n    () => (hasForms ? category.forms.find((f) => f.key === form.goods_form) || null : null),\r\n    [category, hasForms, form.goods_form],\r\n  )\r\n  const commodityList = hasForms ? (formNode ? formNode.commodities : []) : category ? category.commodities : []\r\n\r\n  const commodityMeta = getCommodity(form.goods_commodity)\r\n  const activeFields = form.goods_commodity ? fieldsFor(form.goods_commodity) : []\r\n  const requiredFields = form.goods_commodity ? requiredFieldsFor(form.goods_commodity) : []\r\n  const flags = form.goods_commodity ? flagsFor(form.goods_commodity) : {}\r\n  const suitableTrucks = commodityMeta ? commodityMeta.trucks || [] : []\r\n\r\n  function has(field) {\r\n    return activeFields.includes(field)\r\n  }\r\n  function req(field) {\r\n    return requiredFields.includes(field)\r\n  }\r\n\r\n  function updateField(event) {\r\n    const { name, value } = event.target\r\n    setForm((current) => ({ ...current, [name]: value }))\r\n  }\r\n\r\n  function onCategory(event) {\r\n    setForm((current) => ({ ...current, goods_category: event.target.value, goods_form: \'\', goods_commodity: \'\' }))\r\n  }\r\n  function onForm(event) {\r\n    setForm((current) => ({ ...current, goods_form: event.target.value, goods_commodity: \'\' }))\r\n  }\r\n\r\n  async function handleSubmit(event) {\r\n    event.preventDefault()\r\n    setSubmitting(true)\r\n    setError(\'\')\r\n    setSuccess(\'\')\r\n\r\n    if (!pickup.location.trim() || !dropoff.location.trim()) {\r\n      setError(\'Please enter both pickup and dropoff locations.\')\r\n      setSubmitting(false)\r\n      return\r\n    }\r\n    if (!form.goods_commodity) {\r\n      setError(\'Please choose the goods category and commodity.\')\r\n      setSubmitting(false)\r\n      return\r\n    }\r\n    if (form.pickup_date && form.pickup_time) {\r\n      const scheduleError = pickupScheduleError(form.pickup_date, form.pickup_time)\r\n      if (scheduleError) {\r\n        setError(scheduleError)\r\n        setSubmitting(false)\r\n        return\r\n      }\r\n    }\r\n\r\n    const payload = {\r\n      ...form,\r\n      pickup_location: pickup.location.trim(),\r\n      pickup_lat: pickup.lat,\r\n      pickup_lng: pickup.lng,\r\n      dropoff_location: dropoff.location.trim(),\r\n      dropoff_lat: dropoff.lat,\r\n      dropoff_lng: dropoff.lng,\r\n    }\r\n\r\n    try {\r\n      await apiSend(\'/api/orders\', payload)\r\n      setSuccess(\'Order posted successfully. Matching transporters can start bidding now.\')\r\n      setForm(INITIAL_FORM)\r\n      setPickup(EMPTY_LOCATION)\r\n      setDropoff(EMPTY_LOCATION)\r\n      setTimeout(() => navigate(`${base}/orders`), 900)\r\n    } catch (submitError) {\r\n      if (submitError.code === \'review_required\' && submitError.payload?.pending_review) {\r\n        openPendingReviewModal(submitError.payload.pending_review)\r\n      }\r\n      setError(submitError.message || \'Unable to post order right now.\')\r\n    } finally {\r\n      setSubmitting(false)\r\n    }\r\n  }\r\n\r\n  return (\r\n    <>\r\n      <PageTitle\r\n        title="Post Order"\r\n        subtitle="Create a shipment request and let matching transporters compete with reverse bids."\r\n        actions={base === \'/everyday\' ? (\r\n          <Link to={`${base}/orders`} className="order-workspace-nav__record-link">\r\n            <i className="fas fa-clipboard-list" aria-hidden="true" /> My Orders\r\n          </Link>\r\n        ) : null}\r\n      />\r\n\r\n      <SectionCard title="Shipment Details" icon="fa-boxes-stacked">\r\n        {error && (\r\n          <StateMessage type="error" title="Order could not be posted">\r\n            <p>{error}</p>\r\n          </StateMessage>\r\n        )}\r\n        {success && <StateMessage type="success">{success}</StateMessage>}\r\n\r\n        <form className="everyday-order-form grid gap-5" onSubmit={handleSubmit}>\r\n          {/* ---- Route: single detailed location + map picker ---- */}\r\n          <div className="grid gap-5 md:grid-cols-2">\r\n            <LocationPicker\r\n              label="Pickup location"\r\n              required\r\n              value={pickup}\r\n              onChange={setPickup}\r\n              placeholder="Shop / house, street, area, city"\r\n            />\r\n            <LocationPicker\r\n              label="Dropoff location"\r\n              required\r\n              value={dropoff}\r\n              onChange={setDropoff}\r\n              placeholder="Shop / house, street, area, city"\r\n            />\r\n          </div>\r\n\r\n          {/* ---- Schedule ---- */}\r\n          <div className="grid gap-4 md:grid-cols-2">\r\n            <label className={labelCls}>\r\n              Pickup date\r\n              <input className={inputCls} type="date" name="pickup_date" min={minDate} max={latest.date} value={form.pickup_date} onChange={updateField} aria-describedby="pickup-schedule-help" required />\r\n            </label>\r\n            <label className={labelCls}>\r\n              Pickup time\r\n              <input className={inputCls} type="time" name="pickup_time" min={minTime} max={maxTime} value={form.pickup_time} onChange={updateField} aria-describedby="pickup-schedule-help" required />\r\n            </label>\r\n            <p id="pickup-schedule-help" className="text-sm text-slate-600 md:col-span-2">\r\n              Choose a pickup within the next 24 hours, with '... 7980 more characters,
+    expected: /OrderWorkspaceNavigation mode="one-time"/,
+    operator: 'match',
+    diff: 'simple'
+  }

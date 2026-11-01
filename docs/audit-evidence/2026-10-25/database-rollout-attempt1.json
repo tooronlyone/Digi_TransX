@@ -1,0 +1,19 @@
+{
+  "authorized_test_project": "fysupkvuvhvtowbfgoev",
+  "started_at_utc": "2026-10-25T02:31:52.366958+00:00",
+  "migration_files": [
+    {
+      "name": "20261025010000_driver_workflow_integrity.sql",
+      "sha256": "c704e775d694e306a6e6b1b28e5e8dda58c84eb9215115c84215f76f8ccd1b65"
+    },
+    {
+      "name": "20261025020000_payment_preference_convergence.sql",
+      "sha256": "706623b02198276fe2ffc59fc0dfb447eec2b1ae46d956c847bcad2d970143c5"
+    }
+  ],
+  "applied_migrations": [],
+  "committed": false,
+  "verified": false,
+  "error_type": "OperationalError",
+  "sqlstate": null
+}

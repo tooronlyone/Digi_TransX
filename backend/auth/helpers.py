@@ -1,0 +1,930 @@
+import json
+import os
+import re
+import secrets
+import smtplib
+from datetime import datetime, timedelta
+from email.message import EmailMessage
+from functools import wraps
+from hashlib import sha256
+
+from flask import current_app, jsonify, request, session
+from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
+from werkzeug.security import check_password_hash, generate_password_hash
+
+from shared.db import open_db
+from .signup_terms import signup_terms_error
+from shared.roles import BUSINESS_CLIENT_ROLES, EVERYDAY_ROLES
+from auth.session_service import (
+    ABSOLUTE_LIFETIME_DAYS,
+    access_lock_reference,
+    find_session_by_token,
+    lock_access_once,
+    lock_session_user_and_device,
+    SessionFoundationError,
+)
+from auth.trusted_device_service import digest_token, TrustedDeviceError
+from auth.trusted_device_service import trusted_device_lifetime_days
+from events.contract import EventContext, EventData
+from events.writer import write_security_event
+
+
+EMAIL_REGEX = re.compile(r"^[^\s@]+@[^\s@]+\.[^\s@]+$")
+CNIC_REGEX = re.compile(r"^\d{13}$")
+PHONE_DIGIT_REGEX = re.compile(r"^\d{10,15}$")
+OTP_REGEX = re.compile(r"^\d{6}$")
+MPIN_REGEX = re.compile(r"^[0-9]{4}$", re.ASCII)
+LOGIN_COOLDOWN_MINUTES = 15
+OTP_EXPIRY_MINUTES = 10
+OTP_ATTEMPT_LIMIT = 5
+RESET_TOKEN_EXPIRY_MINUTES = 10
+DEVICE_COOKIE_NAME = "dtx_device_token"
+SESSION_TOKEN_COOKIE_NAME = "dtx_session_token"
+ACCESS_PROOF_COOKIE_NAME = "dtx_access_proof"
+
+
+class _AccessLockPersistenceError(RuntimeError):
+    pass
+
+
+def now_local():
+    return datetime.now()
+
+
+def timestamp_bundle(moment=None):
+    current = moment or now_local()
+    return {
+        "display": current.strftime("%d %b %Y %I:%M:%S %p"),
+        "iso": current.isoformat(timespec="seconds"),
+    }
+
+
+def add_minutes(iso_value, minutes):
+    return (datetime.fromisoformat(iso_value) + timedelta(minutes=minutes)).isoformat(timespec="seconds")
+
+
+def is_future(iso_value):
+    if not iso_value:
+        return False
+    return datetime.fromisoformat(iso_value) > now_local()
+
+
+def normalize_email(value):
+    return (value or "").strip().lower()
+
+
+def normalize_phone(value):
+    return re.sub(r"\D+", "", value or "")
+
+
+def normalize_cnic(value):
+    return re.sub(r"\D+", "", value or "")
+
+
+def parse_login_id(login_id):
+    raw = (login_id or "").strip()
+    digits = normalize_cnic(raw)
+    if CNIC_REGEX.fullmatch(digits):
+        return "cnic", digits
+    return "email", normalize_email(raw)
+
+
+def mask_email(email):
+    email = normalize_email(email)
+    if "@" not in email:
+        return email
+    local, domain = email.split("@", 1)
+    if len(local) <= 2:
+        local_masked = local[0] + "*"
+    else:
+        local_masked = local[:2] + "*" * max(2, len(local) - 2)
+    return f"{local_masked}@{domain}"
+
+
+def role_redirect(role):
+    mapping = {
+        "logistics_provider": "/transporter/dashboard",
+        "transporter": "/transporter/dashboard",
+        "service_seeker": "/client/dashboard",
+        "client": "/client/dashboard",
+        "shopkeeper": "/shopkeeper/dashboard",
+        "everyday_user": "/everyday/dashboard",
+        "fuel_station_manager": "/fuelstation/dashboard",
+        "driver": "/driver/dashboard",
+        "platform_admin": "/admin/dashboard",
+    }
+    return mapping.get((role or "").strip().lower(), "/transporter/dashboard")
+
+
+def json_response(payload, status=200):
+    response = jsonify(payload)
+    response.status_code = status
+    return response
+
+
+def get_request_meta():
+    forwarded = request.headers.get("X-Forwarded-For", "")
+    ip_address = forwarded.split(",")[0].strip() if forwarded else (request.remote_addr or "")
+    return {
+        "ip_address": ip_address,
+        "user_agent": (request.headers.get("User-Agent") or "")[:255],
+    }
+
+
+def send_email(subject, recipient, body_lines):
+    smtp_host = os.environ.get("DIGITRANSX_SMTP_HOST", "smtp.gmail.com")
+    smtp_port = int(os.environ.get("DIGITRANSX_SMTP_PORT", "587"))
+    smtp_user = os.environ.get("DIGITRANSX_SMTP_USER", "")
+    smtp_password = os.environ.get("DIGITRANSX_SMTP_PASSWORD", "")
+    sender = os.environ.get("DIGITRANSX_SMTP_FROM", smtp_user)
+    if not smtp_user or not smtp_password or not sender:
+        raise RuntimeError("SMTP environment variables are missing.")
+    message = EmailMessage()
+    message["Subject"] = subject
+    message["From"] = sender
+    message["To"] = recipient
+    message.set_content("\n".join(body_lines))
+    with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
+        smtp.starttls()
+        smtp.login(smtp_user, smtp_password)
+        smtp.send_message(message)
+
+
+def split_name(full_name):
+    parts = [part for part in (full_name or "").strip().split() if part]
+    if not parts:
+        return "", ""
+    if len(parts) == 1:
+        return parts[0], ""
+    return parts[0], " ".join(parts[1:])
+
+
+def ensure_csrf_token():
+    token = session.get("csrf_token")
+    if not token:
+        token = secrets.token_urlsafe(24)
+        session["csrf_token"] = token
+    return token
+
+
+def require_csrf():
+    expected = session.get("csrf_token", "")
+    received = request.headers.get("X-CSRF-Token", "")
+    return bool(expected and received and secrets.compare_digest(expected, received))
+
+
+def csrf_error():
+    """Return a 403 response if the CSRF token is missing/invalid, else None.
+
+    Shared guard used by every state-changing route so the check exists in one
+    place. Usage:  err = csrf_error();  if err: return err
+    """
+    if not require_csrf():
+        return json_response({"success": False, "message": "Invalid CSRF token."}, 403)
+    return None
+
+
+def get_session_snapshot():
+    return {"last_active_at": session.get("last_active_at", "")}
+
+
+LEGACY_TO_APP_ROLE = {
+    "platform_admin": "admin",
+    "client": "customer",
+    "service_seeker": "customer",
+    "everyday_user": "customer",
+    "transporter": "transporter",
+    "logistics_provider": "transporter",
+    "fuel_station_manager": "fuel_station_manager",
+    "shopkeeper": "shopkeeper",
+}
+
+
+def map_legacy_role(legacy_role):
+    return LEGACY_TO_APP_ROLE.get((legacy_role or "").strip().lower(), "customer")
+
+
+# CLIENT_ROLES / BUSINESS_CLIENT_ROLES / EVERYDAY_ROLES come from shared.roles
+# (single source). Transporter role set stays local to this module.
+TRANSPORTER_ROLES = {"transporter", "logistics_provider"}
+
+
+def _with_legacy_role(user):
+    """App logic keeps using the legacy role strings (users.legacy_role)."""
+    if user and user.get("legacy_role"):
+        user["role"] = user["legacy_role"]
+    return user
+
+
+def _attach_role_profile(db, user):
+    """Merge the user's role-profile row (service_seeker_profiles /
+    everyday_user_profiles / transporter_profiles / fuel_station_profiles /
+    shopkeeper_profiles) into the user dict so the rest of the app keeps
+    reading the same field names as before. Business seekers and everyday
+    individuals now live in separate tables — read the one matching the role."""
+    legacy = (user.get("legacy_role") or user.get("role") or "").strip().lower()
+    row = None
+    if legacy in BUSINESS_CLIENT_ROLES:
+        row = db.execute(
+            "SELECT company_name, business_type, transport_need, default_pickup_city, "
+            "billing_address, contact_phone, total_shipments FROM service_seeker_profiles WHERE user_id = %s",
+            (user["id"],),
+        ).fetchone()
+    elif legacy in EVERYDAY_ROLES:
+        row = db.execute(
+            "SELECT total_shipments FROM everyday_user_profiles WHERE user_id = %s",
+            (user["id"],),
+        ).fetchone()
+    elif legacy in TRANSPORTER_ROLES:
+        row = db.execute(
+            """
+            SELECT company_name, fleet_size, withdrawal_tier, withdrawal_tier_expires_at,
+                   payout_card_brand, payout_card_last_four, payout_card_holder,
+                   payout_card_expiry, payout_card_bank
+            FROM transporter_profiles WHERE user_id = %s
+            """,
+            (user["id"],),
+        ).fetchone()
+    elif legacy == "fuel_station_manager":
+        row = db.execute(
+            "SELECT station_name, pumps_count, license_no FROM fuel_station_profiles WHERE user_id = %s",
+            (user["id"],),
+        ).fetchone()
+    elif legacy == "shopkeeper":
+        row = db.execute(
+            "SELECT shop_name FROM shopkeeper_profiles WHERE user_id = %s",
+            (user["id"],),
+        ).fetchone()
+    elif legacy == "driver":
+        row = db.execute(
+            """
+            SELECT unique_driver_id, license_number, license_expiry, experience_years,
+                   rating, total_trips, verified_status, employment_type, current_truck_id
+            FROM driver_profiles WHERE user_id = %s
+            """,
+            (user["id"],),
+        ).fetchone()
+    if row:
+        user.update(dict(row))
+    return user
+
+
+def get_user_by_id(user_id):
+    if not user_id:
+        return None
+    with open_db() as db:
+        row = db.execute("SELECT * FROM users WHERE id = %s", (user_id,)).fetchone()
+        if not row:
+            return None
+        return _attach_role_profile(db, _with_legacy_role(dict(row)))
+
+
+def get_user_by_id_with_executor(executor, user_id, *, lock=False):
+    """Load current server-owned identity using the authentication transaction."""
+
+    row = executor.execute(
+        "SELECT * FROM users WHERE id = %s" + (" FOR UPDATE" if lock else ""),
+        (user_id,),
+    ).fetchone()
+    if not row:
+        return None
+    return _attach_role_profile(executor, _with_legacy_role(dict(row)))
+
+
+def get_user_by_login(login_id):
+    login_kind, value = parse_login_id(login_id)
+    column = "cnic" if login_kind == "cnic" else "email"
+    with open_db() as db:
+        row = db.execute(f"SELECT * FROM users WHERE {column} = %s", (value,)).fetchone()
+        user = _attach_role_profile(db, _with_legacy_role(dict(row))) if row else None
+        return user, login_kind, value
+
+
+def serialize_user(user):
+    # first/last name are no longer stored — derived from full_name for the UI.
+    derived_first, derived_last = split_name(user.get("full_name", ""))
+    return {
+        "id": user["id"],
+        "full_name": user.get("full_name", ""),
+        "first_name": derived_first,
+        "last_name": derived_last,
+        "email": user.get("email", ""),
+        "phone": user.get("phone", ""),
+        "cnic": user.get("cnic", ""),
+        "role": user.get("role", ""),
+        "registered_role": user.get("role", ""),
+        "company_name": user.get("company_name", ""),
+        "contact_phone": user.get("contact_phone", ""),
+        "billing_address": user.get("billing_address", ""),
+        "city": user.get("city", ""),
+        "shop_name": user.get("shop_name", ""),
+        "station_name": user.get("station_name", ""),
+        "address": user.get("address", ""),
+        "about": user.get("about", ""),
+        "organization_default_route": role_redirect(user.get("role", "")),
+        "mpin_enabled": bool(user.get("mpin_enabled")),
+        "last_login_at": user.get("last_login_at", ""),
+    }
+
+
+def _clear_local_authentication(response):
+    if current_app.secret_key:
+        session.clear()
+    for cookie_name in (
+        SESSION_TOKEN_COOKIE_NAME,
+        DEVICE_COOKIE_NAME,
+        ACCESS_PROOF_COOKIE_NAME,
+    ):
+        response.delete_cookie(
+            cookie_name,
+            httponly=True,
+            samesite="Lax",
+            secure=current_app.config["SESSION_COOKIE_SECURE"],
+            path="/",
+        )
+    return response
+
+
+def _authentication_error():
+    return _clear_local_authentication(
+        json_response({"success": False, "message": "Authentication required."}, 401)
+    )
+
+
+def clear_access_proof_cookie(response):
+    response.delete_cookie(
+        ACCESS_PROOF_COOKIE_NAME,
+        httponly=True,
+        samesite="Lax",
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        path="/",
+    )
+    return response
+
+
+def _access_locked_response():
+    return clear_access_proof_cookie(
+        json_response(
+            {
+                "success": False,
+                "code": "access_locked",
+                "message": "Access is locked.",
+            },
+            423,
+        )
+    )
+
+
+def login_required(view=None, *, refresh_activity=True, allow_locked=False):
+    """Require a valid durable session bound to its exact active device.
+
+    The signed Flask cookie is presentation/CSRF state only. ``refresh_activity``
+    preserves its legacy display timestamp and never updates durable genuine
+    activity.
+    """
+
+    def decorator(target):
+        @wraps(target)
+        def wrapped(*args, **kwargs):
+            raw_session = request.cookies.get(SESSION_TOKEN_COOKIE_NAME, "")
+            raw_device = request.cookies.get(DEVICE_COOKIE_NAME, "")
+            raw_access_proof = request.cookies.get(ACCESS_PROOF_COOKIE_NAME, "")
+            if not raw_session or not raw_device:
+                return _authentication_error()
+            try:
+                device_digest = digest_token(raw_device)
+                # Authentication authority is always read from the database.
+                # A worker-local TTL cannot observe revocation in another worker.
+                with open_db() as db:
+                    durable = find_session_by_token(
+                        db, raw_session, device_digest,
+                        raw_access_proof=raw_access_proof,
+                    )
+                    user = (
+                        get_user_by_id_with_executor(db, durable["user_id"])
+                        if durable else None
+                    )
+                    if user and user.get("password_change_pending"):
+                        durable = None
+                        user = None
+                    if durable and user and not durable["access_proof_valid"]:
+                        try:
+                            locked_session, locked_user, locked_device = (
+                                lock_session_user_and_device(
+                                    db,
+                                    durable["session_id"],
+                                    durable["user_id"],
+                                    device_digest,
+                                )
+                            )
+                            if not locked_session or not locked_user or not locked_device:
+                                durable = None
+                                user = None
+                            elif lock_access_once(db, durable["session_id"]) == 1:
+                                lock_reference = access_lock_reference(
+                                    durable["session_id"]
+                                )
+                                request_id = f"access.lock.{lock_reference}"
+                                write_security_event(
+                                    db,
+                                    "security.session.access_locked",
+                                    EventContext(
+                                        request_id=request_id,
+                                        source="server_route",
+                                        actor_type="system",
+                                        subject_user_id=durable["user_id"],
+                                    ),
+                                    EventData(metadata={"result_code": "app_launch"}),
+                                    idempotency_scope="security.session.access_locked",
+                                    idempotency_key=request_id,
+                                )
+                            if durable:
+                                durable["access_locked"] = True
+                                durable["access_proof_valid"] = False
+                        except Exception:
+                            raise _AccessLockPersistenceError from None
+            except _AccessLockPersistenceError:
+                current_app.logger.error("Software access lock could not be committed.")
+                return clear_access_proof_cookie(
+                    json_response(
+                        {"success": False, "message": "Access service is temporarily unavailable."},
+                        503,
+                    )
+                )
+            except (SessionFoundationError,TrustedDeviceError):
+                return _authentication_error()
+            except Exception:
+                current_app.logger.error("Authentication authority could not be checked.")
+                return json_response({"success": False,"code": "authentication_service_unavailable",
+                                      "message": "Authentication service is temporarily unavailable. Please retry."},503)
+            if not durable or not user:
+                return _authentication_error()
+            request.current_user = user
+            request.current_session = durable
+            if durable["access_locked"] or not durable["access_proof_valid"]:
+                if not allow_locked:
+                    return _access_locked_response()
+            elif refresh_activity:
+                session["last_active_at"] = timestamp_bundle()["display"]
+            return target(*args, **kwargs)
+
+        return wrapped
+
+    if view is None:
+        return decorator
+    return decorator(view)
+
+
+def require_admin_role(user):
+    if not user or (user.get("role") or "").strip().lower() != "platform_admin":
+        return json_response({"success": False, "message": "Admin access required."}, 403)
+    return None
+
+
+def generate_numeric_code(length):
+    return "".join(secrets.choice("0123456789") for _ in range(length))
+
+
+def record_login_activity(
+    user_id,
+    login_identifier,
+    login_method,
+    status,
+    failure_reason="",
+    *,
+    executor=None,
+):
+    stamp = timestamp_bundle()
+    meta = get_request_meta()
+    values = (
+        user_id,
+        login_identifier,
+        login_method,
+        status,
+        failure_reason,
+        meta["ip_address"],
+        meta["user_agent"],
+        stamp["iso"],
+    )
+    statement = """
+        INSERT INTO login_activity (
+            user_id, login_identifier, login_method, status, failure_reason,
+            ip_address, user_agent, created_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+    """
+    if executor is not None:
+        executor.execute(statement, values)
+        return
+    with open_db() as db:
+        db.execute(statement, values)
+        db.commit()
+
+
+def build_auth_success_response(
+    user, *, device_token=None, session_token=None, access_proof=None
+):
+    if device_token is None or session_token is None or access_proof is None:
+        raise RuntimeError(
+            "Device, durable session and access proof must complete before response."
+        )
+    session.clear()
+    session["csrf_token"] = secrets.token_urlsafe(24)
+    session["last_active_at"] = timestamp_bundle()["display"]
+    payload = {
+        "success": True,
+        "user": serialize_user(user),
+        "csrf_token": session["csrf_token"],
+        "redirect": role_redirect(user.get("role")),
+        "session": get_session_snapshot(),
+    }
+    response = json_response(payload)
+    response.set_cookie(
+        DEVICE_COOKIE_NAME,
+        device_token,
+        httponly=True,
+        samesite="Lax",
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        max_age=60 * 60 * 24 * trusted_device_lifetime_days(),
+        path="/",
+    )
+    response.set_cookie(
+        SESSION_TOKEN_COOKIE_NAME,
+        session_token,
+        httponly=True,
+        samesite="Lax",
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        max_age=60 * 60 * 24 * ABSOLUTE_LIFETIME_DAYS,
+        path="/",
+    )
+    return set_access_proof_cookie(response, access_proof)
+
+
+def set_access_proof_cookie(response, raw_proof):
+    """Issue a non-persistent HttpOnly access proof after caller commit."""
+
+    if not isinstance(raw_proof, str) or not raw_proof:
+        raise RuntimeError("A committed access proof is required.")
+    response.set_cookie(
+        ACCESS_PROOF_COOKIE_NAME,
+        raw_proof,
+        httponly=True,
+        samesite="Lax",
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        path="/",
+    )
+    return response
+
+
+def clear_device_cookie(response):
+    response.delete_cookie(
+        DEVICE_COOKIE_NAME,
+        path="/",
+        httponly=True,
+        secure=current_app.config["SESSION_COOKIE_SECURE"],
+        samesite="Lax",
+    )
+    return response
+
+
+def clear_authentication_cookies(response):
+    """Clear durable, trusted-device and non-authoritative Flask state."""
+
+    return _clear_local_authentication(response)
+
+
+def latest_otp_record(user_id, purpose):
+    with open_db() as db:
+        row = db.execute(
+            """
+            SELECT * FROM password_reset_otps
+            WHERE user_id = %s AND purpose = %s
+            ORDER BY id DESC
+            LIMIT 1
+            """,
+            (user_id, purpose),
+        ).fetchone()
+        return dict(row) if row else None
+
+
+def create_otp_record(user_id, purpose, otp_code, recipient_email):
+    stamp = timestamp_bundle()
+    with open_db() as db:
+        db.execute(
+            """
+            INSERT INTO password_reset_otps (
+                user_id, purpose, otp_hash, expires_at_iso, created_at, created_at_iso,
+                attempts, max_attempts, verified, cooldown_until_iso, delivery_target
+            ) VALUES (%s, %s, %s, %s, %s, %s, 0, %s, 0, NULL, %s)
+            """,
+            (
+                user_id,
+                purpose,
+                generate_password_hash(otp_code),
+                add_minutes(stamp["iso"], OTP_EXPIRY_MINUTES),
+                stamp["display"],
+                stamp["iso"],
+                OTP_ATTEMPT_LIMIT,
+                recipient_email,
+            ),
+        )
+        db.commit()
+
+
+def get_serializer():
+    return URLSafeTimedSerializer(current_app.config["SECRET_KEY"])
+
+
+def _reset_token_digest(raw_token):
+    return sha256(raw_token.encode("utf-8")).hexdigest()
+
+
+def _new_reset_token(user_id, purpose):
+    return get_serializer().dumps(
+        {
+            "user_id": user_id,
+            "purpose": purpose,
+            "nonce": secrets.token_urlsafe(32),
+        }
+    )
+
+
+def _insert_reset_token(executor, user_id, purpose, raw_token):
+    stamp = timestamp_bundle()
+    executor.execute(
+        """
+        INSERT INTO reset_tokens (
+            user_id, purpose, token_hash, expires_at_iso, created_at_iso,
+            used, claim_state
+        ) VALUES (%s, %s, %s, %s, %s, 0, 'available')
+        """,
+        (
+            user_id,
+            purpose,
+            _reset_token_digest(raw_token),
+            add_minutes(stamp["iso"], RESET_TOKEN_EXPIRY_MINUTES),
+            stamp["iso"],
+        ),
+    )
+
+
+def claim_reset_token(raw_token, purpose):
+    """Atomically claim one high-entropy reset authorization before provider I/O."""
+
+    if not isinstance(raw_token, str) or not raw_token:
+        return None, None, "Invalid reset token."
+    try:
+        payload = get_serializer().loads(raw_token, max_age=RESET_TOKEN_EXPIRY_MINUTES * 60)
+    except SignatureExpired:
+        return None, None, "Reset token expired."
+    except BadSignature:
+        return None, None, "Invalid reset token."
+    if payload.get("purpose") != purpose:
+        return None, None, "Invalid reset token."
+    user_id = payload.get("user_id")
+    claim_secret = secrets.token_urlsafe(32)
+    claim_digest = sha256(claim_secret.encode("utf-8")).digest()
+    with open_db() as db:
+        row = db.execute(
+            """
+            SELECT rt.*, u.auth_id
+              FROM reset_tokens rt
+              JOIN users u ON u.id = rt.user_id
+             WHERE rt.user_id = %s AND rt.purpose = %s
+               AND rt.token_hash = %s
+               AND rt.used = 0 AND rt.claim_state = 'available'
+             FOR UPDATE OF rt
+            """,
+            (user_id, purpose, _reset_token_digest(raw_token)),
+        ).fetchone()
+        if not row or not is_future(row["expires_at_iso"]):
+            return None, None, "Reset token is no longer valid."
+        claimed = db.execute(
+            """
+            UPDATE reset_tokens
+               SET used = 1, claim_state = 'claimed',
+                   claim_digest = %s, claimed_at = now()
+             WHERE id = %s AND used = 0 AND claim_state = 'available'
+            RETURNING id, user_id
+            """,
+            (claim_digest, row["id"]),
+        ).fetchone()
+        if not claimed:
+            return None, None, "Reset token is no longer valid."
+        token_record = dict(claimed)
+        token_record["auth_id"] = row["auth_id"]
+    return token_record, claim_secret, ""
+
+
+def finalize_reset_token_claim(executor, token_id, claim_secret, *, completed):
+    """Finalize exactly the in-memory claim; callers own the transaction."""
+
+    if not isinstance(claim_secret, str) or not claim_secret:
+        return 0
+    next_state = "completed" if completed else "reconciliation_required"
+    return executor.execute(
+        """
+        UPDATE reset_tokens
+           SET claim_state = %s,
+               completed_at = CASE WHEN %s THEN now() ELSE NULL END
+         WHERE id = %s AND used = 1 AND claim_state = 'claimed'
+           AND claim_digest = %s
+        """,
+        (
+            next_state,
+            bool(completed),
+            token_id,
+            sha256(claim_secret.encode("utf-8")).digest(),
+        ),
+    ).rowcount
+
+
+def mark_reset_token_reconciliation(token_id, claim_secret):
+    """Make provider failure explicit and permanently non-replayable."""
+
+    with open_db() as db:
+        return finalize_reset_token_claim(
+            db, token_id, claim_secret, completed=False
+        )
+
+
+def validate_signup_payload(data):
+    if not isinstance(data, dict):
+        return {"signup": "A JSON object is required."}
+    text_fields = (
+        "name", "email", "phone", "password", "cnic", "role", "city", "address",
+        "about", "company_name", "business_type", "transport_need", "default_pickup_city",
+        "billing_address", "station_name", "license_no", "shop_name", "license_number",
+        "license_expiry", "fleet_size", "pumps_count",
+    )
+    invalid_fields = {
+        field: "This field must be text."
+        for field in text_fields
+        if data.get(field) is not None and not isinstance(data[field], str)
+    }
+    if invalid_fields:
+        return invalid_fields
+    errors = {}
+    experience = data.get("experience_years")
+    if experience not in (None, ""):
+        # Both the numeric driver form and older string-valued clients are valid.
+        if isinstance(experience, bool) or not re.fullmatch(r"[0-9]+", str(experience)):
+            errors["experience_years"] = "Experience must be a whole number of years."
+        elif len(str(experience)) > 10 or int(experience) > 2147483647:
+            errors["experience_years"] = "Experience is outside the supported range."
+    expiry = data.get("license_expiry")
+    if expiry:
+        try:
+            datetime.strptime(expiry, "%Y-%m-%d")
+        except ValueError:
+            errors["license_expiry"] = "Enter a valid license expiry date."
+    full_name = (data.get("name") or "").strip()
+    email = normalize_email(data.get("email"))
+    phone = normalize_phone(data.get("phone"))
+    password = data.get("password") or ""
+    cnic = normalize_cnic(data.get("cnic"))
+    role = (data.get("role") or "").strip()
+    if not full_name:
+        errors["name"] = "Full name is required."
+    if not email:
+        errors["email"] = "Email is required."
+    elif not EMAIL_REGEX.fullmatch(email):
+        errors["email"] = "Enter a valid email address."
+    if not phone:
+        errors["phone"] = "Phone number is required."
+    elif not PHONE_DIGIT_REGEX.fullmatch(phone):
+        errors["phone"] = "Enter a valid phone number."
+    if not password:
+        errors["password"] = "Password is required."
+    elif len(password) < 8:
+        errors["password"] = "Password must be at least 8 characters."
+    if not cnic:
+        errors["cnic"] = "CNIC is required."
+    elif not CNIC_REGEX.fullmatch(cnic):
+        errors["cnic"] = "CNIC must be exactly 13 digits."
+    if role not in {"service_seeker", "logistics_provider", "everyday_user", "fuel_station_manager", "shopkeeper", "driver"}:
+        errors["role"] = "Please select a valid role."
+    role_required = {
+        "service_seeker": ("city", "City is required."),
+        "logistics_provider": ("city", "City is required."),
+        "everyday_user": ("city", "Please tell us your city."),
+        "fuel_station_manager": ("station_name", "Station name is required."),
+        "shopkeeper": ("shop_name", "Shop or business name is required."),
+        "driver": ("city", "City is required."),
+    }
+    if role in role_required:
+        field_name, message = role_required[role]
+        if not (data.get(field_name) or "").strip():
+            errors[field_name] = message
+    if role == "fuel_station_manager" and not (data.get("city") or "").strip():
+        errors["city"] = "City is required."
+    if role == "shopkeeper" and not (data.get("city") or "").strip():
+        errors["city"] = "City is required."
+    if role == "driver" and not (data.get("license_number") or "").strip():
+        errors["license_number"] = "Driver license number is required."
+        errors["city"] = "City is required."
+    terms_error = signup_terms_error(data)
+    if terms_error:
+        errors["signup_terms"] = terms_error
+    return errors
+
+
+def get_settings_dict(user):
+    raw = user.get("settings_json") or "{}"
+    try:
+        parsed = json.loads(raw)
+    except json.JSONDecodeError:
+        parsed = {}
+    if not isinstance(parsed, dict):
+        parsed = {}
+    notifications = parsed.get("notifications")
+    if not isinstance(notifications, dict):
+        notifications = {}
+    else:
+        notifications = dict(notifications)
+    non_preference_keys = {"sms", "payments", "paymentupdates"}
+    for key in tuple(notifications):
+        if (
+            isinstance(key, str)
+            and key.strip().lower() in non_preference_keys
+        ):
+            notifications.pop(key)
+    parsed["notifications"] = notifications
+
+    preferences = parsed.get("preferences")
+    parsed["preferences"] = preferences if isinstance(preferences, dict) else {}
+    return parsed
+
+
+def update_user_settings(user_id, settings_dict):
+    with open_db() as db:
+        db.execute(
+            "UPDATE users SET settings_json = %s, updated_at = %s WHERE id = %s",
+            (json.dumps(settings_dict), timestamp_bundle()["display"], user_id),
+        )
+        db.commit()
+
+
+def consume_otp_for_user(
+    user_id, purpose, otp_code, *, issue_reset_authorization=False
+):
+    """Consume the latest OTP once under a row lock.
+
+    Password-reset OTP consumption and reset-token creation share this one
+    transaction, so a challenge cannot mint multiple authorizations.
+    """
+
+    with open_db() as db:
+        row = db.execute(
+            """
+            SELECT * FROM password_reset_otps
+             WHERE user_id = %s AND purpose = %s
+             ORDER BY id DESC
+             LIMIT 1
+             FOR UPDATE
+            """,
+            (user_id, purpose),
+        ).fetchone()
+        if not row:
+            return None, "No active OTP request found.", None
+        record = dict(row)
+        if record["verified"]:
+            return None, "OTP is no longer valid.", None
+        if record.get("cooldown_until_iso") and is_future(record["cooldown_until_iso"]):
+            return None, "Too many wrong attempts. Please wait 15 minutes before requesting a new code.", None
+        if not is_future(record["expires_at_iso"]):
+            return None, "OTP has expired. Please request a new code.", None
+        if not check_password_hash(record["otp_hash"], otp_code):
+            attempts = min(int(record["attempts"]) + 1, OTP_ATTEMPT_LIMIT)
+            cooldown_until = None
+            message = "Invalid OTP."
+            if attempts >= OTP_ATTEMPT_LIMIT:
+                cooldown_until = (
+                    now_local() + timedelta(minutes=LOGIN_COOLDOWN_MINUTES)
+                ).isoformat(timespec="seconds")
+                message = "Too many wrong attempts. Please wait 15 minutes before requesting a new code."
+            db.execute(
+                "UPDATE password_reset_otps SET attempts = %s, cooldown_until_iso = %s WHERE id = %s",
+                (attempts, cooldown_until, record["id"]),
+            )
+            return None, message, None
+        updated = db.execute(
+            """
+            UPDATE password_reset_otps
+               SET verified = 1
+             WHERE id = %s AND verified = 0
+            RETURNING *
+            """,
+            (record["id"],),
+        ).fetchone()
+        if not updated:
+            return None, "OTP is no longer valid.", None
+        raw_token = None
+        if issue_reset_authorization:
+            raw_token = _new_reset_token(user_id, purpose)
+            _insert_reset_token(db, user_id, purpose, raw_token)
+        return dict(updated), "", raw_token
+
+
+def verify_otp_for_user(user_id, purpose, otp_code):
+    record, error, _ = consume_otp_for_user(user_id, purpose, otp_code)
+    return record, error

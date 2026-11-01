@@ -1,0 +1,55 @@
+# ---- Secrets (NEVER commit) ----
+.env
+.env.local
+.env.production
+*.env
+!.env.example
+
+# ---- Python ----
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.venv/
+venv/
+env/
+*.egg-info/
+
+# ---- Node / React ----
+frontend-react/node_modules/
+frontend-react/dist/
+frontend-react/.vite/
+frontend-react/.phase2c6-build/
+frontend-react/.phase2c6-qa.html
+frontend-react/.phase2c6-qa.jsx
+npm-debug.log*
+yarn-error.log*
+
+# ---- Uploaded files (live in Supabase Storage) ----
+backend/uploads/
+
+# ---- OS / editor ----
+.DS_Store
+Thumbs.db
+desktop.ini
+*.swp
+.idea/
+.vscode/
+
+# ---- Logs / temp ----
+*.log
+*.tmp
+
+# ---- Matching test fixture output (generated, local only) ----
+backend/scripts/seed_output/
+
+# ---- Ignored local / audit run artifacts ----
+output/
+traces/
+.codex/
+.codex-logs/
+.frontend_hardening_lint.json
+skills-lock.json
+AI/
+.agents/
+.impeccable/

@@ -1,0 +1,1438 @@
+[
+  {
+    "path": "/static/<path:filename>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "static"
+  },
+  {
+    "path": "/auth/csrf-token",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "auth.csrf_token"
+  },
+  {
+    "path": "/auth/signup-terms",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "auth.signup_terms"
+  },
+  {
+    "path": "/auth/signup",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.signup"
+  },
+  {
+    "path": "/auth/login",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.login"
+  },
+  {
+    "path": "/auth/me",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "auth.auth_me"
+  },
+  {
+    "path": "/auth/security/sessions",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "auth.active_security_sessions"
+  },
+  {
+    "path": "/auth/security/devices",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "auth.active_security_devices"
+  },
+  {
+    "path": "/auth/security/sessions/<string:management_ref>",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "auth.revoke_security_session"
+  },
+  {
+    "path": "/auth/security/devices/<string:management_ref>",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "auth.revoke_security_device"
+  },
+  {
+    "path": "/auth/session/activity",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.genuine_session_activity"
+  },
+  {
+    "path": "/auth/logout",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.logout"
+  },
+  {
+    "path": "/auth/logout-all",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.logout_all"
+  },
+  {
+    "path": "/auth/forgot-password",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.forgot_password"
+  },
+  {
+    "path": "/auth/password-reset/verify-otp",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.verify_password_reset_otp"
+  },
+  {
+    "path": "/auth/reset-password",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.reset_password"
+  },
+  {
+    "path": "/auth/fast-login/options",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "auth.fast_login_options"
+  },
+  {
+    "path": "/auth/fast-login/mpin",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.fast_login_mpin"
+  },
+  {
+    "path": "/auth/fast-login/setup",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.setup_fast_login"
+  },
+  {
+    "path": "/auth/fast-login/disable",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.disable_fast_login"
+  },
+  {
+    "path": "/auth/mpin/status",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "auth.mpin_status"
+  },
+  {
+    "path": "/auth/mpin/enroll",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.mpin_enroll"
+  },
+  {
+    "path": "/auth/mpin/unlock",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.mpin_unlock"
+  },
+  {
+    "path": "/auth/access/unlock/password",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.password_unlock"
+  },
+  {
+    "path": "/auth/mpin/password-unlock",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.password_unlock"
+  },
+  {
+    "path": "/auth/mpin/change",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.mpin_change"
+  },
+  {
+    "path": "/auth/mpin/disable",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.mpin_disable"
+  },
+  {
+    "path": "/auth/mpin/step-up",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.mpin_step_up"
+  },
+  {
+    "path": "/auth/mpin/reset",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "auth.mpin_reset"
+  },
+  {
+    "path": "/api/admin/dashboard",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.dashboard"
+  },
+  {
+    "path": "/api/admin/users",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.list_users"
+  },
+  {
+    "path": "/api/admin/users",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.create_admin"
+  },
+  {
+    "path": "/api/admin/users/<int:user_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.user_detail"
+  },
+  {
+    "path": "/api/admin/users/<int:user_id>/block",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "admin.block_user"
+  },
+  {
+    "path": "/api/admin/trucks",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.list_trucks"
+  },
+  {
+    "path": "/api/admin/trucks/<int:truck_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.truck_detail"
+  },
+  {
+    "path": "/api/admin/wallet/withdrawals",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.withdrawals"
+  },
+  {
+    "path": "/api/admin/wallet/withdrawals/<int:request_id>/approve",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.approve_withdrawal"
+  },
+  {
+    "path": "/api/admin/wallet/withdrawals/<int:request_id>/reject",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.reject_withdrawal"
+  },
+  {
+    "path": "/api/admin/agreements",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.agreements"
+  },
+  {
+    "path": "/api/admin/agreements/<int:agreement_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.agreement_detail"
+  },
+  {
+    "path": "/api/admin/disputes",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.disputes"
+  },
+  {
+    "path": "/api/admin/disputes/<int:trip_id>/resolve",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.resolve_dispute"
+  },
+  {
+    "path": "/api/admin/disputes/<int:trip_id>/group-chat",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.create_group_chat"
+  },
+  {
+    "path": "/api/admin/disputes/<int:trip_id>/group-chat",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.get_group_chat"
+  },
+  {
+    "path": "/api/admin/payments",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.payments"
+  },
+  {
+    "path": "/api/admin/payments/process",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.process_payments"
+  },
+  {
+    "path": "/api/admin/payments/apply-penalties",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.apply_penalties"
+  },
+  {
+    "path": "/api/admin/platform-settings/commissions",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.commission_settings"
+  },
+  {
+    "path": "/api/admin/platform-settings/commissions/history",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.commission_history"
+  },
+  {
+    "path": "/api/admin/platform-settings/commissions",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.publish_commission"
+  },
+  {
+    "path": "/api/admin/one-time-disputes",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.list_one_time_disputes"
+  },
+  {
+    "path": "/api/admin/one-time-disputes/<int:dispute_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "admin.one_time_dispute_detail"
+  },
+  {
+    "path": "/api/admin/one-time-disputes/<int:dispute_id>/resolve",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.resolve_one_time_dispute"
+  },
+  {
+    "path": "/api/admin/delivery-confirmations/process-overdue",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "admin.trigger_overdue_delivery_sweep"
+  },
+  {
+    "path": "/api/agreements/posts",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "agreements.create_post"
+  },
+  {
+    "path": "/api/agreements/posts/available",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "agreements.available_posts"
+  },
+  {
+    "path": "/api/agreements/posts/<int:post_id>/bids",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "agreements.create_bid"
+  },
+  {
+    "path": "/api/agreements/posts/<int:post_id>/bids",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "agreements.list_bids"
+  },
+  {
+    "path": "/api/agreements/posts/<int:post_id>/bids/<int:bid_id>/invite",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "agreements.invite_bid"
+  },
+  {
+    "path": "/api/agreements/finalize",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "agreements.finalize_agreement"
+  },
+  {
+    "path": "/api/agreements/<int:agreement_id>/trips",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "agreements.start_trip"
+  },
+  {
+    "path": "/api/agreements/<int:agreement_id>/trips/<int:trip_id>/end",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "agreements.end_trip"
+  },
+  {
+    "path": "/api/agreements/trips/<int:trip_id>/live-location",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "agreements.trip_live_location"
+  },
+  {
+    "path": "/api/agreements/trips/<int:trip_id>/dispute",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "agreements.dispute_trip"
+  },
+  {
+    "path": "/api/agreements/<int:agreement_id>/trips",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "agreements.list_trips"
+  },
+  {
+    "path": "/api/agreements/my",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "agreements.my_agreements"
+  },
+  {
+    "path": "/api/agreements/<int:agreement_id>/payments",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "agreements.list_payments"
+  },
+  {
+    "path": "/api/agreements/<int:agreement_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "agreements.agreement_detail"
+  },
+  {
+    "path": "/api/agreements/process-payments",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "agreements.process_payments"
+  },
+  {
+    "path": "/api/agreements/apply-penalties",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "agreements.apply_penalties"
+  },
+  {
+    "path": "/uploads/chat/<path:filename>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "chat.serve_chat_upload"
+  },
+  {
+    "path": "/api/chat/threads",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "chat.list_threads"
+  },
+  {
+    "path": "/api/chat/threads/<int:thread_id>/messages",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "chat.list_messages"
+  },
+  {
+    "path": "/api/chat/threads/<int:thread_id>/messages",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "chat.send_message"
+  },
+  {
+    "path": "/api/chat/threads/<int:thread_id>/messages/<int:message_id>/respond-media-request",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "chat.respond_media_request"
+  },
+  {
+    "path": "/api/chat/threads/<int:thread_id>/messages/media",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "chat.send_media_message"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/delivery-otp",
+    "methods": [
+      "GET",
+      "POST"
+    ],
+    "endpoint": "orders.delivery_otp_channel"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/verify-delivery-otp",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.verify_delivery_otp_route"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/disputes",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.open_delivery_dispute_route"
+  },
+  {
+    "path": "/api/admin/freight-settlements/<int:settlement_id>/resolve",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.resolve_delivery_settlement_route"
+  },
+  {
+    "path": "/api/business-rules/fees",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.approved_business_fees"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/market-reference",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.get_market_reference"
+  },
+  {
+    "path": "/api/orders",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.create_order"
+  },
+  {
+    "path": "/api/orders/available",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.available_orders"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/bids",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.create_bid"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/bids/<int:bid_id>/withdraw",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.withdraw_bid"
+  },
+  {
+    "path": "/api/orders/<int:order_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.get_order_details"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/bids/<int:bid_id>/payment-quote",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.bid_payment_quote"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/bids/<int:bid_id>/checkout",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.checkout_bid"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/start",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.start_trip"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/accept-bid/<int:bid_id>",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.accept_bid"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/process-payment",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.process_trip_payment"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/mark-completed",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.complete_delivery"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/complete-delivery",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.complete_delivery"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/verify-delivery",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.confirm_delivery"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/confirm-delivery",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.confirm_delivery"
+  },
+  {
+    "path": "/api/reviews/pending",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.list_pending_reviews"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/review",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.submit_trip_review"
+  },
+  {
+    "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/review",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.fetch_trip_review"
+  },
+  {
+    "path": "/api/disputes/<int:dispute_id>/statement",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.submit_dispute_statement"
+  },
+  {
+    "path": "/api/orders/my-orders",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.get_my_orders"
+  },
+  {
+    "path": "/api/orders/my-bids",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.get_my_bids"
+  },
+  {
+    "path": "/api/notifications",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "orders.list_notifications"
+  },
+  {
+    "path": "/api/notifications/<int:notification_id>/read",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.mark_notification_read"
+  },
+  {
+    "path": "/api/notifications/read-all",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "orders.mark_all_notifications_read"
+  },
+  {
+    "path": "/api/payment-methods",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "payments.get_payment_methods"
+  },
+  {
+    "path": "/api/payment-methods",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "payments.add_payment_method"
+  },
+  {
+    "path": "/api/payment-methods/<int:method_id>",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "payments.update_payment_method"
+  },
+  {
+    "path": "/api/payment-methods/<int:method_id>",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "payments.remove_payment_method"
+  },
+  {
+    "path": "/api/payment-preferences",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "payments.get_preferences"
+  },
+  {
+    "path": "/api/payment-preferences",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "payments.update_preferences"
+  },
+  {
+    "path": "/api/profile",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "profile.profile_get"
+  },
+  {
+    "path": "/api/profile",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "profile.profile_update"
+  },
+  {
+    "path": "/api/profile/password/request-otp",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "profile.request_password_change_otp"
+  },
+  {
+    "path": "/api/profile/password",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "profile.change_password"
+  },
+  {
+    "path": "/api/settings",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "settings.settings_get"
+  },
+  {
+    "path": "/api/settings",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "settings.settings_update"
+  },
+  {
+    "path": "/api/settings/notifications",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "settings.settings_notifications"
+  },
+  {
+    "path": "/api/settings/security/activity",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "settings.security_activity"
+  },
+  {
+    "path": "/api/platform/terms/current",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "platform_terms.current_terms"
+  },
+  {
+    "path": "/api/platform/terms/history",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "platform_terms.terms_history"
+  },
+  {
+    "path": "/api/platform/terms/<int:terms_version_id>/acknowledge",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "platform_terms.acknowledge_terms"
+  },
+  {
+    "path": "/api/track",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "tracking.api_track"
+  },
+  {
+    "path": "/api/catalog/truck-types",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "trucks.truck_types_catalog"
+  },
+  {
+    "path": "/api/catalog/truck-types/<string:type_key>/fields",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "trucks.truck_type_fields"
+  },
+  {
+    "path": "/uploads/trucks/<path:filename>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "trucks.serve_truck_upload"
+  },
+  {
+    "path": "/api/trucks",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "trucks.create_truck"
+  },
+  {
+    "path": "/api/trucks",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "trucks.list_trucks"
+  },
+  {
+    "path": "/api/trucks/stats",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "trucks.truck_stats"
+  },
+  {
+    "path": "/api/trucks/<int:truck_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "trucks.get_truck"
+  },
+  {
+    "path": "/api/trucks/<int:truck_id>/live-location",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "trucks.truck_live_location"
+  },
+  {
+    "path": "/api/trucks/<int:truck_id>/configuration",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "trucks.get_truck_configuration"
+  },
+  {
+    "path": "/api/trucks/<int:truck_id>/configuration",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "trucks.update_truck_configuration"
+  },
+  {
+    "path": "/api/trucks/<int:truck_id>/status",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "trucks.update_truck_status"
+  },
+  {
+    "path": "/api/wallet",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "wallet.get_wallet"
+  },
+  {
+    "path": "/api/wallet/earnings-summary",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "wallet.earnings_summary"
+  },
+  {
+    "path": "/api/wallet/topup",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "wallet.topup_wallet"
+  },
+  {
+    "path": "/api/history/account",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "wallet.wallet_transactions"
+  },
+  {
+    "path": "/api/wallet/transactions",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "wallet.wallet_transactions"
+  },
+  {
+    "path": "/api/wallet/lock",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "wallet.lock_wallet_balance"
+  },
+  {
+    "path": "/api/wallet/unlock",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "wallet.unlock_wallet_balance"
+  },
+  {
+    "path": "/api/wallet/withdraw-locked",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "wallet.create_locked_withdrawal_request"
+  },
+  {
+    "path": "/api/wallet/withdrawal-limits",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "wallet.get_withdrawal_limits"
+  },
+  {
+    "path": "/api/wallet/upgrade-limit",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "wallet.upgrade_withdrawal_limit"
+  },
+  {
+    "path": "/api/wallet/payout-card",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "wallet.get_payout_card"
+  },
+  {
+    "path": "/api/wallet/payout-card",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "wallet.save_payout_card"
+  },
+  {
+    "path": "/api/marketplace/parts",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "marketplace.list_parts"
+  },
+  {
+    "path": "/api/marketplace/parts/<int:part_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "marketplace.get_part_detail"
+  },
+  {
+    "path": "/api/marketplace/orders",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "marketplace.create_order"
+  },
+  {
+    "path": "/api/marketplace/my-orders",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "marketplace.get_my_orders"
+  },
+  {
+    "path": "/api/marketplace/admin/orders/<int:order_id>/refund",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "marketplace.admin_refund_marketplace_order"
+  },
+  {
+    "path": "/api/marketplace/shop/orders",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "marketplace.get_shop_orders"
+  },
+  {
+    "path": "/api/marketplace/shop/orders/<int:order_id>/status",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "marketplace.update_shop_order_status"
+  },
+  {
+    "path": "/api/marketplace/shop/orders/<int:order_id>/verify-otp",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "marketplace.verify_delivery_otp"
+  },
+  {
+    "path": "/api/marketplace/orders/<int:order_id>/delivery-otp",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "marketplace.request_delivery_otp"
+  },
+  {
+    "path": "/api/marketplace/shop/parts",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "marketplace.get_shop_parts"
+  },
+  {
+    "path": "/api/marketplace/shop/parts",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "marketplace.add_shop_part"
+  },
+  {
+    "path": "/api/marketplace/shop/parts/<int:part_id>",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "marketplace.delete_shop_part"
+  },
+  {
+    "path": "/api/marketplace/rfq",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "marketplace.create_rfq"
+  },
+  {
+    "path": "/api/marketplace/rfq",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "marketplace.get_rfqs"
+  },
+  {
+    "path": "/api/marketplace/rfq/<int:rfq_id>/bid",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "marketplace.submit_rfq_bid"
+  },
+  {
+    "path": "/api/shopkeeper/products",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "shopkeeper.list_products"
+  },
+  {
+    "path": "/api/shopkeeper/products",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "shopkeeper.create_product"
+  },
+  {
+    "path": "/api/shopkeeper/products/<int:product_id>",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "shopkeeper.update_product"
+  },
+  {
+    "path": "/api/shopkeeper/products/<int:product_id>",
+    "methods": [
+      "DELETE"
+    ],
+    "endpoint": "shopkeeper.delete_product"
+  },
+  {
+    "path": "/api/shopkeeper/sales",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "shopkeeper.create_sale"
+  },
+  {
+    "path": "/api/shopkeeper/sales/<int:sale_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "shopkeeper.get_sale"
+  },
+  {
+    "path": "/api/shopkeeper/sales",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "shopkeeper.list_sales"
+  },
+  {
+    "path": "/api/shopkeeper/sales/analytics",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "shopkeeper.sales_analytics"
+  },
+  {
+    "path": "/api/contact",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "contact.submit_contact"
+  },
+  {
+    "path": "/api/fuelstation/vouchers/verify",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "fuelstation.fuel_voucher_verify"
+  },
+  {
+    "path": "/api/fuelstation/vouchers/<int:voucher_id>/dispense",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "fuelstation.fuel_voucher_dispense"
+  },
+  {
+    "path": "/api/fuelstation/dashboard",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "fuelstation.fuel_dashboard"
+  },
+  {
+    "path": "/api/fuelstation/pumps",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "fuelstation.get_pumps"
+  },
+  {
+    "path": "/api/fuelstation/pumps",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "fuelstation.create_pump"
+  },
+  {
+    "path": "/api/fuelstation/pumps/<int:pump_id>",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "fuelstation.update_pump"
+  },
+  {
+    "path": "/api/fuelstation/dispense",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "fuelstation.record_dispense"
+  },
+  {
+    "path": "/api/fuelstation/dispenses",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "fuelstation.get_dispenses"
+  },
+  {
+    "path": "/api/fuelstation/profile",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "fuelstation.get_profile"
+  },
+  {
+    "path": "/api/fuelstation/profile",
+    "methods": [
+      "PUT"
+    ],
+    "endpoint": "fuelstation.update_profile"
+  },
+  {
+    "path": "/api/fuel/vouchers",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.fuel_voucher_create"
+  },
+  {
+    "path": "/api/fuel/vouchers",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "driver.fuel_voucher_list"
+  },
+  {
+    "path": "/api/fuel/vouchers/<int:voucher_id>/cancel",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.fuel_voucher_cancel"
+  },
+  {
+    "path": "/api/transporter/drive-myself",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.drive_myself"
+  },
+  {
+    "path": "/api/admin/owner-operator-credentials/<int:user_id>",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.verify_owner_credentials"
+  },
+  {
+    "path": "/api/operational-incidents",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.report_operational_incident"
+  },
+  {
+    "path": "/api/admin/operational-incidents/<int:incident_id>/decision",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.decide_operational_incident"
+  },
+  {
+    "path": "/api/admin/operational-incidents",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "driver.list_operational_investigations"
+  },
+  {
+    "path": "/api/operational-incidents/<int:incident_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "driver.read_operational_investigation"
+  },
+  {
+    "path": "/api/transporter/trips/<int:assignment_id>/cancellation-request",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.request_trip_cancellation"
+  },
+  {
+    "path": "/api/driver/me",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "driver.get_driver_profile"
+  },
+  {
+    "path": "/api/transporter/owner-operator/gps",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.post_gps_ping"
+  },
+  {
+    "path": "/api/driver/gps/ping",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.post_gps_ping"
+  },
+  {
+    "path": "/api/driver/trips/<int:assignment_id>/respond",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.respond_trip_assignment"
+  },
+  {
+    "path": "/api/driver/lookup/<unique_id>",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "driver.lookup_driver"
+  },
+  {
+    "path": "/api/transporter/driver-assignments",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "driver.list_transporter_driver_assignments"
+  },
+  {
+    "path": "/api/transporter/dispatch-driver",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.dispatch_trip_to_driver"
+  },
+  {
+    "path": "/api/driver/rate",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.rate_driver"
+  },
+  {
+    "path": "/api/transporter/hire-driver-permanent",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.offer_permanent_hire"
+  },
+  {
+    "path": "/api/driver/hire-contracts",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "driver.get_driver_hire_contracts"
+  },
+  {
+    "path": "/api/driver/hire-contracts/<int:contract_id>/respond",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.respond_hire_contract"
+  },
+  {
+    "path": "/api/driver/trips-for-fuel",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "driver.get_driver_trips_for_fuel"
+  },
+  {
+    "path": "/api/driver/fuel-logs",
+    "methods": [
+      "GET"
+    ],
+    "endpoint": "driver.get_driver_fuel_logs"
+  },
+  {
+    "path": "/api/driver/fuel-logs",
+    "methods": [
+      "POST"
+    ],
+    "endpoint": "driver.create_driver_fuel_log"
+  }
+]

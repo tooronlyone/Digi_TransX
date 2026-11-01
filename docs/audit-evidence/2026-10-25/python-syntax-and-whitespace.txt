@@ -1,0 +1,5 @@
+Python: ast.parse of all 165 backend Python files passed.
+This checks syntax without importing or executing application modules.
+git diff --check: passed. LF/CRLF conversion notices are not whitespace failures.
+All six applied remediation migrations match their recorded SHA-256 hashes.
+The canonical schema's 25 October tail exactly matches both new migrations.

@@ -1,0 +1,1082 @@
+{
+  "authorized_test_project": "fysupkvuvhvtowbfgoev",
+  "started_at_utc": "2026-10-24T11:12:09.034788+00:00",
+  "migration_files": [
+    {
+      "name": "20261024010000_database_authorization_hardening.sql",
+      "sha256": "7dfea7573aebade4dc2723f35a6265c542b3157e8c5c4979fefd1f186fa14c63"
+    },
+    {
+      "name": "20261024020000_marketplace_financial_controls.sql",
+      "sha256": "d255fad291eeb8802939ff6e29b98e0f19012a7c3b8e003ead5baf175238384a"
+    },
+    {
+      "name": "20261024030000_private_operational_read_surfaces.sql",
+      "sha256": "fbe54c8ce5596cb4a06685061faf93a21cc3df45f47de29c512909e26aa183e9"
+    },
+    {
+      "name": "20261024040000_validate_wallet_money_invariants.sql",
+      "sha256": "9a50201f24e7035521dfd39dadc9836f7ad02faf289012c11a11ccf863d2be31"
+    }
+  ],
+  "before": {
+    "tables": {
+      "agreement_bid_trucks": true,
+      "agreement_bids": true,
+      "agreement_monthly_payments": true,
+      "agreement_payment_penalties": true,
+      "agreement_post_trucks": true,
+      "agreement_posts": true,
+      "agreement_trips": true,
+      "agreement_trucks": true,
+      "agreements": true,
+      "business_audit_events": true,
+      "canonical_event_catalog_projection": true,
+      "chat_messages": true,
+      "chat_threads": true,
+      "commission_policies": true,
+      "contact_messages": true,
+      "documents": true,
+      "driver_fuel_logs": true,
+      "driver_gps_pings": true,
+      "driver_hire_contracts": true,
+      "driver_incidents": true,
+      "driver_profiles": true,
+      "driver_reviews": true,
+      "driver_trip_assignments": true,
+      "drivers": true,
+      "everyday_user_profiles": true,
+      "fuel_station_dispenses": true,
+      "fuel_station_profiles": true,
+      "fuel_station_pumps": true,
+      "login_activity": true,
+      "marketplace_order_items": true,
+      "marketplace_orders": true,
+      "marketplace_parts": true,
+      "mpin_credentials": true,
+      "mpin_step_up_authorizations": true,
+      "part_rfq_bids": true,
+      "part_rfqs": true,
+      "password_reset_otps": true,
+      "payments": true,
+      "reset_tokens": true,
+      "saved_payment_methods": true,
+      "security_events": true,
+      "service_seeker_profiles": true,
+      "shipment_bids": true,
+      "shipment_cancellations": true,
+      "shipment_disputes": true,
+      "shipment_no_show_tracking": true,
+      "shipment_notifications": true,
+      "shipment_status_history": true,
+      "shipment_trip_reviews": true,
+      "shipment_trips": true,
+      "shipments": true,
+      "shop_products": true,
+      "shop_sale_items": true,
+      "shop_sales": true,
+      "shopkeeper_profiles": true,
+      "terms_acknowledgements": true,
+      "terms_versions": true,
+      "transporter_profiles": true,
+      "trusted_devices": true,
+      "user_action_logs": true,
+      "user_payment_preferences": true,
+      "user_sessions": true,
+      "users": true,
+      "vehicles": true,
+      "wallet_transactions": true,
+      "wallet_withdrawal_requests": true,
+      "wallets": true
+    },
+    "row_counts": {
+      "agreement_bid_trucks": 0,
+      "agreement_bids": 0,
+      "agreement_monthly_payments": 0,
+      "agreement_payment_penalties": 0,
+      "agreement_post_trucks": 0,
+      "agreement_posts": 0,
+      "agreement_trips": 0,
+      "agreement_trucks": 0,
+      "agreements": 0,
+      "business_audit_events": 0,
+      "canonical_event_catalog_projection": 172,
+      "chat_messages": 2,
+      "chat_threads": 18,
+      "commission_policies": 2,
+      "contact_messages": 10,
+      "documents": 0,
+      "driver_fuel_logs": 0,
+      "driver_gps_pings": 0,
+      "driver_hire_contracts": 0,
+      "driver_incidents": 0,
+      "driver_profiles": 1,
+      "driver_reviews": 0,
+      "driver_trip_assignments": 0,
+      "drivers": 0,
+      "everyday_user_profiles": 2,
+      "fuel_station_dispenses": 4,
+      "fuel_station_profiles": 2,
+      "fuel_station_pumps": 4,
+      "login_activity": 82,
+      "marketplace_order_items": 2,
+      "marketplace_orders": 1,
+      "marketplace_parts": 6,
+      "mpin_credentials": 0,
+      "mpin_step_up_authorizations": 0,
+      "part_rfq_bids": 0,
+      "part_rfqs": 1,
+      "password_reset_otps": 0,
+      "payments": 18,
+      "reset_tokens": 0,
+      "saved_payment_methods": 1,
+      "security_events": 149,
+      "service_seeker_profiles": 3,
+      "shipment_bids": 26,
+      "shipment_cancellations": 0,
+      "shipment_disputes": 9,
+      "shipment_no_show_tracking": 18,
+      "shipment_notifications": 63,
+      "shipment_status_history": 90,
+      "shipment_trip_reviews": 8,
+      "shipment_trips": 18,
+      "shipments": 26,
+      "shop_products": 1,
+      "shop_sale_items": 2,
+      "shop_sales": 2,
+      "shopkeeper_profiles": 1,
+      "terms_acknowledgements": 0,
+      "terms_versions": 1,
+      "transporter_profiles": 15,
+      "trusted_devices": 54,
+      "user_action_logs": 2162,
+      "user_payment_preferences": 1,
+      "user_sessions": 23,
+      "users": 25,
+      "vehicles": 43,
+      "wallet_transactions": 18,
+      "wallet_withdrawal_requests": 0,
+      "wallets": 9
+    },
+    "identity_binding_hash": "a2f01a57ec883962758b825e0999f377"
+  },
+  "legacy_invalid_wallets": 0,
+  "invalidated_legacy_plaintext_otp_count": 1,
+  "committed": true,
+  "after": {
+    "tables": {
+      "agreement_bid_trucks": true,
+      "agreement_bids": true,
+      "agreement_monthly_payments": true,
+      "agreement_payment_penalties": true,
+      "agreement_post_trucks": true,
+      "agreement_posts": true,
+      "agreement_trips": true,
+      "agreement_trucks": true,
+      "agreements": true,
+      "business_audit_events": true,
+      "canonical_event_catalog_projection": true,
+      "chat_messages": true,
+      "chat_threads": true,
+      "commission_policies": true,
+      "contact_messages": true,
+      "documents": true,
+      "driver_fuel_logs": true,
+      "driver_gps_pings": true,
+      "driver_hire_contracts": true,
+      "driver_incidents": true,
+      "driver_profiles": true,
+      "driver_reviews": true,
+      "driver_trip_assignments": true,
+      "drivers": true,
+      "everyday_user_profiles": true,
+      "fuel_station_dispenses": true,
+      "fuel_station_profiles": true,
+      "fuel_station_pumps": true,
+      "login_activity": true,
+      "marketplace_delivery_secrets": true,
+      "marketplace_order_items": true,
+      "marketplace_orders": true,
+      "marketplace_parts": true,
+      "mpin_credentials": true,
+      "mpin_step_up_authorizations": true,
+      "part_rfq_bids": true,
+      "part_rfqs": true,
+      "password_reset_otps": true,
+      "payments": true,
+      "reset_tokens": true,
+      "saved_payment_methods": true,
+      "security_events": true,
+      "service_seeker_profiles": true,
+      "shipment_bids": true,
+      "shipment_cancellations": true,
+      "shipment_disputes": true,
+      "shipment_no_show_tracking": true,
+      "shipment_notifications": true,
+      "shipment_status_history": true,
+      "shipment_trip_reviews": true,
+      "shipment_trips": true,
+      "shipments": true,
+      "shop_products": true,
+      "shop_sale_items": true,
+      "shop_sales": true,
+      "shopkeeper_profiles": true,
+      "terms_acknowledgements": true,
+      "terms_versions": true,
+      "transporter_profiles": true,
+      "trusted_devices": true,
+      "user_action_logs": true,
+      "user_payment_preferences": true,
+      "user_sessions": true,
+      "users": true,
+      "vehicles": true,
+      "wallet_transactions": true,
+      "wallet_withdrawal_requests": true,
+      "wallets": true
+    },
+    "row_counts": {
+      "agreement_bid_trucks": 0,
+      "agreement_bids": 0,
+      "agreement_monthly_payments": 0,
+      "agreement_payment_penalties": 0,
+      "agreement_post_trucks": 0,
+      "agreement_posts": 0,
+      "agreement_trips": 0,
+      "agreement_trucks": 0,
+      "agreements": 0,
+      "business_audit_events": 0,
+      "canonical_event_catalog_projection": 172,
+      "chat_messages": 2,
+      "chat_threads": 18,
+      "commission_policies": 2,
+      "contact_messages": 10,
+      "documents": 0,
+      "driver_fuel_logs": 0,
+      "driver_gps_pings": 0,
+      "driver_hire_contracts": 0,
+      "driver_incidents": 0,
+      "driver_profiles": 1,
+      "driver_reviews": 0,
+      "driver_trip_assignments": 0,
+      "drivers": 0,
+      "everyday_user_profiles": 2,
+      "fuel_station_dispenses": 4,
+      "fuel_station_profiles": 2,
+      "fuel_station_pumps": 4,
+      "login_activity": 82,
+      "marketplace_delivery_secrets": 0,
+      "marketplace_order_items": 2,
+      "marketplace_orders": 1,
+      "marketplace_parts": 6,
+      "mpin_credentials": 0,
+      "mpin_step_up_authorizations": 0,
+      "part_rfq_bids": 0,
+      "part_rfqs": 1,
+      "password_reset_otps": 0,
+      "payments": 18,
+      "reset_tokens": 0,
+      "saved_payment_methods": 1,
+      "security_events": 149,
+      "service_seeker_profiles": 3,
+      "shipment_bids": 26,
+      "shipment_cancellations": 0,
+      "shipment_disputes": 9,
+      "shipment_no_show_tracking": 18,
+      "shipment_notifications": 63,
+      "shipment_status_history": 90,
+      "shipment_trip_reviews": 8,
+      "shipment_trips": 18,
+      "shipments": 26,
+      "shop_products": 1,
+      "shop_sale_items": 2,
+      "shop_sales": 2,
+      "shopkeeper_profiles": 1,
+      "terms_acknowledgements": 0,
+      "terms_versions": 1,
+      "transporter_profiles": 15,
+      "trusted_devices": 54,
+      "user_action_logs": 2162,
+      "user_payment_preferences": 1,
+      "user_sessions": 23,
+      "users": 25,
+      "vehicles": 43,
+      "wallet_transactions": 18,
+      "wallet_withdrawal_requests": 0,
+      "wallets": 9
+    },
+    "identity_binding_hash": "a2f01a57ec883962758b825e0999f377"
+  },
+  "wallet_invariants_validated": true,
+  "negative_role_proofs": {
+    "anon": {
+      "driver_profile_read": "42501",
+      "legacy_role_write": "42501",
+      "otp_secret_read": "42501"
+    },
+    "authenticated": {
+      "driver_profile_read": "42501",
+      "legacy_role_write": "42501",
+      "otp_secret_read": "42501"
+    }
+  },
+  "agreement_policy_queries_nonrecursive": true,
+  "all_existing_table_row_counts_preserved": true,
+  "identity_bindings_and_roles_preserved": true,
+  "finished_at_utc": "2026-10-24T11:12:56.131820+00:00",
+  "verified_backend_table_acls": {
+    "contact_messages": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "fuel_station_pumps": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "fuel_station_dispenses": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "driver_profiles": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "driver_incidents": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "driver_reviews": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "driver_trip_assignments": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "driver_gps_pings": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "driver_fuel_logs": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "shop_products": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "shop_sales": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "shop_sale_items": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "driver_hire_contracts": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "marketplace_delivery_secrets": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "vehicles": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "agreement_post_trucks": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "agreement_bid_trucks": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "part_rfqs": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ],
+    "part_rfq_bids": [
+      [
+        "anon",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "authenticated",
+        false,
+        false,
+        false,
+        false
+      ],
+      [
+        "service_role",
+        true,
+        true,
+        true,
+        true
+      ]
+    ]
+  },
+  "controlled_agreement_bridge_verified": true,
+  "untrusted_signup_admin_and_implicit_link_branches_absent": true,
+  "operational_privacy_rollout": {
+    "started_at_utc": "2026-10-24T17:54:45.536532+00:00",
+    "committed": true,
+    "migration": "20261024030000_private_operational_read_surfaces.sql",
+    "sha256": "fbe54c8ce5596cb4a06685061faf93a21cc3df45f47de29c512909e26aa183e9",
+    "before": {
+      "row_counts": {
+        "agreement_bid_trucks": 0,
+        "agreement_bids": 0,
+        "agreement_monthly_payments": 0,
+        "agreement_payment_penalties": 0,
+        "agreement_post_trucks": 0,
+        "agreement_posts": 0,
+        "agreement_trips": 0,
+        "agreement_trucks": 0,
+        "agreements": 0,
+        "business_audit_events": 0,
+        "canonical_event_catalog_projection": 172,
+        "chat_messages": 2,
+        "chat_threads": 18,
+        "commission_policies": 2,
+        "contact_messages": 10,
+        "documents": 0,
+        "driver_fuel_logs": 0,
+        "driver_gps_pings": 0,
+        "driver_hire_contracts": 0,
+        "driver_incidents": 0,
+        "driver_profiles": 1,
+        "driver_reviews": 0,
+        "driver_trip_assignments": 0,
+        "drivers": 0,
+        "everyday_user_profiles": 2,
+        "fuel_station_dispenses": 4,
+        "fuel_station_profiles": 2,
+        "fuel_station_pumps": 4,
+        "login_activity": 82,
+        "marketplace_delivery_secrets": 0,
+        "marketplace_order_items": 2,
+        "marketplace_orders": 1,
+        "marketplace_parts": 6,
+        "mpin_credentials": 0,
+        "mpin_step_up_authorizations": 0,
+        "part_rfq_bids": 0,
+        "part_rfqs": 1,
+        "password_reset_otps": 0,
+        "payments": 18,
+        "reset_tokens": 0,
+        "saved_payment_methods": 1,
+        "security_events": 149,
+        "service_seeker_profiles": 3,
+        "shipment_bids": 26,
+        "shipment_cancellations": 0,
+        "shipment_disputes": 9,
+        "shipment_no_show_tracking": 18,
+        "shipment_notifications": 63,
+        "shipment_status_history": 90,
+        "shipment_trip_reviews": 8,
+        "shipment_trips": 18,
+        "shipments": 26,
+        "shop_products": 1,
+        "shop_sale_items": 2,
+        "shop_sales": 2,
+        "shopkeeper_profiles": 1,
+        "terms_acknowledgements": 0,
+        "terms_versions": 1,
+        "transporter_profiles": 15,
+        "trusted_devices": 54,
+        "user_action_logs": 2162,
+        "user_payment_preferences": 1,
+        "user_sessions": 23,
+        "users": 25,
+        "vehicles": 43,
+        "wallet_transactions": 18,
+        "wallet_withdrawal_requests": 0,
+        "wallets": 9
+      },
+      "identity_binding_hash": "a2f01a57ec883962758b825e0999f377"
+    },
+    "after": {
+      "row_counts": {
+        "agreement_bid_trucks": 0,
+        "agreement_bids": 0,
+        "agreement_monthly_payments": 0,
+        "agreement_payment_penalties": 0,
+        "agreement_post_trucks": 0,
+        "agreement_posts": 0,
+        "agreement_trips": 0,
+        "agreement_trucks": 0,
+        "agreements": 0,
+        "business_audit_events": 0,
+        "canonical_event_catalog_projection": 172,
+        "chat_messages": 2,
+        "chat_threads": 18,
+        "commission_policies": 2,
+        "contact_messages": 10,
+        "documents": 0,
+        "driver_fuel_logs": 0,
+        "driver_gps_pings": 0,
+        "driver_hire_contracts": 0,
+        "driver_incidents": 0,
+        "driver_profiles": 1,
+        "driver_reviews": 0,
+        "driver_trip_assignments": 0,
+        "drivers": 0,
+        "everyday_user_profiles": 2,
+        "fuel_station_dispenses": 4,
+        "fuel_station_profiles": 2,
+        "fuel_station_pumps": 4,
+        "login_activity": 82,
+        "marketplace_delivery_secrets": 0,
+        "marketplace_order_items": 2,
+        "marketplace_orders": 1,
+        "marketplace_parts": 6,
+        "mpin_credentials": 0,
+        "mpin_step_up_authorizations": 0,
+        "part_rfq_bids": 0,
+        "part_rfqs": 1,
+        "password_reset_otps": 0,
+        "payments": 18,
+        "reset_tokens": 0,
+        "saved_payment_methods": 1,
+        "security_events": 149,
+        "service_seeker_profiles": 3,
+        "shipment_bids": 26,
+        "shipment_cancellations": 0,
+        "shipment_disputes": 9,
+        "shipment_no_show_tracking": 18,
+        "shipment_notifications": 63,
+        "shipment_status_history": 90,
+        "shipment_trip_reviews": 8,
+        "shipment_trips": 18,
+        "shipments": 26,
+        "shop_products": 1,
+        "shop_sale_items": 2,
+        "shop_sales": 2,
+        "shopkeeper_profiles": 1,
+        "terms_acknowledgements": 0,
+        "terms_versions": 1,
+        "transporter_profiles": 15,
+        "trusted_devices": 54,
+        "user_action_logs": 2162,
+        "user_payment_preferences": 1,
+        "user_sessions": 23,
+        "users": 25,
+        "vehicles": 43,
+        "wallet_transactions": 18,
+        "wallet_withdrawal_requests": 0,
+        "wallets": 9
+      },
+      "identity_binding_hash": "a2f01a57ec883962758b825e0999f377"
+    },
+    "table_acls": {
+      "vehicles": [
+        [
+          "anon",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "authenticated",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "service_role",
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "agreement_post_trucks": [
+        [
+          "anon",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "authenticated",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "service_role",
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "agreement_bid_trucks": [
+        [
+          "anon",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "authenticated",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "service_role",
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "part_rfqs": [
+        [
+          "anon",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "authenticated",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "service_role",
+          true,
+          true,
+          true,
+          true
+        ]
+      ],
+      "part_rfq_bids": [
+        [
+          "anon",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "authenticated",
+          false,
+          false,
+          false,
+          false
+        ],
+        [
+          "service_role",
+          true,
+          true,
+          true,
+          true
+        ]
+      ]
+    },
+    "negative_role_proofs": {
+      "anon": {
+        "vehicles": "42501",
+        "agreement_post_trucks": "42501",
+        "agreement_bid_trucks": "42501",
+        "part_rfqs": "42501",
+        "part_rfq_bids": "42501"
+      },
+      "authenticated": {
+        "vehicles": "42501",
+        "agreement_post_trucks": "42501",
+        "agreement_bid_trucks": "42501",
+        "part_rfqs": "42501",
+        "part_rfq_bids": "42501"
+      }
+    },
+    "all_row_counts_identity_bindings_and_roles_preserved": true,
+    "service_role_reads_preserved": true,
+    "finished_at_utc": "2026-10-24T17:55:43.420733+00:00"
+  },
+  "wallet_validation_rollout": {
+    "started_at_utc": "2026-10-24T17:57:42.602484+00:00",
+    "committed": true,
+    "migration": "20261024040000_validate_wallet_money_invariants.sql",
+    "sha256": "9a50201f24e7035521dfd39dadc9836f7ad02faf289012c11a11ccf863d2be31",
+    "before": {
+      "row_count": 9,
+      "financial_state_hash": "b5f5d49c806c5f5da9cab7819f581a9d"
+    },
+    "before_convalidated": false,
+    "violating_legacy_rows": 0,
+    "after": {
+      "row_count": 9,
+      "financial_state_hash": "b5f5d49c806c5f5da9cab7819f581a9d"
+    },
+    "after_convalidated": true,
+    "all_wallet_rows_and_amounts_preserved": true,
+    "finished_at_utc": "2026-10-24T17:57:48.716102+00:00"
+  },
+  "final_database_security_totals": {
+    "public_tables": 68,
+    "rls_enabled_public_tables": 68,
+    "public_rls_policies": 112,
+    "verified_backend_only_tables": 19,
+    "browser_select_dml_denied_backend_only_tables": 19,
+    "service_role_select_dml_allowed_backend_only_tables": 19
+  }
+}

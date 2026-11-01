@@ -1,0 +1,100 @@
+Digi_TransX remaining frontend remediation — 25 October 2026
+
+Final production frontend source was frozen before the checks below. Commands
+ran from frontend-react. Rendered tests use fake fetch and geolocation/Leaflet
+boundaries; no live account, external geocoder or payment provider was called.
+
+Changes and exercised boundaries
+
+- FE-005: chat history and composer state live in a keyed ThreadMessages
+  instance. Both the whole chat and its requests belong to a verified account.
+  Delayed A responses cannot appear in B, including A-to-B-to-A switches, media
+  operations and late sends. A same-account outgoing send retains its original
+  thread; changing accounts cancels dispatch. Polling skips an in-flight read
+  instead of repeatedly aborting a slow initial response.
+- FE-006: manual address edits clear both lat/lng and remove the old map pin.
+  Forward/reverse geocoder results are aborted/invalidated on edit or teardown.
+- FE-007: agreement calendar arithmetic uses ISO date fields and matches the
+  backend's month-end/leap-year clamping. Today uses Asia/Karachi explicitly.
+  Tests execute in Pakistan, UTC, New York and Auckland timezones. Clearing an
+  input does not crash rendering; invalid dates/durations cannot finalize.
+- FE-013: carts use dtx:parts-cart:v2:<verified-user-id>. The unowned v1 cart is
+  ignored rather than assigned to whichever account signs in next. Owner-keyed
+  pages reset address/phone/form state, ignore foreign events and late checkout
+  results, and maintain separate memory fallback when persistence is denied.
+- A checkout queued during Web Crypto/CSRF cannot run after account teardown.
+  Every marketplace checkout sends X-DTX-Expected-User-Id in addition to CSRF
+  and its stable Idempotency-Key; the backend requires/matches that owner before
+  creating an order. Late CSRF responses cannot repopulate the cache after auth
+  cleanup invalidates its generation.
+- Truck registration no longer collects a visible Driver ID or manual driver
+  name/CNIC as a substitute for consent. Configuration identity is read-only and
+  excluded from posted form data. New-tab registration fetches CSRF as needed.
+- A collapsible DriverAssignmentPanel is integrated into owned OrderTracking and
+  agreement trip/history views. It reads the server-owned truck/source IDs,
+  submits a real invitation, shows requested/accepted state, and offers one review
+  only when the backend marks a completed assignment eligible. Incident reports
+  are shown as investigating, without claiming an allegation is confirmed.
+- Actual driver Trip Requests use CSRF and preserve conflict errors. A stale
+  StrictMode read cannot restore the pre-acceptance invitation state.
+- GPS controls require an accepted assignment, send its ID, preserve zero-valued
+  coordinates/altitude, clear watch ID zero, ignore stopped callbacks, and stop
+  tracking visibly when the backend rejects an inactive source assignment.
+
+1. Complete Node suites
+
+Command:
+node --test (Get-ChildItem tests -Filter '*.test.mjs' | ForEach-Object FullName)
+
+Result: 103 passed, zero failed/skipped/cancelled/todo, 5403.606 ms.
+Includes six new pure calendar/cart regressions. Raw result: frontend-node.log.
+
+2. Complete rendered component suites
+
+Command:
+npm run test:components
+
+Result: five test files passed; 63/63 tests passed; 23.59 seconds.
+The new remainingWorkflowSecurity.test.jsx contains 29 behavior cases covering
+the boundaries above. Existing 34 component cases also remain green, including
+the marketplace checkout test updated to seed an owned v2 cart and assert its
+expected-user header. Raw result: frontend-components.log.
+
+3. Touched-source lint (honest retained baseline)
+
+Command:
+npx eslint src/components/chat/ChatWindow.jsx src/components/common/LocationPicker.jsx src/components/transporter/DriverAssignmentPanel.jsx src/pages/client/AgreementBids.jsx src/pages/transporter/partsCart.js src/pages/transporter/marketplaceApi.js src/pages/transporter/PartsCartPage.jsx src/pages/transporter/PartsMarketplace.jsx src/pages/transporter/PartsStoreDashboard.jsx src/pages/transporter/add_truck.jsx src/pages/transporter/truck_configuration.jsx src/pages/transporter/OrderTracking.jsx src/pages/transporter/MyAgreements.jsx src/pages/driver/DriverActiveTrip.jsx src/pages/driver/DriverTrips.jsx src/pages/client/clientUtils.jsx tests/remainingWorkflowSecurity.test.jsx tests/marketplaceSecurity.test.jsx --format json
+
+Result: 18 files checked; zero new lint errors. The command exits nonzero because
+two preexisting no-unused-vars errors remain in truck_configuration.jsx:
+catalogFields at line79 and applyCatalogType at line184. Running the repository's
+HEAD version through eslint --stdin reproduces the exact same errors. They were
+not hidden or presented as a clean whole-file lint result. One existing
+exhaustive-deps warning remains in PartsMarketplace.jsx (fetchParts dependency).
+The compact baseline comparison is frontend-lint-summary.json.
+
+Only narrowly documented set-state-in-effect exceptions for initiating guarded
+remote reads were used; there is no blanket lint-rule cleanup or suppression of
+the retained catalog errors. Whitespace check: git diff --check -- frontend-react
+passed; ordinary LF/CRLF notices do not represent whitespace failures.
+
+4. Final production build
+
+Command:
+npm run build
+
+Result: success, 976 modules transformed, 13.44 seconds.
+dist contains 14 files totaling 3,031,514 bytes; dist/node_modules is absent.
+Main JavaScript chunk: approximately 1,619.00 kB / 418.83 kB gzip.
+Raw result: frontend-build.log.
+
+Remaining build warnings are stale Browserslist data, large chunks and CSS/plugin
+timing. These successful checks do not certify production performance, real
+payments, physical delivery or all remaining historical audit findings.
+
+During final packaging the existing dist size differed from the earlier receipt.
+The complete Node/component suites and build were therefore repeated on the
+final source; the results above and their logs are from that final repetition.
+The earlier 8.42-second build log remains in frontend-build-earlier.log. This
+record uses the rebuilt directory's measured size rather than the earlier total.
+No frontend source edits followed this final repetition.

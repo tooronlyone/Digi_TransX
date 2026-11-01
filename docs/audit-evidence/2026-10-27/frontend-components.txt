@@ -1,0 +1,817 @@
+
+> frontend-react@0.0.0 test:components
+> vitest run --reporter=verbose
+
+
+ RUN  v3.2.7 D:/New folder/templates/Digi_TransX/frontend-react
+
+Browserslist: browsers data (caniuse-lite) is 6 months old. Please run:
+  npx update-browserslist-db@latest
+  Why you should do it regularly: https://github.com/browserslist/update-db#readme
+ ✓ tests/sessionDeviceManagement.test.jsx > SessionDeviceManagement rendered behavior > renders authoritative safe lists, exact current markers, and both canonical logout actions 888ms
+ ✓ tests/signupTerms.test.jsx > loads the selected role agreement and requires a deliberate checkbox before details 870ms
+ ✓ tests/signupTerms.test.jsx > prevents acceptance if the agreement cannot load 72ms
+ ✓ tests/sessionDeviceManagement.test.jsx > SessionDeviceManagement rendered behavior > keyboard cancellation keeps focus and performs no mutation 232ms
+ ✓ tests/sessionDeviceManagement.test.jsx > SessionDeviceManagement rendered behavior > confirmation performs exactly one correctly encoded mutation and never retries it 166ms
+ ✓ tests/sessionDeviceManagement.test.jsx > SessionDeviceManagement rendered behavior > stale response refreshes while persistent accessible feedback retains focus 229ms
+ ✓ tests/sessionDeviceManagement.test.jsx > SessionDeviceManagement rendered behavior > not_found response refreshes while persistent accessible feedback retains focus 346ms
+ ✓ tests/sessionDeviceManagement.test.jsx > SessionDeviceManagement rendered behavior > device mutation uses the device endpoint and exposes errors accessibly 188ms
+ ✓ tests/sessionDeviceManagement.test.jsx > SessionDeviceManagement rendered behavior > never persists, logs, analyzes, or places sensitive values in mutation URLs 107ms
+ ✓ tests/sessionDeviceManagement.test.jsx > SessionDeviceManagement rendered behavior > unmount aborts a pending load and causes no post-unmount state update 136ms
+ ✓ tests/sessionDeviceManagement.test.jsx > pending confirmation suppresses repeated and other-row submissions until completion 465ms
+ ✓ tests/sessionDeviceManagement.test.jsx > pending mutation is aborted on unmount and cannot reload or navigate afterwards 171ms
+ ✓ tests/sessionDeviceManagement.test.jsx > keyboard confirmation focuses error feedback and does not retry a failed mutation 281ms
+ ✓ tests/sessionDeviceManagement.test.jsx > refresh failure replaces success feedback and a later action clears the error 379ms
+ ✓ tests/sessionDeviceManagement.test.jsx > all sensitive sinks remain untouched through a confirmed mutation and reload 180ms
+ ✓ tests/marketplaceSecurity.test.jsx > checkout reuses its key after uncertain failure, isolates accounts/payloads, and never persists addresses 68ms
+ ✓ tests/businessRules.test.jsx > decimal formatting preserves large exact amounts without conversion to floating point 10ms
+ ✓ tests/businessRules.test.jsx > insurance acknowledgement includes the approved notice and preserves mandatory liability 419ms
+ ✓ tests/businessRules.test.jsx > first bid market bootstrap displays an awaiting state without fabricated bounds 66ms
+ ✓ tests/businessRules.test.jsx > market reference uses server corridor and rejects a late response after truck change 35ms
+ ✓ tests/businessRules.test.jsx > invoice displays every server fee item and exact total without recalculation 59ms
+ ✓ tests/businessRules.test.jsx > fuel zero commission schedule is loaded from the authoritative server 33ms
+ ✓ tests/businessRules.test.jsx > delivery OTP remains hidden until client protected reveal succeeds and is never persisted 282ms
+ ✓ tests/businessRules.test.jsx > new client account cannot retain a delivery code from a previous account 88ms
+ ✓ tests/businessRules.test.jsx > delivery dispute submits evidence references and displays server cutoff rejection 123ms
+ ✓ tests/businessRules.test.jsx > fuel authorization sends capped exact decimal strings and reuses idempotency key after network failure 236ms
+ ✓ tests/businessRules.test.jsx > fuel station cannot finalize until funding is verified and uses bound truck and pump 216ms
+ ✓ tests/marketplaceSecurity.test.jsx > cart checkout uses CSRF and idempotency through the real rendered handler 1637ms
+ ✓ tests/frontendSecurityFixes.test.jsx > logout uses confirmed server revocation and the shared authority owner > driver logout supplies CSRF, clears authority, and preserves unrelated drafts 692ms
+ ✓ tests/frontendSecurityFixes.test.jsx > logout uses confirmed server revocation and the shared authority owner > failed revocation remains signed in and exposes a retryable error 349ms
+ ✓ tests/businessRules.test.jsx > lost fuel authorization response can be retried, cancelled, and explicitly reissued with a new code 632ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > switching threads discards the previous message response even when fetch ignores abort 1409ms
+ ✓ tests/businessRules.test.jsx > fuel authorization cancellation awaiting CSRF cannot dispatch from a different owner 225ms
+ ✓ tests/businessRules.test.jsx > settlement shows worker eligibility and server-provided tranche amounts 16ms
+ ✓ tests/businessRules.test.jsx > exact financial previews round products and gateway fees without binary currency arithmetic 2ms
+ ✓ tests/businessRules.test.jsx > fuel authorization awaiting CSRF is cancelled before dispatch on account change 73ms
+ ✓ tests/businessRules.test.jsx > driver emergency reporting preserves evidence without exposing trip cancellation 143ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > A to B to A navigation cannot restore an older A request into the fresh A instance 458ms
+ ✓ tests/businessRules.test.jsx > transporter can request policy-reviewed cancellation for its assigned trip 105ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > polling does not repeatedly abort a slow initial conversation read 158ms
+ ✓ tests/marketplaceSecurity.test.jsx > buyer RFQ posts through the shared CSRF transport 1364ms
+ × tests/businessRules.test.jsx > full wallet escrow shortfall disables booking acceptance and removes card fallback 680ms
+   → Unable to find an accessible element with the role "checkbox"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "Checkout":
+  [36m<h1 />[39m
+
+  Name "Selected Transporter & Truck":
+  [36m<h2[39m
+    [33mstyle[39m=[32m"margin: 0px;"[39m
+  [36m/>[39m
+
+  Name "Full booking escrow":
+  [36m<h2[39m
+    [33mstyle[39m=[32m"margin: 0px;"[39m
+  [36m/>[39m
+
+  Name "Payment Breakdown":
+  [36m<h2[39m
+    [33mstyle[39m=[32m"margin: 0px;"[39m
+  [36m/>[39m
+
+  Name "Transporter settlement fees":
+  [36m<h3[39m
+    [33mclass[39m=[32m"font-semibold"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p />[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-3 font-semibold"[39m
+  [36m/>[39m
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-2 text-xs text-slate-600"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  alert:
+
+  Name "":
+  [36m<p[39m
+    [33mclass[39m=[32m"mt-3 text-red-700"[39m
+    [33mrole[39m=[32m"alert"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  link:
+
+  Name "Top up wallet":
+  [36m<a[39m
+    [33mclass[39m=[32m"mt-3 inline-block font-semibold text-blue-700"[39m
+    [33mdata-discover[39m=[32m"true"[39m
+    [33mhref[39m=[32m"/client/balance"[39m
+  [36m/>[39m
+
+  Name "Back":
+  [36m<a[39m
+    [33mclass[39m=[32m"checkout-secondary-btn"[39m
+    [33mdata-discover[39m=[32m"true"[39m
+    [33mhref[39m=[32m"/client/order/11"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  button:
+
+  Name "Accept & lock PKR 100,000":
+  [36m<button[39m
+    [33mclass[39m=[32m"checkout-primary-btn"[39m
+    [33mdisabled[39m=[32m""[39m
+    [33mtype[39m=[32m"submit"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+  region:
+
+  Name "freight fee breakdown":
+  [36m<section[39m
+    [33maria-label[39m=[32m"freight fee breakdown"[39m
+    [33mclass[39m=[32m"my-4 rounded-lg border border-slate-200 bg-white p-4 text-sm"[39m
+  [36m/>[39m
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+[36m<body>[39m
+  [36m<div>[39m
+    [36m<div[39m
+      [33mclass[39m=[32m"bid-checkout-page"[39m
+    [36m>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"dashboard-page-title"[39m
+        [33mstyle[39m=[32m"display: flex; justify-content: space-between; gap: 16px; align-items: flex-end;"[39m
+      [36m>[39m
+        [36m<div>[39m
+          [36m<h1>[39m
+            [0mCheckout[0m
+          [36m</h1>[39m
+          [36m<p>[39m
+            [0mOrder #11 · Bid #2[0m
+          [36m</p>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+      [36m<div[39m
+        [33mclass[39m=[32m"checkout-grid"[39m
+      [36m>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"checkout-main"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"t-page-card "[39m
+            [33mstyle[39m=[32m"margin-bottom: 28px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"t-page-card__heading"[39m
+              [33mstyle[39m=[32m"display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 18px;"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mstyle[39m=[32m"margin: 0px;"[39m
+              [36m>[39m
+                [36m<i[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"fas fa-truck"[39m
+                  [33mstyle[39m=[32m"margin-right: 10px; color: var(--accent-primary);"[39m
+                [36m/>[39m
+                [0mSelected Transporter & Truck[0m
+              [36m</h2>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"checkout-selected"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"checkout-selected__photo"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"checkout-selected__fallback"[39m
+                [36m>[39m
+                  [36m<i[39m
+                    [33mclass[39m=[32m"fas fa-truck"[39m
+                  [36m/>[39m
+                [36m</div>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"checkout-selected__meta"[39m
+              [36m>[39m
+                [36m<div[39m
+                  [33mclass[39m=[32m"checkout-selected__name"[39m
+                [36m>[39m
+                  [0mTransporter[0m
+                [36m</div>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<form>[39m
+            [36m<section[39m
+              [33mclass[39m=[32m"t-page-card "[39m
+              [33mstyle[39m=[32m"margin-bottom: 28px;"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"t-page-card__heading"[39m
+                [33mstyle[39m=[32m"display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 18px;"[39m
+              [36m>[39m
+                [36m<h2[39m
+                  [33mstyle[39m=[32m"margin: 0px;"[39m
+                [36m>[39m
+                  [36m<i[39m
+                    [33maria-hidden[39m=[32m"true"[39m
+                    [33mclass[39m=[32m"fas fa-lock"[39m
+                    [33mstyle[39m=[32m"margin-right: 10px; color: var(--accent-primary);"[39m
+                  [36m/>[39m
+                  [0mFull booking escrow[0m
+                [36m</h2>[39m
+              [36m</div>[39m
+              [36m<p>[39m
+                [0mThe full accepted fare is reserved atomically from your available wallet. Client platform commission: 0%.[0m
+              [36m</p>[39m
+              [36m<p[39m
+                [33mclass[39m=[32m"mt-3 text-red-700"[39m
+                [33mrole[39m=[32m"alert"[39m
+              [36m>[39m
+                [0mInsufficient balance. Please top up [0m
+                [0mPKR 0.01[0m
+                [0m to accept this bid.[0m
+              [36m</p>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"mt-3 inline-block font-semibold text-blue-700"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/client/balance"[39m
+              [36m>[39m
+                [0mTop up wallet[0m
+              [36m</a>[39m
+            [36m</section>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"checkout-actions"[39m
+            [36m>[39m
+              [36m<a[39m
+                [33mclass[39m=[32m"checkout-secondary-btn"[39m
+                [33mdata-discover[39m=[32m"true"[39m
+                [33mhref[39m=[32m"/client/order/11"[39m
+              [36m>[39m
+                [36m<i[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"fas fa-arrow-left"[39m
+                [36m/>[39m
+                [0m Back[0m
+              [36m</a>[39m
+              [36m<button[39m
+                [33mclass[39m=[32m"checkout-primary-btn"[39m
+                [33mdisabled[39m=[32m""[39m
+                [33mtype[39m=[32m"submit"[39m
+              [36m>[39m
+                [36m<i[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"fas fa-lock"[39m
+                [36m/>[39m
+                [0mAccept & lock PKR 100,000[0m
+              [36m</button>[39m
+            [36m</div>[39m
+          [36m</form>[39m
+        [36m</div>[39m
+        [36m<div[39m
+          [33mclass[39m=[32m"checkout-side"[39m
+        [36m>[39m
+          [36m<section[39m
+            [33mclass[39m=[32m"t-page-card "[39m
+            [33mstyle[39m=[32m"margin-bottom: 28px;"[39m
+          [36m>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"t-page-card__heading"[39m
+              [33mstyle[39m=[32m"display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 18px;"[39m
+            [36m>[39m
+              [36m<h2[39m
+                [33mstyle[39m=[32m"margin: 0px;"[39m
+              [36m>[39m
+                [36m<i[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"fas fa-receipt"[39m
+                  [33mstyle[39m=[32m"margin-right: 10px; color: var(--accent-primary);"[39m
+                [36m/>[39m
+                [0mPayment Breakdown[0m
+              [36m</h2>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"breakdown"[39m
+            [36m>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"breakdown__row  "[39m
+              [36m>[39m
+                [36m<span>[39m
+                  [0mTransport bid amount[0m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0mPKR 100,000[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"breakdown__row  breakdown__row--muted"[39m
+              [36m>[39m
+                [36m<span>[39m
+                  [0mWallet available[0m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0mPKR 99,999.99[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"breakdown__row  "[39m
+              [36m>[39m
+                [36m<span>[39m
+                  [0mWallet-funded amount[0m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0mPKR 0[0m
+                [36m</span>[39m
+              [36m</div>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"breakdown__divider"[39m
+              [36m/>[39m
+              [36m<div[39m
+                [33mclass[39m=[32m"breakdown__row breakdown__row--strong "[39m
+              [36m>[39m
+                [36m<span>[39m
+                  [0mOverall seeker cost[0m
+                [36m</span>[39m
+                [36m<span>[39m
+                  [0mPKR 100,000[0m
+                [36m</span>[39m
+              [36m</div>[39m
+            [36m</div>[39m
+            [36m<div[39m
+              [33mclass[39m=[32m"breakdown-notes"[39m
+            [36m>[39m
+              [36m<p>[39m
+                [36m<i[39m
+                  [33maria-hidden[39m=[32m"true"[39m
+                  [33mclass[39m=[32m"fas fa-circle-info"[39m
+                [36m/>[39m
+                [0m Platform commission is deducted from the transporter’s payout — it is not added again to your charge.[0m
+              [36m</p>[39m
+            [36m</div>[39m
+          [36m</section>[39m
+          [36m<section[39m
+            [33maria-label[39m=[32m"freight fee breakdown"[39m
+            [33mclass[39m=[32m"my-4 rounded-lg border border-slate-200 bg-white p-4 text-sm"[39m
+          [36m>[39m
+            [36m<h3[39m
+              [33mclass[39m=[32m"font-semibold"[39m
+            [36m>[39m
+              [0mTransporter settlement fees[0m
+            [36m</h3>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-3 font-semibold"[39m
+            [36m>[39m
+              [0mTotal Platform Deductions[0m
+              [0m: [0m
+              [0mPKR 20,000.00[0m
+            [36m</p>[39m
+            [36m<p[39m
+              [33mclass[39m=[32m"mt-2 text-xs text-slate-600"[39m
+            [36m>[39m
+              [0mClient platform commission: 0%. Deductions apply once upon successful delivery settlement.[0m
+            [36m</p>[39m
+          [36m</section>[39m
+        [36m</div>[39m
+      [36m</div>[39m
+    [36m</div>[39m
+  [36m</div>[39m
+[36m</body>[39m
+ ✓ tests/remainingWorkflowSecurity.test.jsx > a late send from A neither appends into B nor clears B composer 592ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > a same-account thread switch preserves the intended outgoing thread while CSRF is loading 403ms
+ ✓ tests/businessRules.test.jsx > new settlement admin resolution requires evidence and sends exact held-fund allocation 756ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > changing the verified account while CSRF is loading cancels the old chat mutation before POST 331ms
+ ✓ tests/marketplaceSecurity.test.jsx > seller status and six-digit handoff verification carry CSRF and respect delivery phases 1366ms
+ ✓ tests/businessRules.test.jsx > client order account switch aborts the old read and ignores its late private result 122ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > chat identity comes from verified authority and old account thread lists cannot leak 186ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > manually editing the address clears both coordinates, including zero values 46ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > an old forward-geocode response cannot restore a cleared pin after address editing 58ms
+ ✓ tests/frontendSecurityFixes.test.jsx > admin navigation waits for authoritative sign-in refresh 2359ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > an old reverse-geocode response cannot replace newly typed text or its empty coordinates 45ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > location lookup cleanup aborts requests and cannot call a removed form callback 73ms
+ ✓ tests/frontendSecurityFixes.test.jsx > AI history mounts only after verification and switches immediately between same-role accounts 253ms
+ ✓ tests/businessRules.test.jsx > client delivery action awaiting CSRF cannot dispatch from the next account 271ms
+ ✓ tests/businessRules.test.jsx > station account switch aborts voucher verification and discards its late redemption token 525ms
+ ✓ tests/insuranceReminder.test.jsx > insurance reminder > appears on success event and disappears at 10 seconds 439ms
+ ✓ tests/insuranceReminder.test.jsx > insurance reminder > can be dismissed and a later reminder gets a fresh 10 seconds 122ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > agreement contract preview preserves dates and survives a temporarily empty date input 598ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > cart immediately switches only after verified identity and never imports the unowned v1 key 59ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > cart ignores other-account and legacy events, and stale callbacks cannot clear the new owner 17ms
+ ✓ tests/businessRules.test.jsx > station voucher action awaiting CSRF is cancelled before account-switch dispatch 460ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > an interrupted A checkout cannot clear B cart, retain A address, or navigate the new account 462ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > account change during checkout fingerprinting aborts before another account can be charged 133ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > a CSRF response from before authentication cleanup cannot overwrite the new token cache 6ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > storage denial preserves functional in-memory carts without mixing accounts 14ms
+ ✓ tests/businessRules.test.jsx > station cash action awaiting CSRF is cancelled before account-switch dispatch 358ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > truck registration explains consent and does not collect auto-link driver identity 83ms
+ ✓ tests/pickupSchedule.test.jsx > Pakistan pickup window > allows the next day up to the same time, including midnight 11ms
+ ✓ tests/pickupSchedule.test.jsx > Pakistan pickup window > keeps preparation time and rounds the earliest selectable minute up 1ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > new-tab truck registration obtains CSRF before its unassigned multipart submission 250ms
+ ✓ tests/businessRules.test.jsx > operational investigation requires reviewed evidence and records an explicit CSRF-backed decision without charging funds 236ms
+ ✓ tests/frontendSecurityFixes.test.jsx > a late AI reply after switching identity cannot enter the next account history 1810ms
+ ✓ tests/businessRules.test.jsx > operational investigation ignores late foreign evidence and refuses a mismatched selected-case response 388ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > owned one-time trip invitation submits server-owned truck/source IDs and waits for driver acceptance 329ms
+ ✓ tests/marketplaceSecurity.test.jsx > seller catalog creation and RFQ quote both use the shared CSRF transport 2491ms
+ ✓ tests/businessRules.test.jsx > operational investigation decision awaiting CSRF is cancelled when the verified admin changes 337ms
+ ✓ tests/frontendSecurityFixes.test.jsx > global assistant resets private memory and terminates recognition when identity changes 510ms
+ ✓ tests/settingsPasswordLifecycle.test.jsx > confirmed password change clears authority and shows the server sign-in message 6739ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > completed agreement assignment review binds its IDs and reports an allegation as investigating 351ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > driver request panel exposes ownership failure and never renders unapproved actions 52ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > driver request responses from the old owner cannot display after switching accounts 78ms
+ ✓ tests/marketplaceSecurity.test.jsx > buyer handoff code is obtained on demand and cleared on account switch 346ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > driver acceptance uses the actual request ID and CSRF before refreshing its accepted state 148ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > driver acceptance conflict displays the server result without claiming a second booking 164ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > GPS cannot begin without an accepted assignment 77ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > GPS binds the accepted assignment and stops watch ID zero plus late callbacks 236ms
+ ✓ tests/remainingWorkflowSecurity.test.jsx > expired source assignment stops GPS and shows the backend rejection instead of claiming a broadcast 228ms
+ ✓ tests/marketplaceSecurity.test.jsx > fuel dispense requires active stock, uses readonly pump pricing, and refreshes stock after success 1208ms
+ ✓ tests/marketplaceSecurity.test.jsx > zero pump stock remains zero and cannot create an untracked manual sale 224ms
+ ✓ tests/settingsPasswordLifecycle.test.jsx > revoked password failure password_change_reconciliation_required retains the server explanation at sign-in 3416ms
+ ✓ tests/settingsPasswordLifecycle.test.jsx > revoked password failure password_update_rejected retains the server explanation at sign-in 2807ms
+ ✓ tests/settingsPasswordLifecycle.test.jsx > OTP resend sends the entered current password and displays a rejected response 2569ms
+ ✓ tests/settingsPasswordLifecycle.test.jsx > OTP resend requires the current password instead of sending an empty payload 2726ms
+ ✓ tests/settingsPasswordLifecycle.test.jsx > sign-in preserves the exact password accepted by the password-change form 1107ms
+ ✓ tests/settingsPasswordLifecycle.test.jsx > initial full-login denial clears stale presentation before redirecting 19ms
+
+⎯⎯⎯⎯⎯⎯⎯ Failed Tests 1 ⎯⎯⎯⎯⎯⎯⎯
+
+ FAIL  tests/businessRules.test.jsx > full wallet escrow shortfall disables booking acceptance and removes card fallback
+TestingLibraryElementError: Unable to find an accessible element with the role "checkbox"
+
+Here are the accessible roles:
+
+  heading:
+
+  Name "Checkout":
+  <h1 />
+
+  Name "Selected Transporter & Truck":
+  <h2
+    style="margin: 0px;"
+  />
+
+  Name "Full booking escrow":
+  <h2
+    style="margin: 0px;"
+  />
+
+  Name "Payment Breakdown":
+  <h2
+    style="margin: 0px;"
+  />
+
+  Name "Transporter settlement fees":
+  <h3
+    class="font-semibold"
+  />
+
+  --------------------------------------------------
+  paragraph:
+
+  Name "":
+  <p />
+
+  Name "":
+  <p />
+
+  Name "":
+  <p />
+
+  Name "":
+  <p
+    class="mt-3 font-semibold"
+  />
+
+  Name "":
+  <p
+    class="mt-2 text-xs text-slate-600"
+  />
+
+  --------------------------------------------------
+  alert:
+
+  Name "":
+  <p
+    class="mt-3 text-red-700"
+    role="alert"
+  />
+
+  --------------------------------------------------
+  link:
+
+  Name "Top up wallet":
+  <a
+    class="mt-3 inline-block font-semibold text-blue-700"
+    data-discover="true"
+    href="/client/balance"
+  />
+
+  Name "Back":
+  <a
+    class="checkout-secondary-btn"
+    data-discover="true"
+    href="/client/order/11"
+  />
+
+  --------------------------------------------------
+  button:
+
+  Name "Accept & lock PKR 100,000":
+  <button
+    class="checkout-primary-btn"
+    disabled=""
+    type="submit"
+  />
+
+  --------------------------------------------------
+  region:
+
+  Name "freight fee breakdown":
+  <section
+    aria-label="freight fee breakdown"
+    class="my-4 rounded-lg border border-slate-200 bg-white p-4 text-sm"
+  />
+
+  --------------------------------------------------
+
+Ignored nodes: comments, script, style
+<body>
+  <div>
+    <div
+      class="bid-checkout-page"
+    >
+      <div
+        class="dashboard-page-title"
+        style="display: flex; justify-content: space-between; gap: 16px; align-items: flex-end;"
+      >
+        <div>
+          <h1>
+            Checkout
+          </h1>
+          <p>
+            Order #11 · Bid #2
+          </p>
+        </div>
+      </div>
+      <div
+        class="checkout-grid"
+      >
+        <div
+          class="checkout-main"
+        >
+          <section
+            class="t-page-card "
+            style="margin-bottom: 28px;"
+          >
+            <div
+              class="t-page-card__heading"
+              style="display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 18px;"
+            >
+              <h2
+                style="margin: 0px;"
+              >
+                <i
+                  aria-hidden="true"
+                  class="fas fa-truck"
+                  style="margin-right: 10px; color: var(--accent-primary);"
+                />
+                Selected Transporter & Truck
+              </h2>
+            </div>
+            <div
+              class="checkout-selected"
+            >
+              <div
+                class="checkout-selected__photo"
+              >
+                <div
+                  aria-hidden="true"
+                  class="checkout-selected__fallback"
+                >
+                  <i
+                    class="fas fa-truck"
+                  />
+                </div>
+              </div>
+              <div
+                class="checkout-selected__meta"
+              >
+                <div
+                  class="checkout-selected__name"
+                >
+                  Transporter
+                </div>
+              </div>
+            </div>
+          </section>
+          <form>
+            <section
+              class="t-page-card "
+              style="margin-bottom: 28px;"
+            >
+              <div
+                class="t-page-card__heading"
+                style="display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 18px;"
+              >
+                <h2
+                  style="margin: 0px;"
+                >
+                  <i
+                    aria-hidden="true"
+                    class="fas fa-lock"
+                    style="margin-right: 10px; color: var(--accent-primary);"
+                  />
+                  Full booking escrow
+                </h2>
+              </div>
+              <p>
+                The full accepted fare is reserved atomically from your available wallet. Client platform commission: 0%.
+              </p>
+              <p
+                class="mt-3 text-red-700"
+                role="alert"
+              >
+                Insufficient balance. Please top up 
+                PKR 0.01
+                 to accept this bid.
+              </p>
+              <a
+                class="mt-3 inline-block font-semibold text-blue-700"
+                data-discover="true"
+                href="/client/balance"
+              >
+                Top up wallet
+              </a>
+            </section>
+            <div
+              class="checkout-actions"
+            >
+              <a
+                class="checkout-secondary-btn"
+                data-discover="true"
+                href="/client/order/11"
+              >
+                <i
+                  aria-hidden="true"
+                  class="fas fa-arrow-left"
+                />
+                 Back
+              </a>
+              <button
+                class="checkout-primary-btn"
+                disabled=""
+                type="submit"
+              >
+                <i
+                  aria-hidden="true"
+                  class="fas fa-lock"
+                />
+                Accept & lock PKR 100,000
+              </button>
+            </div>
+          </form>
+        </div>
+        <div
+          class="checkout-side"
+        >
+          <section
+            class="t-page-card "
+            style="margin-bottom: 28px;"
+          >
+            <div
+              class="t-page-card__heading"
+              style="display: flex; justify-content: space-between; gap: 14px; align-items: center; margin-bottom: 18px;"
+            >
+              <h2
+                style="margin: 0px;"
+              >
+                <i
+                  aria-hidden="true"
+                  class="fas fa-receipt"
+                  style="margin-right: 10px; color: var(--accent-primary);"
+                />
+                Payment Breakdown
+              </h2>
+            </div>
+            <div
+              class="breakdown"
+            >
+              <div
+                class="breakdown__row  "
+              >
+                <span>
+                  Transport bid amount
+                </span>
+                <span>
+                  PKR 100,000
+                </span>
+              </div>
+              <div
+                class="breakdown__row  breakdown__row--muted"
+              >
+                <span>
+                  Wallet available
+                </span>
+                <span>
+                  PKR 99,999.99
+                </span>
+              </div>
+              <div
+                class="breakdown__row  "
+              >
+                <span>
+                  Wallet-funded amount
+                </span>
+                <span>
+                  PKR 0
+                </span>
+              </div>
+              <div
+                class="breakdown__divider"
+              />
+              <div
+                class="breakdown__row breakdown__row--strong "
+              >
+                <span>
+                  Overall seeker cost
+                </span>
+                <span>
+                  PKR 100,000
+                </span>
+              </div>
+            </div>
+            <div
+              class="breakdown-notes"
+            >
+              <p>
+                <i
+                  aria-hidden="true"
+                  class="fas fa-circle-info"
+                />
+                 Platform commission is deducted from the transporter’s payout — it is not added again to your charge.
+              </p>
+            </div>
+          </section>
+          <section
+            aria-label="freight fee breakdown"
+            class="my-4 rounded-lg border border-slate-200 bg-white p-4 text-sm"
+          >
+            <h3
+              class="font-semibold"
+            >
+              Transporter settlement fees
+            </h3>
+            <p
+              class="mt-3 font-semibold"
+            >
+              Total Platform Deductions
+              : 
+              PKR 20,000.00
+            </p>
+            <p
+              class="mt-2 text-xs text-slate-600"
+            >
+              Client platform commission: 0%. Deductions apply once upon successful delivery settlement.
+            </p>
+          </section>
+        </div>
+      </div>
+    </div>
+  </div>
+</body>
+ ❯ Object.getElementError node_modules/@testing-library/dom/dist/config.js:37:19
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:76:38
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:52:17
+ ❯ node_modules/@testing-library/dom/dist/query-helpers.js:95:19
+ ❯ tests/businessRules.test.jsx:244:26
+    242|   render(<MemoryRouter initialEntries={['/client/order/11/bid/2/checko…
+    243|   await screen.findByText('Insufficient balance. Please top up PKR 0.0…
+    244|   fireEvent.click(screen.getByRole('checkbox'))
+       |                          ^
+    245|   expect(screen.getByRole('button', { name: 'Accept & lock PKR 100,000…
+    246|   expect(screen.queryByText('Card Details')).toBeNull()
+
+⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯⎯[1/1]⎯
+
+
+ Test Files  1 failed | 8 passed (9)
+      Tests  1 failed | 96 passed (97)
+   Start at  23:44:42
+   Duration  38.42s (transform 33.13s, setup 0ms, collect 57.86s, tests 53.33s, environment 55.24s, prepare 7.17s)
+

@@ -1,0 +1,12 @@
+
+ RUN  v3.2.7 D:/New folder/templates/Digi_TransX/frontend-react
+
+ ✓ tests/auditReview20261027.test.jsx > FE-012: successful sale and failed receipt read permits a second sale 854ms
+ ✓ tests/auditReview20261027.test.jsx > FE-011: adding 0.5L of available inventory submits a 1L sale 128ms
+ ✓ tests/auditReview20261027.test.jsx > LEDGER-023: remount loses active fuel voucher and its cancel control 180ms
+
+ Test Files  1 passed (1)
+      Tests  3 passed (3)
+   Start at  23:33:58
+   Duration  7.96s (transform 878ms, setup 0ms, collect 1.81s, tests 1.17s, environment 2.36s, prepare 365ms)
+

@@ -1,0 +1,52 @@
+{
+  "files_checked": [
+    "src/components/chat/ChatWindow.jsx",
+    "src/components/common/LocationPicker.jsx",
+    "src/components/transporter/DriverAssignmentPanel.jsx",
+    "src/pages/client/AgreementBids.jsx",
+    "src/pages/client/clientUtils.jsx",
+    "src/pages/driver/DriverActiveTrip.jsx",
+    "src/pages/driver/DriverTrips.jsx",
+    "src/pages/transporter/MyAgreements.jsx",
+    "src/pages/transporter/OrderTracking.jsx",
+    "src/pages/transporter/PartsCartPage.jsx",
+    "src/pages/transporter/PartsMarketplace.jsx",
+    "src/pages/transporter/PartsStoreDashboard.jsx",
+    "src/pages/transporter/add_truck.jsx",
+    "src/pages/transporter/marketplaceApi.js",
+    "src/pages/transporter/partsCart.js",
+    "src/pages/transporter/truck_configuration.jsx",
+    "tests/marketplaceSecurity.test.jsx",
+    "tests/remainingWorkflowSecurity.test.jsx"
+  ],
+  "errors": 2,
+  "warnings": 1,
+  "new_errors": 0,
+  "baseline_command": "git show HEAD:frontend-react/src/pages/transporter/truck_configuration.jsx | npx eslint --stdin --stdin-filename src/pages/transporter/truck_configuration.jsx --format json",
+  "messages": [
+    {
+      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+      "line": 58,
+      "rule": "react-hooks/exhaustive-deps",
+      "severity": 1,
+      "message": "React Hook useEffect has a missing dependency: 'fetchParts'. Either include it or remove the dependency array.",
+      "head_baseline_error": false
+    },
+    {
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 79,
+      "rule": "no-unused-vars",
+      "severity": 2,
+      "message": "'catalogFields' is assigned a value but never used. Allowed unused vars must match /^[A-Z_]/u.",
+      "head_baseline_error": true
+    },
+    {
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 184,
+      "rule": "no-unused-vars",
+      "severity": 2,
+      "message": "'applyCatalogType' is defined but never used. Allowed unused vars must match /^[A-Z_]/u.",
+      "head_baseline_error": true
+    }
+  ]
+}

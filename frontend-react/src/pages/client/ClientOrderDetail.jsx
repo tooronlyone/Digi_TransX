@@ -1,0 +1,582 @@
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useParams, Link, useNavigate } from 'react-router-dom'
+import {
+  PageTitle,
+  SectionCard,
+  StateMessage,
+  formatMoney,
+  formatDate,
+  getCsrfToken,
+} from './clientUtils'
+import { FeeBreakdown, MarketReference, SettlementSummary } from '../../components/business/BusinessRules'
+import { AUTH_STATUSES, ShellPageSkeleton, useAuthVerification } from '../../auth/AuthVerificationContext'
+import DeliveryClientHandshake from '../../components/business/DeliveryClientHandshake'
+import TransporterReviewModal from '../../components/common/TransporterReviewModal'
+import useClientBasePath from '../../hooks/useClientBasePath'
+import { useStepUp } from '../../components/security/StepUpProvider'
+import '../../styles/pages/order-detail.css'
+
+const SORTS = [
+  { key: 'price', label: 'Lowest price' },
+  { key: 'newest', label: 'Newest bid' },
+  { key: 'capacity', label: 'Highest weight capacity' },
+]
+
+function Countdown({ deadline }) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const t = setInterval(() => setNow(Date.now()), 1000)
+    return () => clearInterval(t)
+  }, [])
+  if (!deadline) return null
+  const remaining = Math.max(0, new Date(deadline).getTime() - now)
+  if (remaining <= 0) return <span className="odp-countdown">Time is up — pending admin review.</span>
+  const h = Math.floor(remaining / 3600000)
+  const m = Math.floor((remaining % 3600000) / 60000)
+  const s = Math.floor((remaining % 60000) / 1000)
+  return <span className="odp-countdown">{`${h}h ${m}m ${s}s left to confirm`}</span>
+}
+
+function truckCapacityTons(truck) {
+  if (!truck) return null
+  const value = truck.payload_max_tons ?? truck.capacity_tons
+  return Number.isFinite(Number(value)) && Number(value) > 0 ? Number(value) : null
+}
+
+function bedDimensions(truck) {
+  if (!truck) return null
+  const { bed_length_ft: l, bed_width_ft: w, bed_height_ft: h } = truck
+  if (!l && !w && !h) return null
+  const part = (v) => (v ? `${v}` : '—')
+  return `${part(l)} × ${part(w)} × ${part(h)} ft`
+}
+
+function sortBids(bids, sortKey) {
+  const copy = [...bids]
+  if (sortKey === 'newest') {
+    return copy.sort((a, b) => new Date(b.created_at || 0) - new Date(a.created_at || 0))
+  }
+  if (sortKey === 'capacity') {
+    return copy.sort((a, b) => (truckCapacityTons(b.truck) || 0) - (truckCapacityTons(a.truck) || 0))
+  }
+  // Default: lowest price first.
+  return copy.sort((a, b) => Number(a.bid_price) - Number(b.bid_price))
+}
+
+export default function ClientOrderDetail() {
+  const { user, status } = useAuthVerification()
+  const { orderId } = useParams()
+  if (status !== AUTH_STATUSES.VERIFIED || !user?.id) return <ShellPageSkeleton />
+  return <OwnedClientOrderDetail key={`${user.id}:${orderId}`} />
+}
+
+function OwnedClientOrderDetail() {
+  const { protectedFetch } = useStepUp()
+  const { orderId } = useParams()
+  const navigate = useNavigate()
+  const base = useClientBasePath()
+  const [order, setOrder] = useState(null)
+  const [bids, setBids] = useState([])
+  const [trip, setTrip] = useState(null)
+  const [payment, setPayment] = useState(null)
+  const [deliveryPolicy, setDeliveryPolicy] = useState(null)
+  const [settlement, setSettlement] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [refreshing, setRefreshing] = useState(false)
+  const [error, setError] = useState('')
+  const [sortKey, setSortKey] = useState('price')
+  const [chatThreadId, setChatThreadId] = useState(null)
+  const [actionLoading, setActionLoading] = useState('')
+  const [actionMsg, setActionMsg] = useState('')
+  const [reviewModalOpen, setReviewModalOpen] = useState(false)
+  const alive = useRef(true), readRequest = useRef(null), mutationRequest = useRef(null), readGeneration = useRef(0)
+  useEffect(() => {
+    alive.current = true
+    return () => { alive.current = false; readRequest.current?.abort(); mutationRequest.current?.abort() }
+  }, [])
+
+  async function loadOrder({ silent = false } = {}) {
+    if (!alive.current) return
+    const generation = ++readGeneration.current
+    readRequest.current?.abort()
+    const controller = new AbortController()
+    readRequest.current = controller
+    if (silent) setRefreshing(true)
+    else setLoading(true)
+    setError('')
+    try {
+      const response = await fetch(`/api/orders/${orderId}`, { credentials: 'same-origin', signal: controller.signal })
+      const json = await response.json().catch(() => ({}))
+      if (!alive.current || controller.signal.aborted || generation !== readGeneration.current) return
+      if (!response.ok || json.success === false) throw new Error(json.message || 'Unable to load order.')
+      setOrder(json.order || null)
+      setBids(json.bids || [])
+      setTrip(json.trip || null)
+      setPayment(json.payment || null)
+      setDeliveryPolicy(json.delivery_policy || null)
+      setSettlement(json.settlement || null)
+      setChatThreadId(json.chat_thread_id || null)
+    } catch (loadError) {
+      if (!alive.current || controller.signal.aborted || generation !== readGeneration.current) return
+      setError(loadError.message || 'Unable to load order details.')
+    } finally {
+      if (alive.current && generation === readGeneration.current) { setLoading(false); setRefreshing(false) }
+    }
+  }
+
+  useEffect(() => {
+    // loadOrder is the shared loader reused by the "Refresh bids" button, so it
+    // stays defined outside the effect; invoking it on mount is intentional.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadOrder()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId])
+
+  async function confirmDelivery(decision, review = null) {
+    const prompt = decision === 'yes'
+      ? 'Submit this review and confirm delivery? This releases the held payment to the transporter and cannot be undone.'
+      : 'Report a problem with this delivery? The payment stays held and an admin will review the case.'
+    if (!window.confirm(prompt)) return
+    let reason
+    if (decision === 'no') {
+      reason = window.prompt('Optionally add a short reason (you can leave this blank):') || ''
+    }
+    setActionLoading(decision)
+    setError('')
+    setActionMsg('')
+    try {
+      const csrf = await getCsrfToken()
+      if (!alive.current) return
+      const controller = new AbortController()
+      mutationRequest.current = controller
+      const fetchImpl = decision === 'yes' ? protectedFetch : fetch
+      const response = await fetchImpl(`/api/orders/${orderId}/trips/${trip.id}/confirm-delivery`, {
+        signal: controller.signal,
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ decision, reason, rating: review?.rating, comment: review?.comment }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!alive.current) return
+      if (!response.ok || json.success === false) throw new Error(json.message || 'Unable to submit your response.')
+      setActionMsg(json.message || 'Response recorded.')
+      setReviewModalOpen(false)
+      await loadOrder({ silent: true })
+    } catch (confirmError) {
+      if (!alive.current) return
+      setError(confirmError.message || 'Unable to submit your response.')
+    } finally {
+      if (alive.current) setActionLoading('')
+    }
+  }
+
+  const openChat = () =>
+    navigate(chatThreadId ? `${base}/messages?thread=${chatThreadId}` : `${base}/messages`)
+
+  const orderOpen = order?.status === 'open'
+  const budget = order?.estimated_budget ? Number(order.estimated_budget) : null
+
+  const lowestBidId = useMemo(() => {
+    if (!bids.length) return null
+    return bids.reduce((best, b) => (Number(b.bid_price) < Number(best.bid_price) ? b : best)).id
+  }, [bids])
+
+  const sortedBids = useMemo(() => {
+    // Accepted bid always shown first; rejected pushed to the bottom.
+    const rank = (b) => (b.status === 'accepted' ? 0 : b.status === 'rejected' ? 2 : 1)
+    return sortBids(bids, sortKey).sort((a, b) => rank(a) - rank(b))
+  }, [bids, sortKey])
+  const acceptedBid = useMemo(() => bids.find((bid) => bid.status === 'accepted') || bids[0] || null, [bids])
+  const reviewTarget = useMemo(() => (
+    trip
+      ? {
+          shipment_id: order?.id,
+          trip_id: trip.id,
+          transporter_name:
+            acceptedBid?.transporter?.company_name ||
+            acceptedBid?.transporter?.display_name ||
+            'Transporter',
+          pickup_city: order?.pickup_city,
+          dropoff_city: order?.dropoff_city,
+          goods_type: order?.goods_type,
+        }
+      : null
+  ), [acceptedBid, order, trip])
+
+  if (loading) {
+    return (
+      <div className="order-detail-page">
+        <StateMessage type="loading">Loading order details...</StateMessage>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="order-detail-page">
+        <StateMessage type="error">{error}</StateMessage>
+        <Link to={`${base}/orders`} className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
+          <i className="fas fa-arrow-left"></i>
+          Back to Orders
+        </Link>
+      </div>
+    )
+  }
+
+  if (!order) {
+    return (
+      <div className="order-detail-page">
+        <StateMessage type="error">Order not found.</StateMessage>
+        <Link to={`${base}/orders`} className="mt-4 inline-flex items-center gap-2 text-blue-600 hover:text-blue-700">
+          <i className="fas fa-arrow-left"></i>
+          Back to Orders
+        </Link>
+      </div>
+    )
+  }
+
+  const cheapest = lowestBidId ? bids.find((b) => b.id === lowestBidId) : null
+
+  return (
+    <>
+      <PageTitle
+        title={`Order #${order.id}`}
+        subtitle={`${order.pickup_city} → ${order.dropoff_city}`}
+        actions={
+          <button
+            type="button"
+            onClick={() => loadOrder({ silent: true })}
+            disabled={refreshing}
+            className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50 disabled:opacity-60"
+          >
+            <i className={`fas ${refreshing ? 'fa-spinner fa-spin' : 'fa-rotate-right'} mr-2`} aria-hidden="true"></i>
+            Refresh bids
+          </button>
+        }
+      />
+
+      <div className="order-detail-grid">
+        <SectionCard title="Order Details" icon="fa-box" className="odp-section">
+          <div className="detail-grid">
+            <div className="detail-item">
+              <span className="detail-label">Pickup Location</span>
+              <span className="detail-value">{order.pickup_location || order.pickup_city}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Dropoff Location</span>
+              <span className="detail-value">{order.dropoff_location || order.dropoff_city}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Date &amp; Time</span>
+              <span className="detail-value">{order.pickup_date} at {order.pickup_time}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Goods Type</span>
+              <span className="detail-value">{order.goods_type}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Weight</span>
+              <span className="detail-value">{order.goods_weight_tons} tons{order.goods_volume_cbm ? ` · ${order.goods_volume_cbm} cbm` : ''}</span>
+            </div>
+            <div className="detail-item">
+              <span className="detail-label">Budget</span>
+              <span className="detail-value">{budget ? formatMoney(budget) : 'Not specified'}</span>
+            </div>
+            {order.notes && (
+              <div className="detail-item col-span-full">
+                <span className="detail-label">Special Instructions</span>
+                <p className="detail-notes">{order.notes}</p>
+              </div>
+            )}
+          </div>
+        </SectionCard>
+
+        <SectionCard title="Bid Summary" icon="fa-chart-bar" className="odp-section">
+          <div className="summary-box">
+            <div className="summary-item">
+              <span className="summary-label">Total Bids</span>
+              <span className="summary-value">{bids.length}</span>
+            </div>
+            {cheapest && (
+              <div className="summary-item">
+                <span className="summary-label">Lowest Bid</span>
+                <span className="summary-value amount">{formatMoney(cheapest.bid_price)}</span>
+              </div>
+            )}
+            <MarketReference key={`${order.id}:${bids.length}:${refreshing}`} orderId={order.id} />
+          </div>
+        </SectionCard>
+      </div>
+
+      {deliveryPolicy && <FeeBreakdown kind="client" />}
+      <SettlementSummary settlement={settlement} />
+      {deliveryPolicy && trip && <DeliveryClientHandshake orderId={order.id} trip={trip} settlement={settlement} onChanged={() => loadOrder({ silent: true })} />}
+
+      {/* Post-payment status: accepted transporter, held payment, trip state. */}
+      {!orderOpen && payment && (
+        <SectionCard title="Payment &amp; Trip" icon="fa-shield-halved" className="odp-section">
+          <div className="payment-summary">
+            <div className="payment-summary__row">
+              <span className="detail-label">Payment status</span>
+              <span className={`odp-pill odp-pill--${payment.status === 'held' ? 'held' : 'muted'}`}>
+                {String(payment.status || '').replace(/_/g, ' ')}
+              </span>
+            </div>
+            {trip && (
+              <div className="payment-summary__row">
+                <span className="detail-label">Trip status</span>
+                <span className="odp-pill odp-pill--trip">{String(trip.status || '').replace(/_/g, ' ')}</span>
+              </div>
+            )}
+            <div className="payment-summary__grid">
+              <div><span className="detail-label">Transport bid</span><span className="detail-value">{formatMoney(payment.bid_amount)}</span></div>
+              <div><span className="detail-label">Wallet funded</span><span className="detail-value">{formatMoney(payment.wallet_funded_amount)}</span></div>
+              <div><span className="detail-label">Card funded</span><span className="detail-value">{formatMoney(payment.card_funded_amount)}</span></div>
+              {Number(payment.card_funded_amount) > 0 && (
+                <div>
+                  <span className="detail-label">Card processing fee ({payment.processing_fee_percent}%)</span>
+                  <span className="detail-value">{formatMoney(payment.processing_fee_amount)}</span>
+                </div>
+              )}
+              {payment.total_card_charge != null && Number(payment.total_card_charge) > 0 && (
+                <div><span className="detail-label">Total card charge</span><span className="detail-value">{formatMoney(payment.total_card_charge)}</span></div>
+              )}
+            </div>
+          </div>
+
+          {actionMsg && <div className="odp-confirm__msg">{actionMsg}</div>}
+
+          {!deliveryPolicy && trip && trip.status === 'awaiting_client_confirmation' && (
+            <div className="odp-confirm">
+              <p className="odp-confirm__lead">
+                <i className="fas fa-lock" aria-hidden="true"></i>{' '}
+                Your payment is held by the platform in test mode until delivery confirmation.
+                The transporter marked the delivery complete — please confirm within the window below.
+              </p>
+              <Countdown deadline={trip.confirmation_deadline_at} />
+              <div className="odp-confirm__actions">
+                <button
+                  type="button"
+                  className="odp-btn odp-btn--yes"
+                  disabled={!!actionLoading}
+                  onClick={() => setReviewModalOpen(true)}
+                >
+                  <i className={`fas ${actionLoading === 'yes' ? 'fa-spinner fa-spin' : 'fa-check'}`} aria-hidden="true"></i>
+                  Yes, delivery completed
+                </button>
+                <button
+                  type="button"
+                  className="odp-btn odp-btn--no"
+                  disabled={!!actionLoading}
+                  onClick={() => confirmDelivery('no')}
+                >
+                  <i className={`fas ${actionLoading === 'no' ? 'fa-spinner fa-spin' : 'fa-triangle-exclamation'}`} aria-hidden="true"></i>
+                  No, there is a problem
+                </button>
+              </div>
+              {chatThreadId && (
+                <button type="button" className="odp-btn odp-btn--ghost" onClick={openChat}>
+                  <i className="fas fa-comments" aria-hidden="true"></i> Open Chat
+                </button>
+              )}
+            </div>
+          )}
+
+          {trip && trip.status === 'completed' && (
+            <div className="odp-confirm odp-confirm--ok">
+              <i className="fas fa-circle-check" aria-hidden="true"></i>
+              <span>{settlement ? 'Delivery verified by your OTP. The settlement schedule is shown above.' : 'You confirmed delivery. The payment has been released to the transporter.'}</span>
+            </div>
+          )}
+
+          {trip && (trip.status === 'delivery_disputed' || trip.status === 'admin_review') && (
+            <div className="odp-confirm odp-confirm--dispute">
+              <i className="fas fa-gavel" aria-hidden="true"></i>
+              <span>
+                {trip.status === 'admin_review'
+                  ? 'The confirmation window passed. An admin is now reviewing this delivery.'
+                  : 'You reported a problem. Your payment stays held while an admin reviews the case.'}
+              </span>
+              {chatThreadId && (
+                <button type="button" className="odp-btn odp-btn--ghost" onClick={openChat}>
+                  <i className="fas fa-comments" aria-hidden="true"></i> Open Chat
+                </button>
+              )}
+            </div>
+          )}
+
+          {trip && trip.status === 'resolved_client' && (
+            <div className="odp-confirm odp-confirm--ok">
+              <i className="fas fa-rotate-left" aria-hidden="true"></i>
+              <span>An admin resolved this in your favour. Your payment has been refunded.</span>
+            </div>
+          )}
+        </SectionCard>
+      )}
+
+      <SectionCard
+        className="odp-section"
+        title={`${orderOpen ? 'Compare Bids' : 'Bids'} (${bids.length})`}
+        icon="fa-gavel"
+        actions={
+          bids.length > 1 ? (
+            <label className="odp-sort">
+              <span className="odp-sort__label">Sort by</span>
+              <select value={sortKey} onChange={(e) => setSortKey(e.target.value)} className="odp-sort__select">
+                {SORTS.map((s) => (
+                  <option key={s.key} value={s.key}>{s.label}</option>
+                ))}
+              </select>
+            </label>
+          ) : null
+        }
+      >
+        {bids.length === 0 ? (
+          <StateMessage type="empty">
+            <p>No bids yet. Transporters who own a matching, active truck will bid on your order as they see it.</p>
+          </StateMessage>
+        ) : (
+          <div className="bids-grid">
+            {sortedBids.map((bid) => {
+              const truck = bid.truck
+              const capacity = truckCapacityTons(truck)
+              const bed = bedDimensions(truck)
+              const isLowest = bid.id === lowestBidId
+              const withinBudget = budget != null && Number(bid.bid_price) <= budget
+              const isAccepted = bid.status === 'accepted'
+              const isRejected = bid.status === 'rejected'
+              const canSelect = orderOpen && bid.can_checkout && bid.status === 'pending'
+              const cardClass = [
+                'bid-card',
+                isAccepted ? 'bid-card--accepted' : '',
+                isRejected ? 'bid-card--rejected' : '',
+                !canSelect && !isAccepted && orderOpen ? 'bid-card--unavailable' : '',
+              ].filter(Boolean).join(' ')
+
+              return (
+                <div key={bid.id} className={cardClass}>
+                  <div className="bid-header">
+                    <div className="bid-price">{formatMoney(bid.bid_price)}</div>
+                    <div className="bid-badges">
+                      {isAccepted && <span className="bid-badge bid-badge--accepted">Accepted</span>}
+                      {isRejected && <span className="bid-badge bid-badge--rejected">Not selected</span>}
+                      {isLowest && !isRejected && <span className="bid-badge">Lowest Bid</span>}
+                      {withinBudget && !isRejected && <span className="bid-badge bid-badge--budget">Within Budget</span>}
+                    </div>
+                  </div>
+
+                  <div className="bid-transporter">
+                    <div className="bid-avatar" aria-hidden="true">
+                      <i className="fas fa-user-tie"></i>
+                    </div>
+                    <div className="bid-transporter__meta">
+                      <span className="bid-transporter__name">
+                        {bid.transporter?.company_name || bid.transporter?.display_name || 'Transporter'}
+                      </span>
+                      {bid.transporter?.company_name && bid.transporter?.display_name && (
+                        <span className="bid-transporter__sub">{bid.transporter.display_name}</span>
+                      )}
+                      {typeof bid.transporter?.completed_trips === 'number' && bid.transporter.completed_trips > 0 && (
+                        <span className="bid-transporter__trips">
+                          <i className="fas fa-circle-check" aria-hidden="true"></i>
+                          {bid.transporter.completed_trips} completed trip{bid.transporter.completed_trips === 1 ? '' : 's'}
+                        </span>
+                      )}
+                      <span className="bid-transporter__sub">
+                        {bid.transporter?.rating_count
+                          ? `${Number(bid.transporter.rating_average || 0).toFixed(1)} / 5 • ${bid.transporter.rating_count} review${bid.transporter.rating_count === 1 ? '' : 's'}`
+                          : 'New transporter'}
+                      </span>
+                    </div>
+                  </div>
+
+                  <div className="bid-truck">
+                    <div className="bid-truck__photo">
+                      {truck?.photo_url ? (
+                        <img src={truck.photo_url} alt={truck?.truck_number || 'Truck'} loading="lazy" />
+                      ) : (
+                        <div className="bid-truck__fallback" aria-hidden="true">
+                          <i className="fas fa-truck"></i>
+                        </div>
+                      )}
+                    </div>
+                    <div className="bid-truck__specs">
+                      <div className="bid-truck__title">
+                        {truck?.type_name || 'Truck'}
+                        {truck?.truck_number ? <span className="bid-truck__number"> · {truck.truck_number}</span> : null}
+                      </div>
+                      {(truck?.company || truck?.model) && (
+                        <div className="bid-truck__line">{[truck.company, truck.model].filter(Boolean).join(' ')}</div>
+                      )}
+                      <div className="bid-truck__chips">
+                        {capacity != null && <span className="bid-chip"><i className="fas fa-weight-hanging" aria-hidden="true"></i> {capacity} t</span>}
+                        {truck?.volume_max_cbm ? <span className="bid-chip"><i className="fas fa-cube" aria-hidden="true"></i> {truck.volume_max_cbm} cbm</span> : null}
+                        {bed && <span className="bid-chip"><i className="fas fa-ruler-combined" aria-hidden="true"></i> {bed}</span>}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="bid-details">
+                    <div className="bid-detail">
+                      <span className="bid-label">Submitted</span>
+                      <span className="bid-value">{formatDate(bid.created_at)}</span>
+                    </div>
+                  </div>
+
+                  {bid.message && (
+                    <div className="bid-message">
+                      <i className="fas fa-quote-left" aria-hidden="true"></i>
+                      <p>{bid.message}</p>
+                    </div>
+                  )}
+
+                  {orderOpen && bid.status === 'pending' && !bid.can_checkout && bid.unavailable_reason && (
+                    <div className="bid-warning">
+                      <i className="fas fa-triangle-exclamation" aria-hidden="true"></i>
+                      <span>{bid.unavailable_reason}</span>
+                    </div>
+                  )}
+
+                  {orderOpen && (
+                    <button
+                      type="button"
+                      onClick={() => navigate(`${base}/order/${order.id}/bid/${bid.id}/checkout`)}
+                      disabled={!canSelect}
+                      className="bid-accept-btn"
+                    >
+                      <i className="fas fa-circle-check" aria-hidden="true"></i>
+                      {canSelect ? 'Select & Continue to Payment' : 'Unavailable'}
+                    </button>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </SectionCard>
+
+      <div className="flex gap-2 justify-center mt-6">
+        <Link to={`${base}/orders`} className="inline-flex min-h-10 items-center justify-center rounded-lg border border-slate-300 px-4 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+          <i className="fas fa-arrow-left mr-2" aria-hidden="true"></i>
+          Back to Orders
+        </Link>
+      </div>
+
+      <TransporterReviewModal
+        key={reviewTarget ? `${reviewTarget.shipment_id}-${reviewTarget.trip_id}-${reviewModalOpen ? 'open' : 'closed'}` : 'delivery-review'}
+        open={reviewModalOpen}
+        reviewTarget={reviewTarget}
+        submitLabel="Confirm Delivery & Submit Review"
+        submitting={actionLoading === 'yes'}
+        error={error}
+        onClose={() => {
+          if (actionLoading) return
+          setReviewModalOpen(false)
+          setError('')
+        }}
+        onSubmit={(review) => confirmDelivery('yes', review)}
+      />
+    </>
+  )
+}

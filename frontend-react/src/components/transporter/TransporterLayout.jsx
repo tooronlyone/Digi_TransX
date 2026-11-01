@@ -1,0 +1,248 @@
+import { useState, useEffect } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { getTransporterAllowedPaths, isTransporterPathAllowed } from './accessControl'
+import { NAV_ITEMS } from './navItems'
+import { apiGet } from '../../pages/client/clientUtils'
+import TermsUpdateNotice from '../common/TermsUpdateNotice'
+import NotificationBell from '../common/NotificationBell'
+import MobileBottomNavigation from '../common/MobileBottomNavigation'
+import { logoutCurrentSession } from '../../auth/logout'
+import { AUTH_STATUSES, ShellPageSkeleton, useAuthVerification } from '../../auth/AuthVerificationContext'
+
+const MOBILE_NAV_ITEMS = [
+  { path: '/transporter/dashboard', icon: 'fa-tachometer-alt', label: 'Dashboard' },
+  { path: '/transporter/trucks', icon: 'fa-truck', label: 'Trucks' },
+  { path: '/transporter/bids', icon: 'fa-gavel', label: 'Bids', match: ['/transporter/available-bids', '/transporter/agreement-bids', '/transporter/my-agreements'] },
+  { path: '/transporter/messages', icon: 'fa-comments', label: 'Messages' },
+]
+
+const PARTS_STORE_NAV_ITEMS = [
+  { path: '/transporter/parts-store/dashboard', icon: 'fa-gauge-high', label: 'Dashboard' },
+  { path: '/transporter/parts-store', icon: 'fa-store', label: 'Buy Parts', exact: true },
+  { path: '/transporter/parts-store/cart', icon: 'fa-cart-shopping', label: 'Cart' },
+  { path: '/transporter/parts-store/orders', icon: 'fa-box-open', label: 'My Orders' },
+  { path: '/transporter/parts-store/requests', icon: 'fa-bullhorn', label: 'Part Requests' },
+  { path: '/transporter/settings', icon: 'fa-gear', label: 'Settings' },
+]
+
+function getTransporterDisplayName(u = {}) {
+  const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
+  return (u.company_name || u.full_name || full || u.username || u.email || 'Transporter').trim()
+}
+
+function getTransporterInitials(name) {
+  return (name || 'Transporter')
+    .split(/\s+/)
+    .filter(Boolean)
+    .slice(0, 2)
+    .map((part) => part[0])
+    .join('')
+    .toUpperCase() || 'TR'
+}
+
+export default function TransporterLayout({ children }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [logoutError, setLogoutError] = useState('')
+  const { status } = useAuthVerification()
+  const verified = status === AUTH_STATUSES.VERIFIED
+  const [user, setUser] = useState({
+    name: 'Transporter',
+    role: 'Transporter',
+    organization_allowed_paths: [],
+    defaultRoute: '/transporter/dashboard',
+  })
+  const [unreadTotal, setUnreadTotal] = useState(0)
+
+  useEffect(() => {
+    function applyUser(rawUser) {
+      const u = rawUser || {}
+      setUser({
+        name: getTransporterDisplayName(u),
+        role: u.organization_role_label || u.role || 'Transporter',
+        organization_allowed_paths: getTransporterAllowedPaths(u),
+        defaultRoute: u.organization_default_route || '/transporter/dashboard',
+      })
+    }
+
+    const stored = sessionStorage.getItem('user')
+    if (stored) {
+      try { applyUser(JSON.parse(stored)) } catch { /* ignore malformed cached user */ }
+    }
+
+    if (verified) {
+      apiGet('/api/profile')
+        .then((json) => {
+          if (!json?.user) return
+          sessionStorage.setItem('user', JSON.stringify(json.user))
+          applyUser(json.user)
+        })
+        .catch(() => undefined)
+    }
+
+    function handleUserUpdate(event) {
+      if (event.detail) {
+        applyUser(event.detail)
+        return
+      }
+      const latest = sessionStorage.getItem('user')
+      if (!latest) return
+      try { applyUser(JSON.parse(latest)) } catch { /* ignore malformed cached user */ }
+    }
+
+    window.addEventListener('dtx:user-updated', handleUserUpdate)
+    return () => window.removeEventListener('dtx:user-updated', handleUserUpdate)
+  }, [verified])
+
+  useEffect(() => {
+    let mounted = true
+
+    async function loadUnread() {
+      try {
+        const json = await apiGet('/api/chat/threads')
+        if (!mounted) return
+        const total = (json.threads || []).reduce((sum, thread) => sum + Number(thread.unread_count || 0), 0)
+        setUnreadTotal(total)
+      } catch { /* ignore transient errors; next poll retries */ }
+    }
+
+    if (!verified) return () => { mounted = false }
+    loadUnread()
+    const intervalId = window.setInterval(loadUnread, 30000)
+    return () => {
+      mounted = false
+      window.clearInterval(intervalId)
+    }
+  }, [verified])
+
+  async function handleLogout() {
+    setLogoutError('')
+    try {
+      await logoutCurrentSession(navigate)
+    } catch (error) {
+      setLogoutError(error.message || 'Logout could not be confirmed. Please retry.')
+    }
+  }
+
+  const initials = getTransporterInitials(user.name)
+  const isPartsStorePage = location.pathname === '/transporter/parts-store' || location.pathname.startsWith('/transporter/parts-store/')
+  const sourceNavItems = isPartsStorePage ? PARTS_STORE_NAV_ITEMS : NAV_ITEMS
+  const visibleNavItems = sourceNavItems
+    .filter((item) => item.path !== '/transporter/trucks/add')
+    .map((item) => (
+      item.path === '/transporter/messages'
+        ? { ...item, badge: unreadTotal > 0 ? String(unreadTotal) : '' }
+        : item
+    ))
+    .filter((item) => isTransporterPathAllowed(user, item.path))
+  const activePath = visibleNavItems.reduce((best, item) => {
+    const exactMatch = location.pathname === item.path
+    const nestedMatch = !item.exact && location.pathname.startsWith(`${item.path}/`)
+    if (!exactMatch && !nestedMatch) return best
+    if (!best || item.path.length > best.length) return item.path
+    return best
+  }, '')
+  const mobileNavItems = MOBILE_NAV_ITEMS
+    .filter((item) => isTransporterPathAllowed(user, item.path))
+    .map((item) => (
+      item.path === '/transporter/messages'
+        ? { ...item, badge: unreadTotal > 0 ? String(unreadTotal) : '' }
+        : item
+    ))
+
+  function isMobileItemActive(item) {
+    if (location.pathname === item.path || location.pathname.startsWith(`${item.path}/`)) return true
+    return item.match?.some((prefix) => location.pathname === prefix || location.pathname.startsWith(`${prefix}/`)) || false
+  }
+
+  const isMessagesPage = location.pathname === '/transporter/messages'
+
+  return (
+    <div className={`transporter-page${isMessagesPage ? ' transporter-page--messages' : ''}`}>
+      {/* Navbar */}
+      <nav className="navbar">
+        <div className="navbar-left">
+          <Link to={user.defaultRoute} className="navbar-logo">
+            <div className="logo-icon">
+              <svg viewBox="0 0 32 32" fill="none" width="22" height="22" aria-hidden="true">
+                <g stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M5 9 L13 9 L19 23 L27 23"/>
+                  <path d="M27 9 L19 9 L13 23 L5 23"/>
+                </g>
+              </svg>
+            </div>
+            <div className="navbar-brand">
+              Digi_Trans
+              <span style={{
+                background: 'linear-gradient(135deg,#2563eb,#3b82f6)',
+                WebkitBackgroundClip: 'text',
+                WebkitTextFillColor: 'transparent',
+                backgroundClip: 'text',
+              }}>X</span>
+            </div>
+          </Link>
+        </div>
+
+        <div className="navbar-right">
+          {verified && <NotificationBell orderPath={(id) => `/transporter/order/${id}`} />}
+          <Link to="/transporter/profile" className="user-info header-account-link" aria-label="Open My Profile">
+            <div className="user-avatar">{initials}</div>
+            <div className="user-details">
+              <h3>{user.name}</h3>
+              <p>{user.role}</p>
+            </div>
+          </Link>
+          <button className="logout-btn header-logout" onClick={handleLogout} title="Logout" aria-label="Logout">
+            <i className="fas fa-sign-out-alt"></i>
+          </button>
+        </div>
+      </nav>
+
+      {/* Sidebar */}
+      <nav className="sidebar role-sidebar" aria-label="Logistics provider navigation">
+        <ul className="nav-menu">
+          {visibleNavItems.map((item) => {
+            return (
+              <li className="nav-item" key={item.path}>
+                <Link
+                  to={item.path}
+                  className={`nav-link${activePath === item.path ? ' active' : ''}`}
+                >
+                  <i className={`fas ${item.icon}`}></i>
+                  <span className="nav-text">{item.label}</span>
+                  {item.badge && <span className="rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-bold text-emerald-700">{item.badge}</span>}
+                </Link>
+              </li>
+            )
+          })}
+
+        </ul>
+        {isPartsStorePage && (
+          <Link to="/transporter/dashboard" className="parts-store-home-link" title="Back to Home">
+            <i className="fas fa-house"></i>
+            <span className="nav-text">Back to Home</span>
+          </Link>
+        )}
+      </nav>
+      <MobileBottomNavigation items={mobileNavItems} isActive={isMobileItemActive} label="Logistics provider navigation" />
+
+      {/* Main Content */}
+      <div className={`main-content${isMessagesPage ? ' main-content--messages' : ''}`}>
+        {logoutError && <p className="security-message is-error" role="alert">{logoutError}</p>}
+        {!isMessagesPage && verified && <TermsUpdateNotice termsPath="/transporter/terms" />}
+        {verified ? children : <ShellPageSkeleton />}
+
+        {!isMessagesPage && <div className="footer">
+          <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>
+          <div className="footer-links">
+            <Link to="/transporter/about">About Us</Link>
+            <Link to="/transporter/contact">Contact</Link>
+            <Link to="/transporter/terms">Terms &amp; Conditions</Link>
+            <Link to="/transporter/privacy">Privacy Policy</Link>
+            <Link to="/transporter/help">Help Center</Link>
+          </div>
+        </div>}
+      </div>
+    </div>
+  )
+}

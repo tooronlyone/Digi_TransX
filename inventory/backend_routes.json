@@ -1,0 +1,1914 @@
+{
+  "count": 233,
+  "routes": [
+    {
+      "method": "GET",
+      "path": "/",
+      "endpoint": "serve_root",
+      "handler": "serve_root",
+      "file": "backend/app.py",
+      "line": 195
+    },
+    {
+      "method": "GET",
+      "path": "/<path:path>",
+      "endpoint": "serve_frontend",
+      "handler": "serve_frontend",
+      "file": "backend/app.py",
+      "line": 202
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/agreements",
+      "endpoint": "admin.agreements",
+      "handler": "agreements",
+      "file": "backend/admin/routes.py",
+      "line": 427
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/agreements/<int:agreement_id>",
+      "endpoint": "admin.agreement_detail",
+      "handler": "agreement_detail",
+      "file": "backend/admin/routes.py",
+      "line": 456
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/dashboard",
+      "endpoint": "admin.dashboard",
+      "handler": "dashboard",
+      "file": "backend/admin/routes.py",
+      "line": 154
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/delivery-confirmations/process-overdue",
+      "endpoint": "admin.trigger_overdue_delivery_sweep",
+      "handler": "trigger_overdue_delivery_sweep",
+      "file": "backend/admin/routes.py",
+      "line": 957
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/disputes",
+      "endpoint": "admin.disputes",
+      "handler": "disputes",
+      "file": "backend/admin/routes.py",
+      "line": 471
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/disputes/<int:trip_id>/group-chat",
+      "endpoint": "admin.get_group_chat",
+      "handler": "get_group_chat",
+      "file": "backend/admin/routes.py",
+      "line": 595
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/disputes/<int:trip_id>/group-chat",
+      "endpoint": "admin.create_group_chat",
+      "handler": "create_group_chat",
+      "file": "backend/admin/routes.py",
+      "line": 566
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/disputes/<int:trip_id>/resolve",
+      "endpoint": "admin.resolve_dispute",
+      "handler": "resolve_dispute",
+      "file": "backend/admin/routes.py",
+      "line": 521
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/freight-settlements/<int:settlement_id>/resolve",
+      "endpoint": "orders.resolve_delivery_settlement_route",
+      "handler": "resolve_delivery_settlement_route",
+      "file": "backend/orders/routes.py",
+      "line": 150
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/one-time-disputes",
+      "endpoint": "admin.list_one_time_disputes",
+      "handler": "list_one_time_disputes",
+      "file": "backend/admin/routes.py",
+      "line": 824
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/one-time-disputes/<int:dispute_id>",
+      "endpoint": "admin.one_time_dispute_detail",
+      "handler": "one_time_dispute_detail",
+      "file": "backend/admin/routes.py",
+      "line": 870
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/one-time-disputes/<int:dispute_id>/resolve",
+      "endpoint": "admin.resolve_one_time_dispute",
+      "handler": "resolve_one_time_dispute",
+      "file": "backend/admin/routes.py",
+      "line": 924
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/operational-incidents",
+      "endpoint": "driver.list_operational_investigations",
+      "handler": "list_operational_investigations",
+      "file": "backend/driver/business_rules.py",
+      "line": 147
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/operational-incidents/<int:incident_id>/decision",
+      "endpoint": "driver.decide_operational_incident",
+      "handler": "decide_operational_incident",
+      "file": "backend/driver/business_rules.py",
+      "line": 130
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/owner-operator-credentials/<int:user_id>",
+      "endpoint": "driver.verify_owner_credentials",
+      "handler": "verify_owner_credentials",
+      "file": "backend/driver/business_rules.py",
+      "line": 80
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/payments",
+      "endpoint": "admin.payments",
+      "handler": "payments",
+      "file": "backend/admin/routes.py",
+      "line": 603
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/payments/apply-penalties",
+      "endpoint": "admin.apply_penalties",
+      "handler": "apply_penalties",
+      "file": "backend/admin/routes.py",
+      "line": 652
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/payments/process",
+      "endpoint": "admin.process_payments",
+      "handler": "process_payments",
+      "file": "backend/admin/routes.py",
+      "line": 641
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/platform-settings/commissions",
+      "endpoint": "admin.commission_settings",
+      "handler": "commission_settings",
+      "file": "backend/admin/routes.py",
+      "line": 667
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/platform-settings/commissions",
+      "endpoint": "admin.publish_commission",
+      "handler": "publish_commission",
+      "file": "backend/admin/routes.py",
+      "line": 712
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/platform-settings/commissions/history",
+      "endpoint": "admin.commission_history",
+      "handler": "commission_history",
+      "file": "backend/admin/routes.py",
+      "line": 681
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/trucks",
+      "endpoint": "admin.list_trucks",
+      "handler": "list_trucks",
+      "file": "backend/admin/routes.py",
+      "line": 288
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/trucks/<int:truck_id>",
+      "endpoint": "admin.truck_detail",
+      "handler": "truck_detail",
+      "file": "backend/admin/routes.py",
+      "line": 321
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users",
+      "endpoint": "admin.list_users",
+      "handler": "list_users",
+      "file": "backend/admin/routes.py",
+      "line": 198
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users",
+      "endpoint": "admin.create_admin",
+      "handler": "create_admin",
+      "file": "backend/admin/routes.py",
+      "line": 229
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/<int:user_id>",
+      "endpoint": "admin.user_detail",
+      "handler": "user_detail",
+      "file": "backend/admin/routes.py",
+      "line": 250
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/users/<int:user_id>/block",
+      "endpoint": "admin.block_user",
+      "handler": "block_user",
+      "file": "backend/admin/routes.py",
+      "line": 271
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/wallet/withdrawals",
+      "endpoint": "admin.withdrawals",
+      "handler": "withdrawals",
+      "file": "backend/admin/routes.py",
+      "line": 339
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/wallet/withdrawals/<int:request_id>/approve",
+      "endpoint": "admin.approve_withdrawal",
+      "handler": "approve_withdrawal",
+      "file": "backend/admin/routes.py",
+      "line": 363
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/wallet/withdrawals/<int:request_id>/reject",
+      "endpoint": "admin.reject_withdrawal",
+      "handler": "reject_withdrawal",
+      "file": "backend/admin/routes.py",
+      "line": 413
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/<int:agreement_id>",
+      "endpoint": "agreements.agreement_detail",
+      "handler": "agreement_detail",
+      "file": "backend/agreements/routes.py",
+      "line": 1047
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/<int:agreement_id>/payments",
+      "endpoint": "agreements.list_payments",
+      "handler": "list_payments",
+      "file": "backend/agreements/routes.py",
+      "line": 1015
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/<int:agreement_id>/trips",
+      "endpoint": "agreements.list_trips",
+      "handler": "list_trips",
+      "file": "backend/agreements/routes.py",
+      "line": 910
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/<int:agreement_id>/trips",
+      "endpoint": "agreements.start_trip",
+      "handler": "start_trip",
+      "file": "backend/agreements/routes.py",
+      "line": 660
+    },
+    {
+      "method": "PUT",
+      "path": "/api/agreements/<int:agreement_id>/trips/<int:trip_id>/end",
+      "endpoint": "agreements.end_trip",
+      "handler": "end_trip",
+      "file": "backend/agreements/routes.py",
+      "line": 720
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/apply-penalties",
+      "endpoint": "agreements.apply_penalties",
+      "handler": "apply_penalties",
+      "file": "backend/agreements/routes.py",
+      "line": 1079
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/finalize",
+      "endpoint": "agreements.finalize_agreement",
+      "handler": "finalize_agreement",
+      "file": "backend/agreements/routes.py",
+      "line": 473
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/my",
+      "endpoint": "agreements.my_agreements",
+      "handler": "my_agreements",
+      "file": "backend/agreements/routes.py",
+      "line": 938
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/posts",
+      "endpoint": "agreements.create_post",
+      "handler": "create_post",
+      "file": "backend/agreements/routes.py",
+      "line": 182
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/posts/<int:post_id>/bids",
+      "endpoint": "agreements.list_bids",
+      "handler": "list_bids",
+      "file": "backend/agreements/routes.py",
+      "line": 386
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/posts/<int:post_id>/bids",
+      "endpoint": "agreements.create_bid",
+      "handler": "create_bid",
+      "file": "backend/agreements/routes.py",
+      "line": 289
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/posts/<int:post_id>/bids/<int:bid_id>/invite",
+      "endpoint": "agreements.invite_bid",
+      "handler": "invite_bid",
+      "file": "backend/agreements/routes.py",
+      "line": 445
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/posts/available",
+      "endpoint": "agreements.available_posts",
+      "handler": "available_posts",
+      "file": "backend/agreements/routes.py",
+      "line": 245
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/process-payments",
+      "endpoint": "agreements.process_payments",
+      "handler": "process_payments",
+      "file": "backend/agreements/routes.py",
+      "line": 1063
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/trips/<int:trip_id>/dispute",
+      "endpoint": "agreements.dispute_trip",
+      "handler": "dispute_trip",
+      "file": "backend/agreements/routes.py",
+      "line": 870
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/trips/<int:trip_id>/live-location",
+      "endpoint": "agreements.trip_live_location",
+      "handler": "trip_live_location",
+      "file": "backend/agreements/routes.py",
+      "line": 821
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/access/unlock/password",
+      "endpoint": "api_auth.password_unlock",
+      "handler": "password_unlock",
+      "file": "backend/auth/routes.py",
+      "line": 1397
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/csrf-token",
+      "endpoint": "api_auth.csrf_token",
+      "handler": "csrf_token",
+      "file": "backend/auth/routes.py",
+      "line": 335
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/fast-login/disable",
+      "endpoint": "api_auth.disable_fast_login",
+      "handler": "disable_fast_login",
+      "file": "backend/auth/routes.py",
+      "line": 1188
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/fast-login/mpin",
+      "endpoint": "api_auth.fast_login_mpin",
+      "handler": "fast_login_mpin",
+      "file": "backend/auth/routes.py",
+      "line": 1169
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/fast-login/options",
+      "endpoint": "api_auth.fast_login_options",
+      "handler": "fast_login_options",
+      "file": "backend/auth/routes.py",
+      "line": 1163
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/fast-login/setup",
+      "endpoint": "api_auth.setup_fast_login",
+      "handler": "setup_fast_login",
+      "file": "backend/auth/routes.py",
+      "line": 1177
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/forgot-password",
+      "endpoint": "api_auth.forgot_password",
+      "handler": "forgot_password",
+      "file": "backend/auth/routes.py",
+      "line": 1036
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/login",
+      "endpoint": "api_auth.login",
+      "handler": "login",
+      "file": "backend/auth/routes.py",
+      "line": 486
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout",
+      "endpoint": "api_auth.logout",
+      "handler": "logout",
+      "file": "backend/auth/routes.py",
+      "line": 910
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/logout-all",
+      "endpoint": "api_auth.logout_all",
+      "handler": "logout_all",
+      "file": "backend/auth/routes.py",
+      "line": 948
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/me",
+      "endpoint": "api_auth.auth_me",
+      "handler": "auth_me",
+      "file": "backend/auth/routes.py",
+      "line": 666
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/mpin/change",
+      "endpoint": "api_auth.mpin_change",
+      "handler": "mpin_change",
+      "file": "backend/auth/routes.py",
+      "line": 1440
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/mpin/disable",
+      "endpoint": "api_auth.mpin_disable",
+      "handler": "mpin_disable",
+      "file": "backend/auth/routes.py",
+      "line": 1518
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/mpin/enroll",
+      "endpoint": "api_auth.mpin_enroll",
+      "handler": "mpin_enroll",
+      "file": "backend/auth/routes.py",
+      "line": 1229
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/mpin/password-unlock",
+      "endpoint": "api_auth.password_unlock",
+      "handler": "password_unlock",
+      "file": "backend/auth/routes.py",
+      "line": 1397
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/mpin/reset",
+      "endpoint": "api_auth.mpin_reset",
+      "handler": "mpin_reset",
+      "file": "backend/auth/routes.py",
+      "line": 1752
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/mpin/status",
+      "endpoint": "api_auth.mpin_status",
+      "handler": "mpin_status",
+      "file": "backend/auth/routes.py",
+      "line": 1199
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/mpin/step-up",
+      "endpoint": "api_auth.mpin_step_up",
+      "handler": "mpin_step_up",
+      "file": "backend/auth/routes.py",
+      "line": 1620
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/mpin/unlock",
+      "endpoint": "api_auth.mpin_unlock",
+      "handler": "mpin_unlock",
+      "file": "backend/auth/routes.py",
+      "line": 1293
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/password-reset/verify-otp",
+      "endpoint": "api_auth.verify_password_reset_otp",
+      "handler": "verify_password_reset_otp",
+      "file": "backend/auth/routes.py",
+      "line": 1076
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/reset-password",
+      "endpoint": "api_auth.reset_password",
+      "handler": "reset_password",
+      "file": "backend/auth/routes.py",
+      "line": 1099
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/security/devices",
+      "endpoint": "api_auth.active_security_devices",
+      "handler": "active_security_devices",
+      "file": "backend/auth/routes.py",
+      "line": 719
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/auth/security/devices/<string:management_ref>",
+      "endpoint": "api_auth.revoke_security_device",
+      "handler": "revoke_security_device",
+      "file": "backend/auth/routes.py",
+      "line": 777
+    },
+    {
+      "method": "GET",
+      "path": "/api/auth/security/sessions",
+      "endpoint": "api_auth.active_security_sessions",
+      "handler": "active_security_sessions",
+      "file": "backend/auth/routes.py",
+      "line": 707
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/auth/security/sessions/<string:management_ref>",
+      "endpoint": "api_auth.revoke_security_session",
+      "handler": "revoke_security_session",
+      "file": "backend/auth/routes.py",
+      "line": 737
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/session/activity",
+      "endpoint": "api_auth.genuine_session_activity",
+      "handler": "genuine_session_activity",
+      "file": "backend/auth/routes.py",
+      "line": 817
+    },
+    {
+      "method": "POST",
+      "path": "/api/auth/signup",
+      "endpoint": "api_auth.signup",
+      "handler": "signup",
+      "file": "backend/auth/routes.py",
+      "line": 340
+    },
+    {
+      "method": "GET",
+      "path": "/api/business-rules/fees",
+      "endpoint": "orders.approved_business_fees",
+      "handler": "approved_business_fees",
+      "file": "backend/orders/routes.py",
+      "line": 168
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/truck-types",
+      "endpoint": "trucks.truck_types_catalog",
+      "handler": "truck_types_catalog",
+      "file": "backend/trucks/routes.py",
+      "line": 125
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/truck-types/<string:type_key>/fields",
+      "endpoint": "trucks.truck_type_fields",
+      "handler": "truck_type_fields",
+      "file": "backend/trucks/routes.py",
+      "line": 130
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/threads",
+      "endpoint": "chat.list_threads",
+      "handler": "list_threads",
+      "file": "backend/chat/routes.py",
+      "line": 203
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/threads/<int:thread_id>/messages",
+      "endpoint": "chat.list_messages",
+      "handler": "list_messages",
+      "file": "backend/chat/routes.py",
+      "line": 261
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/threads/<int:thread_id>/messages",
+      "endpoint": "chat.send_message",
+      "handler": "send_message",
+      "file": "backend/chat/routes.py",
+      "line": 343
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/threads/<int:thread_id>/messages/<int:message_id>/respond-media-request",
+      "endpoint": "chat.respond_media_request",
+      "handler": "respond_media_request",
+      "file": "backend/chat/routes.py",
+      "line": 369
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/threads/<int:thread_id>/messages/media",
+      "endpoint": "chat.send_media_message",
+      "handler": "send_media_message",
+      "file": "backend/chat/routes.py",
+      "line": 423
+    },
+    {
+      "method": "POST",
+      "path": "/api/contact",
+      "endpoint": "contact.submit_contact",
+      "handler": "submit_contact",
+      "file": "backend/contact/routes.py",
+      "line": 12
+    },
+    {
+      "method": "POST",
+      "path": "/api/disputes/<int:dispute_id>/statement",
+      "endpoint": "orders.submit_dispute_statement",
+      "handler": "submit_dispute_statement",
+      "file": "backend/orders/routes.py",
+      "line": 1140
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/fuel-logs",
+      "endpoint": "driver.get_driver_fuel_logs",
+      "handler": "get_driver_fuel_logs",
+      "file": "backend/driver/routes.py",
+      "line": 782
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/fuel-logs",
+      "endpoint": "driver.create_driver_fuel_log",
+      "handler": "create_driver_fuel_log",
+      "file": "backend/driver/routes.py",
+      "line": 835
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/gps/ping",
+      "endpoint": "driver.post_gps_ping",
+      "handler": "post_gps_ping",
+      "file": "backend/driver/routes.py",
+      "line": 148
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/hire-contracts",
+      "endpoint": "driver.get_driver_hire_contracts",
+      "handler": "get_driver_hire_contracts",
+      "file": "backend/driver/routes.py",
+      "line": 647
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/hire-contracts/<int:contract_id>/respond",
+      "endpoint": "driver.respond_hire_contract",
+      "handler": "respond_hire_contract",
+      "file": "backend/driver/routes.py",
+      "line": 671
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/lookup/<unique_id>",
+      "endpoint": "driver.lookup_driver",
+      "handler": "lookup_driver",
+      "file": "backend/driver/routes.py",
+      "line": 300
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/me",
+      "endpoint": "driver.get_driver_profile",
+      "handler": "get_driver_profile",
+      "file": "backend/driver/routes.py",
+      "line": 91
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/rate",
+      "endpoint": "driver.rate_driver",
+      "handler": "rate_driver",
+      "file": "backend/driver/routes.py",
+      "line": 499
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/trips-for-fuel",
+      "endpoint": "driver.get_driver_trips_for_fuel",
+      "handler": "get_driver_trips_for_fuel",
+      "file": "backend/driver/routes.py",
+      "line": 735
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/trips/<int:assignment_id>/respond",
+      "endpoint": "driver.respond_trip_assignment",
+      "handler": "respond_trip_assignment",
+      "file": "backend/driver/routes.py",
+      "line": 224
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuel/vouchers",
+      "endpoint": "driver.fuel_voucher_list",
+      "handler": "fuel_voucher_list",
+      "file": "backend/fuelstation/vouchers.py",
+      "line": 114
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuel/vouchers",
+      "endpoint": "driver.fuel_voucher_create",
+      "handler": "fuel_voucher_create",
+      "file": "backend/fuelstation/vouchers.py",
+      "line": 109
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuel/vouchers/<int:voucher_id>/cancel",
+      "endpoint": "driver.fuel_voucher_cancel",
+      "handler": "fuel_voucher_cancel",
+      "file": "backend/fuelstation/vouchers.py",
+      "line": 128
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuelstation/dashboard",
+      "endpoint": "fuelstation.fuel_dashboard",
+      "handler": "fuel_dashboard",
+      "file": "backend/fuelstation/routes.py",
+      "line": 44
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuelstation/dispense",
+      "endpoint": "fuelstation.record_dispense",
+      "handler": "record_dispense",
+      "file": "backend/fuelstation/routes.py",
+      "line": 292
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuelstation/dispenses",
+      "endpoint": "fuelstation.get_dispenses",
+      "handler": "get_dispenses",
+      "file": "backend/fuelstation/routes.py",
+      "line": 398
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuelstation/profile",
+      "endpoint": "fuelstation.get_profile",
+      "handler": "get_profile",
+      "file": "backend/fuelstation/routes.py",
+      "line": 454
+    },
+    {
+      "method": "PUT",
+      "path": "/api/fuelstation/profile",
+      "endpoint": "fuelstation.update_profile",
+      "handler": "update_profile",
+      "file": "backend/fuelstation/routes.py",
+      "line": 491
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuelstation/pumps",
+      "endpoint": "fuelstation.get_pumps",
+      "handler": "get_pumps",
+      "file": "backend/fuelstation/routes.py",
+      "line": 165
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuelstation/pumps",
+      "endpoint": "fuelstation.create_pump",
+      "handler": "create_pump",
+      "file": "backend/fuelstation/routes.py",
+      "line": 202
+    },
+    {
+      "method": "PUT",
+      "path": "/api/fuelstation/pumps/<int:pump_id>",
+      "endpoint": "fuelstation.update_pump",
+      "handler": "update_pump",
+      "file": "backend/fuelstation/routes.py",
+      "line": 245
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuelstation/vouchers/<int:voucher_id>/dispense",
+      "endpoint": "fuelstation.fuel_voucher_dispense",
+      "handler": "fuel_voucher_dispense",
+      "file": "backend/fuelstation/vouchers.py",
+      "line": 49
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuelstation/vouchers/verify",
+      "endpoint": "fuelstation.fuel_voucher_verify",
+      "handler": "fuel_voucher_verify",
+      "file": "backend/fuelstation/vouchers.py",
+      "line": 42
+    },
+    {
+      "method": "GET",
+      "path": "/api/history/account",
+      "endpoint": "wallet.wallet_transactions",
+      "handler": "wallet_transactions",
+      "file": "backend/wallet/routes.py",
+      "line": 278
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/admin/orders/<int:order_id>/refund",
+      "endpoint": "marketplace.admin_refund_marketplace_order",
+      "handler": "admin_refund_marketplace_order",
+      "file": "backend/marketplace/routes.py",
+      "line": 258
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/my-orders",
+      "endpoint": "marketplace.get_my_orders",
+      "handler": "get_my_orders",
+      "file": "backend/marketplace/routes.py",
+      "line": 219
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/orders",
+      "endpoint": "marketplace.create_order",
+      "handler": "create_order",
+      "file": "backend/marketplace/routes.py",
+      "line": 193
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/orders/<int:order_id>/delivery-otp",
+      "endpoint": "marketplace.request_delivery_otp",
+      "handler": "request_delivery_otp",
+      "file": "backend/marketplace/routes.py",
+      "line": 354
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/parts",
+      "endpoint": "marketplace.list_parts",
+      "handler": "list_parts",
+      "file": "backend/marketplace/routes.py",
+      "line": 121
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/parts/<int:part_id>",
+      "endpoint": "marketplace.get_part_detail",
+      "handler": "get_part_detail",
+      "file": "backend/marketplace/routes.py",
+      "line": 170
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/rfq",
+      "endpoint": "marketplace.get_rfqs",
+      "handler": "get_rfqs",
+      "file": "backend/marketplace/routes.py",
+      "line": 512
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/rfq",
+      "endpoint": "marketplace.create_rfq",
+      "handler": "create_rfq",
+      "file": "backend/marketplace/routes.py",
+      "line": 464
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/rfq/<int:rfq_id>/bid",
+      "endpoint": "marketplace.submit_rfq_bid",
+      "handler": "submit_rfq_bid",
+      "file": "backend/marketplace/routes.py",
+      "line": 550
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/shop/orders",
+      "endpoint": "marketplace.get_shop_orders",
+      "handler": "get_shop_orders",
+      "file": "backend/marketplace/routes.py",
+      "line": 272
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/shop/orders/<int:order_id>/status",
+      "endpoint": "marketplace.update_shop_order_status",
+      "handler": "update_shop_order_status",
+      "file": "backend/marketplace/routes.py",
+      "line": 306
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/shop/orders/<int:order_id>/verify-otp",
+      "endpoint": "marketplace.verify_delivery_otp",
+      "handler": "verify_delivery_otp",
+      "file": "backend/marketplace/routes.py",
+      "line": 337
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/shop/parts",
+      "endpoint": "marketplace.get_shop_parts",
+      "handler": "get_shop_parts",
+      "file": "backend/marketplace/routes.py",
+      "line": 370
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/shop/parts",
+      "endpoint": "marketplace.add_shop_part",
+      "handler": "add_shop_part",
+      "file": "backend/marketplace/routes.py",
+      "line": 385
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/marketplace/shop/parts/<int:part_id>",
+      "endpoint": "marketplace.delete_shop_part",
+      "handler": "delete_shop_part",
+      "file": "backend/marketplace/routes.py",
+      "line": 440
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications",
+      "endpoint": "orders.list_notifications",
+      "handler": "list_notifications",
+      "file": "backend/orders/routes.py",
+      "line": 1214
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/<int:notification_id>/read",
+      "endpoint": "orders.mark_notification_read",
+      "handler": "mark_notification_read",
+      "file": "backend/orders/routes.py",
+      "line": 1234
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/read-all",
+      "endpoint": "orders.mark_all_notifications_read",
+      "handler": "mark_all_notifications_read",
+      "file": "backend/orders/routes.py",
+      "line": 1249
+    },
+    {
+      "method": "POST",
+      "path": "/api/operational-incidents",
+      "endpoint": "driver.report_operational_incident",
+      "handler": "report_operational_incident",
+      "file": "backend/driver/business_rules.py",
+      "line": 102
+    },
+    {
+      "method": "GET",
+      "path": "/api/operational-incidents/<int:incident_id>",
+      "endpoint": "driver.read_operational_investigation",
+      "handler": "read_operational_investigation",
+      "file": "backend/driver/business_rules.py",
+      "line": 171
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders",
+      "endpoint": "orders.create_order",
+      "handler": "create_order",
+      "file": "backend/orders/routes.py",
+      "line": 222
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/<int:order_id>",
+      "endpoint": "orders.get_order_details",
+      "handler": "get_order_details",
+      "file": "backend/orders/routes.py",
+      "line": 674
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/accept-bid/<int:bid_id>",
+      "endpoint": "orders.accept_bid",
+      "handler": "accept_bid",
+      "file": "backend/orders/routes.py",
+      "line": 915
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/bids",
+      "endpoint": "orders.create_bid",
+      "handler": "create_bid",
+      "file": "backend/orders/routes.py",
+      "line": 500
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/bids/<int:bid_id>/checkout",
+      "endpoint": "orders.checkout_bid",
+      "handler": "checkout_bid",
+      "file": "backend/orders/routes.py",
+      "line": 785
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/<int:order_id>/bids/<int:bid_id>/payment-quote",
+      "endpoint": "orders.bid_payment_quote",
+      "handler": "bid_payment_quote",
+      "file": "backend/orders/routes.py",
+      "line": 754
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/bids/<int:bid_id>/withdraw",
+      "endpoint": "orders.withdraw_bid",
+      "handler": "withdraw_bid",
+      "file": "backend/orders/routes.py",
+      "line": 610
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/<int:order_id>/market-reference",
+      "endpoint": "orders.get_market_reference",
+      "handler": "get_market_reference",
+      "file": "backend/orders/routes.py",
+      "line": 175
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/complete-delivery",
+      "endpoint": "orders.complete_delivery",
+      "handler": "complete_delivery",
+      "file": "backend/orders/routes.py",
+      "line": 955
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/confirm-delivery",
+      "endpoint": "orders.confirm_delivery",
+      "handler": "confirm_delivery",
+      "file": "backend/orders/routes.py",
+      "line": 991
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/delivery-otp",
+      "endpoint": "orders.delivery_otp_channel",
+      "handler": "delivery_otp_channel",
+      "file": "backend/orders/routes.py",
+      "line": 77
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/delivery-otp",
+      "endpoint": "orders.delivery_otp_channel",
+      "handler": "delivery_otp_channel",
+      "file": "backend/orders/routes.py",
+      "line": 77
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/disputes",
+      "endpoint": "orders.open_delivery_dispute_route",
+      "handler": "open_delivery_dispute_route",
+      "file": "backend/orders/routes.py",
+      "line": 133
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/mark-completed",
+      "endpoint": "orders.complete_delivery",
+      "handler": "complete_delivery",
+      "file": "backend/orders/routes.py",
+      "line": 955
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/process-payment",
+      "endpoint": "orders.process_trip_payment",
+      "handler": "process_trip_payment",
+      "file": "backend/orders/routes.py",
+      "line": 935
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/review",
+      "endpoint": "orders.fetch_trip_review",
+      "handler": "fetch_trip_review",
+      "file": "backend/orders/routes.py",
+      "line": 1129
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/review",
+      "endpoint": "orders.submit_trip_review",
+      "handler": "submit_trip_review",
+      "file": "backend/orders/routes.py",
+      "line": 1098
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/start",
+      "endpoint": "orders.start_trip",
+      "handler": "start_trip",
+      "file": "backend/orders/routes.py",
+      "line": 888
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/verify-delivery",
+      "endpoint": "orders.confirm_delivery",
+      "handler": "confirm_delivery",
+      "file": "backend/orders/routes.py",
+      "line": 991
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/<int:order_id>/trips/<int:trip_id>/verify-delivery-otp",
+      "endpoint": "orders.verify_delivery_otp_route",
+      "handler": "verify_delivery_otp_route",
+      "file": "backend/orders/routes.py",
+      "line": 111
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/available",
+      "endpoint": "orders.available_orders",
+      "handler": "available_orders",
+      "file": "backend/orders/routes.py",
+      "line": 422
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/my-bids",
+      "endpoint": "orders.get_my_bids",
+      "handler": "get_my_bids",
+      "file": "backend/orders/routes.py",
+      "line": 1185
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/my-orders",
+      "endpoint": "orders.get_my_orders",
+      "handler": "get_my_orders",
+      "file": "backend/orders/routes.py",
+      "line": 1163
+    },
+    {
+      "method": "GET",
+      "path": "/api/payment-methods",
+      "endpoint": "payments.get_payment_methods",
+      "handler": "get_payment_methods",
+      "file": "backend/payments/routes.py",
+      "line": 62
+    },
+    {
+      "method": "POST",
+      "path": "/api/payment-methods",
+      "endpoint": "payments.add_payment_method",
+      "handler": "add_payment_method",
+      "file": "backend/payments/routes.py",
+      "line": 73
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/payment-methods/<int:method_id>",
+      "endpoint": "payments.remove_payment_method",
+      "handler": "remove_payment_method",
+      "file": "backend/payments/routes.py",
+      "line": 136
+    },
+    {
+      "method": "PUT",
+      "path": "/api/payment-methods/<int:method_id>",
+      "endpoint": "payments.update_payment_method",
+      "handler": "update_payment_method",
+      "file": "backend/payments/routes.py",
+      "line": 99
+    },
+    {
+      "method": "GET",
+      "path": "/api/payment-preferences",
+      "endpoint": "payments.get_preferences",
+      "handler": "get_preferences",
+      "file": "backend/payments/routes.py",
+      "line": 163
+    },
+    {
+      "method": "PUT",
+      "path": "/api/payment-preferences",
+      "endpoint": "payments.update_preferences",
+      "handler": "update_preferences",
+      "file": "backend/payments/routes.py",
+      "line": 174
+    },
+    {
+      "method": "POST",
+      "path": "/api/platform/terms/<int:terms_version_id>/acknowledge",
+      "endpoint": "platform_terms.acknowledge_terms",
+      "handler": "acknowledge_terms",
+      "file": "backend/terms/routes.py",
+      "line": 70
+    },
+    {
+      "method": "GET",
+      "path": "/api/platform/terms/current",
+      "endpoint": "platform_terms.current_terms",
+      "handler": "current_terms",
+      "file": "backend/terms/routes.py",
+      "line": 39
+    },
+    {
+      "method": "GET",
+      "path": "/api/platform/terms/history",
+      "endpoint": "platform_terms.terms_history",
+      "handler": "terms_history",
+      "file": "backend/terms/routes.py",
+      "line": 61
+    },
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "endpoint": "profile.profile_get",
+      "handler": "profile_get",
+      "file": "backend/profile/routes.py",
+      "line": 28
+    },
+    {
+      "method": "PUT",
+      "path": "/api/profile",
+      "endpoint": "profile.profile_update",
+      "handler": "profile_update",
+      "file": "backend/profile/routes.py",
+      "line": 34
+    },
+    {
+      "method": "PUT",
+      "path": "/api/profile/password",
+      "endpoint": "profile.change_password",
+      "handler": "change_password",
+      "file": "backend/profile/routes.py",
+      "line": 111
+    },
+    {
+      "method": "POST",
+      "path": "/api/profile/password/request-otp",
+      "endpoint": "profile.request_password_change_otp",
+      "handler": "request_password_change_otp",
+      "file": "backend/profile/routes.py",
+      "line": 69
+    },
+    {
+      "method": "GET",
+      "path": "/api/reviews/pending",
+      "endpoint": "orders.list_pending_reviews",
+      "handler": "list_pending_reviews",
+      "file": "backend/orders/routes.py",
+      "line": 1087
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "endpoint": "settings.settings_get",
+      "handler": "settings_get",
+      "file": "backend/settings/routes.py",
+      "line": 10
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings",
+      "endpoint": "settings.settings_update",
+      "handler": "settings_update",
+      "file": "backend/settings/routes.py",
+      "line": 16
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/notifications",
+      "endpoint": "settings.settings_notifications",
+      "handler": "settings_notifications",
+      "file": "backend/settings/routes.py",
+      "line": 39
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/security/activity",
+      "endpoint": "settings.security_activity",
+      "handler": "security_activity",
+      "file": "backend/settings/routes.py",
+      "line": 61
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/products",
+      "endpoint": "shopkeeper.list_products",
+      "handler": "list_products",
+      "file": "backend/shopkeeper/routes.py",
+      "line": 63
+    },
+    {
+      "method": "POST",
+      "path": "/api/shopkeeper/products",
+      "endpoint": "shopkeeper.create_product",
+      "handler": "create_product",
+      "file": "backend/shopkeeper/routes.py",
+      "line": 82
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/shopkeeper/products/<int:product_id>",
+      "endpoint": "shopkeeper.delete_product",
+      "handler": "delete_product",
+      "file": "backend/shopkeeper/routes.py",
+      "line": 136
+    },
+    {
+      "method": "PUT",
+      "path": "/api/shopkeeper/products/<int:product_id>",
+      "endpoint": "shopkeeper.update_product",
+      "handler": "update_product",
+      "file": "backend/shopkeeper/routes.py",
+      "line": 107
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/sales",
+      "endpoint": "shopkeeper.list_sales",
+      "handler": "list_sales",
+      "file": "backend/shopkeeper/routes.py",
+      "line": 300
+    },
+    {
+      "method": "POST",
+      "path": "/api/shopkeeper/sales",
+      "endpoint": "shopkeeper.create_sale",
+      "handler": "create_sale",
+      "file": "backend/shopkeeper/routes.py",
+      "line": 196
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/sales/<int:sale_id>",
+      "endpoint": "shopkeeper.get_sale",
+      "handler": "get_sale",
+      "file": "backend/shopkeeper/routes.py",
+      "line": 287
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/sales/analytics",
+      "endpoint": "shopkeeper.sales_analytics",
+      "handler": "sales_analytics",
+      "file": "backend/shopkeeper/routes.py",
+      "line": 335
+    },
+    {
+      "method": "POST",
+      "path": "/api/track",
+      "endpoint": "tracking.api_track",
+      "handler": "api_track",
+      "file": "backend/tracking/routes.py",
+      "line": 18
+    },
+    {
+      "method": "POST",
+      "path": "/api/transporter/dispatch-driver",
+      "endpoint": "driver.dispatch_trip_to_driver",
+      "handler": "dispatch_trip_to_driver",
+      "file": "backend/driver/routes.py",
+      "line": 401
+    },
+    {
+      "method": "POST",
+      "path": "/api/transporter/drive-myself",
+      "endpoint": "driver.drive_myself",
+      "handler": "drive_myself",
+      "file": "backend/driver/business_rules.py",
+      "line": 30
+    },
+    {
+      "method": "GET",
+      "path": "/api/transporter/driver-assignments",
+      "endpoint": "driver.list_transporter_driver_assignments",
+      "handler": "list_transporter_driver_assignments",
+      "file": "backend/driver/routes.py",
+      "line": 354
+    },
+    {
+      "method": "POST",
+      "path": "/api/transporter/hire-driver-permanent",
+      "endpoint": "driver.offer_permanent_hire",
+      "handler": "offer_permanent_hire",
+      "file": "backend/driver/routes.py",
+      "line": 593
+    },
+    {
+      "method": "POST",
+      "path": "/api/transporter/owner-operator/gps",
+      "endpoint": "driver.post_gps_ping",
+      "handler": "post_gps_ping",
+      "file": "backend/driver/routes.py",
+      "line": 148
+    },
+    {
+      "method": "POST",
+      "path": "/api/transporter/trips/<int:assignment_id>/cancellation-request",
+      "endpoint": "driver.request_trip_cancellation",
+      "handler": "request_trip_cancellation",
+      "file": "backend/driver/business_rules.py",
+      "line": 187
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks",
+      "endpoint": "trucks.list_trucks",
+      "handler": "list_trucks",
+      "file": "backend/trucks/routes.py",
+      "line": 359
+    },
+    {
+      "method": "POST",
+      "path": "/api/trucks",
+      "endpoint": "trucks.create_truck",
+      "handler": "create_truck",
+      "file": "backend/trucks/routes.py",
+      "line": 196
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/<int:truck_id>",
+      "endpoint": "trucks.get_truck",
+      "handler": "get_truck",
+      "file": "backend/trucks/routes.py",
+      "line": 407
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/<int:truck_id>/configuration",
+      "endpoint": "trucks.get_truck_configuration",
+      "handler": "get_truck_configuration",
+      "file": "backend/trucks/routes.py",
+      "line": 470
+    },
+    {
+      "method": "PUT",
+      "path": "/api/trucks/<int:truck_id>/configuration",
+      "endpoint": "trucks.update_truck_configuration",
+      "handler": "update_truck_configuration",
+      "file": "backend/trucks/routes.py",
+      "line": 479
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/<int:truck_id>/live-location",
+      "endpoint": "trucks.truck_live_location",
+      "handler": "truck_live_location",
+      "file": "backend/trucks/routes.py",
+      "line": 416
+    },
+    {
+      "method": "PUT",
+      "path": "/api/trucks/<int:truck_id>/status",
+      "endpoint": "trucks.update_truck_status",
+      "handler": "update_truck_status",
+      "file": "backend/trucks/routes.py",
+      "line": 668
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/stats",
+      "endpoint": "trucks.truck_stats",
+      "handler": "truck_stats",
+      "file": "backend/trucks/routes.py",
+      "line": 375
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet",
+      "endpoint": "wallet.get_wallet",
+      "handler": "get_wallet",
+      "file": "backend/wallet/routes.py",
+      "line": 87
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/earnings-summary",
+      "endpoint": "wallet.earnings_summary",
+      "handler": "earnings_summary",
+      "file": "backend/wallet/routes.py",
+      "line": 96
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/lock",
+      "endpoint": "wallet.lock_wallet_balance",
+      "handler": "lock_wallet_balance",
+      "file": "backend/wallet/routes.py",
+      "line": 343
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/payout-card",
+      "endpoint": "wallet.get_payout_card",
+      "handler": "get_payout_card",
+      "file": "backend/wallet/routes.py",
+      "line": 671
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/payout-card",
+      "endpoint": "wallet.save_payout_card",
+      "handler": "save_payout_card",
+      "file": "backend/wallet/routes.py",
+      "line": 697
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/topup",
+      "endpoint": "wallet.topup_wallet",
+      "handler": "topup_wallet",
+      "file": "backend/wallet/routes.py",
+      "line": 237
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/transactions",
+      "endpoint": "wallet.wallet_transactions",
+      "handler": "wallet_transactions",
+      "file": "backend/wallet/routes.py",
+      "line": 278
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/unlock",
+      "endpoint": "wallet.unlock_wallet_balance",
+      "handler": "unlock_wallet_balance",
+      "file": "backend/wallet/routes.py",
+      "line": 354
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/upgrade-limit",
+      "endpoint": "wallet.upgrade_withdrawal_limit",
+      "handler": "upgrade_withdrawal_limit",
+      "file": "backend/wallet/routes.py",
+      "line": 551
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/withdraw-locked",
+      "endpoint": "wallet.create_locked_withdrawal_request",
+      "handler": "create_locked_withdrawal_request",
+      "file": "backend/wallet/routes.py",
+      "line": 365
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/withdrawal-limits",
+      "endpoint": "wallet.get_withdrawal_limits",
+      "handler": "get_withdrawal_limits",
+      "file": "backend/wallet/routes.py",
+      "line": 516
+    },
+    {
+      "method": "POST",
+      "path": "/auth/access/unlock/password",
+      "endpoint": "auth.password_unlock",
+      "handler": "password_unlock",
+      "file": "backend/auth/routes.py",
+      "line": 1397
+    },
+    {
+      "method": "GET",
+      "path": "/auth/csrf-token",
+      "endpoint": "auth.csrf_token",
+      "handler": "csrf_token",
+      "file": "backend/auth/routes.py",
+      "line": 335
+    },
+    {
+      "method": "POST",
+      "path": "/auth/fast-login/disable",
+      "endpoint": "auth.disable_fast_login",
+      "handler": "disable_fast_login",
+      "file": "backend/auth/routes.py",
+      "line": 1188
+    },
+    {
+      "method": "POST",
+      "path": "/auth/fast-login/mpin",
+      "endpoint": "auth.fast_login_mpin",
+      "handler": "fast_login_mpin",
+      "file": "backend/auth/routes.py",
+      "line": 1169
+    },
+    {
+      "method": "GET",
+      "path": "/auth/fast-login/options",
+      "endpoint": "auth.fast_login_options",
+      "handler": "fast_login_options",
+      "file": "backend/auth/routes.py",
+      "line": 1163
+    },
+    {
+      "method": "POST",
+      "path": "/auth/fast-login/setup",
+      "endpoint": "auth.setup_fast_login",
+      "handler": "setup_fast_login",
+      "file": "backend/auth/routes.py",
+      "line": 1177
+    },
+    {
+      "method": "POST",
+      "path": "/auth/forgot-password",
+      "endpoint": "auth.forgot_password",
+      "handler": "forgot_password",
+      "file": "backend/auth/routes.py",
+      "line": 1036
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "endpoint": "auth.login",
+      "handler": "login",
+      "file": "backend/auth/routes.py",
+      "line": 486
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "endpoint": "auth.logout",
+      "handler": "logout",
+      "file": "backend/auth/routes.py",
+      "line": 910
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout-all",
+      "endpoint": "auth.logout_all",
+      "handler": "logout_all",
+      "file": "backend/auth/routes.py",
+      "line": 948
+    },
+    {
+      "method": "GET",
+      "path": "/auth/me",
+      "endpoint": "auth.auth_me",
+      "handler": "auth_me",
+      "file": "backend/auth/routes.py",
+      "line": 666
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/change",
+      "endpoint": "auth.mpin_change",
+      "handler": "mpin_change",
+      "file": "backend/auth/routes.py",
+      "line": 1440
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/disable",
+      "endpoint": "auth.mpin_disable",
+      "handler": "mpin_disable",
+      "file": "backend/auth/routes.py",
+      "line": 1518
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/enroll",
+      "endpoint": "auth.mpin_enroll",
+      "handler": "mpin_enroll",
+      "file": "backend/auth/routes.py",
+      "line": 1229
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/password-unlock",
+      "endpoint": "auth.password_unlock",
+      "handler": "password_unlock",
+      "file": "backend/auth/routes.py",
+      "line": 1397
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/reset",
+      "endpoint": "auth.mpin_reset",
+      "handler": "mpin_reset",
+      "file": "backend/auth/routes.py",
+      "line": 1752
+    },
+    {
+      "method": "GET",
+      "path": "/auth/mpin/status",
+      "endpoint": "auth.mpin_status",
+      "handler": "mpin_status",
+      "file": "backend/auth/routes.py",
+      "line": 1199
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/step-up",
+      "endpoint": "auth.mpin_step_up",
+      "handler": "mpin_step_up",
+      "file": "backend/auth/routes.py",
+      "line": 1620
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/unlock",
+      "endpoint": "auth.mpin_unlock",
+      "handler": "mpin_unlock",
+      "file": "backend/auth/routes.py",
+      "line": 1293
+    },
+    {
+      "method": "POST",
+      "path": "/auth/password-reset/verify-otp",
+      "endpoint": "auth.verify_password_reset_otp",
+      "handler": "verify_password_reset_otp",
+      "file": "backend/auth/routes.py",
+      "line": 1076
+    },
+    {
+      "method": "POST",
+      "path": "/auth/reset-password",
+      "endpoint": "auth.reset_password",
+      "handler": "reset_password",
+      "file": "backend/auth/routes.py",
+      "line": 1099
+    },
+    {
+      "method": "GET",
+      "path": "/auth/security/devices",
+      "endpoint": "auth.active_security_devices",
+      "handler": "active_security_devices",
+      "file": "backend/auth/routes.py",
+      "line": 719
+    },
+    {
+      "method": "DELETE",
+      "path": "/auth/security/devices/<string:management_ref>",
+      "endpoint": "auth.revoke_security_device",
+      "handler": "revoke_security_device",
+      "file": "backend/auth/routes.py",
+      "line": 777
+    },
+    {
+      "method": "GET",
+      "path": "/auth/security/sessions",
+      "endpoint": "auth.active_security_sessions",
+      "handler": "active_security_sessions",
+      "file": "backend/auth/routes.py",
+      "line": 707
+    },
+    {
+      "method": "DELETE",
+      "path": "/auth/security/sessions/<string:management_ref>",
+      "endpoint": "auth.revoke_security_session",
+      "handler": "revoke_security_session",
+      "file": "backend/auth/routes.py",
+      "line": 737
+    },
+    {
+      "method": "POST",
+      "path": "/auth/session/activity",
+      "endpoint": "auth.genuine_session_activity",
+      "handler": "genuine_session_activity",
+      "file": "backend/auth/routes.py",
+      "line": 817
+    },
+    {
+      "method": "POST",
+      "path": "/auth/signup",
+      "endpoint": "auth.signup",
+      "handler": "signup",
+      "file": "backend/auth/routes.py",
+      "line": 340
+    },
+    {
+      "method": "GET",
+      "path": "/uploads/chat/<path:filename>",
+      "endpoint": "chat.serve_chat_upload",
+      "handler": "serve_chat_upload",
+      "file": "backend/chat/routes.py",
+      "line": 161
+    },
+    {
+      "method": "GET",
+      "path": "/uploads/trucks/<path:filename>",
+      "endpoint": "trucks.serve_truck_upload",
+      "handler": "serve_truck_upload",
+      "file": "backend/trucks/routes.py",
+      "line": 135
+    }
+  ],
+  "static_decorator_count": 205,
+  "unregistered_static_decorators": [],
+  "duplicate_method_path": [],
+  "same_name_handlers_in_file": [
+    {
+      "file": "backend/auth/routes.py",
+      "handler": "password_unlock",
+      "lines": [
+        1397,
+        1398
+      ]
+    },
+    {
+      "file": "backend/driver/routes.py",
+      "handler": "post_gps_ping",
+      "lines": [
+        148,
+        149
+      ]
+    },
+    {
+      "file": "backend/orders/routes.py",
+      "handler": "complete_delivery",
+      "lines": [
+        955,
+        956
+      ]
+    },
+    {
+      "file": "backend/orders/routes.py",
+      "handler": "confirm_delivery",
+      "lines": [
+        991,
+        992
+      ]
+    },
+    {
+      "file": "backend/wallet/routes.py",
+      "handler": "wallet_transactions",
+      "lines": [
+        278,
+        279
+      ]
+    }
+  ]
+}

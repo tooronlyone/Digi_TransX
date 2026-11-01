@@ -1,0 +1,49 @@
+.parts-store-page {
+  width: 100%;
+  max-width: none;
+  margin: 0;
+  padding: 34px clamp(26px, 3.2vw, 60px);
+  box-sizing: border-box;
+}
+
+.store-dashboard-cards {
+  width: 100%;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 22px;
+}
+
+.store-dashboard-cards > a {
+  min-height: 132px;
+  padding: 24px 26px;
+}
+
+.store-dashboard-recent {
+  width: 100%;
+  box-sizing: border-box;
+}
+
+@media (min-width: 1500px) {
+  .store-dashboard-cards {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+
+  .store-dashboard-cards > a {
+    grid-template-columns: 52px minmax(0, 1fr);
+  }
+
+  .store-dashboard-cards > a > b {
+    grid-column: 2;
+  }
+}
+
+@media (max-width: 950px) {
+  .parts-store-page {
+    padding: 24px;
+  }
+}
+
+@media (max-width: 650px) {
+  .parts-store-page {
+    padding: 16px;
+  }
+}

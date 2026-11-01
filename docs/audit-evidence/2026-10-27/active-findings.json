@@ -1,0 +1,287 @@
+{
+  "product": [
+    {
+      "id": "AUTH-05",
+      "severity": "High",
+      "title": "Password-reset issuance still has no resend admission limit",
+      "source": "`backend/auth/routes.py:1055`; `backend/auth/routes.py:505`",
+      "proof": "A local Flask probe submitted six consecutive reset requests for one synthetic account. All six returned 200 and invoked the mocked email and OTP writers. The only reset cooldown follows incorrect OTP attempts. Login likewise has no application admission limiter before provider/evidence work. Existing-account responses include masked_email, unlike nonexistent-account responses.",
+      "effect": "Repeated requests can send mail and invalidate earlier challenges. Response differences disclose account existence. No live mailbox, provider load test or deployed edge-rate-limit inspection was performed.",
+      "action": "Apply bounded account/source admission controls before provider/SMTP I/O, add resend cooldown, and return equivalent public responses."
+    },
+    {
+      "id": "AUTH-06",
+      "severity": "Medium",
+      "title": "Wrong JSON shapes still crash signup, profile, contact and wallet entry points",
+      "source": "`backend/auth/helpers.py:748`; `backend/auth/routes.py:353`; `backend/profile/routes.py:36`; `backend/contact/routes.py:13`; `backend/wallet/routes.py:239`",
+      "proof": "The original login scalar example is FIXED: login now checks string types. Residual counterexamples are signup JSON [1] and {\"name\":123}; both raise AttributeError in current validation after a mocked signup-start event. Wallet topup still calls data.get on a nonempty array inside open_db; profile/contact have equivalent shape assumptions. FIN-19 is merged here because its remaining financial JSON-shape failure has the same cause. Corrected NaN, POS-limit and GPS parsers are no longer listed as broken.",
+      "effect": "Malformed requests can produce HTTP 500 rather than a validation response. The signup probe bypassed only the event writer; it did not create an account.",
+      "action": "Validate an object and explicit field types before access/normalization. Preserve the finite-money and corrected login/reset validators."
+    },
+    {
+      "id": "BE-06",
+      "severity": "High",
+      "title": "Agreement trip completion still races monthly distance accrual",
+      "source": "`backend/agreements/routes.py:722`",
+      "proof": "Source trace: the trip is read without a row lock, its completion UPDATE has only an ID predicate, and the monthly payment is read then overwritten without locking. Two requests can both observe in_progress; the second can reread the first accumulated total and add the same trip again. Different trips can overwrite a shared earlier total. Driver-allocation triggers do not lock the initial trip/payment reads.",
+      "effect": "Monthly kilometers and client charges can be duplicated or lost. This exact interleaving was not restaged in the current run; the unsafe read/write sequence is still present.",
+      "action": "Serialize the agreement truck, trip and billing row; make completion replay idempotent and update accrued distance once."
+    },
+    {
+      "id": "BE-07",
+      "severity": "High",
+      "title": "Agreement billing still trusts transporter-supplied start/end coordinates",
+      "source": "`backend/agreements/routes.py:662`; `backend/agreements/routes.py:722`; `backend/tracking/traccar.py:17`",
+      "proof": "The provider remains disabled; no provider history makes end_trip fall back to haversine_km over request-supplied coordinates. That distance is added to the monthly payment. Browser driver-assignment/GPS hardening does not make this separate agreement billing route independently verified.",
+      "effect": "A payee can claim distance without a verified journey. Physical travel and provider deployment were not tested.",
+      "action": "Require independently validated trip evidence or an explicit client-approved distance before billable accrual; separate estimates from payable distance."
+    },
+    {
+      "id": "BE-09",
+      "severity": "High",
+      "title": "Every repeated late-fee sweep can charge the same overdue invoice again",
+      "source": "`backend/agreements/helpers.py:444`",
+      "proof": "Real disposable PostgreSQL probe: an overdue failed invoice with insufficient principal funding was processed twice on the same day. Two penalty rows were inserted and the client balance decreased twice. The invoice row lock now prevents stale concurrent settlement, but there is still no date/period uniqueness or assessment cap.",
+      "effect": "Retries or repeated manual runs charge extra penalties while the principal remains unpaid.",
+      "action": "Introduce an approved penalty period/cap and unique assessment key; debit once per eligible assessment in the same transaction."
+    },
+    {
+      "id": "BE-10",
+      "severity": "High",
+      "title": "Agreement due dates and service periods still exclude valid work",
+      "source": "`backend/agreements/helpers.py:134`; `backend/agreements/routes.py:722`",
+      "proof": "Current helper returns 2026-10-10 for a 2026-10-27 start, confirmed by executable probe. Finalization creates duration_months calendar-month invoices; end_trip only updates a matching pending/failed month. Paying an invoice early prevents later trips in that month accruing to it; a partial final month can have no matching invoice.",
+      "effect": "Invoices can be overdue before service begins, and valid trip earnings can be omitted.",
+      "action": "Define explicit service periods, accrue until closure and set due dates after closure. Reconcile existing paid/missing-period rows without silently repricing them."
+    },
+    {
+      "id": "BE-11",
+      "severity": "Medium",
+      "title": "Agreement bids and active trips still use unprotected check-then-insert",
+      "source": "`backend/agreements/routes.py:291`; `backend/agreements/routes.py:662`; `supabase/schema.sql:1334`; `supabase/schema.sql:1336`",
+      "proof": "Agreement bid and trip routes check for an existing active row then insert without serializing the business key. Their schema indexes are non-unique. The one-time shipment bid case is FIXED by shipment_bids_one_active_transporter and shipment locking and is removed from this finding. Driver allocation uniqueness covers assignments, not agreement trip creation.",
+      "effect": "Concurrent agreement requests can create duplicate active bids or in-progress trips. Source/constraint finding; the precise duplicate agreement-request race was not rerun.",
+      "action": "Enforce active agreement business keys with appropriate uniqueness and consistent row locks; return a controlled conflict."
+    },
+    {
+      "id": "DB-09",
+      "severity": "Medium",
+      "title": "Legacy database reads discard timestamp offsets",
+      "source": "`backend/shared/db.py:77`; `backend/shared/db.py:132`",
+      "proof": "Executable probe: 2026-10-27 12:00 UTC becomes 2026-10-27T12:00:00 through _normalize_value. Ordinary execute uses that conversion. execute_exact now preserves the offset, so new exact-ledger callers are excluded from the old blanket claim. APP_TIMEZONE is not applied by the pool/legacy normalizer.",
+      "effect": "Browsers can interpret a UTC wall time as local time, shifting display by five hours in Pakistan; date-based legacy reports can use a different day boundary.",
+      "action": "Return offset-bearing timestamps consistently and make business-day interpretation explicit across SQL and UI."
+    },
+    {
+      "id": "DB-10",
+      "severity": "Medium",
+      "title": "Legacy database reads still convert exact NUMERIC amounts to float",
+      "source": "`backend/shared/db.py:77`; `backend/shared/db.py:132`; `backend/wallet/routes.py:281`",
+      "proof": "Executable probe: Decimal(\"9007199254740992.01\") loses its cents through _normalize_value. execute_exact now keeps Decimal, and wallet finite/reservation constraints exist; those portions of the original finding are removed. Ordinary execute and legacy financial/API consumers still cross the float boundary.",
+      "effect": "Exact amounts can be rounded before downstream formatting/calculation. This is a precision defect, not evidence of an observed real customer loss.",
+      "action": "Use exact reads for financial logic and an explicit decimal-string/minor-unit serialization contract."
+    },
+    {
+      "id": "DB-14",
+      "severity": "Medium",
+      "title": "Concurrent first use can construct two database pools",
+      "source": "`backend/shared/db.py:57`",
+      "proof": "A two-thread constructor/barrier probe created two distinct pool objects after both callers observed _pool is None. No real connection was used in that probe. There is no synchronization around singleton creation.",
+      "effect": "Cold concurrent startup can lose ownership of one pool and exceed the intended connection budget.",
+      "action": "Initialize the pool once at startup or protect lazy creation with a lock and explicit lifecycle ownership."
+    },
+    {
+      "id": "DB-15",
+      "severity": "Medium",
+      "title": "Driver signup still fails on a random driver-code collision",
+      "source": "`backend/auth/routes.py:279`; `supabase/schema.sql:3323`",
+      "proof": "Signup chooses one random five-digit code. INSERT handles only ON CONFLICT(user_id), while unique_driver_id has its own uniqueness constraint; it does not retry a collision. This is a deterministic code/constraint path, not a production registration experiment.",
+      "effect": "An otherwise valid driver signup can roll back merely because another driver received the same code.",
+      "action": "Allocate from a sequence or retry bounded unique-code generation, with explicit namespace exhaustion handling."
+    },
+    {
+      "id": "FE-012",
+      "severity": "High",
+      "title": "POS retry can repeat an already committed sale after receipt loading fails",
+      "source": "`frontend-react/src/pages/shopkeeper/POSPage.jsx:75`; `backend/shopkeeper/routes.py:198`",
+      "proof": "Rendered counterexample: mocked sale POST commits successfully, the following receipt GET fails, the UI shows a retry error and enables Confirm with the same cart, and clicking it issues a second sale POST. The server already returns a complete sale; the extra GET is unnecessary. Neither this submission nor the backend sale insert has an idempotency contract.",
+      "effect": "A receipt/network failure can lead to duplicate sales and stock deductions.",
+      "action": "Immediately accept the committed POST result, make receipt refresh separate, and add a stable server-enforced sale idempotency key."
+    },
+    {
+      "id": "FE-011",
+      "severity": "Medium",
+      "title": "POS quantity controls cannot safely choose fractional units",
+      "source": "`frontend-react/src/pages/shopkeeper/POSPage.jsx:49`; `frontend-react/src/pages/shopkeeper/POSPage.jsx:229`",
+      "proof": "Rendered probe: selecting a product with 0.5 liters available posts quantity 1. Cart additions and +/- controls use increments of one; there is no direct fractional quantity input. Repeated product-card additions can also go from 1 to 2 when stock is 1.5.",
+      "effect": "Valid partial-liter/kg/meter sales cannot be intentionally entered, and the UI can submit more than available stock. Backend stock checks reject the over-sale.",
+      "action": "Provide unit-aware decimal quantity entry and compare the resulting quantity with authoritative stock."
+    },
+    {
+      "id": "FE-015",
+      "severity": "Medium",
+      "title": "Wallet displays still misclassify signed debits and reservation movements",
+      "source": "`frontend-react/src/components/wallet/WalletWorkspace.jsx:51`; `frontend-react/src/pages/transporter/ac_history.jsx:69`",
+      "proof": "WalletWorkspace assigns signs using only deduct/penalty/payout type names. A negative agreement_payment_paid receives a leading plus. Account History counts every positive amount as credit, including lock/unlock movements, and totals only its first 100 loaded records.",
+      "effect": "Transaction labels and reported credits/net income can be incorrect even when the underlying wallet balance is correct.",
+      "action": "Use the signed-amount/transaction-kind contract, exclude reservations from income and label or paginate aggregate coverage."
+    },
+    {
+      "id": "FIN-21",
+      "severity": "Medium",
+      "title": "Legacy card refunds still omit the original provider charge reference",
+      "source": "`backend/shared/payments.py:1684`",
+      "proof": "refund_one_time_payment calls provider.refund with amount and idempotency key but omits reference=payment[\"provider_reference\"], although the provider interface accepts it. The old claim that production always selects the dummy provider is removed: production now rejects the simulator. This residual concerns the legacy card-funded refund branch.",
+      "effect": "A future real refund adapter cannot reliably locate the original charge from this call. No live gateway refund was attempted.",
+      "action": "Pass the stored charge reference, reject a missing reference for card-funded refunds and verify provider outcome before marking refunded."
+    },
+    {
+      "id": "PERF-01",
+      "severity": "Medium",
+      "title": "Available-order matching still reads an unbounded candidate set",
+      "source": "`backend/orders/routes.py:408`",
+      "proof": "The feed loads all active owned trucks and all open shipments, then performs nested eligibility checks while the database context remains open. My Orders grouped counts and shop-sale batching are FIXED and removed from the original claim.",
+      "effect": "Work grows with orders times trucks and occupies a pooled connection during matching. This is a proven query shape; production latency was not benchmarked.",
+      "action": "Add bounded candidate pagination/spatial filtering while retaining authoritative eligibility checks."
+    },
+    {
+      "id": "BE-12",
+      "severity": "Low",
+      "title": "Authenticated contact tickets still lose user attribution",
+      "source": "`backend/contact/routes.py:41`",
+      "proof": "Real authenticated Flask/PostgreSQL probe returned a successful ticket whose user_id was NULL. The public route has no login decorator and imports the nonexistent resolve_active_session helper inside a swallowed exception.",
+      "effect": "Support cannot reliably associate a signed-in user with their submitted inquiry.",
+      "action": "Use the existing optional durable-session lookup and attach only server-verified identity; keep anonymous contact supported."
+    },
+    {
+      "id": "REVIEW-001",
+      "severity": "Medium",
+      "title": "Profile save truncates last names and ignores editable business fields",
+      "source": "`frontend-react/src/pages/client/ClientAccount.jsx:73`; `backend/profile/routes.py:36`",
+      "proof": "NEW. Real authenticated probe submitted first_name=\"Ali\", last_name=\"Abbas\", company_name, contact_phone and billing_address. HTTP 200 reported success, but users.full_name became \"Ali\", returned last_name was empty and company/address values were not saved. The route assigns first_name directly to full_name and only writes full_name/phone/city/about (plus optional shop_name).",
+      "effect": "Saving the Client/Everyday account can erase a last name; business edits disappear despite a success message.",
+      "action": "Align the frontend/backend profile contract, compose the full name correctly and explicitly persist or reject each editable role-owned field."
+    },
+    {
+      "id": "REVIEW-002",
+      "severity": "Medium",
+      "title": "Post Order has lost the expected order-mode and records navigation",
+      "source": "`frontend-react/src/pages/client/PostOrder.jsx:216`; `frontend-react/src/components/client/ClientLayout.jsx:24`; `frontend-react/src/components/client/OrderWorkspaceNavigation.jsx:3`; `frontend-react/tests/responsiveInterface.test.mjs:73`",
+      "proof": "NEW regression against the existing responsive contract. PostOrder no longer imports/renders OrderWorkspaceNavigation. Its title actions show My Orders only for /everyday. The service-seeker mobile menu exposes Dashboard/Post Order/Wallet/Messages, while the contextual Agreemental Order/My Orders/My Agreements controls are absent from this screen. The corresponding Node test fails.",
+      "effect": "A mobile user on Post Order loses the intended route to switching booking modes and contextual records. The pages still exist; this is not a claim that every alternate route is unreachable. If this removal was intentional, the navigation contract and replacement entry points need an explicit update.",
+      "action": "Restore the business-client workspace navigation or provide equivalent visible mobile entry points and update the contract test to match the accepted UX."
+    }
+  ],
+  "supplemental": [
+    {
+      "id": "LEDGER-007",
+      "severity": "Medium",
+      "title": "Driver signup notification cannot be dismissed",
+      "source": "`frontend-react/src/pages/auth/roledetails/DriverDetails.jsx:66`; `frontend-react/src/components/common/Notification.jsx:3`",
+      "proof": "DriverDetails still omits onClose. Notification uses it for both its close button and timeout.",
+      "effect": "Signup feedback remains visible until navigation instead of responding to its dismissal control.",
+      "action": "Pass a state-clearing callback and verify both manual and timed dismissal."
+    },
+    {
+      "id": "LEDGER-012",
+      "severity": "Medium",
+      "title": "Server-backed assistant endpoints are absent",
+      "source": "`frontend-react/src/lib/aiAssistant.js:1`; `frontend-react/src/components/ai/GlobalAiAssistant.jsx:320`",
+      "proof": "Current Flask route inventory has no /api/ai-assistant routes. Mounted assistant components still call preferences/capabilities/interpret/confirm/cancel. Some callers contain unavailable-service handling, so the prior blanket Critical claim is removed.",
+      "effect": "Server assistant features cannot complete against this backend; browser UI/fallback behavior does not supply those server actions.",
+      "action": "Implement the intended authenticated service contract or hide/disable unsupported server features and stop absent-endpoint calls."
+    },
+    {
+      "id": "LEDGER-013",
+      "severity": "High",
+      "title": "Driver payout screen calls two nonexistent wallet endpoints",
+      "source": "`frontend-react/src/pages/driver/DriverWallet.jsx:24`; `frontend-react/src/pages/driver/DriverWallet.jsx:41`",
+      "proof": "Fresh runtime route matching confirms GET /api/wallet/balance and POST /api/wallet/withdraw are absent. The page still calls both. Its shared funding workspace uses a different existing contract, so the entire wallet is not described as missing.",
+      "effect": "Available payout balance and driver withdrawal submission cannot work. The existing transporter-only withdraw-locked route is not a valid drop-in replacement.",
+      "action": "Define an authorized driver payout contract and connect this page to the canonical balance API; retain payout-provider/reserve safeguards."
+    },
+    {
+      "id": "LEDGER-014",
+      "severity": "High",
+      "title": "Shopkeeper Tables screens have no matching backend routes",
+      "source": "`frontend-react/src/pages/shopkeeper/ShopkeeperDashboard.jsx:18`; `frontend-react/src/pages/shopkeeper/CreateTable.jsx:71`; `frontend-react/src/pages/shopkeeper/TableView.jsx:40`",
+      "proof": "Dashboard, table creation, row editing, analysis and export still call /api/shopkeeper/tables*. No such routes are registered; existing products/sales routes do not implement the table contract.",
+      "effect": "The exposed table workflow cannot load or save data.",
+      "action": "Implement the agreed table data model and authorization, or remove/disable these navigation paths with clear product copy."
+    },
+    {
+      "id": "LEDGER-015",
+      "severity": "Low",
+      "title": "About page requests five absent endpoints",
+      "source": "`frontend-react/src/pages/transporter/about.jsx:221`",
+      "proof": "No /api/about route family is registered. The page makes five requests and falls back to hardcoded data.",
+      "effect": "Every visit generates failed requests and can display placeholder information as current content.",
+      "action": "Use maintained static content or implement the real content API; identify placeholder statistics clearly."
+    },
+    {
+      "id": "LEDGER-016",
+      "severity": "Low",
+      "title": "Truck detail performs unsupported maintenance/fuel reads",
+      "source": "`frontend-react/src/pages/transporter/truck_details.jsx:35`",
+      "proof": "Runtime inventory confirms maintenance/fuel subroutes do not exist. Truck details still requests both and catches failures; their state variables are currently unused in the rendered page.",
+      "effect": "Two unnecessary failures occur for each details load. This is not a broken financial transaction or proof of missing displayed records.",
+      "action": "Remove unsupported reads or implement/render the intended history contract."
+    },
+    {
+      "id": "LEDGER-017",
+      "severity": "High",
+      "title": "Admin and Driver layouts expose no notification inbox",
+      "source": "`frontend-react/src/components/admin/AdminLayout.jsx:18`; `frontend-react/src/components/driver/DriverLayout.jsx:16`; `backend/shared/notifications.py:42`",
+      "proof": "Neither portal layout renders NotificationBell or another notification center. The backend still emits administrator lifecycle notifications and driver operational notifications.",
+      "effect": "Recipients lack the in-app surface for reviewing those messages. Severity is High, not the previous Critical label.",
+      "action": "Expose an owner-scoped notification center and read/unread controls for both portals."
+    },
+    {
+      "id": "LEDGER-018",
+      "severity": "Medium",
+      "title": "Withdrawal decisions do not notify the requester",
+      "source": "`backend/admin/routes.py:365`; `backend/admin/routes.py:415`",
+      "proof": "Approval/rejection handlers update the request and return to the admin without calling a user notification writer. Production payout is separately blocked until an executor exists.",
+      "effect": "The requester has no in-app decision alert when an allowed decision completes.",
+      "action": "Publish an idempotent requester notification alongside the authoritative decision."
+    },
+    {
+      "id": "LEDGER-019",
+      "severity": "Medium",
+      "title": "Agreement failures and late charges have no recipient notification",
+      "source": "`backend/agreements/helpers.py:423`; `backend/agreements/helpers.py:444`",
+      "proof": "The payment/penalty workers still have no notification dispatch on failure or fee debit.",
+      "effect": "Clients learn about an unpaid invoice or charge only by manually inspecting balances/history. The repeated-charge defect itself is tracked separately as BE-09.",
+      "action": "Emit an idempotent notice linked to the invoice and actual assessment result."
+    },
+    {
+      "id": "LEDGER-023",
+      "severity": "Medium",
+      "title": "Reloading a fuel voucher panel loses access to an outstanding authorization",
+      "source": "`frontend-react/src/components/business/FuelVoucherPanel.jsx:13`; `backend/fuelstation/vouchers.py:116`",
+      "proof": "Strengthened from the old unused-GET observation: a rendered probe created an authorized voucher, unmounted/remounted the panel and found no cancel control and no recovery GET. result and the idempotency ref are memory-only; the existing GET /api/fuel/vouchers is never used to restore outstanding authorization state.",
+      "effect": "After reload or navigation, the owner cannot cancel the existing hold through this panel or recover a lost-response attempt there; creation becomes enabled again. This does not claim secrets should be redisplayed or all holds become permanent.",
+      "action": "Load safe owner/trip voucher metadata on mount and offer cancel/recovery for outstanding authorizations, without persisting or replaying OTP secrets."
+    }
+  ],
+  "tests": [
+    {
+      "id": "TEST-03",
+      "severity": "Low",
+      "title": "Public signup terms endpoint is missing from the static security-test allowlist",
+      "source": "`backend/tests/test_route_security_static.py:105`; `backend/auth/routes.py:342`",
+      "proof": "NEW test-maintenance failure: the suite reports GET /auth/signup-terms as undecorated. The endpoint returns public role/version text needed before signup; it does not return account data. Dedicated signup-terms tests exist.",
+      "effect": "The backend test gate remains red. This failure does not establish an authorization leak.",
+      "action": "Add this exact public endpoint to the explicit allowlist with a documented public contract; retain deny-by-default checks for other routes."
+    },
+    {
+      "id": "TEST-04",
+      "severity": "Low",
+      "title": "Checkout component test still expects the removed insurance checkbox",
+      "source": "`frontend-react/tests/businessRules.test.jsx:41`; `backend/shared/payments.py:1223`",
+      "proof": "NEW test-maintenance failure: the wallet-shortfall test clicks a checkbox no longer rendered by BidCheckout. Current signup-role terms capture acceptance and checkout source explicitly avoids fabricating a new acceptance. The test already found the expected shortfall message before failing.",
+      "effect": "The component suite is red on a stale interaction. This failure alone does not show that insufficient-balance checkout is enabled.",
+      "action": "Remove the stale interaction and retain direct assertions for server shortfall, disabled checkout and absent card inputs."
+    }
+  ]
+}

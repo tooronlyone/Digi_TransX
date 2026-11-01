@@ -1,0 +1,242 @@
+import { useEffect, useMemo, useState } from 'react'
+import { getCsrfToken } from '../client/clientUtils'
+import { MarketReference, FeeBreakdown } from '../../components/business/BusinessRules'
+
+function formatMoney(value) {
+  const amount = Number(value || 0)
+  if (!Number.isFinite(amount)) return 'PKR 0'
+  return `PKR ${amount.toLocaleString('en-PK', { maximumFractionDigits: 2 })}`
+}
+
+export default function AvailableBids() {
+  const [orders, setOrders] = useState([])
+  const [trucks, setTrucks] = useState([])
+  const [locationSetupRequired, setLocationSetupRequired] = useState(false)
+  const [ordersOutOfRange, setOrdersOutOfRange] = useState(0)
+  const [selectedOrderId, setSelectedOrderId] = useState(null)
+  const [form, setForm] = useState({ truck_id: '', bid_price: '', message: '' })
+  const [loading, setLoading] = useState(true)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [success, setSuccess] = useState('')
+
+  const [reloadKey, setReloadKey] = useState(0)
+
+  useEffect(() => {
+    let ignore = false
+    Promise.all([
+      fetch('/api/orders/available', { credentials: 'same-origin' }),
+      fetch('/api/trucks', { credentials: 'same-origin' }),
+    ])
+      .then(async ([ordersRes, trucksRes]) => {
+        if (ignore) return
+        const ordersJson = await ordersRes.json().catch(() => ({}))
+        const trucksJson = await trucksRes.json().catch(() => ({}))
+        if (!ordersRes.ok || ordersJson.success === false) throw new Error(ordersJson.message || 'Unable to load available orders.')
+        if (!trucksRes.ok || trucksJson.success === false) throw new Error(trucksJson.message || 'Unable to load trucks.')
+        setOrders(ordersJson.orders || [])
+        setTrucks(trucksJson.trucks || [])
+        setLocationSetupRequired(Boolean(ordersJson.location_setup_required))
+        setOrdersOutOfRange(Number(ordersJson.orders_out_of_range || 0))
+      })
+      .catch((loadError) => {
+        if (!ignore) setError(loadError.message || 'Unable to load available orders.')
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false)
+      })
+    return () => { ignore = true }
+  }, [reloadKey])
+
+  const selectedOrder = useMemo(
+    () => orders.find((order) => order.id === selectedOrderId) || null,
+    [orders, selectedOrderId],
+  )
+
+  const activeTrucks = useMemo(() => {
+    if (!selectedOrder) return []
+    const requiredTypes = Array.isArray(selectedOrder.required_truck_types)
+      ? selectedOrder.required_truck_types
+      : []
+    const orderWeight = Number(selectedOrder.goods_weight_tons || 0)
+
+    return trucks.filter((truck) => {
+      if (truck.status !== 'active') return false
+      // Type match (if specified)
+      if (requiredTypes.length > 0) {
+        const truckKey = truck.catalog_type_key || truck.truck_type
+        if (!requiredTypes.includes(truckKey)) return false
+      }
+      // Weight match (if order has positive weight)
+      const truckCap = Number(truck.capacity_tons || truck.payload_max_tons || 0)
+      if (orderWeight > 0 && truckCap > 0 && orderWeight > truckCap) {
+        return false
+      }
+      return true
+    })
+  }, [selectedOrder, trucks])
+
+  function openBidForm(order) {
+    setSelectedOrderId(order.id)
+    setSuccess('')
+    setError('')
+    setForm({ truck_id: '', bid_price: '', message: '' })
+  }
+
+  function updateForm(event) {
+    const { name, value } = event.target
+    setForm((current) => ({ ...current, [name]: value }))
+  }
+
+  async function submitBid(event) {
+    event.preventDefault()
+    if (!selectedOrder) return
+
+    setSubmitting(true)
+    setError('')
+    setSuccess('')
+    try {
+      const csrf = await getCsrfToken()
+      const response = await fetch(`/api/orders/${selectedOrder.id}/bids`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: {
+          'Content-Type': 'application/json',
+          'X-CSRF-Token': csrf,
+        },
+        body: JSON.stringify({
+          truck_id: Number(form.truck_id),
+          bid_price: form.bid_price,
+          message: form.message,
+        }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!response.ok || json.success === false) throw new Error(json.message || 'Unable to place bid.')
+      setSuccess('Bid placed successfully.')
+      setSelectedOrderId(null)
+      setForm({ truck_id: '', bid_price: '', message: '' })
+      setLoading(true); setReloadKey(k => k + 1)
+    } catch (submitError) {
+      setError(submitError.message || 'Unable to place bid.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+      <div className="space-y-6">
+        <div className="rounded-2xl bg-white p-6 shadow-sm">
+          <h1 className="text-2xl font-bold text-slate-900">Available Bids</h1>
+          <p className="mt-2 text-sm text-slate-500">Open orders available for transporter bids are shown here.</p>
+        </div>
+
+        {loading && <div className="rounded-xl border border-blue-200 bg-blue-50 px-4 py-3 text-sm text-blue-700">Loading bids...</div>}
+        {error && <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>}
+        {success && <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700">{success}</div>}
+
+        {!loading && !error && locationSetupRequired && (
+          <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+            <i className="fas fa-location-dot mr-2" aria-hidden="true"></i>
+            None of your active trucks has an operating location yet. Set each truck's current
+            location and service radius in its configuration to see nearby orders.
+          </div>
+        )}
+
+        {!loading && !error && orders.length === 0 && !locationSetupRequired && ordersOutOfRange > 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
+            {ordersOutOfRange} open order{ordersOutOfRange === 1 ? '' : 's'} match your trucks' cargo
+            capability but the pickup is outside their service radius. Move a truck closer or widen
+            its radius (up to 150 km) to bid.
+          </div>
+        )}
+
+        {!loading && !error && orders.length === 0 && !locationSetupRequired && ordersOutOfRange === 0 && (
+          <div className="rounded-xl border border-slate-200 bg-white px-5 py-10 text-center text-sm text-slate-500">
+            No open bids near your trucks right now. Check back soon.
+          </div>
+        )}
+
+        {!loading && !error && orders.length > 0 && (
+          <div className="grid gap-4 xl:grid-cols-2">
+            {orders.map((order) => {
+              return (
+                <article key={order.id} className="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <h2 className="text-lg font-bold text-slate-900">{order.pickup_city}{' -> '}{order.dropoff_city}</h2>
+                      <p className="mt-1 text-sm text-slate-500">{order.pickup_date} at {order.pickup_time}</p>
+                    </div>
+                    <div className="flex flex-col items-end gap-1">
+                      <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-700">{order.bid_count} bids</span>
+                      {order.distance_to_pickup_km != null && (
+                        <span className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-semibold text-emerald-700">
+                          <i className="fas fa-location-arrow mr-1" aria-hidden="true"></i>
+                          {order.distance_to_pickup_km} km to pickup
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <div className="mt-4 grid gap-3 text-sm text-slate-600 sm:grid-cols-2">
+                    <div><span className="font-semibold text-slate-800">Goods:</span> {order.goods_type}</div>
+                    <div><span className="font-semibold text-slate-800">Weight:</span> {order.goods_weight_tons} tons</div>
+                    <div><span className="font-semibold text-slate-800">Volume:</span> {order.goods_volume_cbm ? `${order.goods_volume_cbm} cbm` : 'Not shared'}</div>
+                    <div><span className="font-semibold text-slate-800">Budget:</span> {order.estimated_budget ? formatMoney(order.estimated_budget) : 'Not shared'}</div>
+                  </div>
+                  <button type="button" onClick={() => openBidForm(order)} className="mt-4 inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700">
+                    <i className="fas fa-gavel mr-2" aria-hidden="true"></i>
+                    Place Bid
+                  </button>
+                </article>
+              )
+            })}
+          </div>
+        )}
+
+        {selectedOrder && (
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Place Bid for Order #{selectedOrder.id}</h2>
+                <p className="mt-1 text-sm text-slate-500">{selectedOrder.pickup_city} to {selectedOrder.dropoff_city}</p>
+              </div>
+              <button type="button" onClick={() => setSelectedOrderId(null)} className="rounded-lg border border-slate-300 px-3 py-2 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                Close
+              </button>
+            </div>
+
+            <MarketReference key={`${selectedOrder.id}:${form.truck_id}`} orderId={selectedOrder.id} truckId={form.truck_id} showRange />
+            <FeeBreakdown kind="freight" />
+            <form className="mt-5 grid gap-4 md:grid-cols-2" onSubmit={submitBid}>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                Truck
+                <select className="rounded-lg border border-slate-300 px-3 py-2.5" name="truck_id" value={form.truck_id} onChange={updateForm} required>
+                  <option value="">Select active truck</option>
+                  {activeTrucks.map((truck) => (
+                    <option key={truck.id} value={truck.id}>{truck.truck_number} - {truck.truck_type}</option>
+                  ))}
+                </select>
+              </label>
+              <label className="grid gap-2 text-sm font-medium text-slate-700">
+                Bid price
+                <input className="rounded-lg border border-slate-300 px-3 py-2.5" type="number" min="0.01" step="0.01" name="bid_price" value={form.bid_price} onChange={updateForm} required />
+              </label>
+              <label className="grid gap-2 text-sm font-medium text-slate-700 md:col-span-2">
+                Message
+                <textarea className="min-h-24 rounded-lg border border-slate-300 px-3 py-2.5" name="message" value={form.message} onChange={updateForm} placeholder="Share timing, service notes, or capacity details." />
+              </label>
+              <div className="md:col-span-2">
+                <button type="submit" disabled={submitting || activeTrucks.length === 0} className="inline-flex min-h-10 items-center justify-center rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:cursor-not-allowed disabled:opacity-60">
+                  <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-gavel'} mr-2`} aria-hidden="true"></i>
+                  {submitting ? 'Submitting bid...' : 'Submit bid'}
+                </button>
+                {activeTrucks.length === 0 && (
+                  <p className="mt-2 text-sm text-amber-700">You do not currently have an active truck available.</p>
+                )}
+              </div>
+            </form>
+          </div>
+        )}
+      </div>
+    
+  )
+}

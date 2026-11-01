@@ -1,0 +1,12 @@
+{
+  "marker_count": 1,
+  "migration_paths": [
+    "supabase/migrations/20261026000000_financial_journal.sql",
+    "supabase/migrations/20261026010000_market_pricing_fees.sql",
+    "supabase/migrations/20261026020000_business_escrow_settlement.sql",
+    "supabase/migrations/20261026030000_fuel_credit_owner_operator.sql"
+  ],
+  "exact_body_match": true,
+  "expected_sha256": "1e2032675a5de34842efb7ab635f1fd49530729e40424dcf86eccc6afdc29665",
+  "actual_sha256": "1e2032675a5de34842efb7ab635f1fd49530729e40424dcf86eccc6afdc29665"
+}

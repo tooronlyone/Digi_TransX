@@ -1,0 +1,12 @@
+.........F.............................................................. [ 62%]
+............................................                             [100%]
+================================== FAILURES ===================================
+________ test_reset_finalization_failure_is_explicit_and_nonreplayable ________
+backend\tests\test_auth_security_events.py:558: in test_reset_finalization_failure_is_explicit_and_nonreplayable
+    assert "confirmation is pending" in first.get_json()["message"]
+E   AssertionError: assert 'confirmation is pending' in 'Password reset outcome is pending verification. Contact support before retrying.'
+------------------------------ Captured log call ------------------------------
+ERROR    backend.tests.test_auth_security_events:routes.py:1143 Password reset finalization requires reconciliation.
+=========================== short test summary info ===========================
+FAILED backend/tests/test_auth_security_events.py::test_reset_finalization_failure_is_explicit_and_nonreplayable
+1 failed, 115 passed in 393.19s (0:06:33)

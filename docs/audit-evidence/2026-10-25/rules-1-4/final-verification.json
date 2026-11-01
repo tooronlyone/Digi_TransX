@@ -1,0 +1,79 @@
+{
+  "historical_migrations": {
+    "checked": 40,
+    "unchanged": 40,
+    "changed_or_missing": []
+  },
+  "schema_cutover": {
+    "marker_count": 1,
+    "migration_paths": [
+      "supabase/migrations/20261026000000_financial_journal.sql",
+      "supabase/migrations/20261026010000_market_pricing_fees.sql",
+      "supabase/migrations/20261026020000_business_escrow_settlement.sql",
+      "supabase/migrations/20261026030000_fuel_credit_owner_operator.sql"
+    ],
+    "exact_body_match": true,
+    "expected_sha256": "1e2032675a5de34842efb7ab635f1fd49530729e40424dcf86eccc6afdc29665",
+    "actual_sha256": "1e2032675a5de34842efb7ab635f1fd49530729e40424dcf86eccc6afdc29665"
+  },
+  "python_ast": {
+    "parsed": 180,
+    "errors": []
+  },
+  "backend_receipt_union": {
+    "collected_cases": 1396,
+    "covered_cases": 1396,
+    "counts": {
+      "passed": 1393,
+      "skipped": 3
+    },
+    "not_covered": [],
+    "unresolved": [
+      {
+        "node_id": "backend/tests/test_shared_test_logout_all_harness.py::test_authorized_shared_test_logout_all_matrix",
+        "status": "skipped",
+        "run_started_at": "2026-10-25T21:06:20.551466+05:00",
+        "receipt": "docs/audit-evidence/2026-10-25/rules-1-4/resumed-full-backend.xml",
+        "message": "explicit shared-TEST opt-in is absent"
+      },
+      {
+        "node_id": "backend/tests/test_shared_test_session_device_management_harness.py::test_authorized_shared_test_session_device_matrix",
+        "status": "skipped",
+        "run_started_at": "2026-10-25T21:06:20.551466+05:00",
+        "receipt": "docs/audit-evidence/2026-10-25/rules-1-4/resumed-full-backend.xml",
+        "message": "explicit shared-TEST opt-in is absent"
+      },
+      {
+        "node_id": "backend/tests/test_shared_test_step_up_harness.py::test_authorized_shared_test_pending_probe_matrix",
+        "status": "skipped",
+        "run_started_at": "2026-10-25T21:06:20.551466+05:00",
+        "receipt": "docs/audit-evidence/2026-10-25/rules-1-4/resumed-full-backend.xml",
+        "message": "shared TEST harness is not explicitly enabled"
+      }
+    ]
+  },
+  "new_rules_backend": {
+    "passed": 150,
+    "failed": 0
+  },
+  "targeted_wallet_lock_regression": {
+    "passed": 198,
+    "failed": 0,
+    "receipt": "final-wallet-lock-regression.xml"
+  },
+  "internal_reconciliation": {
+    "passed": 1,
+    "failed": 0,
+    "receipt": "final-internal-reconciliation.xml",
+    "scope": "internal Rules1-4 journal and subledgers only"
+  },
+  "frontend": {
+    "vitest_passed": 91,
+    "node_passed": 103,
+    "eslint_errors": 0,
+    "eslint_warnings": 2,
+    "vite_build": "passed"
+  },
+  "git_diff_check": "exit 0; line-ending warnings only",
+  "production_ready": false
+}

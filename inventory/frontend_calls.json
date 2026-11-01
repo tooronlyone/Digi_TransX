@@ -1,0 +1,2965 @@
+{
+  "count": 296,
+  "calls": [
+    {
+      "method": "REF",
+      "path": "/auth/login",
+      "raw": "/auth/login",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 21,
+      "context": "'/auth/login',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/signup",
+      "raw": "/auth/signup",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 22,
+      "context": "'/auth/signup',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/forgot-password",
+      "raw": "/auth/forgot-password",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 23,
+      "context": "'/auth/forgot-password',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/password-reset/verify-otp",
+      "raw": "/auth/password-reset/verify-otp",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 24,
+      "context": "'/auth/password-reset/verify-otp',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/reset-password",
+      "raw": "/auth/reset-password",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 25,
+      "context": "'/auth/reset-password',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/mpin/enroll",
+      "raw": "/auth/mpin/enroll",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 26,
+      "context": "'/auth/mpin/enroll',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/mpin/unlock",
+      "raw": "/auth/mpin/unlock",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 27,
+      "context": "'/auth/mpin/unlock',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/mpin/password-unlock",
+      "raw": "/auth/mpin/password-unlock",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 28,
+      "context": "'/auth/mpin/password-unlock',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/access/unlock/password",
+      "raw": "/auth/access/unlock/password",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 29,
+      "context": "'/auth/access/unlock/password',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/mpin/change",
+      "raw": "/auth/mpin/change",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 30,
+      "context": "'/auth/mpin/change',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/mpin/disable",
+      "raw": "/auth/mpin/disable",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 31,
+      "context": "'/auth/mpin/disable',"
+    },
+    {
+      "method": "REF",
+      "path": "/auth/mpin/reset",
+      "raw": "/auth/mpin/reset",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 32,
+      "context": "'/auth/mpin/reset',"
+    },
+    {
+      "method": "REF",
+      "path": "/api/profile/password/request-otp",
+      "raw": "/api/profile/password/request-otp",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 33,
+      "context": "'/api/profile/password/request-otp',"
+    },
+    {
+      "method": "REF",
+      "path": "/api/profile/password",
+      "raw": "/api/profile/password",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 34,
+      "context": "'/api/profile/password',"
+    },
+    {
+      "method": "REF",
+      "path": "/api/platform/terms/current",
+      "raw": "/api/platform/terms/current",
+      "caller": null,
+      "hint": "allow-list constant, not a request",
+      "file": "frontend-react/src/auth/accessLock.js",
+      "line": 44,
+      "context": "'/api/platform/terms/current',"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/session/activity",
+      "raw": "/auth/session/activity",
+      "caller": null,
+      "hint": "fetchImpl(GENUINE_ACTIVITY_ENDPOINT,{method:'POST'}) line 16",
+      "file": "frontend-react/src/auth/genuineActivity.js",
+      "line": 1,
+      "context": "export const GENUINE_ACTIVITY_ENDPOINT = '/auth/session/activity'"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout-all",
+      "raw": "/auth/logout-all",
+      "caller": "protectedFetch",
+      "hint": null,
+      "file": "frontend-react/src/auth/logout.js",
+      "line": 24,
+      "context": "const response = await protectedFetch('/auth/logout-all', {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "raw": "/auth/logout",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/auth/logout.js",
+      "line": 45,
+      "context": "const response = await fetch('/auth/logout', {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "raw": "/auth/logout",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/components/admin/AdminLayout.jsx",
+      "line": 27,
+      "context": "try { await adminRequest('/auth/logout', { method: 'POST', body: JSON.stringify({}) }) } catch (_) {}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/trips/{param}/live-location",
+      "raw": "/api/agreements/trips/${tripId}/live-location",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/AgreementTripMap.jsx",
+      "line": 18,
+      "context": "const response = await fetch(`/api/agreements/trips/${tripId}/live-location`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai-assistant/preferences",
+      "raw": "/api/ai-assistant/preferences",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/ai/GlobalAiAssistant.jsx",
+      "line": 70,
+      "context": "const response = await fetch(`${AI_API_BASE}/preferences`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-assistant/capabilities",
+      "raw": "/api/ai-assistant/capabilities",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/ai/GlobalAiAssistant.jsx",
+      "line": 117,
+      "context": "const response = await fetch(`${AI_API_BASE}/capabilities`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai-assistant/interpret",
+      "raw": "/api/ai-assistant/interpret",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/ai/GlobalAiAssistant.jsx",
+      "line": 320,
+      "context": "const response = await fetch(`${AI_API_BASE}/interpret`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai-assistant/confirm",
+      "raw": "/api/ai-assistant/confirm",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/ai/GlobalAiAssistant.jsx",
+      "line": 378,
+      "context": "const response = await fetch(`${AI_API_BASE}/confirm`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai-assistant/cancel",
+      "raw": "/api/ai-assistant/cancel",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/ai/GlobalAiAssistant.jsx",
+      "line": 439,
+      "context": "await fetch(`${AI_API_BASE}/cancel`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/{param}/market-reference${truckId ",
+      "raw": "/api/orders/${encodeURIComponent(orderId)}/market-reference${truckId ? ",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/business/BusinessRules.jsx",
+      "line": 27,
+      "context": "apiGet(`/api/orders/${encodeURIComponent(orderId)}/market-reference${truckId ? `?truck_id=${encodeURIComponent(truckId)}` : ''}`, { signal: controller.signal })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/business-rules/fees",
+      "raw": "/api/business-rules/fees",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/business/BusinessRules.jsx",
+      "line": 48,
+      "context": "apiGet('/api/business-rules/fees', { signal: controller.signal })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/trips/{param}/delivery-otp",
+      "raw": "/api/orders/${orderId}/trips/${trip.id}/delivery-otp",
+      "caller": "protectedFetch",
+      "hint": null,
+      "file": "frontend-react/src/components/business/DeliveryClientHandshake.jsx",
+      "line": 29,
+      "context": "const response = await protectedFetch(`/api/orders/${orderId}/trips/${trip.id}/delivery-otp`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/trips/{param}/disputes",
+      "raw": "/api/orders/${orderId}/trips/${trip.id}/disputes",
+      "caller": "send",
+      "hint": null,
+      "file": "frontend-react/src/components/business/DeliveryClientHandshake.jsx",
+      "line": 43,
+      "context": "await send(`/api/orders/${orderId}/trips/${trip.id}/disputes`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuel/vouchers",
+      "raw": "/api/fuel/vouchers",
+      "caller": "protectedFetch",
+      "hint": null,
+      "file": "frontend-react/src/components/business/FuelVoucherPanel.jsx",
+      "line": 31,
+      "context": "const response = await protectedFetch('/api/fuel/vouchers', {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuel/vouchers/{param}/cancel",
+      "raw": "/api/fuel/vouchers/${voucherId}/cancel",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/business/FuelVoucherPanel.jsx",
+      "line": 54,
+      "context": "const response = await fetch(`/api/fuel/vouchers/${voucherId}/cancel`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuelstation/vouchers/verify",
+      "raw": "/api/fuelstation/vouchers/verify",
+      "caller": "send",
+      "hint": null,
+      "file": "frontend-react/src/components/business/FuelVoucherRedemption.jsx",
+      "line": 22,
+      "context": "const result = await send('/api/fuelstation/vouchers/verify', { otp: otp.trim(), pump_id: pumpId })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuelstation/vouchers/{param}/dispense",
+      "raw": "/api/fuelstation/vouchers/${authorization.voucher.id}/dispense",
+      "caller": "send",
+      "hint": null,
+      "file": "frontend-react/src/components/business/FuelVoucherRedemption.jsx",
+      "line": 32,
+      "context": "const result = await send(`/api/fuelstation/vouchers/${authorization.voucher.id}/dispense`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/operational-incidents",
+      "raw": "/api/admin/operational-incidents?status=${filter}&limit=50",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/business/OperationalInvestigations.jsx",
+      "line": 29,
+      "context": "apiGet(`/api/admin/operational-incidents?status=${filter}&limit=50`, { signal: controller.signal })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/operational-incidents/{param}",
+      "raw": "/api/operational-incidents/${encodeURIComponent(selected)}",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/business/OperationalInvestigations.jsx",
+      "line": 38,
+      "context": "apiGet(`/api/operational-incidents/${encodeURIComponent(selected)}`, { signal: controller.signal })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/operational-incidents/{param}/decision",
+      "raw": "/api/admin/operational-incidents/${target}/decision",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/business/OperationalInvestigations.jsx",
+      "line": 62,
+      "context": "await apiSend(`/api/admin/operational-incidents/${target}/decision`, { status, decision_evidence: notes.trim() }, 'POST', (url, options) => {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/transporter/owner-operator/gps",
+      "raw": "/api/transporter/owner-operator/gps",
+      "caller": "send",
+      "hint": null,
+      "file": "frontend-react/src/components/business/TripOperationalActions.jsx",
+      "line": 28,
+      "context": "return send('/api/transporter/owner-operator/gps', { assignment_id: assignment.id, lat, lng, accuracy })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/operational-incidents",
+      "raw": "/api/operational-incidents",
+      "caller": "send",
+      "hint": null,
+      "file": "frontend-react/src/components/business/TripOperationalActions.jsx",
+      "line": 34,
+      "context": "<form onSubmit={event => { event.preventDefault(); void run(() => send('/api/operational-incidents', { assignment_id: assignment.id, incident_type: type, description: description.trim(), evidence: evidence.split('\\n').ma"
+    },
+    {
+      "method": "POST",
+      "path": "/api/transporter/trips/{param}/cancellation-request",
+      "raw": "/api/transporter/trips/${assignment.id}/cancellation-request",
+      "caller": "send",
+      "hint": null,
+      "file": "frontend-react/src/components/business/TripOperationalActions.jsx",
+      "line": 40,
+      "context": "{transporter && <form onSubmit={event => { event.preventDefault(); void run(() => send(`/api/transporter/trips/${assignment.id}/cancellation-request`, { reason: reason.trim() })) }} className=\"mt-4 grid gap-2\">"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/threads",
+      "raw": "/api/chat/threads",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/chat/ChatWindow.jsx",
+      "line": 84,
+      "context": "const json = await apiGet('/api/chat/threads', { signal: controller.signal })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/threads/{param}/messages{param}",
+      "raw": "/api/chat/threads/${thread.id}/messages${suffix}",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/chat/ChatWindow.jsx",
+      "line": 236,
+      "context": "const json = await apiGet(`/api/chat/threads/${thread.id}/messages${suffix}`, { signal: controller.signal })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/threads/{param}/messages",
+      "raw": "/api/chat/threads/${thread.id}/messages",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/chat/ChatWindow.jsx",
+      "line": 285,
+      "context": "const json = await apiSend(`/api/chat/threads/${thread.id}/messages`, { message_type: 'text', content }, 'POST',"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/threads/{param}/messages",
+      "raw": "/api/chat/threads/${thread.id}/messages",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/chat/ChatWindow.jsx",
+      "line": 298,
+      "context": "const json = await apiSend(`/api/chat/threads/${thread.id}/messages`, { message_type: 'media_request', content: 'Can I send you a photo/video?' }, 'POST',"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/threads/{param}/messages/{param}/respond-media-request",
+      "raw": "/api/chat/threads/${thread.id}/messages/${messageId}/respond-media-request",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/chat/ChatWindow.jsx",
+      "line": 311,
+      "context": "const json = await apiSend(`/api/chat/threads/${thread.id}/messages/${messageId}/respond-media-request`, { action }, 'POST',"
+    },
+    {
+      "method": "POST",
+      "path": "/api/chat/threads/{param}/messages/media",
+      "raw": "/api/chat/threads/${thread.id}/messages/media",
+      "caller": "fetchForOwner",
+      "hint": null,
+      "file": "frontend-react/src/components/chat/ChatWindow.jsx",
+      "line": 328,
+      "context": "const response = await fetchForOwner(`/api/chat/threads/${thread.id}/messages/media`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/threads",
+      "raw": "/api/chat/threads",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/client/ClientLayout.jsx",
+      "line": 58,
+      "context": "const json = await apiGet('/api/chat/threads')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/notifications",
+      "raw": "/api/notifications",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/common/NotificationBell.jsx",
+      "line": 35,
+      "context": "const res = await fetch('/api/notifications', { credentials: 'same-origin' })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/{param}/read",
+      "raw": "/api/notifications/${id}/read",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/common/NotificationBell.jsx",
+      "line": 64,
+      "context": "await fetch(`/api/notifications/${id}/read`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/notifications/read-all",
+      "raw": "/api/notifications/read-all",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/common/NotificationBell.jsx",
+      "line": 73,
+      "context": "await fetch('/api/notifications/read-all', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/reviews/pending",
+      "raw": "/api/reviews/pending",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/common/PendingTransporterReviewGate.jsx",
+      "line": 15,
+      "context": "const json = await apiGet('/api/reviews/pending')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/trips/{param}/review",
+      "raw": "/api/orders/${activeReview.shipment_id}/trips/${activeReview.trip_id}/review",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/common/PendingTransporterReviewGate.jsx",
+      "line": 57,
+      "context": "await apiSend(`/api/orders/${activeReview.shipment_id}/trips/${activeReview.trip_id}/review`, { rating, comment })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/platform/terms/current",
+      "raw": "/api/platform/terms/current",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/common/PlatformFeesSection.jsx",
+      "line": 71,
+      "context": "apiGet('/api/platform/terms/current'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/platform/terms/history",
+      "raw": "/api/platform/terms/history",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/common/PlatformFeesSection.jsx",
+      "line": 72,
+      "context": "apiGet('/api/platform/terms/history'),"
+    },
+    {
+      "method": "POST",
+      "path": "/api/platform/terms/{param}/acknowledge",
+      "raw": "/api/platform/terms/${terms.id}/acknowledge",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/common/PlatformFeesSection.jsx",
+      "line": 92,
+      "context": "await apiSend(`/api/platform/terms/${terms.id}/acknowledge`, {})"
+    },
+    {
+      "method": "GET",
+      "path": "/api/platform/terms/current",
+      "raw": "/api/platform/terms/current",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/common/TermsUpdateNotice.jsx",
+      "line": 27,
+      "context": "apiGet('/api/platform/terms/current')"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "raw": "/auth/logout",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
+      "line": 29,
+      "context": "await fetch('/auth/logout', {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/unlock",
+      "raw": "/auth/mpin/unlock",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/components/security/AccessLockProvider.jsx",
+      "line": 127,
+      "context": "await requestJson('/auth/mpin/unlock', { method: 'POST', body: { mpin } })"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/access/unlock/password",
+      "raw": "/auth/access/unlock/password",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/components/security/AccessLockProvider.jsx",
+      "line": 156,
+      "context": "await requestJson('/auth/access/unlock/password', {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "raw": "/auth/logout",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/components/security/AccessLockProvider.jsx",
+      "line": 177,
+      "context": "await requestJson('/auth/logout', { method: 'POST' })"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/me",
+      "raw": "/auth/me",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/components/security/AccessLockProvider.jsx",
+      "line": 321,
+      "context": "const auth = await requestJson('/auth/me', { signal: requestController.signal })"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/mpin/status",
+      "raw": "/auth/mpin/status",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/components/security/AccessLockProvider.jsx",
+      "line": 345,
+      "context": "const status = await requestJson('/auth/mpin/status', { signal: requestController.signal })"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/mpin/status",
+      "raw": "/auth/mpin/status",
+      "caller": "requestJson",
+      "hint": "requestJson('/auth/mpin/status') default GET",
+      "file": "frontend-react/src/components/security/MpinManagement.jsx",
+      "line": 39,
+      "context": "const payload = await requestJson('/auth/mpin/status')"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/enroll",
+      "raw": "/auth/mpin/enroll",
+      "caller": null,
+      "hint": "mutate('enrollment') line 95",
+      "file": "frontend-react/src/components/security/MpinManagement.jsx",
+      "line": 95,
+      "context": "await mutate('enrollment', '/auth/mpin/enroll', { mpin: form.next, password: form.password })"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/change",
+      "raw": "/auth/mpin/change",
+      "caller": null,
+      "hint": "mutate('change') line 105",
+      "file": "frontend-react/src/components/security/MpinManagement.jsx",
+      "line": 105,
+      "context": "await mutate('change', '/auth/mpin/change', { current_mpin: form.current, new_mpin: form.next })"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/disable",
+      "raw": "/auth/mpin/disable",
+      "caller": null,
+      "hint": "mutate('disable') line 115",
+      "file": "frontend-react/src/components/security/MpinManagement.jsx",
+      "line": 115,
+      "context": "await mutate('disable', '/auth/mpin/disable', { current_mpin: form.disableCurrent })"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/reset",
+      "raw": "/auth/mpin/reset",
+      "caller": null,
+      "hint": "mutate('reset') line 125",
+      "file": "frontend-react/src/components/security/MpinManagement.jsx",
+      "line": 125,
+      "context": "await mutate('reset', '/auth/mpin/reset', { new_mpin: form.next, password: form.password })"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/security/sessions",
+      "raw": "/auth/security/sessions",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/components/security/SessionDeviceManagement.jsx",
+      "line": 48,
+      "context": "const result = await requestJson('/auth/security/sessions', { signal: controller.signal })"
+    },
+    {
+      "method": "DELETE",
+      "path": "/auth/security/{param}/{param}",
+      "raw": "/auth/security/${endpoint}/${encodeURIComponent(item.management_ref)}",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/components/security/SessionDeviceManagement.jsx",
+      "line": 101,
+      "context": "await requestJson(`/auth/security/${endpoint}/${encodeURIComponent(item.management_ref)}`, { method: 'DELETE', signal: controller.signal })"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/mpin/step-up",
+      "raw": "/auth/mpin/step-up",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/components/security/StepUpProvider.jsx",
+      "line": 100,
+      "context": "const result = await requestJson('/auth/mpin/step-up', {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/logout",
+      "raw": "/auth/logout",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
+      "line": 32,
+      "context": "await fetch('/auth/logout', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/transporter/driver-assignments",
+      "raw": "/api/transporter/driver-assignments?${sourceKey}=${encodeURIComponent(sourceId)}",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/transporter/DriverAssignmentPanel.jsx",
+      "line": 45,
+      "context": "const result = await apiGet(`/api/transporter/driver-assignments?${sourceKey}=${encodeURIComponent(sourceId)}`, { signal: controller.signal })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/transporter/dispatch-driver",
+      "raw": "/api/transporter/dispatch-driver",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/transporter/DriverAssignmentPanel.jsx",
+      "line": 71,
+      "context": "const result = await apiSend('/api/transporter/dispatch-driver', {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/transporter/drive-myself",
+      "raw": "/api/transporter/drive-myself",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/transporter/DriverAssignmentPanel.jsx",
+      "line": 87,
+      "context": "const result = await apiSend('/api/transporter/drive-myself', { [sourceKey]: sourceId, truck_id: data.truck_id })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/rate",
+      "raw": "/api/driver/rate",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/transporter/DriverAssignmentPanel.jsx",
+      "line": 98,
+      "context": "const result = await apiSend('/api/driver/rate', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "raw": "/api/profile",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
+      "line": 74,
+      "context": "apiGet('/api/profile')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/chat/threads",
+      "raw": "/api/chat/threads",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
+      "line": 102,
+      "context": "const json = await apiGet('/api/chat/threads')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet",
+      "raw": "/api/wallet",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/wallet/WalletWorkspace.jsx",
+      "line": 90,
+      "context": "apiGet('/api/wallet')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/transactions",
+      "raw": "/api/wallet/transactions?page=1&page_size=20",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/components/wallet/WalletWorkspace.jsx",
+      "line": 101,
+      "context": "apiGet('/api/wallet/transactions?page=1&page_size=20')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/topup",
+      "raw": "/api/wallet/topup",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/components/wallet/WalletWorkspace.jsx",
+      "line": 137,
+      "context": "const json = await apiSend('/api/wallet/topup', {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/track",
+      "raw": "/api/track",
+      "caller": "fetcher",
+      "hint": null,
+      "file": "frontend-react/src/hooks/useTracker.js",
+      "line": 40,
+      "context": "const response = await fetcher('/api/track', {"
+    },
+    {
+      "method": "REF",
+      "path": "/api/ai-assistant",
+      "raw": "/api/ai-assistant",
+      "caller": null,
+      "hint": "AI_API_BASE constant; expanded at use sites",
+      "file": "frontend-react/src/lib/aiAssistant.js",
+      "line": 1,
+      "context": "export const AI_API_BASE = '/api/ai-assistant'"
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/truck-types",
+      "raw": "/api/catalog/truck-types",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/lib/truckCatalog.js",
+      "line": 24,
+      "context": "const response = await fetch('/api/catalog/truck-types', { credentials: 'same-origin' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/agreements{param})}",
+      "raw": "/api/admin/agreements${qs({ status })}",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminAgreements.jsx",
+      "line": 29,
+      "context": "const json = await adminRequest(`/api/admin/agreements${qs({ status })}`)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/agreements/{param}",
+      "raw": "/api/admin/agreements/${id}",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminAgreements.jsx",
+      "line": 40,
+      "context": "try { setDetail(await adminRequest(`/api/admin/agreements/${id}`)) }"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/csrf-token",
+      "raw": "/auth/csrf-token",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/adminApi.js",
+      "line": 12,
+      "context": "const response = await fetch('/auth/csrf-token', { credentials: 'same-origin' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/dashboard",
+      "raw": "/api/admin/dashboard",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminDashboard.jsx",
+      "line": 33,
+      "context": "adminRequest('/api/admin/dashboard').then(setData).catch(err => setError(err.message))"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/one-time-disputes/{param}",
+      "raw": "/api/admin/one-time-disputes/${item.id}",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminDisputes.jsx",
+      "line": 96,
+      "context": "const json = await adminRequest(`/api/admin/one-time-disputes/${item.id}`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/disputes",
+      "raw": "/api/admin/disputes",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminDisputes.jsx",
+      "line": 129,
+      "context": "const json = await adminRequest('/api/admin/disputes')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/one-time-disputes",
+      "raw": "/api/admin/one-time-disputes?status=open",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminDisputes.jsx",
+      "line": 133,
+      "context": "const otJson = await adminRequest('/api/admin/one-time-disputes?status=open')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/freight-settlements/{param}/resolve",
+      "raw": "/api/admin/freight-settlements/${otDetail.settlement.id}/resolve",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminDisputes.jsx",
+      "line": 165,
+      "context": "await adminRequest(`/api/admin/freight-settlements/${otDetail.settlement.id}/resolve`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/one-time-disputes/{param}/resolve",
+      "raw": "/api/admin/one-time-disputes/${disputeId}/resolve",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminDisputes.jsx",
+      "line": 169,
+      "context": "await adminRequest(`/api/admin/one-time-disputes/${disputeId}/resolve`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/disputes/{param}/group-chat",
+      "raw": "/api/admin/disputes/${selected.id}/group-chat",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminDisputes.jsx",
+      "line": 179,
+      "context": "const json = await adminRequest(`/api/admin/disputes/${selected.id}/group-chat`, { method: 'POST', body: JSON.stringify({}) })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/disputes/{param}/resolve",
+      "raw": "/api/admin/disputes/${selected.id}/resolve",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminDisputes.jsx",
+      "line": 187,
+      "context": "await adminRequest(`/api/admin/disputes/${selected.id}/resolve`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "raw": "/auth/login",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminLogin.jsx",
+      "line": 17,
+      "context": "const res = await fetch('/auth/login', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/payments",
+      "raw": "/api/admin/payments${qs(filters)}",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminPayments.jsx",
+      "line": 35,
+      "context": "const json = await adminRequest(`/api/admin/payments${qs(filters)}`)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/platform-settings/commissions",
+      "raw": "/api/admin/platform-settings/commissions",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminPlatformSettings.jsx",
+      "line": 71,
+      "context": "const json = await adminRequest('/api/admin/platform-settings/commissions', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/platform-settings/commissions",
+      "raw": "/api/admin/platform-settings/commissions",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminPlatformSettings.jsx",
+      "line": 210,
+      "context": "adminRequest('/api/admin/platform-settings/commissions'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/platform-settings/commissions/history",
+      "raw": "/api/admin/platform-settings/commissions/history",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminPlatformSettings.jsx",
+      "line": 211,
+      "context": "adminRequest('/api/admin/platform-settings/commissions/history'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/trucks",
+      "raw": "/api/admin/trucks${qs(query)}",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminTrucks.jsx",
+      "line": 28,
+      "context": "const json = await adminRequest(`/api/admin/trucks${qs(query)}`)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users/{param}",
+      "raw": "/api/admin/users/${id}",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminUserDetail.jsx",
+      "line": 28,
+      "context": "const json = await adminRequest(`/api/admin/users/${id}`)"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/admin/users/{param}/block",
+      "raw": "/api/admin/users/${id}/block",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminUserDetail.jsx",
+      "line": 43,
+      "context": "await adminRequest(`/api/admin/users/${id}/block`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/users",
+      "raw": "/api/admin/users${qs(query)}",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminUsers.jsx",
+      "line": 33,
+      "context": "const json = await adminRequest(`/api/admin/users${qs(query)}`)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/users",
+      "raw": "/api/admin/users",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminUsers.jsx",
+      "line": 46,
+      "context": "await adminRequest('/api/admin/users', { method: 'POST', body: JSON.stringify(form) })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/admin/wallet/withdrawals{param})}",
+      "raw": "/api/admin/wallet/withdrawals${qs({ status })}",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminWithdrawals.jsx",
+      "line": 31,
+      "context": "const json = await adminRequest(`/api/admin/wallet/withdrawals${qs({ status })}`)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/admin/wallet/withdrawals/{param}/{param}",
+      "raw": "/api/admin/wallet/withdrawals/${id}/${action}",
+      "caller": "adminRequest",
+      "hint": null,
+      "file": "frontend-react/src/pages/admin/AdminWithdrawals.jsx",
+      "line": 44,
+      "context": "await adminRequest(`/api/admin/wallet/withdrawals/${id}/${action}`, { method: 'POST', body: JSON.stringify({}) })"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/me",
+      "raw": "/auth/me",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/auth/Login.jsx",
+      "line": 29,
+      "context": "const res = await fetch('/auth/me', { credentials: 'include' })"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/login",
+      "raw": "/auth/login",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/auth/Login.jsx",
+      "line": 61,
+      "context": "const res = await fetch('/auth/login', {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/forgot-password",
+      "raw": "/auth/forgot-password",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/auth/ResetPassword.jsx",
+      "line": 38,
+      "context": "const response = await fetch('/auth/forgot-password', {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/password-reset/verify-otp",
+      "raw": "/auth/password-reset/verify-otp",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/auth/ResetPassword.jsx",
+      "line": 69,
+      "context": "const response = await fetch('/auth/password-reset/verify-otp', {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/reset-password",
+      "raw": "/auth/reset-password",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/auth/ResetPassword.jsx",
+      "line": 104,
+      "context": "const response = await fetch('/auth/reset-password', {"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/csrf-token",
+      "raw": "/auth/csrf-token",
+      "caller": "fetchImpl",
+      "hint": null,
+      "file": "frontend-react/src/pages/auth/roledetails/_submitHelper.js",
+      "line": 10,
+      "context": "const csrfRes = await fetchImpl('/auth/csrf-token', {"
+    },
+    {
+      "method": "POST",
+      "path": "/auth/signup",
+      "raw": "/auth/signup",
+      "caller": "fetchImpl",
+      "hint": null,
+      "file": "frontend-react/src/pages/auth/roledetails/_submitHelper.js",
+      "line": 20,
+      "context": "const res = await fetchImpl('/auth/signup', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/posts/{param}/bids",
+      "raw": "/api/agreements/posts/${postId}/bids",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/AgreementBids.jsx",
+      "line": 26,
+      "context": "const json = await apiGet(`/api/agreements/posts/${postId}/bids`)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/posts/{param}/bids/{param}/invite",
+      "raw": "/api/agreements/posts/${postId}/bids/${bid.id}/invite",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/AgreementBids.jsx",
+      "line": 90,
+      "context": "await apiSend(`/api/agreements/posts/${postId}/bids/${bid.id}/invite`)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/finalize",
+      "raw": "/api/agreements/finalize",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/AgreementBids.jsx",
+      "line": 112,
+      "context": "const json = await apiSend('/api/agreements/finalize', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/{param}",
+      "raw": "/api/agreements/${id}",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/AgreementDetail.jsx",
+      "line": 18,
+      "context": "apiGet(`/api/agreements/${id}`),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/{param}/payments",
+      "raw": "/api/agreements/${id}/payments",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/AgreementDetail.jsx",
+      "line": 19,
+      "context": "apiGet(`/api/agreements/${id}/payments`),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/{param}/trips",
+      "raw": "/api/agreements/${id}/trips",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/AgreementDetail.jsx",
+      "line": 20,
+      "context": "apiGet(`/api/agreements/${id}/trips`),"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/trips/{param}/dispute",
+      "raw": "/api/agreements/trips/${tripId}/dispute",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/AgreementDetail.jsx",
+      "line": 37,
+      "context": "await apiSend(`/api/agreements/trips/${tripId}/dispute`, {})"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/{param}/trips",
+      "raw": "/api/agreements/${id}/trips",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/AgreementDetail.jsx",
+      "line": 39,
+      "context": "const tripJson = await apiGet(`/api/agreements/${id}/trips`)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/my-orders",
+      "raw": "/api/orders/my-orders",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/Agreements.jsx",
+      "line": 24,
+      "context": "apiGet('/api/orders/my-orders')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/client/balance",
+      "raw": "/api/client/balance",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/Balance.jsx",
+      "line": 36,
+      "context": "apiGet('/api/client/balance')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/client/payments",
+      "raw": "/api/client/payments",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/Balance.jsx",
+      "line": 47,
+      "context": "apiGet('/api/client/payments')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/client/payments",
+      "raw": "/api/client/payments",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/Balance.jsx",
+      "line": 75,
+      "context": "await apiSend('/api/client/payments', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/{param}",
+      "raw": "/api/orders/${orderId}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/BidCheckout.jsx",
+      "line": 124,
+      "context": "const orderResp = await fetch(`/api/orders/${orderId}`, { credentials: 'same-origin' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/{param}/bids/{param}/payment-quote",
+      "raw": "/api/orders/${orderId}/bids/${bidId}/payment-quote",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/BidCheckout.jsx",
+      "line": 133,
+      "context": "const quoteResp = await fetch(`/api/orders/${orderId}/bids/${bidId}/payment-quote`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/payment-methods",
+      "raw": "/api/payment-methods",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/BidCheckout.jsx",
+      "line": 149,
+      "context": "const methodsResp = await fetch('/api/payment-methods', { credentials: 'same-origin' })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/bids/{param}/checkout",
+      "raw": "/api/orders/${orderId}/bids/${bidId}/checkout",
+      "caller": "protectedFetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/BidCheckout.jsx",
+      "line": 282,
+      "context": "const response = await protectedFetch(`/api/orders/${orderId}/bids/${bidId}/checkout`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "raw": "/api/profile",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/ClientAccount.jsx",
+      "line": 41,
+      "context": "const json = await apiGet('/api/profile')"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/profile",
+      "raw": "/api/profile",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/ClientAccount.jsx",
+      "line": 86,
+      "context": "const json = await apiSend('/api/profile', payload, 'PUT')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/my-orders",
+      "raw": "/api/orders/my-orders",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/ClientDashboard.jsx",
+      "line": 38,
+      "context": "const json = await apiGet('/api/orders/my-orders')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/my-orders",
+      "raw": "/api/orders/my-orders",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/ClientDashboard.jsx",
+      "line": 50,
+      "context": "apiGet('/api/orders/my-orders'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet",
+      "raw": "/api/wallet",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/ClientDashboard.jsx",
+      "line": 51,
+      "context": "apiGet('/api/wallet').catch(() => ({ wallet: {} })),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/{param}",
+      "raw": "/api/orders/${orderId}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/ClientOrderDetail.jsx",
+      "line": 108,
+      "context": "const response = await fetch(`/api/orders/${orderId}`, { credentials: 'same-origin', signal: controller.signal })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/trips/{param}/confirm-delivery",
+      "raw": "/api/orders/${orderId}/trips/${trip.id}/confirm-delivery",
+      "caller": "fetchImpl",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/ClientOrderDetail.jsx",
+      "line": 153,
+      "context": "const response = await fetchImpl(`/api/orders/${orderId}/trips/${trip.id}/confirm-delivery`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/csrf-token",
+      "raw": "/auth/csrf-token",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/clientUtils.jsx",
+      "line": 116,
+      "context": "const response = await fetch('/auth/csrf-token', { credentials: 'same-origin' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/my",
+      "raw": "/api/agreements/my",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/MyAgreements.jsx",
+      "line": 11,
+      "context": "apiGet('/api/agreements/my')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/my-orders",
+      "raw": "/api/orders/my-orders",
+      "caller": "fetchImpl",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/myOrdersLoader.js",
+      "line": 2,
+      "context": "const response = await fetchImpl('/api/orders/my-orders', {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/posts",
+      "raw": "/api/agreements/posts",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/PostAgreement.jsx",
+      "line": 49,
+      "context": "const json = await apiSend('/api/agreements/posts', form)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/{param}",
+      "raw": "/api/orders/${copyId}",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/PostOrder.jsx",
+      "line": 89,
+      "context": "apiGet(`/api/orders/${copyId}`)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders",
+      "raw": "/api/orders",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/client/PostOrder.jsx",
+      "line": 210,
+      "context": "await apiSend('/api/orders', payload)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/me",
+      "raw": "/api/driver/me",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverActiveTrip.jsx",
+      "line": 29,
+      "context": "apiGet('/api/driver/me', { signal: controller.signal }).then(result => {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/gps/ping",
+      "raw": "/api/driver/gps/ping",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverActiveTrip.jsx",
+      "line": 62,
+      "context": "await apiSend('/api/driver/gps/ping', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/me",
+      "raw": "/api/driver/me",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverDashboard.jsx",
+      "line": 11,
+      "context": "apiGet('/api/driver/me')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/fuel-logs",
+      "raw": "/api/driver/fuel-logs",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverFuelLogs.jsx",
+      "line": 36,
+      "context": "apiGet('/api/driver/fuel-logs'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/trips-for-fuel",
+      "raw": "/api/driver/trips-for-fuel",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverFuelLogs.jsx",
+      "line": 37,
+      "context": "apiGet('/api/driver/trips-for-fuel'),"
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/fuel-logs",
+      "raw": "/api/driver/fuel-logs",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverFuelLogs.jsx",
+      "line": 105,
+      "context": "const res = await apiSend('/api/driver/fuel-logs', payload)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/me",
+      "raw": "/api/driver/me",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverProfile.jsx",
+      "line": 9,
+      "context": "apiGet('/api/driver/me')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/me",
+      "raw": "/api/driver/me",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverReputation.jsx",
+      "line": 9,
+      "context": "apiGet('/api/driver/me')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/me",
+      "raw": "/api/driver/me",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverTrips.jsx",
+      "line": 25,
+      "context": "apiGet('/api/driver/me'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/driver/hire-contracts",
+      "raw": "/api/driver/hire-contracts",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverTrips.jsx",
+      "line": 26,
+      "context": "apiGet('/api/driver/hire-contracts'),"
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/trips/{param}/respond",
+      "raw": "/api/driver/trips/${id}/respond",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverTrips.jsx",
+      "line": 48,
+      "context": "const res = await apiSend(`/api/driver/trips/${id}/respond`, { action })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/driver/hire-contracts/{param}/respond",
+      "raw": "/api/driver/hire-contracts/${id}/respond",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverTrips.jsx",
+      "line": 64,
+      "context": "const res = await apiSend(`/api/driver/hire-contracts/${id}/respond`, { action })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/balance",
+      "raw": "/api/wallet/balance",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverWallet.jsx",
+      "line": 24,
+      "context": "apiGet('/api/wallet/balance')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/withdraw",
+      "raw": "/api/wallet/withdraw",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverWallet.jsx",
+      "line": 41,
+      "context": "const res = await apiSend('/api/wallet/withdraw', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/balance",
+      "raw": "/api/wallet/balance",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/driver/DriverWallet.jsx",
+      "line": 47,
+      "context": "const refreshed = await apiGet('/api/wallet/balance')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/my-orders",
+      "raw": "/api/orders/my-orders",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/everyday/EverydayDashboard.jsx",
+      "line": 44,
+      "context": "apiGet('/api/orders/my-orders')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuelstation/pumps",
+      "raw": "/api/fuelstation/pumps",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/fuelstation/FuelDispensePOS.jsx",
+      "line": 42,
+      "context": "const result = await apiGet('/api/fuelstation/pumps', { signal: controller.signal })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuelstation/dispense",
+      "raw": "/api/fuelstation/dispense",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/fuelstation/FuelDispensePOS.jsx",
+      "line": 92,
+      "context": "const res = await apiSend('/api/fuelstation/dispense', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuelstation/dispenses",
+      "raw": "/api/fuelstation/dispenses",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/fuelstation/FuelHistoryPage.jsx",
+      "line": 15,
+      "context": "api.get('/api/fuelstation/dispenses')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuelstation/pumps",
+      "raw": "/api/fuelstation/pumps",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/fuelstation/FuelPumpsPage.jsx",
+      "line": 34,
+      "context": "api.get('/api/fuelstation/pumps')"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/fuelstation/pumps/{param}",
+      "raw": "/api/fuelstation/pumps/${pumpId}",
+      "caller": "api.put",
+      "hint": null,
+      "file": "frontend-react/src/pages/fuelstation/FuelPumpsPage.jsx",
+      "line": 62,
+      "context": "const res = await api.put(`/api/fuelstation/pumps/${pumpId}`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuelstation/pumps",
+      "raw": "/api/fuelstation/pumps",
+      "caller": "api.post",
+      "hint": null,
+      "file": "frontend-react/src/pages/fuelstation/FuelPumpsPage.jsx",
+      "line": 86,
+      "context": "const res = await api.post('/api/fuelstation/pumps', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuelstation/dashboard",
+      "raw": "/api/fuelstation/dashboard",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/fuelstation/FuelStationDashboard.jsx",
+      "line": 15,
+      "context": "api.get('/api/fuelstation/dashboard')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuelstation/profile",
+      "raw": "/api/fuelstation/profile",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/fuelstation/FuelStationProfile.jsx",
+      "line": 23,
+      "context": "api.get('/api/fuelstation/profile')"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/fuelstation/profile",
+      "raw": "/api/fuelstation/profile",
+      "caller": "api.put",
+      "hint": null,
+      "file": "frontend-react/src/pages/fuelstation/FuelStationProfile.jsx",
+      "line": 41,
+      "context": "const res = await api.put('/api/fuelstation/profile', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}",
+      "raw": "/api/trucks/${id}",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/future/service_history.jsx",
+      "line": 15,
+      "context": "const truckReq = id ? api.get(`/api/trucks/${id}`).catch(() => null) : Promise.resolve(null)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}/maintenance",
+      "raw": "/api/trucks/${id}/maintenance",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/future/service_history.jsx",
+      "line": 17,
+      "context": "? api.get(`/api/trucks/${id}/maintenance`).catch(() => api.get('/api/maintenance'))"
+    },
+    {
+      "method": "GET",
+      "path": "/api/maintenance",
+      "raw": "/api/maintenance",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/future/service_history.jsx",
+      "line": 17,
+      "context": "? api.get(`/api/trucks/${id}/maintenance`).catch(() => api.get('/api/maintenance'))"
+    },
+    {
+      "method": "GET",
+      "path": "/api/maintenance",
+      "raw": "/api/maintenance",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/future/service_history.jsx",
+      "line": 18,
+      "context": ": api.get('/api/maintenance')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}/fuel",
+      "raw": "/api/trucks/${id}/fuel",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/future/service_history.jsx",
+      "line": 20,
+      "context": "? api.get(`/api/trucks/${id}/fuel`).catch(() => api.get('/api/fuel'))"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuel",
+      "raw": "/api/fuel",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/future/service_history.jsx",
+      "line": 20,
+      "context": "? api.get(`/api/trucks/${id}/fuel`).catch(() => api.get('/api/fuel'))"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuel",
+      "raw": "/api/fuel",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/future/service_history.jsx",
+      "line": 21,
+      "context": ": api.get('/api/fuel')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ai-assistant/capabilities",
+      "raw": "/api/ai-assistant/capabilities",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shared/AiChat.jsx",
+      "line": 116,
+      "context": "const response = await fetch(`${AI_API_BASE}/capabilities`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/ai-assistant/interpret",
+      "raw": "/api/ai-assistant/interpret",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shared/AiChat.jsx",
+      "line": 217,
+      "context": "const response = await fetch(`${AI_API_BASE}/interpret`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/tables/{param}",
+      "raw": "/api/shopkeeper/tables/${tableId}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/AnalysisView.jsx",
+      "line": 26,
+      "context": "fetch(`/api/shopkeeper/tables/${tableId}`, { credentials: 'include' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/tables/{param}/export",
+      "raw": "/api/shopkeeper/tables/${tableId}/export",
+      "caller": "window.open",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/AnalysisView.jsx",
+      "line": 163,
+      "context": "onClick={() => window.open(`/api/shopkeeper/tables/${tableId}/export`, '_blank')}"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/csrf-token",
+      "raw": "/auth/csrf-token",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/CreateTable.jsx",
+      "line": 18,
+      "context": "const res = await fetch('/auth/csrf-token', { credentials: 'include' })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/shopkeeper/tables",
+      "raw": "/api/shopkeeper/tables",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/CreateTable.jsx",
+      "line": 71,
+      "context": "const res = await fetch('/api/shopkeeper/tables', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/products",
+      "raw": "/api/shopkeeper/products",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/InventoryPage.jsx",
+      "line": 24,
+      "context": "const res = await fetch('/api/shopkeeper/products', { credentials: 'include' })"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/shopkeeper/products/{param}",
+      "raw": "/api/shopkeeper/products/${modal.product.id}",
+      "caller": null,
+      "hint": "isEdit ? PUT : POST (line 80)",
+      "file": "frontend-react/src/pages/shopkeeper/InventoryPage.jsx",
+      "line": 79,
+      "context": "const url = isEdit ? `/api/shopkeeper/products/${modal.product.id}` : '/api/shopkeeper/products'"
+    },
+    {
+      "method": "POST",
+      "path": "/api/shopkeeper/products",
+      "raw": "/api/shopkeeper/products",
+      "caller": null,
+      "hint": "isEdit ? PUT : POST (line 80)",
+      "file": "frontend-react/src/pages/shopkeeper/InventoryPage.jsx",
+      "line": 79,
+      "context": "const url = isEdit ? `/api/shopkeeper/products/${modal.product.id}` : '/api/shopkeeper/products'"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/shopkeeper/products/{param}",
+      "raw": "/api/shopkeeper/products/${id}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/InventoryPage.jsx",
+      "line": 112,
+      "context": "const res = await fetch(`/api/shopkeeper/products/${id}`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/products",
+      "raw": "/api/shopkeeper/products",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
+      "line": 30,
+      "context": "const res = await fetch('/api/shopkeeper/products', { credentials: 'include' })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/shopkeeper/sales",
+      "raw": "/api/shopkeeper/sales",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
+      "line": 80,
+      "context": "const res = await fetch('/api/shopkeeper/sales', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/sales/{param}",
+      "raw": "/api/shopkeeper/sales/${data.data.sale_id}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
+      "line": 99,
+      "context": "const saleRes = await fetch(`/api/shopkeeper/sales/${data.data.sale_id}`, { credentials: 'include' })"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/csrf-token",
+      "raw": "/auth/csrf-token",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/posUtils.js",
+      "line": 5,
+      "context": "const res = await fetch('/auth/csrf-token', { credentials: 'include' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/sales/analytics",
+      "raw": "/api/shopkeeper/sales/analytics?${params}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/SalesAnalyticsPage.jsx",
+      "line": 33,
+      "context": "fetch(`/api/shopkeeper/sales/analytics?${params}`, { credentials: 'include' }),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/sales",
+      "raw": "/api/shopkeeper/sales?${params}&limit=100",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/SalesAnalyticsPage.jsx",
+      "line": 34,
+      "context": "fetch(`/api/shopkeeper/sales?${params}&limit=100`, { credentials: 'include' }),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/tables",
+      "raw": "/api/shopkeeper/tables",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperDashboard.jsx",
+      "line": 18,
+      "context": "fetch('/api/shopkeeper/tables', { credentials: 'include' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/shop/orders",
+      "raw": "/api/marketplace/shop/orders",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 52,
+      "context": "const res = await fetch('/api/marketplace/shop/orders', { credentials: 'include' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/shop/parts",
+      "raw": "/api/marketplace/shop/parts",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 56,
+      "context": "const res = await fetch('/api/marketplace/shop/parts', { credentials: 'include' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/rfq",
+      "raw": "/api/marketplace/rfq",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 60,
+      "context": "const res = await fetch('/api/marketplace/rfq', { credentials: 'include' })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/shop/orders/{param}/verify-otp",
+      "raw": "/api/marketplace/shop/orders/${verifyingOrder.id}/verify-otp",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 79,
+      "context": "const data = await apiSend(`/api/marketplace/shop/orders/${verifyingOrder.id}/verify-otp`, { otp: otpInput.trim() })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/shop/orders/{param}/status",
+      "raw": "/api/marketplace/shop/orders/${orderId}/status",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 100,
+      "context": "const data = await apiSend(`/api/marketplace/shop/orders/${orderId}/status`, { status })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/shop/parts",
+      "raw": "/api/marketplace/shop/parts",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 121,
+      "context": "const data = await apiSend('/api/marketplace/shop/parts', payload)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/rfq/{param}/bid",
+      "raw": "/api/marketplace/rfq/${biddingRfq.id}/bid",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+      "line": 138,
+      "context": "const data = await apiSend(`/api/marketplace/rfq/${biddingRfq.id}/bid`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "raw": "/api/profile",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperProfile.jsx",
+      "line": 35,
+      "context": "fetch('/api/profile', { credentials: 'include' })"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/profile",
+      "raw": "/api/profile",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperProfile.jsx",
+      "line": 63,
+      "context": "const response = await fetch('/api/profile', {"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/csrf-token",
+      "raw": "/auth/csrf-token",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
+      "line": 7,
+      "context": "const res = await fetch('/auth/csrf-token', { credentials: 'include' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/tables/{param}",
+      "raw": "/api/shopkeeper/tables/${tableId}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
+      "line": 40,
+      "context": "fetch(`/api/shopkeeper/tables/${tableId}`, { credentials: 'include' })"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/shopkeeper/tables/{param}/rows/{param}",
+      "raw": "/api/shopkeeper/tables/${tableId}/rows/${rowId}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
+      "line": 81,
+      "context": "const res = await fetch(`/api/shopkeeper/tables/${tableId}/rows/${rowId}`, {"
+    },
+    {
+      "method": "DELETE",
+      "path": "/api/shopkeeper/tables/{param}/rows/{param}",
+      "raw": "/api/shopkeeper/tables/${tableId}/rows/${rowId}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
+      "line": 109,
+      "context": "const res = await fetch(`/api/shopkeeper/tables/${tableId}/rows/${rowId}`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/shopkeeper/tables/{param}/rows",
+      "raw": "/api/shopkeeper/tables/${tableId}/rows",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
+      "line": 136,
+      "context": "const res = await fetch(`/api/shopkeeper/tables/${tableId}/rows`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/shopkeeper/tables/{param}/export",
+      "raw": "/api/shopkeeper/tables/${tableId}/export",
+      "caller": "window.open",
+      "hint": null,
+      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
+      "line": 359,
+      "context": "onClick={() => window.open(`/api/shopkeeper/tables/${tableId}/export`, '_blank')}"
+    },
+    {
+      "method": "GET",
+      "path": "/api/about",
+      "raw": "/api/about",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/about.jsx",
+      "line": 221,
+      "context": "requestJson('/api/about'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/about/team",
+      "raw": "/api/about/team",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/about.jsx",
+      "line": 222,
+      "context": "requestJson('/api/about/team'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/about/services",
+      "raw": "/api/about/services",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/about.jsx",
+      "line": 223,
+      "context": "requestJson('/api/about/services'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/about/statistics",
+      "raw": "/api/about/statistics",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/about.jsx",
+      "line": 224,
+      "context": "requestJson('/api/about/statistics'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/about/timeline",
+      "raw": "/api/about/timeline",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/about.jsx",
+      "line": 225,
+      "context": "requestJson('/api/about/timeline'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/transactions",
+      "raw": "/api/wallet/transactions?page_size=100",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/ac_history.jsx",
+      "line": 21,
+      "context": "api.get('/api/wallet/transactions?page_size=100')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/trucks",
+      "raw": "/api/trucks",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/add_truck.jsx",
+      "line": 111,
+      "context": "const res = await fetch('/api/trucks', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/posts/available",
+      "raw": "/api/agreements/posts/available",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/AgreementBids.jsx",
+      "line": 52,
+      "context": "apiGet('/api/agreements/posts/available'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks",
+      "raw": "/api/trucks",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/AgreementBids.jsx",
+      "line": 53,
+      "context": "apiGet('/api/trucks'),"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/posts/{param}/bids",
+      "raw": "/api/agreements/posts/${selectedPost.id}/bids",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/AgreementBids.jsx",
+      "line": 106,
+      "context": "await apiSend(`/api/agreements/posts/${selectedPost.id}/bids`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/available",
+      "raw": "/api/orders/available",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/AvailableBids.jsx",
+      "line": 28,
+      "context": "fetch('/api/orders/available', { credentials: 'same-origin' }),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks",
+      "raw": "/api/trucks",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/AvailableBids.jsx",
+      "line": 29,
+      "context": "fetch('/api/trucks', { credentials: 'same-origin' }),"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/bids",
+      "raw": "/api/orders/${selectedOrder.id}/bids",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/AvailableBids.jsx",
+      "line": 100,
+      "context": "const response = await fetch(`/api/orders/${selectedOrder.id}/bids`, {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/contact",
+      "raw": "/api/contact",
+      "caller": "api.post",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/contact.jsx",
+      "line": 64,
+      "context": "await api.post('/api/contact', {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/orders/{param}/delivery-otp",
+      "raw": "/api/marketplace/orders/${orderId}/delivery-otp",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/DeliveryHandoffCode.jsx",
+      "line": 20,
+      "context": "const result = await requestJson(`/api/marketplace/orders/${orderId}/delivery-otp`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/csrf-token",
+      "raw": "/auth/csrf-token",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/earning.jsx",
+      "line": 7,
+      "context": "const res = await fetch('/auth/csrf-token', { credentials: 'same-origin' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/earnings-summary",
+      "raw": "/api/wallet/earnings-summary",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/earning.jsx",
+      "line": 68,
+      "context": "apiGet('/api/wallet/earnings-summary'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/withdrawal-limits",
+      "raw": "/api/wallet/withdrawal-limits",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/earning.jsx",
+      "line": 69,
+      "context": "apiGet('/api/wallet/withdrawal-limits'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/payout-card",
+      "raw": "/api/wallet/payout-card",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/earning.jsx",
+      "line": 75,
+      "context": "const cardRes = await apiGet('/api/wallet/payout-card')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/withdraw-locked",
+      "raw": "/api/wallet/withdraw-locked",
+      "caller": "apiPost",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/earning.jsx",
+      "line": 100,
+      "context": "const res = await apiPost('/api/wallet/withdraw-locked', { amount: amt }, protectedFetch)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/upgrade-limit",
+      "raw": "/api/wallet/upgrade-limit",
+      "caller": "apiPost",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/earning.jsx",
+      "line": 133,
+      "context": "const res = await apiPost('/api/wallet/upgrade-limit', { tier, duration_years }, protectedFetch)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/payout-card",
+      "raw": "/api/wallet/payout-card",
+      "caller": "apiPost",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/earning.jsx",
+      "line": 149,
+      "context": "await apiPost('/api/wallet/payout-card', cardForm, protectedFetch)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/payout-card",
+      "raw": "/api/wallet/payout-card",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/earning.jsx",
+      "line": 152,
+      "context": "const cardRes = await apiGet('/api/wallet/payout-card')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics",
+      "raw": "/api/analytics?period=${period}",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
+      "line": 26,
+      "context": "api.get(`/api/analytics?period=${period}`)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "raw": "/api/profile",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/customer_rating.jsx",
+      "line": 82,
+      "context": "get('/api/profile'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/ratings/overview",
+      "raw": "/api/ratings/overview",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/customer_rating.jsx",
+      "line": 83,
+      "context": "get('/api/ratings/overview'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/leaderboard",
+      "raw": "/api/leaderboard?limit=5&page=1",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/customer_rating.jsx",
+      "line": 84,
+      "context": "get('/api/leaderboard?limit=5&page=1'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks",
+      "raw": "/api/trucks",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 25,
+      "context": "api.get('/api/trucks').then(d => {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuel",
+      "raw": "/api/fuel",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 29,
+      "context": "api.get('/api/fuel')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuel",
+      "raw": "/api/fuel",
+      "caller": "api.post",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+      "line": 60,
+      "context": "await api.post('/api/fuel', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/maintenance",
+      "raw": "/api/maintenance",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
+      "line": 71,
+      "context": "get('/api/maintenance')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/maintenance",
+      "raw": "/api/maintenance",
+      "caller": "post",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
+      "line": 89,
+      "context": "const res = await post('/api/maintenance', {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/payments",
+      "raw": "/api/payments",
+      "caller": "api.post",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/payments.jsx",
+      "line": 71,
+      "context": "await api.post('/api/payments', body)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks",
+      "raw": "/api/trucks",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 44,
+      "context": "api.get('/api/trucks'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/stats",
+      "raw": "/api/trucks/stats",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 45,
+      "context": "api.get('/api/trucks/stats'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/maintenance",
+      "raw": "/api/maintenance",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 46,
+      "context": "api.get('/api/maintenance'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/fuel",
+      "raw": "/api/fuel",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 47,
+      "context": "api.get('/api/fuel'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/analytics",
+      "raw": "/api/analytics?period=month",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 48,
+      "context": "api.get('/api/analytics?period=month'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/insights/predictions",
+      "raw": "/api/insights/predictions",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 49,
+      "context": "api.get('/api/insights/predictions'),"
+    },
+    {
+      "method": "POST",
+      "path": "/api/maintenance",
+      "raw": "/api/maintenance",
+      "caller": "api.post",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 90,
+      "context": "await api.post('/api/maintenance', {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/fuel",
+      "raw": "/api/fuel",
+      "caller": "api.post",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+      "line": 113,
+      "context": "await api.post('/api/fuel', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/insights/predictions",
+      "raw": "/api/insights/predictions",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
+      "line": 37,
+      "context": "api.get('/api/insights/predictions')"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/orders",
+      "raw": "/api/marketplace/orders",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/marketplaceApi.js",
+      "line": 41,
+      "context": "const result = await apiSend('/api/marketplace/orders', payload, 'POST', (url, options) => {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks",
+      "raw": "/api/trucks?page_size=200",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/My Truck.jsx",
+      "line": 30,
+      "context": "Promise.allSettled([get('/api/trucks?page_size=200'), get('/api/trucks/stats')])"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/stats",
+      "raw": "/api/trucks/stats",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/My Truck.jsx",
+      "line": 30,
+      "context": "Promise.allSettled([get('/api/trucks?page_size=200'), get('/api/trucks/stats')])"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/my",
+      "raw": "/api/agreements/my",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/MyAgreements.jsx",
+      "line": 45,
+      "context": "const json = await apiGet('/api/agreements/my')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/agreements/{param}/trips",
+      "raw": "/api/agreements/${agreement.id}/trips",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/MyAgreements.jsx",
+      "line": 49,
+      "context": "const tripJson = await apiGet(`/api/agreements/${agreement.id}/trips`)"
+    },
+    {
+      "method": "POST",
+      "path": "/api/agreements/{param}/trips",
+      "raw": "/api/agreements/${agreement.id}/trips",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/MyAgreements.jsx",
+      "line": 89,
+      "context": "await apiSend(`/api/agreements/${agreement.id}/trips`, {"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/agreements/{param}/trips/{param}/end",
+      "raw": "/api/agreements/${agreement.id}/trips/${trip.id}/end",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/MyAgreements.jsx",
+      "line": 111,
+      "context": "const json = await apiSend(`/api/agreements/${agreement.id}/trips/${trip.id}/end`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/my-bids",
+      "raw": "/api/orders/my-bids",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/MyBids.jsx",
+      "line": 27,
+      "context": "const response = await fetch('/api/orders/my-bids', { credentials: 'same-origin' })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/bids/{param}/withdraw",
+      "raw": "/api/orders/${bid.order_id}/bids/${bid.id}/withdraw",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/MyBids.jsx",
+      "line": 54,
+      "context": "const response = await fetch(`/api/orders/${bid.order_id}/bids/${bid.id}/withdraw`, {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/{param}",
+      "raw": "/api/orders/${orderId}",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/OrderTracking.jsx",
+      "line": 72,
+      "context": "const response = await fetch(`/api/orders/${orderId}`, { credentials: 'same-origin' })"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/trips/{param}/start",
+      "raw": "/api/orders/${orderId}/trips/${trip.id}/start",
+      "caller": "postAction",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/OrderTracking.jsx",
+      "line": 121,
+      "context": "`/api/orders/${orderId}/trips/${trip.id}/start`, null,"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/trips/{param}/complete-delivery",
+      "raw": "/api/orders/${orderId}/trips/${trip.id}/complete-delivery",
+      "caller": "postAction",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/OrderTracking.jsx",
+      "line": 128,
+      "context": "`/api/orders/${orderId}/trips/${trip.id}/complete-delivery`, null,"
+    },
+    {
+      "method": "POST",
+      "path": "/api/disputes/{param}/statement",
+      "raw": "/api/disputes/${dispute.id}/statement",
+      "caller": "postAction",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/OrderTracking.jsx",
+      "line": 136,
+      "context": "`/api/disputes/${dispute.id}/statement`, { statement: statement.trim() },"
+    },
+    {
+      "method": "POST",
+      "path": "/api/orders/{param}/trips/{param}/verify-delivery-otp",
+      "raw": "/api/orders/${orderId}/trips/${trip.id}/verify-delivery-otp",
+      "caller": "postAction",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/OrderTracking.jsx",
+      "line": 307,
+      "context": "void postAction(`/api/orders/${orderId}/trips/${trip.id}/verify-delivery-otp`, { otp: deliveryOtp }, null, 'verify', 'Delivery verified. Settlement tranches created.')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks",
+      "raw": "/api/trucks",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+      "line": 63,
+      "context": "const res = await fetch('/api/trucks', { credentials: 'include' })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/parts",
+      "raw": "/api/marketplace/parts?category=${category}",
+      "caller": null,
+      "hint": "fetch(url,{credentials}) line 79",
+      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+      "line": 75,
+      "context": "let url = `/api/marketplace/parts?category=${category}`"
+    },
+    {
+      "method": "POST",
+      "path": "/api/marketplace/rfq",
+      "raw": "/api/marketplace/rfq",
+      "caller": "apiSend",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+      "line": 161,
+      "context": "const data = await apiSend('/api/marketplace/rfq', payload)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/my-orders",
+      "raw": "/api/marketplace/my-orders",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/PartsOrdersPage.jsx",
+      "line": 24,
+      "context": "fetch('/api/marketplace/my-orders', { credentials: 'include' }).then((r) => r.json()).then((data) => {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/rfq",
+      "raw": "/api/marketplace/rfq",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/PartsRequestsPage.jsx",
+      "line": 7,
+      "context": "useEffect(() => { fetch('/api/marketplace/rfq', { credentials: 'include' }).then((r) => r.json()).then((data) => { if (!data.success) throw new Error(data.message || 'Could not load requests.'); setRequests(data.rfqs || "
+    },
+    {
+      "method": "GET",
+      "path": "/api/marketplace/my-orders",
+      "raw": "/api/marketplace/my-orders",
+      "caller": "fetch",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/PartsStoreDashboard.jsx",
+      "line": 17,
+      "context": "useEffect(() => { fetch('/api/marketplace/my-orders', { credentials: 'include' }).then((r) => r.json()).then((d) => d.success && setOrders(d.orders || [])).catch(() => undefined) }, [])"
+    },
+    {
+      "method": "GET",
+      "path": "/auth/me",
+      "raw": "/auth/me",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/profile.jsx",
+      "line": 36,
+      "context": "get('/auth/me')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/profile",
+      "raw": "/api/profile",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 61,
+      "context": "Promise.allSettled([get('/api/profile'), get('/api/settings')]).then(([profileRes, settingsRes]) => {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings",
+      "raw": "/api/settings",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 61,
+      "context": "Promise.allSettled([get('/api/profile'), get('/api/settings')]).then(([profileRes, settingsRes]) => {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/payout-card",
+      "raw": "/api/wallet/payout-card",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 79,
+      "context": "get('/api/wallet/payout-card').then(res => {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/wallet/payout-card",
+      "raw": "/api/wallet/payout-card",
+      "caller": "post",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 87,
+      "context": "const res = await post('/api/wallet/payout-card', cardForm)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet/payout-card",
+      "raw": "/api/wallet/payout-card",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 91,
+      "context": "const cardRes = await get('/api/wallet/payout-card')"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/profile",
+      "raw": "/api/profile",
+      "caller": "put",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 103,
+      "context": "const res = await put('/api/profile', { first_name: account.companyName, phone: account.phone, city: account.address, about: account.about })"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings/notifications",
+      "raw": "/api/settings/notifications",
+      "caller": "put",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 116,
+      "context": "const res = await put('/api/settings/notifications', {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/profile/password/request-otp",
+      "raw": "/api/profile/password/request-otp",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 136,
+      "context": "const res = await requestJson('/api/profile/password/request-otp', {"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/profile/password",
+      "raw": "/api/profile/password",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 143,
+      "context": "const res = await requestJson('/api/profile/password', {"
+    },
+    {
+      "method": "POST",
+      "path": "/api/profile/password/request-otp",
+      "raw": "/api/profile/password/request-otp",
+      "caller": "requestJson",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 169,
+      "context": "await requestJson('/api/profile/password/request-otp', {"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/settings",
+      "raw": "/api/settings",
+      "caller": "put",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 180,
+      "context": "const res = await put('/api/settings', {"
+    },
+    {
+      "method": "GET",
+      "path": "/api/settings/security/activity",
+      "raw": "/api/settings/security/activity",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/settings.jsx",
+      "line": 196,
+      "context": "const res = await get('/api/settings/security/activity')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}/live-location",
+      "raw": "/api/trucks/${truckId}/live-location",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/track_truck.jsx",
+      "line": 22,
+      "context": "const data = await apiGet(`/api/trucks/${truckId}/live-location`)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}",
+      "raw": "/api/trucks/${id}",
+      "caller": "apiGet",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/track_truck.jsx",
+      "line": 124,
+      "context": "apiGet(`/api/trucks/${id}`)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/stats",
+      "raw": "/api/trucks/stats",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/transporter_dashboard.jsx",
+      "line": 45,
+      "context": "get('/api/trucks/stats'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks",
+      "raw": "/api/trucks",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/transporter_dashboard.jsx",
+      "line": 46,
+      "context": "get('/api/trucks'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/available",
+      "raw": "/api/orders/available",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/transporter_dashboard.jsx",
+      "line": 47,
+      "context": "get('/api/orders/available'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/orders/my-bids",
+      "raw": "/api/orders/my-bids",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/transporter_dashboard.jsx",
+      "line": 48,
+      "context": "get('/api/orders/my-bids'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/wallet",
+      "raw": "/api/wallet",
+      "caller": "get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/transporter_dashboard.jsx",
+      "line": 49,
+      "context": "get('/api/wallet'),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}/configuration",
+      "raw": "/api/trucks/${id}/configuration",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 111,
+      "context": "api.get(`/api/trucks/${id}/configuration`)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}",
+      "raw": "/api/trucks/${id}",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 117,
+      "context": "api.get(`/api/trucks/${id}`)"
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/truck-types",
+      "raw": "/api/catalog/truck-types",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 136,
+      "context": "api.get('/api/catalog/truck-types')"
+    },
+    {
+      "method": "GET",
+      "path": "/api/catalog/truck-types/{param}/fields",
+      "raw": "/api/catalog/truck-types/${encodeURIComponent(form.catalog_type_key)}/fields",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 156,
+      "context": "api.get(`/api/catalog/truck-types/${encodeURIComponent(form.catalog_type_key)}/fields`)"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/trucks/{param}/status",
+      "raw": "/api/trucks/${id}/status",
+      "caller": "api.put",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 238,
+      "context": "const saved = await api.put(`/api/trucks/${id}/status`, {"
+    },
+    {
+      "method": "PUT",
+      "path": "/api/trucks/{param}/configuration",
+      "raw": "/api/trucks/${id}/configuration",
+      "caller": "api.request",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+      "line": 313,
+      "context": "const saved = await api.request(`/api/trucks/${id}/configuration`, { method: 'PUT', body: fd })"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}",
+      "raw": "/api/trucks/${id}",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/truck_details.jsx",
+      "line": 34,
+      "context": "api.get(`/api/trucks/${id}`),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}/maintenance",
+      "raw": "/api/trucks/${id}/maintenance",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/truck_details.jsx",
+      "line": 35,
+      "context": "api.get(`/api/trucks/${id}/maintenance`).catch(() => ({ status: 'rejected' })),"
+    },
+    {
+      "method": "GET",
+      "path": "/api/trucks/{param}/fuel",
+      "raw": "/api/trucks/${id}/fuel",
+      "caller": "api.get",
+      "hint": null,
+      "file": "frontend-react/src/pages/transporter/truck_details.jsx",
+      "line": 36,
+      "context": "api.get(`/api/trucks/${id}/fuel`).catch(() => ({ status: 'rejected' })),"
+    }
+  ]
+}

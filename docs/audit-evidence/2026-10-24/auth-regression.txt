@@ -1,0 +1,37 @@
+Auth regression verification — 2026-10-24
+
+Scope:
+  backend/tests/test_auth_security_events.py
+  backend/tests/test_logout_all_revocation.py
+  backend/tests/test_session_device_management.py
+
+Isolation:
+  TEST_SUPABASE_DB_URL targeted the dedicated loopback PostgreSQL16 runner15477.
+  Each module created disposable child databases. Application DB URL was an
+  intentionally invalid local address. No shared Supabase data/provider was used.
+  The runner had durability settings disabled for synthetic test speed only;
+  these settings are not deployment recommendations or power-loss tests.
+
+Initial scoped run:
+  115 passed, 1 failed in393.19s.
+  Sole failure was an obsolete English-text assertion after password-reset
+  finalization became fail-closed. Raw output: auth-regression-initial.txt.
+
+Corrected assertion:
+  test_reset_finalization_failure_is_explicit_and_nonreplayable now verifies
+  code=password_change_reconciliation_required, one-shot reset authorization,
+  persisted reconciliation_required claim, and password_change_pending=true.
+  Fresh rerun of that case plus provider-failure sanitization/nonreplayability:
+  2 passed in23.21s. Raw output: auth-reset-regression.txt.
+
+Latest logout failure contract:
+  test_logout_failure_preserves_authority_and_allows_confirmed_retry verifies
+  forced event persistence failure returns503, rolls revocation back, retains
+  cookies, emits no completion evidence; successful retry then revokes the
+  durable session, clears cookies and writes both canonical security events.
+  Fresh latest-code result: 1 passed in25.82s.
+  Raw output: logout-failure-regression.txt.
+
+No unresolved failures remain in this scoped verification. The results above
+are combined original and focused reruns; the entire three-suite collection
+was not repeated after correcting the obsolete assertion/logout expectations.

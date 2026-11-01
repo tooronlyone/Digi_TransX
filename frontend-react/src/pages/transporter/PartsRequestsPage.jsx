@@ -1,0 +1,9 @@
+import { useEffect, useState } from 'react'
+import { Link } from 'react-router-dom'
+import '../../styles/pages/parts-store-pages.css'
+
+export default function PartsRequestsPage() {
+  const [requests, setRequests] = useState([]); const [loading, setLoading] = useState(true); const [error, setError] = useState('')
+  useEffect(() => { fetch('/api/marketplace/rfq', { credentials: 'include' }).then((r) => r.json()).then((data) => { if (!data.success) throw new Error(data.message || 'Could not load requests.'); setRequests(data.rfqs || []) }).catch((err) => setError(err.message)).finally(() => setLoading(false)) }, [])
+  return <main className="parts-store-page"><div className="store-page-heading"><div><span>PRICE REQUESTS</span><h1>Part Requests</h1><p>Track missing-part requests and quotes received from verified shops.</p></div><Link to="/transporter/parts-store" className="store-secondary-link"><i className="fa-solid fa-store"></i> Return to Store</Link></div>{loading ? <div className="store-loading"><i className="fa-solid fa-spinner fa-spin"></i> Loading requests...</div> : error ? <div className="store-error">{error}</div> : !requests.length ? <section className="store-empty-state"><i className="fa-solid fa-bullhorn"></i><h2>No part requests yet</h2><p>Use “Request a Missing Part” in the store when a product is unavailable.</p><Link to="/transporter/parts-store">Open Parts Store</Link></section> : <section className="store-request-grid">{requests.map((item) => <article className="store-request-card" key={item.id}><div><span className={item.urgency === 'breakdown_emergency' ? 'urgent' : ''}>{item.urgency === 'breakdown_emergency' ? 'Emergency' : 'Standard'}</span><small>{item.city}</small></div><h2>{item.part_name}</h2><p>{item.description || 'No additional notes provided.'}</p><footer><b>{item.bids_count || 0} quotes received</b><span>{item.status || 'open'}</span></footer></article>)}</section>}</main>
+}

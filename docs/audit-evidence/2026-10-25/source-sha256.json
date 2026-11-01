@@ -1,0 +1,1762 @@
+[
+  {
+    "path": "backend/__init__.py",
+    "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  {
+    "path": "backend/admin/__init__.py",
+    "sha256": "7eedf2bbf3319aaf4f99e34ad8438da07628759befa99d25f4eceb42d7126c01"
+  },
+  {
+    "path": "backend/admin/routes.py",
+    "sha256": "9361eeb728490112baa7481f1ef633850367bfa9bfc51ed852e72787524f506b"
+  },
+  {
+    "path": "backend/agreements/__init__.py",
+    "sha256": "fa237185d71450b4cd41ab706896f45a5d6cf36ba3c47c54f69d0ad4249d6fa0"
+  },
+  {
+    "path": "backend/agreements/helpers.py",
+    "sha256": "9ae132dff11a5d84a1f795d74602f34b080ddc1f8bbe30acecf1edf740f74b7e"
+  },
+  {
+    "path": "backend/agreements/routes.py",
+    "sha256": "b4a34fbf9e463484b599f12b59db7debbc2e1d6e2c25c2c0acbefc9ca8780adb"
+  },
+  {
+    "path": "backend/app.py",
+    "sha256": "16ef8c0e1655e8fad03edea377c9991be8c7cdb67d1599dc2bc5c9df1127c617"
+  },
+  {
+    "path": "backend/auth/__init__.py",
+    "sha256": "44f85bf727a44db33eb9950ff29053f25ab2589b5e7840cd9ec30dff0d620b24"
+  },
+  {
+    "path": "backend/auth/credential_changes.py",
+    "sha256": "d32c60d9dfe7018be2297d75d35e0a27201dbb1c0a880f1457a5db4ed3e87f51"
+  },
+  {
+    "path": "backend/auth/helpers.py",
+    "sha256": "fd3dd7212d0bf536ed17f4ac5e1fc0ec0383baec1c200238f843027c1d7f27e5"
+  },
+  {
+    "path": "backend/auth/logout_all_service.py",
+    "sha256": "6379af2bea8aae15970bf4e0fb1f5dcf3a0a52930fc027231f26d365f0f5fa2a"
+  },
+  {
+    "path": "backend/auth/mpin_service.py",
+    "sha256": "510e46925212399abdb80e228eabca1cadbfd7f4eeb3ce2983fe315fa38dbe51"
+  },
+  {
+    "path": "backend/auth/routes.py",
+    "sha256": "4047aafe6cc76917ea30ff90eac10197d7f7e53e30e99ad30416b93e2d816398"
+  },
+  {
+    "path": "backend/auth/security_config.py",
+    "sha256": "a068e01c0dfad2ee5841e0f0c9678bae6e2891b4cd01b79588adfcbdc4ad73d0"
+  },
+  {
+    "path": "backend/auth/session_cache.py",
+    "sha256": "1ae301055836cdeea7c05a67cd21c571b9d805b84b84a085a8637b26328ef7ff"
+  },
+  {
+    "path": "backend/auth/session_device_management.py",
+    "sha256": "b6860f5bc68af7eff3aaa145adbdde78d49967b4a4809c8f8c9185133f9b22f5"
+  },
+  {
+    "path": "backend/auth/session_service.py",
+    "sha256": "519ad6ca9065d3cb528a514ee663828e8e4ebfe08c6c88765618ee70fe6cf5a1"
+  },
+  {
+    "path": "backend/auth/step_up_service.py",
+    "sha256": "8572b0e034e9fb20303b98da30f1b95d7c03f4d92e08e195d4c3d52857558c7e"
+  },
+  {
+    "path": "backend/auth/trusted_device_service.py",
+    "sha256": "299412b20c55fe3419f0e7e0c0e35fd9352fccf6bba30f831cb4af2ea60d9842"
+  },
+  {
+    "path": "backend/chat/__init__.py",
+    "sha256": "6e2699f6ec5aee39a8e98a8748d49fc2eb612cf00e5ac65b3bf255a9d2deca9a"
+  },
+  {
+    "path": "backend/chat/helpers.py",
+    "sha256": "f99a798ebbe9ddf9557c50046fbeae2bfbf610e119f6bcc31d8ee37c9da89231"
+  },
+  {
+    "path": "backend/chat/routes.py",
+    "sha256": "de0f324d621578db1aee84d5df4318e208340efb606fa3794d6cb9e947dcc7d7"
+  },
+  {
+    "path": "backend/contact/__init__.py",
+    "sha256": "24be70b898c2765864a74a5e242c9ce104e17a5b03d844307654ea308a369e5e"
+  },
+  {
+    "path": "backend/contact/routes.py",
+    "sha256": "df1c0850a254c784108944dcd48d6a475b66b38d83c935a2e925f1d212f412dc"
+  },
+  {
+    "path": "backend/driver/routes.py",
+    "sha256": "83807dc23943fab4006a368beb143a5cb793be3f5b9ee2cc8d9a5436aa579b31"
+  },
+  {
+    "path": "backend/events/__init__.py",
+    "sha256": "69a2d1ea60d63ae205d60484cf5a25166fb5de7119a359125f3f5ad5e14c9c58"
+  },
+  {
+    "path": "backend/events/catalog.py",
+    "sha256": "573b58f31a8268f9d894b0a94da7c8bc55567cf0759aeda17c8393990dc2ca6b"
+  },
+  {
+    "path": "backend/events/contract.py",
+    "sha256": "d5e5f8f0ac780a375dd8319af836075d4d1272bbc45dade7bbd379cf9eae9ad5"
+  },
+  {
+    "path": "backend/events/environment.py",
+    "sha256": "d597fe6bdd4c96b355658dca033475bbfef261397a8ac1c50765f2e0efae8b3c"
+  },
+  {
+    "path": "backend/events/writer.py",
+    "sha256": "5e128669d7c019140554c8aa2b871a899a269d77b4008b67c2ef4d8e1a7d5e69"
+  },
+  {
+    "path": "backend/fuelstation/__init__.py",
+    "sha256": "0fe106399c016e593e5476e7a17771c0a0b3c34b81e3841215bd1435cbb5d762"
+  },
+  {
+    "path": "backend/fuelstation/routes.py",
+    "sha256": "be961a767366ea3ba21ba920b186dffdca73d2a04f7feffedc1071353e75cfe9"
+  },
+  {
+    "path": "backend/marketplace/__init__.py",
+    "sha256": "4a8d15a46d06183495aa67736b7fb94d46b8179242028d96bcb8d9be9ccf249e"
+  },
+  {
+    "path": "backend/marketplace/routes.py",
+    "sha256": "4181ee53af294c79e734287af08c14d4cdb268ff9b3809c29f8f9d808438a9f7"
+  },
+  {
+    "path": "backend/marketplace/service.py",
+    "sha256": "39eaf564ad3cb9c4e5f05c70af87bfc510b78b9ba782628d19f536eeeb7b892e"
+  },
+  {
+    "path": "backend/orders/__init__.py",
+    "sha256": "c169668b19aa19034183ae1b114f354627a13f644379eb17eff5595f043cb290"
+  },
+  {
+    "path": "backend/orders/goods_taxonomy.py",
+    "sha256": "ffe254db40f75157d8d846e29467d44d1f14833b3aad67361a3c8151eee4f891"
+  },
+  {
+    "path": "backend/orders/helpers.py",
+    "sha256": "3199a59c4df3f7cc12c88744b8baaf717c4c94c974ba1f9312f058352de5aa48"
+  },
+  {
+    "path": "backend/orders/lifecycle.py",
+    "sha256": "0e24b923990d9e763addcb4ab5a8c8ce7a7104c4bb6893d1548ece7a91c059c8"
+  },
+  {
+    "path": "backend/orders/reviews.py",
+    "sha256": "45f07a0411b67066fed8eeabe8e96a8aa9fec12b289aae3c43c5278df2a870ba"
+  },
+  {
+    "path": "backend/orders/routes.py",
+    "sha256": "a4c1001edf88c438ba7d142a759b18613c9160e5a073e68b5a36a99360acf6f9"
+  },
+  {
+    "path": "backend/payments/__init__.py",
+    "sha256": "1d8044632b02a835d45c6bec92a02cb7acc8c4fef82fc494b0cf05caec759fec"
+  },
+  {
+    "path": "backend/payments/routes.py",
+    "sha256": "de70738eb519ba198f2b6d865eec7257a74129a25a99e06f88650ee441278ed9"
+  },
+  {
+    "path": "backend/profile/__init__.py",
+    "sha256": "98607ed8f7fc0417bfdede43ceffe8ba4f30e410be252f24230c2b2324a71de8"
+  },
+  {
+    "path": "backend/profile/routes.py",
+    "sha256": "7c83cd129317d6db924bd619188f4f0e0e29fd546076264d27c723bdc2e574c9"
+  },
+  {
+    "path": "backend/requirements.txt",
+    "sha256": "8d661838e33137c73fd204e20a60ea7dead01ca1b9daf98f808873da283d1229"
+  },
+  {
+    "path": "backend/scheduler.py",
+    "sha256": "85d3620e4110200c4daa3164303141f342c38d306d47aee59cb5243d63277181"
+  },
+  {
+    "path": "backend/scripts/audit_order_matching.py",
+    "sha256": "ffc4fe57ba1d25341adf4910cc2d430e55c6e0d6ca755a66a840c208059e46e1"
+  },
+  {
+    "path": "backend/scripts/create_admin.py",
+    "sha256": "d5edf7b6538149297820bfaab3c42d11677906cfd222a98ea47a1957a2c9a482"
+  },
+  {
+    "path": "backend/scripts/local_auth_refresh_setup.py",
+    "sha256": "ee9506a2d06ee0e530d444501d5072d84836031fde891225f182d20fe5215807"
+  },
+  {
+    "path": "backend/scripts/matching_fixtures.py",
+    "sha256": "b14a01be03efad582c6f3c2591c200c2ff8d70578f8c8e7dc0b37552a8f06f2c"
+  },
+  {
+    "path": "backend/scripts/process_overdue_confirmations.py",
+    "sha256": "3038d721485fbd70f14a440cd7a7a0200df7e9b92a751a86017131450d4b4af1"
+  },
+  {
+    "path": "backend/scripts/reconcile_password_change.py",
+    "sha256": "7978e59e5675484ad56b5b054e5d259937aa33a55657e8454dad3fa7de94a811"
+  },
+  {
+    "path": "backend/scripts/run_scheduler.py",
+    "sha256": "0b508183d3ee37d9f5db1f5639ce93ce2838feb63767a7c7de5c1932060558a6"
+  },
+  {
+    "path": "backend/scripts/seed_matching_test_fleet.py",
+    "sha256": "b45a86d947479a905dd277701c2fdbc9d69cc12e414781172d646384e4c95ecd"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_auth_cleanup_runtime.py",
+    "sha256": "dc13f679bc0d780bc0654d947dd99f92b52f6e28e3b0d910ef72a615fe11f6f7"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_auth_read_runtime.py",
+    "sha256": "b9f21c53a8961b9648272b45f4aac90d5e33ac5280e1b22daf75f16de34e50fb"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_backup_runtime.py",
+    "sha256": "01425fbacb7aad9e58d73c4745480dd5ea9736fbc3742bec4b6dfdad5ebae158"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_coordinate_artifact_update.py",
+    "sha256": "52eca4794b85310251bfb7f833ff61923a7205197743d7102fc7dd61b6d583b3"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_coordinate_correction_runtime.py",
+    "sha256": "859f5195883985ac6ef939bfc349335ec9ac0d2142591f44b689823618a83cb9"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_coordinate_final_integrity.py",
+    "sha256": "d826a871a1ae41793c4df05b428d8c3105633c6702e267f849cbc7d44bdcc115"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_coordinate_live_verify.py",
+    "sha256": "6b212c3895a54221f3be80265733b9e25aaea6e5d634d6747e22e18e7e57950e"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_final_scan_runtime.py",
+    "sha256": "a7b2fd5433128c5b8772608bf02a452c93802794b9c325242445988a35ad0726"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_finalize_runtime.py",
+    "sha256": "a11c44d6400441e597f6aa261a8b005e57b33bfc8bd1b4a3ca00e60b7d7be23e"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_float_behavior_runtime.py",
+    "sha256": "7292f042a6f7aae3af97efeb26d2cb158664e1207184ed176b938d406bcfe68c"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_login_finalize_runtime.py",
+    "sha256": "beab1220e8f892e6689509219eeabab26aef0a8586b98ad0b7e075ac877c46b2"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_login_runtime.py",
+    "sha256": "46f3957d2540464ebbc4f78a84a59329d800dce2b0a3c1139ab2c82b550f1022"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_matrix_runtime.py",
+    "sha256": "b3cb189f4ed4cb38a0c4598cf3cbc98f81dfd876ba1b727fe28fca4d121a60d7"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_payout_audit_runtime.py",
+    "sha256": "c1cd0f919e15310605c18b9c58a7e00930c8a2c5bd6a85d4325ea32e2f926734"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_payout_evidence_repair.py",
+    "sha256": "47feb39a563ad78a4244fb2c8e673405572b83b2a226830a9305a081e7fa1ef8"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_progress_runtime.py",
+    "sha256": "6e0883674a57296a4579deef3f76c8ef60f2218613f68c6b71d05ecdc7c97eaf"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_reset_runtime.py",
+    "sha256": "73cac557fdcca5d26c0d0e7b4a10bf818b884b6f30f4d3e3e046ef5151f1e988"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_rls_runtime.py",
+    "sha256": "1668d64deffc938bc2da2a579efaf705d3ea400b2d8eec6b8fd1882817e56db3"
+  },
+  {
+    "path": "backend/scripts/seed_output/e2e_seed_runtime.py",
+    "sha256": "87a2c2d1b501120e8b34e50c885cdf8550a49da9fec717429159eeac7401b383"
+  },
+  {
+    "path": "backend/scripts/seed_output/final_e2e_reconcile_20260728.py",
+    "sha256": "0a3e7b213908ff64537e49321e578964ef472ed77bc7c1906e0aed3c4f9329b3"
+  },
+  {
+    "path": "backend/scripts/seed_output/final_e2e_remaining_runtime_20260728.py",
+    "sha256": "19a2e611ff7ba59041a864ea5f9c19f38c0b9015916e49caf608886338e66676"
+  },
+  {
+    "path": "backend/settings/__init__.py",
+    "sha256": "a3fd5ab8e7af715778ef8c9515a778631341ea8116e2c1cf5ff31896b0f56d4c"
+  },
+  {
+    "path": "backend/settings/routes.py",
+    "sha256": "660767ab8b80e16f1a1a08044216fec57e66cf7fbc9f2564e7445d2c0e012a2c"
+  },
+  {
+    "path": "backend/shared/__init__.py",
+    "sha256": "01ba4719c80b6fe911b091a7c05124b64eeece964e09c058ef8f9805daca546b"
+  },
+  {
+    "path": "backend/shared/commissions.py",
+    "sha256": "ead76a56cb62cc245c52e1c026474142bc2243916bcd0a90c80524594031d5dc"
+  },
+  {
+    "path": "backend/shared/coordinates.py",
+    "sha256": "e3d0163d7595845582b3555989e2f4be663df9d952b85bd3c437c7ba79d8ec4e"
+  },
+  {
+    "path": "backend/shared/db.py",
+    "sha256": "27fae1c0fde537d18433855a509be782afbef3e9cd6d23631933a5c92e77a53f"
+  },
+  {
+    "path": "backend/shared/geo.py",
+    "sha256": "866463918c1013ac6b2a9fb15efe53c85c0566261d5947f4e0c1a50cb6eabff1"
+  },
+  {
+    "path": "backend/shared/notifications.py",
+    "sha256": "a7afaca69c2b7a32495f0e924a7e65f80190ffcf0a1366a2f133aa5306e73764"
+  },
+  {
+    "path": "backend/shared/payments.py",
+    "sha256": "7cf391640059e5a61bab78ce25ca8cb9bb3f4a2aacdf2aef558762804fa5fbfb"
+  },
+  {
+    "path": "backend/shared/roles.py",
+    "sha256": "58ab80eaa89c60522da07038130ae474729cc6b78d714a743dd0ca74caa56997"
+  },
+  {
+    "path": "backend/shared/storage.py",
+    "sha256": "d7053b4850ae5deb52edabab1803bbf6ff14ceae205a59a9a61b324def225be8"
+  },
+  {
+    "path": "backend/shared/supabase_client.py",
+    "sha256": "06d5a9ad7e8e3ef373843144b556fd51aa59ca1f22137edfb994e6874ac90084"
+  },
+  {
+    "path": "backend/shared/validation.py",
+    "sha256": "029a4b77d3165860cc4cf0f17b562e649aafe6e4a9be4eba2f615b617a75715e"
+  },
+  {
+    "path": "backend/shopkeeper/__init__.py",
+    "sha256": "2a490b7345fa6bab16ebf4ac54fa0e713854b47f0eb82005c633257aed8594c8"
+  },
+  {
+    "path": "backend/shopkeeper/routes.py",
+    "sha256": "72f824b2269a6f17536cdadf42cd7890c2c1eeff01d66f5dc004d608562d434a"
+  },
+  {
+    "path": "backend/terms/__init__.py",
+    "sha256": "2db612244a64eedf15cd52b5181bb651e6fd0db1c74b2b80a75d9cdbfc30cd2c"
+  },
+  {
+    "path": "backend/terms/routes.py",
+    "sha256": "69eba990d4062ff00e8a5fa514a5530186c0b5d544c6ddb9281901b97352813a"
+  },
+  {
+    "path": "backend/tests/__init__.py",
+    "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+  },
+  {
+    "path": "backend/tests/_life_helpers.py",
+    "sha256": "af7cda027a0165b2a259e0be24d474084bd03239015acd0a5ff61e50e76a0d48"
+  },
+  {
+    "path": "backend/tests/conftest.py",
+    "sha256": "a62f812cdb7f38684439424f48572f79bc63a2609813ad53c77b2b2b5180e9e5"
+  },
+  {
+    "path": "backend/tests/remediation_harness.py",
+    "sha256": "7c59e9150f7155855192562b4b8a4b485a35259483dac33fb1bfeae3ed8deddc"
+  },
+  {
+    "path": "backend/tests/shared_test_logout_all_harness.py",
+    "sha256": "15240839fb67fea08bed397184c0433c99c7b346eb1034c67f4cb21a148c7839"
+  },
+  {
+    "path": "backend/tests/shared_test_session_device_management_harness.py",
+    "sha256": "2989b03fdf5a7835cfeb6e7e8be68945d25e03ed138a66dd69c7f7649a3ca4ef"
+  },
+  {
+    "path": "backend/tests/shared_test_step_up_harness.py",
+    "sha256": "62a3d979d305b088e3eaddf00083a48277c238a8f0bbf1fdb1f49b0b3abac5c0"
+  },
+  {
+    "path": "backend/tests/test_audit_auth_inventory_fixes.py",
+    "sha256": "9245d87cec0ed8406bedd980dc9168ccb33f66233375b2fcb08e999d9866191e"
+  },
+  {
+    "path": "backend/tests/test_auth_security_events.py",
+    "sha256": "845caf3ea30b54ce23edfed8d38bcd2d05485a32c0bd046b9f8b446bea4d395e"
+  },
+  {
+    "path": "backend/tests/test_canonical_event_acl_hardening.py",
+    "sha256": "e21643e28884581761982c9ef69dbed3e8e180e58268ca00e26ded142207d8b6"
+  },
+  {
+    "path": "backend/tests/test_canonical_event_foundation.py",
+    "sha256": "79fc65d217d89420fcfa6933f55b9f5659781b81ad08eae023c7ccb958acb599"
+  },
+  {
+    "path": "backend/tests/test_canonical_event_integrated_guard.py",
+    "sha256": "1576f371cb0e356ea7edd5d7d4e4a426580524fa753faf3205c3d7dc995b0376"
+  },
+  {
+    "path": "backend/tests/test_canonical_signup_failure_event.py",
+    "sha256": "db8f9794449fb216ef1ae9a8b31e9199745c3c1e0a97bfdf28774f62c00e1608"
+  },
+  {
+    "path": "backend/tests/test_commissions.py",
+    "sha256": "88045f4c561d7ec6de847b166e59007a07b9d96f53710765f8ee4c18c879f26b"
+  },
+  {
+    "path": "backend/tests/test_coordinate_integrity.py",
+    "sha256": "d28501f7b603f862beaa31d1a4afc52f0f9805bd644fd0e2bedd54d12f243fcd"
+  },
+  {
+    "path": "backend/tests/test_database_authorization_hardening.py",
+    "sha256": "08eae908f51c27cb0bdc57dd3b7b5afa5265adcdb6c996c6f1e5a1f42ae73603"
+  },
+  {
+    "path": "backend/tests/test_device_session_mpin_event_contracts.py",
+    "sha256": "753cfc5ad9b7a03979e129232a193ecbeca373a64f28bdaa46f57e66ce41f124"
+  },
+  {
+    "path": "backend/tests/test_driver_workflow_hardening.py",
+    "sha256": "fad1a8de34018fab43a8acb145ef3f3b8d3de13fbc051d02d5248d379847bde9"
+  },
+  {
+    "path": "backend/tests/test_durable_session_foundation.py",
+    "sha256": "c01e21fb43332592ca1b5816acbe016dc8b126c71d7e3df840a7ecda6933368a"
+  },
+  {
+    "path": "backend/tests/test_everyday_dashboard_frontend.py",
+    "sha256": "8af92196a1ecf2b0c61c00daaa3d6cd1c81a9e6a188af6e8728a6876affebd1d"
+  },
+  {
+    "path": "backend/tests/test_everyday_separation.py",
+    "sha256": "63eecf3101312429ef15cce05534a65db3907c983077326e783074fc437bfe6f"
+  },
+  {
+    "path": "backend/tests/test_financial_marketplace_hardening.py",
+    "sha256": "8b7f25405f5d1acdfae76f54c1c6db53277f08a075d063a5d803a9ce19627fad"
+  },
+  {
+    "path": "backend/tests/test_fixes_withdraw_history_contact.py",
+    "sha256": "46acdc498e91b19b30643954dbbf9fffe52827e78b0f15290c3f88bef7702d66"
+  },
+  {
+    "path": "backend/tests/test_fleet_consent_database.py",
+    "sha256": "b84cb3518a7e30df8805c9e2bb9e8c4f5f00384ab308bb016e525b62a2c60dcb"
+  },
+  {
+    "path": "backend/tests/test_fuel_station_portal.py",
+    "sha256": "1c42eee891d1a585a6e2abf380bad40da515fdcbc9a8e4ae2208a8adbbb40665"
+  },
+  {
+    "path": "backend/tests/test_lifecycle_integrity.py",
+    "sha256": "b0e6c5d4c3a4d7a721e450150343497b19485e699b7ce50c774ee694313fa9ed"
+  },
+  {
+    "path": "backend/tests/test_location_eligibility.py",
+    "sha256": "b710a66f63b3c4e1b42bd743417dab2fbbe5cc016bf173d78604773c8de463db"
+  },
+  {
+    "path": "backend/tests/test_logout_all_revocation.py",
+    "sha256": "52c42684318eb371c1189f9c26e47bf9f338e9e3c0cdfa765218a54d2669d7cf"
+  },
+  {
+    "path": "backend/tests/test_marketplace_checkout_identity.py",
+    "sha256": "e2e93b9a08ac7b3ed91d5d291c61cc439d269ec90ea9423ab16fdb593af4d442"
+  },
+  {
+    "path": "backend/tests/test_migration.py",
+    "sha256": "eb7729ba431945bc9353dd806fb16e06beaecf3f1b01ec8a27bdf28442c9a7a7"
+  },
+  {
+    "path": "backend/tests/test_migration_coordinates.py",
+    "sha256": "19ce45487731679d159f37414c3c66020571c633a916d72b588d880ffd3c525d"
+  },
+  {
+    "path": "backend/tests/test_migration_dispatcher.py",
+    "sha256": "bf91a8fe1f2718846cda2b6c4a35441eafeeef931ab21f23db93b8cf5cad6de6"
+  },
+  {
+    "path": "backend/tests/test_migration_everyday.py",
+    "sha256": "317268f63f68b5265164b017eb83d6f7356842d4f981fcebb23d03c9202eaac7"
+  },
+  {
+    "path": "backend/tests/test_migration_lifecycle.py",
+    "sha256": "24883acb92536ec6771d9fde52b19a6c91f58650298ad8fa39c608531e02da4e"
+  },
+  {
+    "path": "backend/tests/test_migration_trip_reviews.py",
+    "sha256": "234edf05063d9f34c9cc4183d258719954da33d1f49e45fb40c2b12590419953"
+  },
+  {
+    "path": "backend/tests/test_mpin_high_risk_routes_postgres.py",
+    "sha256": "0d74fa81c3c683c9b10e3f4e41246aa9fc2f2bdfdcff64ac32894107b645e090"
+  },
+  {
+    "path": "backend/tests/test_mpin_high_risk_step_up_integration.py",
+    "sha256": "fdc8a741b5a8d95fc04ba3949df92e7e193c8a0b2e572826f7063ffabe25f86a"
+  },
+  {
+    "path": "backend/tests/test_mpin_step_up_authorization_foundation.py",
+    "sha256": "faf5cf131f12c668bfd2143b9ae9c220b07b3eb0869cf9bc25eb65f49c3138ad"
+  },
+  {
+    "path": "backend/tests/test_notifications_routes.py",
+    "sha256": "dc42ebc98ccc635f2f6e54f1c686116d37cea9cf60ad7c718c1d3aac2af979f8"
+  },
+  {
+    "path": "backend/tests/test_payments.py",
+    "sha256": "07982532addc63dbb6421e4760586688919dab97fe8157c4eb170623a8c8c64c"
+  },
+  {
+    "path": "backend/tests/test_premerge_route_security.py",
+    "sha256": "d4d1a06c42746e7f25462b29b315c70ecb587eb0bcca82350d8b1ffb96181e3e"
+  },
+  {
+    "path": "backend/tests/test_profile_rls.py",
+    "sha256": "ad15634fc66d85da4c52a931df268c7e62d709e0ded439b92cf51877d9b5a0fc"
+  },
+  {
+    "path": "backend/tests/test_remaining_order_payment_performance.py",
+    "sha256": "300012dd528c96ed3669347f0b73aeaf956fdc5473a861df0b5bf1a6bd3b2c68"
+  },
+  {
+    "path": "backend/tests/test_reset_authorization_migration.py",
+    "sha256": "9be143d8c6aad5a225829e401bab22260a6196ba9764dff6e7f5dfe16f300af6"
+  },
+  {
+    "path": "backend/tests/test_route_security_static.py",
+    "sha256": "379bc186d085d2ac3be1a08258e8f98ae8ae46f5b4eed529eafcde68d54f7770"
+  },
+  {
+    "path": "backend/tests/test_routes.py",
+    "sha256": "3f448bf588dfe26741545be558bb806fdade5cf3e3154f2fa69bd20acef8a4c1"
+  },
+  {
+    "path": "backend/tests/test_scheduler.py",
+    "sha256": "1a828fd2176f5df2c916e8ee576a7d014503224a13439fd90f84923885a24cbc"
+  },
+  {
+    "path": "backend/tests/test_schema_trigger_rls_baseline.py",
+    "sha256": "26643035cf9fab671d85d58ef1de31a2e7234b62302140c146a30333db1260d0"
+  },
+  {
+    "path": "backend/tests/test_secure_mpin_access.py",
+    "sha256": "ef89865943a45c61d20a969e34049c18cbe36aae8ea9119e5a0e4062f59578eb"
+  },
+  {
+    "path": "backend/tests/test_security_configuration.py",
+    "sha256": "f30064704e9673a1d48ed60da0dabbd86b9b72ea485487a2c4755a52474f939b"
+  },
+  {
+    "path": "backend/tests/test_session_device_management.py",
+    "sha256": "ff458f24667d7fb3daf4fff7551f9ae005b46a8cdefc86326c151fa1a7fe39ec"
+  },
+  {
+    "path": "backend/tests/test_shared_test_logout_all_harness.py",
+    "sha256": "dd1750e3c579fba37da72b46c3f380addde10be49c76298c36c634705f0aa4a8"
+  },
+  {
+    "path": "backend/tests/test_shared_test_session_device_management_harness.py",
+    "sha256": "ab0919bb5f1757859ec982306e6d192dce6d9d2a4151579d11310315c7daa0d0"
+  },
+  {
+    "path": "backend/tests/test_shared_test_step_up_harness.py",
+    "sha256": "9f37ce5d9b54cfa3d5a3e7fdc4e467cdfee0ffe2117364d44f8338b2724f6a8b"
+  },
+  {
+    "path": "backend/tests/test_signup_credential_race.py",
+    "sha256": "cededc40f3d7bede2ee49c62b9ca5b1c1f378e8a5f7269c72879e38ef7980dba"
+  },
+  {
+    "path": "backend/tests/test_signup_security_events.py",
+    "sha256": "044d1f05e24fd5f49e2ab4fec8e4b727a73be9d6aac067a342e21bbdf625b366"
+  },
+  {
+    "path": "backend/tests/test_sms_channel_policy.py",
+    "sha256": "791d418a8ae84dc1675193079a559cb1c40f1f04c64dcd62cd30d54d31afe2f1"
+  },
+  {
+    "path": "backend/tests/test_tracking_containment.py",
+    "sha256": "72425eeb59e5c13e329b36027078f7c6339ef75d889e9ea9416692917d6eab8b"
+  },
+  {
+    "path": "backend/tests/test_trip_lifecycle.py",
+    "sha256": "d1410d0f947f2349c366549d9ffe3f7c1517204641c3d41ca08e3c63166d9750"
+  },
+  {
+    "path": "backend/tests/test_trip_review_frontend.py",
+    "sha256": "d50d89adcc6c0c620bb7902cd0e60f14ba33b91af0073284f2d8491446afee98"
+  },
+  {
+    "path": "backend/tests/test_trip_reviews.py",
+    "sha256": "32fd399cc15df7259e6fb5e15a9ec2a9a4b2a1746ec05dcd19e3a2dcd844a0d5"
+  },
+  {
+    "path": "backend/tests/test_trusted_device_hardening.py",
+    "sha256": "e22cf4e146c69383c33de5fc5a4772a00d6146da11008ea88613dfaabeb6c55b"
+  },
+  {
+    "path": "backend/tracking/__init__.py",
+    "sha256": "40f042ce32ac89cdf6705289fc7188fc4575b505235b2a9c11e495bcd6f673df"
+  },
+  {
+    "path": "backend/tracking/contract.py",
+    "sha256": "f350009dc071bfad139b2e8a7860a76b21e581a32928df593ac729cd5800622f"
+  },
+  {
+    "path": "backend/tracking/routes.py",
+    "sha256": "c7f0227b150f59e472d697d30666ceb04873b8b54bddf909c64875cfa55e0d53"
+  },
+  {
+    "path": "backend/tracking/traccar.py",
+    "sha256": "0f88c647bc4216a7874b0a36aa4b4adce96bfe1a7b38e59e430851f56c716b5a"
+  },
+  {
+    "path": "backend/trucks/__init__.py",
+    "sha256": "0e0f033e9546f65ccd28bce43887101bd52337f8121b6398f7d3a5a48f64da62"
+  },
+  {
+    "path": "backend/trucks/helpers.py",
+    "sha256": "4141cec4949e563f2e8d193fd52520441817c5a3df4ec6d9a799b403e38cc9ff"
+  },
+  {
+    "path": "backend/trucks/routes.py",
+    "sha256": "b5de068225f332fc33975bd682c79226e904048dbc2f0aadf9b5de0e6ce1c5b0"
+  },
+  {
+    "path": "backend/wallet/__init__.py",
+    "sha256": "de5c0721ce80c8534f2d9af4f996171670ca91b68bc5c40c78718df033a67bea"
+  },
+  {
+    "path": "backend/wallet/helpers.py",
+    "sha256": "fa6b00b74af76ed366261a828166c9a707d8b31e1c97fe5f263c9d14004c3737"
+  },
+  {
+    "path": "backend/wallet/routes.py",
+    "sha256": "8eadf479b5681e5b37fb6e83361771fb34738b3b68d80411c99657221281b97b"
+  },
+  {
+    "path": "backend/wallet/withdrawal_limits.py",
+    "sha256": "da7e5605440de54a2f7304fc64cc4980a7e1b0ce2b6de615829f4997700ce443"
+  },
+  {
+    "path": "frontend-react/build/staticAssets.mjs",
+    "sha256": "ec2f6ec9bd0f88330cc142e7bfb47d4b92f59417686997804c9ff4a290a8c50a"
+  },
+  {
+    "path": "frontend-react/eslint.config.js",
+    "sha256": "49cf1a0d0f74abad7b45873303bfa0332a9a29f85187c48ec48c97ea63823e64"
+  },
+  {
+    "path": "frontend-react/package-lock.json",
+    "sha256": "c2e6c9eb2c7b69fc17253a5654e18b6d4b14780cea4e709fa004a913ef2ac934"
+  },
+  {
+    "path": "frontend-react/package.json",
+    "sha256": "fce4624fa603b140c8adfa63b54e0871e7fb117d86ba0b42cd103f26edb8836a"
+  },
+  {
+    "path": "frontend-react/public/favicon.svg",
+    "sha256": "64592def9c38f1e2255bfd0533472afc643d781869bce02005eafb42acc94f33"
+  },
+  {
+    "path": "frontend-react/public/icons.svg",
+    "sha256": "b45fa506195cfcdef406ba9f0c77b36ddc1a7c224040926ec70abc2fdea7b93a"
+  },
+  {
+    "path": "frontend-react/src/App.jsx",
+    "sha256": "df3f02f4494078252e6bf72f50164765007ae3f57c2e53e6eba8b00c2229fd8d"
+  },
+  {
+    "path": "frontend-react/src/auth/accessLock.js",
+    "sha256": "7ce478ea6654812efc30d2a05d894c30df27746bbb857aaa2746504dd2e6522a"
+  },
+  {
+    "path": "frontend-react/src/auth/api.js",
+    "sha256": "b4968b56fd6bc47088fb05fc86cd28f9d3aff7b86c73e2a65ea5054089d76fed"
+  },
+  {
+    "path": "frontend-react/src/auth/AuthVerificationContext.jsx",
+    "sha256": "158d7d759baef35317fea36ac1ee7ba5d39c21e11c69c0bc501adeb594397677"
+  },
+  {
+    "path": "frontend-react/src/auth/genuineActivity.js",
+    "sha256": "0bcf8e556f508da9fbf3e645efb0b36466bb086920fa944be039bb2adc798c73"
+  },
+  {
+    "path": "frontend-react/src/auth/logout.js",
+    "sha256": "1c75df6580f2803667f3bc9aa5113fe5194a202e68b07ae4bb75604c002126f8"
+  },
+  {
+    "path": "frontend-react/src/auth/presentation.js",
+    "sha256": "abf79e9f4e12bf00df1fd82fd990562de2f9bce07dae8ffd0123fcbe9a46a97d"
+  },
+  {
+    "path": "frontend-react/src/auth/signupDraft.js",
+    "sha256": "9686b1e09691810591dad284ecfd25a310e161cd39d46881aa24a5f5416617d3"
+  },
+  {
+    "path": "frontend-react/src/auth/signupWizardContext.js",
+    "sha256": "d8459564aa343b87919e5ca0f8f9f6e5172ee6009a07526a4eebde8e0f81c704"
+  },
+  {
+    "path": "frontend-react/src/components/ActivityTracker.jsx",
+    "sha256": "0f49001116cc311be86d68805f9704ea0f283667d0f6861f1d11574f94f24786"
+  },
+  {
+    "path": "frontend-react/src/components/admin/AdminLayout.jsx",
+    "sha256": "048f242a303bd83790a8c6d9724fa473cb4caf7de70fcdaac45cbf8312cbbe50"
+  },
+  {
+    "path": "frontend-react/src/components/AgreementTripMap.jsx",
+    "sha256": "3ef0ef0722f6cf8ca9ae3f9e9b5d749c9283b11416e3c895dea81d9a66de5036"
+  },
+  {
+    "path": "frontend-react/src/components/ai/GlobalAiAssistant.jsx",
+    "sha256": "f0f23854c63841fdfba748515c39db873777d22547450cf73c05651eab136ed6"
+  },
+  {
+    "path": "frontend-react/src/components/auth/SignupWizardProvider.jsx",
+    "sha256": "09be7fcb56be5de0730a1f3d0397148f209a327b5b0d1f4e1e674a2e49451a56"
+  },
+  {
+    "path": "frontend-react/src/components/chat/ChatWindow.jsx",
+    "sha256": "6a4fef2cd29fd4d4f9543629983d9e9e86a922f59469ec1a2740b10960f991ab"
+  },
+  {
+    "path": "frontend-react/src/components/client/ClientLayout.jsx",
+    "sha256": "5a31afcfeea6e77740015e19fde351f00c1564c4af091946b828d46f4919f936"
+  },
+  {
+    "path": "frontend-react/src/components/client/OrderWorkspaceNavigation.jsx",
+    "sha256": "08f93d34ed7c1a04ca84bb11c3bbad7eff0a02e639d7c6de49c01d1fcdfa5a51"
+  },
+  {
+    "path": "frontend-react/src/components/common/AuthCard.jsx",
+    "sha256": "34440941fb355e24231bd6a27a4fa9c2c5e02c56551f89dd35fa06e3ffacf000"
+  },
+  {
+    "path": "frontend-react/src/components/common/InputField.jsx",
+    "sha256": "6afb1f23d6b4726cae706f38be188dd788d0b109dcc826cee22b0fdeb02d3b6e"
+  },
+  {
+    "path": "frontend-react/src/components/common/LocationPicker.jsx",
+    "sha256": "a26ae4e8c60e4353a607eb7d9d4748e2a316a81070831b1a0db89c4e518d7fd1"
+  },
+  {
+    "path": "frontend-react/src/components/common/MobileBottomNavigation.jsx",
+    "sha256": "1218de8fccd20babdea7076c1429ed593f4e5184dadccaea907a39f7b8d8840a"
+  },
+  {
+    "path": "frontend-react/src/components/common/Notification.jsx",
+    "sha256": "a478198a277d36ddc3788bb1f445ea2fba4e5d1dc07a7a93cbe6dce0b4fee8ae"
+  },
+  {
+    "path": "frontend-react/src/components/common/NotificationBell.jsx",
+    "sha256": "09d509770c4bb5120f6cd70e2414b3297fa20a3fff75d2a48f8e6a7274029e6c"
+  },
+  {
+    "path": "frontend-react/src/components/common/PendingTransporterReviewGate.jsx",
+    "sha256": "b51355368b3276ccb85b90bdfa4a794b52bd76a6716457f4abdab40c949a39c7"
+  },
+  {
+    "path": "frontend-react/src/components/common/PlatformFeesSection.jsx",
+    "sha256": "a41880bbf67aeeea4bc996f93f22540216ee467cef26f5595d77a324d9d928ea"
+  },
+  {
+    "path": "frontend-react/src/components/common/reviewEvents.js",
+    "sha256": "84f8447ae16d70ed0d6c33b9e790800abb343c48ada38bae7fd2335270e8b48f"
+  },
+  {
+    "path": "frontend-react/src/components/common/TermsUpdateNotice.jsx",
+    "sha256": "58c2619de447916c4c5adc23cd215c83779b0ea3f9331b60f344fdcb74c61841"
+  },
+  {
+    "path": "frontend-react/src/components/common/TransporterReviewModal.css",
+    "sha256": "63198fef8662579bf59e9c9920bed800f326d806ae56325ad72e99f1d25e0f7a"
+  },
+  {
+    "path": "frontend-react/src/components/common/TransporterReviewModal.jsx",
+    "sha256": "63c6695954af99b71c31d4e2574ee4e2ae63e43c4fbc11b598c9d24f41278ae3"
+  },
+  {
+    "path": "frontend-react/src/components/driver/DriverGuard.jsx",
+    "sha256": "e96e890b82228f9423400b6e6c86dc70c407f7d7502d8b67c4193947cfdeaa88"
+  },
+  {
+    "path": "frontend-react/src/components/driver/DriverLayout.jsx",
+    "sha256": "f3c48099e74602bba8d221c4bd79505e6e9e6fc32d1ccfa62817ad104731e003"
+  },
+  {
+    "path": "frontend-react/src/components/everyday/EverydayGuard.jsx",
+    "sha256": "df666b8793e54332b0088368bf57f04792c9a6850b39cdca4becbcfc3cdd024c"
+  },
+  {
+    "path": "frontend-react/src/components/everyday/EverydayLayout.jsx",
+    "sha256": "79b7539a0c007ab65af3e1dfebc07da4d5a7d153dbc81a5069b460769269c798"
+  },
+  {
+    "path": "frontend-react/src/components/fuelstation/FuelStationGuard.jsx",
+    "sha256": "7f2b6f99f075aa9f89821889b53360406e4f36a82cdfdb38d6f1d7e8d1c9030b"
+  },
+  {
+    "path": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
+    "sha256": "4c37e3b77d50f0236ae8da2b0b4cbbe22ae7379244c64e08cabcbb686b4b0ffd"
+  },
+  {
+    "path": "frontend-react/src/components/GenuineActivity.jsx",
+    "sha256": "fd5d73c3837582e4fce2c326807e9e1c55f2b637f952ab1ae6c6c0daa8c87f6e"
+  },
+  {
+    "path": "frontend-react/src/components/org/OrgShell.jsx",
+    "sha256": "62aa9b5c4189b937d1095916c6a606d0ce91c62011bde7256035654c186cd039"
+  },
+  {
+    "path": "frontend-react/src/components/org/OrgUnavailablePage.jsx",
+    "sha256": "058a51a2312fc6df0b28863f01abbe94895648edc2912d5d0f83455aea88d49e"
+  },
+  {
+    "path": "frontend-react/src/components/security/AccessLockProvider.jsx",
+    "sha256": "a61c5c13241d945cdbc4631f3104a837eff274c275d99f1c16e1b7730bb05de5"
+  },
+  {
+    "path": "frontend-react/src/components/security/LogoutAllAction.jsx",
+    "sha256": "a813f7993a908131235f1939e4021979302909b9893285995574d90ffe79093f"
+  },
+  {
+    "path": "frontend-react/src/components/security/MpinInput.jsx",
+    "sha256": "186491815f2915b212efa1d5fab047c08dd1ec5cb75577ac8cd8104d7e353667"
+  },
+  {
+    "path": "frontend-react/src/components/security/MpinManagement.jsx",
+    "sha256": "e100b7a4176309a6214e9de1c82a4b66842071eb146e9cd3be21d2f083fc7165"
+  },
+  {
+    "path": "frontend-react/src/components/security/SessionDeviceManagement.jsx",
+    "sha256": "bfa0b6d0224b0a2f9c6e36d134f7b47e109795e02c4a4fe1f9e99e47d3e3f3ff"
+  },
+  {
+    "path": "frontend-react/src/components/security/StepUpProvider.jsx",
+    "sha256": "f8c2fa692d5b79b888961425fa8f442258d63dd01031bdfa203f9de6041bda25"
+  },
+  {
+    "path": "frontend-react/src/components/shopkeeper/ShopkeeperGuard.jsx",
+    "sha256": "6e210d81875cbb1fbb22acee0e6d72a52a7afc5675caaf8e7d85651e37933db3"
+  },
+  {
+    "path": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
+    "sha256": "55e64fde5b113f313c600a8b76ec015fd3b6b04e61ed7a3b87b5f53417444a05"
+  },
+  {
+    "path": "frontend-react/src/components/transporter/accessControl.js",
+    "sha256": "f2dfd6579b7f1f42da0e3f0d0d395f752eb7ade7ca60ccfc7cdd8de9f78e8872"
+  },
+  {
+    "path": "frontend-react/src/components/transporter/DriverAssignmentPanel.jsx",
+    "sha256": "fff37201f8e16e6a9a792c204e4f75eef773dd6f9ddde453127a1095d37643ec"
+  },
+  {
+    "path": "frontend-react/src/components/transporter/navItems.js",
+    "sha256": "2107db9dd84c48254b571b8cd63951e336434e07ce415151657d7404ac155097"
+  },
+  {
+    "path": "frontend-react/src/components/transporter/TransporterFooter.jsx",
+    "sha256": "c9c31d88a35a6804f828f3c778a42710671902159b271363059243e4c6a8228b"
+  },
+  {
+    "path": "frontend-react/src/components/transporter/TransporterGuard.jsx",
+    "sha256": "dd900d122338dd75a0ec0da28f3078ad540fb8d9c2b8da1cf3270995549e8ec0"
+  },
+  {
+    "path": "frontend-react/src/components/transporter/TransporterLayout.jsx",
+    "sha256": "df65a90ceb5dcfa7ef6ec6e9bc24477d13168b1cfec7d93363c29e3103007950"
+  },
+  {
+    "path": "frontend-react/src/components/transporter/TransporterPlaceholderPage.jsx",
+    "sha256": "dc8dbf433a41b1f522dbc129b8ef17c2b8c65fe62e4027ac8f96a9056250ae78"
+  },
+  {
+    "path": "frontend-react/src/components/wallet/WalletWorkspace.jsx",
+    "sha256": "ba04c830b672195ebba23049e559b5b6ebdd237b89b541c66b4a3f00ed96aae0"
+  },
+  {
+    "path": "frontend-react/src/hooks/useApi.js",
+    "sha256": "656a9e63b6852998fa7ba68bb0af0ec46eb4d8cbd4cf55c069e4cd048637c38f"
+  },
+  {
+    "path": "frontend-react/src/hooks/useAuth.js",
+    "sha256": "ba87e9f9a2a9c9729cb97c558a3558e767bad22190d29ec765c2760f00b59c8c"
+  },
+  {
+    "path": "frontend-react/src/hooks/useClientAuth.js",
+    "sha256": "4f93230294350656120eee97c413f7831e8e70053704650bdedd9702cb5d51a1"
+  },
+  {
+    "path": "frontend-react/src/hooks/useClientBasePath.js",
+    "sha256": "6d05ed1909131a2fcb827d8518720f1adcc3b6d1b24acd597ff42e8c294dc86d"
+  },
+  {
+    "path": "frontend-react/src/hooks/useEverydayAuth.js",
+    "sha256": "b2b06d4d1fb2373f7956809f065f76de92ea38acdc2e3c57cea64b8542c8c899"
+  },
+  {
+    "path": "frontend-react/src/hooks/useTracker.js",
+    "sha256": "1a5e3ad42e57430ad1304fedf44f145423425b0df4ced040689d60df2a2bb7cb"
+  },
+  {
+    "path": "frontend-react/src/lib/aiAssistant.js",
+    "sha256": "e6fa18120adc4311e362808a8759caa94576989628b340f15cc4550353df33ed"
+  },
+  {
+    "path": "frontend-react/src/lib/goodsTaxonomy.js",
+    "sha256": "6438d705d3129a6a01aa40686d8f0284ba10e736f1c4245e4edfcf804a4ff634"
+  },
+  {
+    "path": "frontend-react/src/lib/truckCatalog.js",
+    "sha256": "99642bd4cd91c84d82d1ae9e6b8d0af61b8e0e7322584418528c8314c1b657a5"
+  },
+  {
+    "path": "frontend-react/src/lib/truckPhotos.js",
+    "sha256": "9296e61949c0bc99e5f4fc299414043751054656119a687ea85415465137d8c0"
+  },
+  {
+    "path": "frontend-react/src/main.jsx",
+    "sha256": "5fb991efa05693e9565ac12310cb324ef6dc72341dbcd0b2a24dd3e5060dd35e"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminAgreements.jsx",
+    "sha256": "e1c4c860f52eef6332058782f4c6b20fe4248681baa36d63aef715a389965aa8"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/adminApi.js",
+    "sha256": "2918f9cb4d4f0616f194548f00e42463efec26d73d79e642b133d074e0486d10"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminDashboard.jsx",
+    "sha256": "c7bb7e186e1a8179876641778f7adcad17286a851f19feb85f18a0562dedead5"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminDisputeChat.jsx",
+    "sha256": "31f280d8b2529329fd4d3c662ab6dff4e9fd031da306f57ab6d77f1ffc68d35d"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminDisputes.jsx",
+    "sha256": "6b4a288f5bc168b6735846d21a5fef22bcabd782f1f8a7763314758048a5fca5"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminLogin.jsx",
+    "sha256": "30b38be0f00ad0f2667a06a0b33c1a9f3584e49f271853748e8198610c8aabc4"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminPayments.jsx",
+    "sha256": "afb0287a8a4236a2b25d179e18c6a149b96e3aa4f00911389dc166d0a3331acd"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminPlatformSettings.jsx",
+    "sha256": "a1e0c695691a387cc1b01746514850d3d5217d02e7388c257de602396deb21bc"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminTrucks.jsx",
+    "sha256": "e71d30b2af5c9da5437b5bfd86f19de80b272c9d976067fde230307de9a9ace9"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminUserDetail.jsx",
+    "sha256": "410f968557511f31ae3fb00710007c1f84e8b35d9d39571b0188d1d717003abd"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminUsers.jsx",
+    "sha256": "8a3b19c9c34815cfe2d429e78a7a8aa79937888382f611fcf75edc19c7420e50"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminWithdrawals.jsx",
+    "sha256": "64ff32d43050cb4c485daecc0564f3a6aa381e3b42cce27eb7dd5ba1b4e5256f"
+  },
+  {
+    "path": "frontend-react/src/pages/admin/disputeGuards.js",
+    "sha256": "fe4b97e18d2ddb6896a4731b1ceb08d21ca700d507161e65c7248b856161901c"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/Login.jsx",
+    "sha256": "9f56c85d4623b4065a9da85a4deed9b190542cc1af3f6960f22b034a63ed1269"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/ResetPassword.jsx",
+    "sha256": "cac761a275428d71d2105d756577f76630992c5397a4125fe456bb7d8ae7c8bd"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/roledetails/_submitHelper.js",
+    "sha256": "5032cc45494f3ee84cc9464061763050ca726b4f6a40275b7c71bfb92f1fcbfd"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/roledetails/DriverDetails.jsx",
+    "sha256": "63f8055654dfeecb9dcf79309ef3a10e79fe668ace8ce8eb24bd1c4783d490fb"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/roledetails/EverydayUserDetails.jsx",
+    "sha256": "5040eea7e6c72989be3d9635bb473f5fa30534ac5e72599786d58ff5b9a1b104"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/roledetails/FuelStationDetails.jsx",
+    "sha256": "79635beab3df64f38af50b7e587fe9b8da8b9abe7eb698e61eddfda9c5640bfc"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/roledetails/LogisticsProviderDetails.jsx",
+    "sha256": "e8c9edb91c2968b77d771ae0f6df8d3742515b5e8b0968a11f852ad7bdf480a5"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/roledetails/ServiceSeekerDetails.jsx",
+    "sha256": "972f6cec48bcd117d520fa8ee82b2415b53db3ef8aa34bc7f3117119d5b34b8b"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/roledetails/ShopkeeperDetails.jsx",
+    "sha256": "d8387e19085d264db81393b36191f8f0f75c9fbd0b1dcbf3781a61736a34837d"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/roledetails/StepShell.jsx",
+    "sha256": "96fb1062fcb7107640b27f653904a6b710f194575e2fda656afc654c3ad6eaf9"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/RoleSelect.jsx",
+    "sha256": "2f50e21dd29202386be0ac45eca3806a35d5c8871b1d05d9cee76e67d5885f1d"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/Signup.jsx",
+    "sha256": "44b7f5ded5967e4a595e19c7851f2ac491b5b81614fbce93b58b829d82fd4d1e"
+  },
+  {
+    "path": "frontend-react/src/pages/auth/Unlock.jsx",
+    "sha256": "0ea824e98179a6f0414b880421ddfb648f9ac0636b4f2e0d7116e8507881edfc"
+  },
+  {
+    "path": "frontend-react/src/pages/client/AgreementBids.jsx",
+    "sha256": "835c7e4b694cd695d97ce17b4f6245808f8254d80fb683135c853b70fabb7fd0"
+  },
+  {
+    "path": "frontend-react/src/pages/client/agreementDates.mjs",
+    "sha256": "067bc13b94d5f123485f7b4eb67022e661464228d652d82de1af7e602770cd32"
+  },
+  {
+    "path": "frontend-react/src/pages/client/AgreementDetail.jsx",
+    "sha256": "fd5b17ce238720ffcbcad9ab01955df22dd4930f9fb920d9a5494f4befb4e017"
+  },
+  {
+    "path": "frontend-react/src/pages/client/Agreements.jsx",
+    "sha256": "9b1b3ae299608c26ba56f16408ca7c37387220f0a87a54a188787f3dc3c804a1"
+  },
+  {
+    "path": "frontend-react/src/pages/client/Balance.jsx",
+    "sha256": "3e0b48428b25a3178d5cb3519c82e7818830f8f83b791daa59c4c7e5ab3b80b5"
+  },
+  {
+    "path": "frontend-react/src/pages/client/BidCheckout.jsx",
+    "sha256": "d13a5e218bfd3f5d61717376f6e7b0c6b45a33ea6f6ab9bfa8075a1de0d4cd29"
+  },
+  {
+    "path": "frontend-react/src/pages/client/ClientAccount.jsx",
+    "sha256": "835a1a77e9e7fca50f6a310910ca67e6ef7df17d0b0a0ccaba207759b6980eae"
+  },
+  {
+    "path": "frontend-react/src/pages/client/ClientDashboard.jsx",
+    "sha256": "9126d66dafbdbe116f1f32090a83229a35b9bd12cf609f1b255db5e90dc07e17"
+  },
+  {
+    "path": "frontend-react/src/pages/client/ClientOrderDetail.jsx",
+    "sha256": "2e7eb7a20f9a58a91e4a14be8827d4276f06a9e70c445789eb4d3753d71c353d"
+  },
+  {
+    "path": "frontend-react/src/pages/client/clientUtils.jsx",
+    "sha256": "d104421c436ae3bb85ded999cc808adb5d42ea6c4edd3e6de0f631b56760e4c0"
+  },
+  {
+    "path": "frontend-react/src/pages/client/Messages.jsx",
+    "sha256": "7f1930ab0c1ec1d098f412cfaf1e7b4d915f722bd1e315c3b6da576c603e146c"
+  },
+  {
+    "path": "frontend-react/src/pages/client/MyAgreements.jsx",
+    "sha256": "16543cb45e094ed6328ab696da35ff1f436698e2d96d418ce5b59e6ff5d7666c"
+  },
+  {
+    "path": "frontend-react/src/pages/client/MyOrders.jsx",
+    "sha256": "b42179db489b63432f6ee47426b9727c7359ed916d08cb08aecd159b19d37f98"
+  },
+  {
+    "path": "frontend-react/src/pages/client/myOrdersLoader.js",
+    "sha256": "113a34b5b015a2a3c4f3d276928e1e6ee368fe83ee283f65ba5db3e6e1821a93"
+  },
+  {
+    "path": "frontend-react/src/pages/client/PostAgreement.jsx",
+    "sha256": "5b26799f1d8ba2b1aebf8cefb870a84570260d317fe6d23d4fd1c9c07f62ee6e"
+  },
+  {
+    "path": "frontend-react/src/pages/client/PostOrder.jsx",
+    "sha256": "00a8715dc671eec5d240d141d89c0da9fe318d6ebdd952cd2b8acaee298bcc15"
+  },
+  {
+    "path": "frontend-react/src/pages/client/Terms.jsx",
+    "sha256": "aecd86379be7e7a6502d30fbca8813c37ef4acd104583370a4a96af4ebb80b91"
+  },
+  {
+    "path": "frontend-react/src/pages/client/Wallet.jsx",
+    "sha256": "35a3067aa85eb7ff57545d0729fadc4b337bb628e332a3c61a76b54258f190c5"
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverActiveTrip.jsx",
+    "sha256": "c92b68c351b14a86869ce3f1b3f918558f8e890d5a7b105ee35c856f8f71d0c9"
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverDashboard.jsx",
+    "sha256": "fe2f54309c86af03dbed984fccbb2ed262f82a359487cae27781f80b6aeadbce"
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverFuelLogs.jsx",
+    "sha256": "46052e8e8f224d0ad9a0396aa311a9c8bb1c411f29df9f87d3e13dc309ea35fe"
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverProfile.jsx",
+    "sha256": "6ecfc71ffa28b761317e64e410ad9e189f7ff3445943b788aa098bbe4036efd3"
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverReputation.jsx",
+    "sha256": "75c19c88ff5fac432c4659bdf9a97e557781517a2bf0fae79e2a7414ded05ba5"
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverTrips.jsx",
+    "sha256": "8a7cc5e12118f5d178722d7eb9535a61218c2e349c4a07103514d48487639895"
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverWallet.jsx",
+    "sha256": "2c1b8f2d092e2f3316aa18eb7cb909376d4a612938fb8e71eb0c711acb4e4b17"
+  },
+  {
+    "path": "frontend-react/src/pages/everyday/EverydayDashboard.jsx",
+    "sha256": "24602402026fd00ed2bdddb6dc7821e50ce73ac0b20013656516016536d5f942"
+  },
+  {
+    "path": "frontend-react/src/pages/fuelstation/FuelDispensePOS.jsx",
+    "sha256": "8331d1866980732cf12b637778c5311ed7bea0b2604ede375216ff0b2ba222f2"
+  },
+  {
+    "path": "frontend-react/src/pages/fuelstation/FuelHistoryPage.jsx",
+    "sha256": "2e9e55bc88f261505d757fd36f084a6e6add608a21235d931eaedfbc3d0c61db"
+  },
+  {
+    "path": "frontend-react/src/pages/fuelstation/FuelPumpsPage.jsx",
+    "sha256": "db9603f01b6332b40ded9d1ff22bfcbd6a723bc102b2afe94332d090878da35e"
+  },
+  {
+    "path": "frontend-react/src/pages/fuelstation/FuelStationDashboard.jsx",
+    "sha256": "29b2fd531cd6ecf520d0e523eb6974bf450f18f1928d20165324fccf99f349d7"
+  },
+  {
+    "path": "frontend-react/src/pages/fuelstation/FuelStationProfile.jsx",
+    "sha256": "9315fa75e5c34666359fa0b16fd1ed087c7f42ecead700fa95b6b73fa7183efa"
+  },
+  {
+    "path": "frontend-react/src/pages/future/service_history.jsx",
+    "sha256": "475dde0ff654d7735575009090e72438dac9bacdb2ab4b403513321802498808"
+  },
+  {
+    "path": "frontend-react/src/pages/main/MainPage.jsx",
+    "sha256": "087a65bb97f74ace44c74052788e5ad42f78706adb9eaaa370be29cb057c3587"
+  },
+  {
+    "path": "frontend-react/src/pages/shared/AiChat.jsx",
+    "sha256": "a436f5f11e67558c1d8e9ba1fb1613e4cfa1432c4041ea6e397164024a230cd6"
+  },
+  {
+    "path": "frontend-react/src/pages/shared/SecuritySettings.jsx",
+    "sha256": "38889bbd8a43b60b5a3282db921646879c51aec391e0378d94f374bf01e6b770"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/AnalysisView.jsx",
+    "sha256": "b3a70e6571b459ed607a2233769c21813a4d5b2d152ec5baf75c10daab6ad30a"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/CreateTable.jsx",
+    "sha256": "9aa41b299679adcd2e27bb716711b8c597a9aae95653ee2aa6604fd9275d4fa5"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/InventoryPage.jsx",
+    "sha256": "10e9804ff3c7e7dc1773245bd66a2e659146dc07a9abe1adfceee44adf82730e"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/posAmounts.js",
+    "sha256": "314f93ee17eddaac8b2c16982cc9a4e04fe004fdaa383b4f1d9fd66c893157b5"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
+    "sha256": "2b9840ece312563a825e561e05081470aeb5681b0e7bc169503620f6828c4cf1"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/posUtils.js",
+    "sha256": "5669cdc3208f6be47b5e8a15a384159ae553dfb88557ada58b248a4f0f45203b"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/receiptPrinting.js",
+    "sha256": "2051e7be619aab59abe5340251c9e358925024ab5fbde569c1daa07ecc5a4c25"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/SalesAnalyticsPage.jsx",
+    "sha256": "5640f15f92582faea4602315fd3a340431798781265d306ce89694d7a9f18ef6"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/ShopkeeperDashboard.jsx",
+    "sha256": "864a13636b16367635655f7ee0fd00a46ad51c3b858bbf53b6c5c9ebdf8567e0"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+    "sha256": "d9ca09252dfdad0dba02c8c2061c80ba5e8bdd516859ebb7f25e6a21fdd30e80"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/ShopkeeperProfile.jsx",
+    "sha256": "692e8a10e627f69060a9ec89ad622c4485b2924e06a295d49817d5069b9ee65e"
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/TableView.jsx",
+    "sha256": "70490ff4db2794069ca411278c9aea0475baf1dc954398ac2729db5354ec5382"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/about.jsx",
+    "sha256": "3f48074af0551e26cbc676de3ddfcfa00b2123f1f02c34553f2935535afaa082"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/ac_history.jsx",
+    "sha256": "8a9680b2fea125a0e74220c0470a3d5d02fe91ba97abe7c0bccd0c0723aadeb3"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/add_truck.jsx",
+    "sha256": "9031e0a21eea0e40c32941f9b8b2fce6c2b6b33b78a78d7f3ca59283b160c20e"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/AgreementBids.jsx",
+    "sha256": "0b5e3ba07eb351042b203109b30897335f167b2f0d0ab8a0aa250f047c11c2ad"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/AvailableBids.jsx",
+    "sha256": "55ec8d2c8605f2b2e594902dd872fa4c7d97c5b45b25aae87492fcdb1a819cff"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/contact.jsx",
+    "sha256": "861a924378de021c1016b75c6b6bd5a67d87a77378da6f0151ae5b3bd34b966f"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/DeliveryHandoffCode.jsx",
+    "sha256": "46bf9dba514a3e139f55aecea38bf3ccc6459c2002428d2a71d6c5349a99fc85"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/earning.jsx",
+    "sha256": "f0b5a3282098282971bc1d2c5d3db930053c7736089837a10f8efc8264947c45"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/edit_truck.jsx",
+    "sha256": "c295071f27e0ba0a0db8ca14b0ff9041eaef0834f55e4461fd7354e90a755b47"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
+    "sha256": "0ca79c881bf0320442a9adb4284b547b05177ab5e2b455e0a91a33641d0bb895"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/future_features/customer_rating.jsx",
+    "sha256": "df802b479b518ce105d65c515ae1ad29564cb7b2ed3179dc0de264454dd7175f"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/future_features/documentation.jsx",
+    "sha256": "ea2c0a0c37a25bc19c3ae298981a490c20a9d30361d4a1dbc0e97dbac829f960"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
+    "sha256": "99b82f720b6a9650707ca6dcbef46329b3a9ed94c75420af7fea37bcead12850"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
+    "sha256": "198a5cb5ca46bddec4800cdde2553a2fd2ba0c62ab4a5da05772902d50bf4f0b"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/future_features/payments.jsx",
+    "sha256": "4ea4253651e63e4d133ddbd13c9992f29a63ab560113daa9efe61c7888c28c0c"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
+    "sha256": "061cef8737ae161e3d55f212a97d6f0f57cceaffad6bc0427d019033e855a26c"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
+    "sha256": "ce61986c195016b38d53f41b8cd184810d173b6d0b101aa7692be577b195081b"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/help.jsx",
+    "sha256": "daf7d57f035a3fd83ebf13745fb96a811727fd79b0567a72cf9fbed1becec4a7"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/leaderboard.jsx",
+    "sha256": "f5e173f4d89ba2a42a133cc09b3d5f84c49296976e9a1925f5e4b0421dd7fdf5"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/marketplaceApi.js",
+    "sha256": "1776c5ae3f04b7d36567eda69a7d056361dd84b3c95331928fb8ed6d8a9ed5e4"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/Messages.jsx",
+    "sha256": "5f76503bbe1ac9d27e7b8f02884d40d82463e0735a4db0366fd6a52e3531d20d"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/My Truck.jsx",
+    "sha256": "30212ca84008596d62e3d0685908cef627b652fe12e884c25ec4603028d7650a"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/MyAgreements.jsx",
+    "sha256": "3548f1100cd1ddc574bd2a57bcf2331b03161f465f8a74cef562384b56f48363"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/MyBids.jsx",
+    "sha256": "250609070868b67181931428def064efbcf35af040b32f26710b246cce300a68"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/OrderTracking.jsx",
+    "sha256": "3710416c868cae115416ee11affc636f71c858877fa1b627abdd921bd8b5f351"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/partsCart.js",
+    "sha256": "0ea3df1f4974da84cbe3480429e1c3af8a1093ba7c25bc18a5c1abdf071138b2"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/PartsCartPage.jsx",
+    "sha256": "e2ce5b27f7012cb816f05a1751993b8334a3a60d56e3bbf428ab3d33ae3b5b35"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/partsCartStorage.mjs",
+    "sha256": "d31120f5fc554d99aa0d020315d1f33af6bab373aefc8eef6273aacc7021f1ba"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
+    "sha256": "846bfd3e45ef5b0ea28e1e89440aa33734583ea70ad83088ccc4b18969bb14dd"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/PartsOrdersPage.jsx",
+    "sha256": "8c64eceb9e1e88fb3fb91ac26b9700f3c023360792dcfa8dd2dc1e8ddbd59e7c"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/PartsRequestsPage.jsx",
+    "sha256": "7635694ff3444dd815a5c998f051d8951c9cf201cab4d5198271d12e42db8669"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/PartsStoreDashboard.jsx",
+    "sha256": "c6abd96627c7cc293ee0c65f945fbeb494da857c716125bd82a067388c116c97"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/print_documents.jsx",
+    "sha256": "18fa9bd7917f0e0d7dd8633062755df87b7cbfca6e4d0dfba530a24bfad27734"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/privacy.jsx",
+    "sha256": "7caa02fd0fc4c06b706daf5d8975e5b57bbf5ef3eec8ed66fd0be9e122bd7fb3"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/profile.jsx",
+    "sha256": "7778fcda1ad785d4b944cd0bddbcbfcaa5dba6897b8022f0ef3711ed219f8def"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/settings.jsx",
+    "sha256": "ae7eda4cfedd642ce331093572f65296bb074bbf9b4d3180f8054f9ea76ac38f"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/terms.jsx",
+    "sha256": "007d48ec064f44ad8b1eaf4b7f6e94b72d96c694be6c4b922b443cf49b4aa6eb"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/track_truck.jsx",
+    "sha256": "ea9c9c0945f162042ee7fb95a054e2cb1ee0f1a6e7dad30ca0341a4b31b3e370"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/transporter_dashboard.jsx",
+    "sha256": "ec78e99341bc8887f4a041cdec5617ab17fc7a619404504670f4aa9d4e3af452"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/truck_configuration.jsx",
+    "sha256": "755a2124b2281d74eb0296a236f275144ac5dfa090468faf54758cee2a1145c7"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/truck_details.jsx",
+    "sha256": "0a0d52279f8248f344c16b2a2169045de3222d05a179d43e6061ebe3248beda0"
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/wallet.jsx",
+    "sha256": "de721d7d7fa56e9562d82c156b6166d8c72663b33c8c23b89782133bb1d1c486"
+  },
+  {
+    "path": "frontend-react/src/styles/components/chat-window.css",
+    "sha256": "4e982d5aca52cd03e4f07652d9f0e381ce607c61f6c9dac4e5869374077965b3"
+  },
+  {
+    "path": "frontend-react/src/styles/components/mpin-security.css",
+    "sha256": "6d140bef343c5589376ac4a868751a899422806df7811500f1f18c7e0485098c"
+  },
+  {
+    "path": "frontend-react/src/styles/components/wallet-workspace.css",
+    "sha256": "fc4ce7207874e03eb00321732ce36bc72109457b9ae362ba3c817def842bd636"
+  },
+  {
+    "path": "frontend-react/src/styles/global.css",
+    "sha256": "792db2db8153c2068d4794eb8a45e61c2fb33890de098e93a5dc2cfe12b743eb"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/add-truck.css",
+    "sha256": "0148b2a7e71a83e3aaf77b80385eb964ceaa7c0109bab6568b5d2d33c5ec7fb0"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/agreement-bids.css",
+    "sha256": "a3801b156691c6f310e616ba416bc5ae26c47cb1f58b79e93fc4c9303a20e4b2"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/auth.css",
+    "sha256": "a69db7dd7224c81872a313dd3327535f01947c7bb5bb356708a23e2ccb94e53a"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/bid-checkout.css",
+    "sha256": "0b65a0ff960278f02d5af4b97dac1c113474b1bb9d772bc2f9ad5987bf08df61"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/client.css",
+    "sha256": "2182fd6ac8f118804f2a110015ec54469d73f07c3e89564c6c00e9d211de044f"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/driver.css",
+    "sha256": "83a1512456b1c359fdefcae6d25520b066f6d058f1da116965515c84dad863fc"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/earnings.css",
+    "sha256": "8595e7f368d5e967dbd2ccbe248505605e7589ff06faac50947446a285058d4b"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/fuelstation.css",
+    "sha256": "a61a0eb08dc6d64eae83c231594e01068d23744bea3160a59ee1d1652b621d6e"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/my-agreements.css",
+    "sha256": "22ceb803a0ce4d0f26a48ed2d58cfc143821b7e26075b8b42a48ed3859bf8e48"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/my-bids.css",
+    "sha256": "0317713671ac5b264a5f855a0caebc35040ec1150adaad5a7255df6fa10e9416"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/my-trucks.css",
+    "sha256": "3047d3d35042a0a8948f53cd9079f0e581e7c41b915e943618d687bec9cbd6ec"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/order-detail.css",
+    "sha256": "7abbe1459d1bd83872f519c9442705a53222aee7973c5516a00c8f8fc88c169e"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/order-tracking.css",
+    "sha256": "063e51dce66e7cae8206292f48806380e7f6227394fe7a6bb8c5c44dd0a8c402"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/parts-marketplace.css",
+    "sha256": "27b8448078f948312ffb1835afaf475a661a92bd58fec8e5138b3dd34e9e4a99"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/parts-store-dashboard-layout.css",
+    "sha256": "b6e9ae2424da4ab11406350f95c2fba752aec06565a6a97d0cc1b86c49098d13"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/parts-store-pages.css",
+    "sha256": "45851099d4e065aee534a8a3ee161f27b315df2d0a124236629ae06b25b859d5"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/profile.css",
+    "sha256": "b273261bbfdd611e9089021270b2b043492606629a1a2d8530d71d11dfbc0d8a"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/settings.css",
+    "sha256": "f2229302cc71b165b962513dec69f4ec29a428cbf927b16c258419a495d03d94"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/shopkeeper.css",
+    "sha256": "06eed039f1338c2178ba82b069f85b142872dd98fc45b3f6f7dbe1c73d02c61b"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/transporter-dashboard.css",
+    "sha256": "c69293ae7f74e69ea69f7fe60d0485b8589139cdd4f5800df49e9ba14c4949d7"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/transporter-messages.css",
+    "sha256": "191056250f77e1c9ddfd99e1cda1c4eafcc5007a65538dfd91ca74ef1c6a40d4"
+  },
+  {
+    "path": "frontend-react/src/styles/pages/truck-configuration.css",
+    "sha256": "a334c302e7db72663d375654b2863fb7db1f169257d062719ced389b258cd66f"
+  },
+  {
+    "path": "frontend-react/src/styles/tailwind.css",
+    "sha256": "821adc9694e2131aba2d1f4b3b4614d5b2f0afe91692a77bf1aaf12bbabdb729"
+  },
+  {
+    "path": "frontend-react/tests/agreementDatesAndCart.test.mjs",
+    "sha256": "9f73a1dbed045fc7991fb10b5f7c5835d3221db9a479d9cfd7830bf11ad56cd8"
+  },
+  {
+    "path": "frontend-react/tests/assistantPrivacy.test.mjs",
+    "sha256": "add4df614f884acb40de632c7f0451767238938e1c6efe67e7204ed55cb553f6"
+  },
+  {
+    "path": "frontend-react/tests/authShellBootstrap.test.mjs",
+    "sha256": "807d17370d5cfe5a3ad70138baf9493efed86c517bfaf0c3909d4e3ccc581ec3"
+  },
+  {
+    "path": "frontend-react/tests/disputeGuards.test.mjs",
+    "sha256": "7b3ea5b8c2f3801f3cebff0a01a1f62193b350909ec637354bf6205c26f193ae"
+  },
+  {
+    "path": "frontend-react/tests/frontendSecurityFixes.test.jsx",
+    "sha256": "78a4aa8c57e64427f1619f99a93af157d06f0aee6436ea05faafc3340c4f229c"
+  },
+  {
+    "path": "frontend-react/tests/genuineActivity.test.mjs",
+    "sha256": "a27fe1defc05ff26da037f43bfd4a45e1251835a20c84dde6d809621b742bb34"
+  },
+  {
+    "path": "frontend-react/tests/legacyTracking.test.mjs",
+    "sha256": "15036b81bdf495fa2a7643e44d39553c216a0ef99a636f8ba06515dec1d85216"
+  },
+  {
+    "path": "frontend-react/tests/logoutAll.test.mjs",
+    "sha256": "6e1617340fa22a638f9bf224d0ceb50549529f20e120c0d5c71c81fa8e1b5b5b"
+  },
+  {
+    "path": "frontend-react/tests/marketplaceSecurity.test.jsx",
+    "sha256": "f2a7b443b280ac0b715bfd3e351c8174311528a1f49aed6c2e65be82364a34ec"
+  },
+  {
+    "path": "frontend-react/tests/mpinAccess.test.mjs",
+    "sha256": "32d8cb9d57fef1b963d190187b386cb18acfb7a2edb55217220a5cae7817248a"
+  },
+  {
+    "path": "frontend-react/tests/myOrdersLoader.test.mjs",
+    "sha256": "9050d784eaa7f801bf4d067c0b54b3567d31acc1e471d233c1a8cc264cd057ba"
+  },
+  {
+    "path": "frontend-react/tests/receiptAndStaticAssets.test.mjs",
+    "sha256": "f684285ad3bf7a2eba47046797b348a5284237b976bf6678ef57ef08b783f752"
+  },
+  {
+    "path": "frontend-react/tests/remainingWorkflowSecurity.test.jsx",
+    "sha256": "57fc23c354ba2bf2c0a207efa4764a078de95eadff0c9a4fa409282a4f82658d"
+  },
+  {
+    "path": "frontend-react/tests/responsiveInterface.test.mjs",
+    "sha256": "6f148170f5910a2e47685db1d861007ade8da1f3348b2b0a1520c63a21df3fa0"
+  },
+  {
+    "path": "frontend-react/tests/sessionDeviceManagement.test.jsx",
+    "sha256": "92a57be7728756638a1e67b70c149e01a390f8d2193140c92dc5c4c969202ede"
+  },
+  {
+    "path": "frontend-react/tests/settingsPasswordLifecycle.test.jsx",
+    "sha256": "10ed7a0daa6d5f294ec2b81ba204f5d2a47e258ca62922864be5f1f2d8fea4a0"
+  },
+  {
+    "path": "frontend-react/tests/signupDraftLifecycle.test.mjs",
+    "sha256": "d6b41a3fd877421f937d4845debab6d71eec7d1c3145ccb601af7afb35c350b1"
+  },
+  {
+    "path": "frontend-react/tests/stepUpProvider.test.mjs",
+    "sha256": "9440fcb0674d0422b5bf2ebf962ab0a48236eec02d549d044ee5926d99a679a6"
+  },
+  {
+    "path": "frontend-react/vite.config.js",
+    "sha256": "e81b78743911ee27b565614dc25b7e2bba02228affcc10b3a4fd515ac2a29fdf"
+  },
+  {
+    "path": "frontend-react/vitest.config.js",
+    "sha256": "6cc341495047fd378b652f7b96e9dd833fe3bcb5b6669cfe08615b5a01363fd1"
+  },
+  {
+    "path": "supabase/migrations/20260721000000_commission_policies_and_terms.sql",
+    "sha256": "4162962d6ec07c45215105a10b52f4ecf73ccff94650862024b0b07b5cb4747e"
+  },
+  {
+    "path": "supabase/migrations/20260721120000_one_time_payment_foundation.sql",
+    "sha256": "a742f4e181f3d91439b4ebff42d78c7a4baf3d58d9c84c5edf2650c46f6a0a1c"
+  },
+  {
+    "path": "supabase/migrations/20260721130000_tokenize_payout_cards.sql",
+    "sha256": "16ffda862c28bf4f70bb29de60873d60d220b3cd0c90a689d487824e3da186cc"
+  },
+  {
+    "path": "supabase/migrations/20260722090000_vehicle_operating_location.sql",
+    "sha256": "8d80db84f4b6fb90a88d30ae7bb41d44837c25e95a9406aff49402cd42856176"
+  },
+  {
+    "path": "supabase/migrations/20260723090000_everyday_user_separation.sql",
+    "sha256": "96cb05deb6d071214cbbd809e02b8cbd375355dc56a6fd29f64a93ec0f4b3485"
+  },
+  {
+    "path": "supabase/migrations/20260723100000_everyday_profile_hardening.sql",
+    "sha256": "bb9cf799516e0a6a8691c1a9d6c78688e5bcb710f12957d1dba3b082c0e9ac0b"
+  },
+  {
+    "path": "supabase/migrations/20260723110000_remove_dispatcher_role.sql",
+    "sha256": "1922c446e403db81f8d8adc51740986c4660f4109f43fe4c564dbff8f4f44d23"
+  },
+  {
+    "path": "supabase/migrations/20260723120000_one_time_trip_completion_lifecycle.sql",
+    "sha256": "0d8db8c48fc2be0249b8bcb388d2da29b1e8ea435d2b8fdd759d665e52ec8c07"
+  },
+  {
+    "path": "supabase/migrations/20260724190000_one_time_coordinate_integrity.sql",
+    "sha256": "5c602c78b53710c1649a8480d973cd339cf73e0d487060829f7f394759d68453"
+  },
+  {
+    "path": "supabase/migrations/20260726200000_shipment_trip_reviews.sql",
+    "sha256": "1d684ef155a12e3b2352082702d06124bb0c104d008114fc6842b78621c69194"
+  },
+  {
+    "path": "supabase/migrations/20260731220000_schema_trigger_rls_baseline.sql",
+    "sha256": "c282731c2ef9e74fc6f6a3b70e99d5f2b5b0ab7bd200246884a5b72af8963fb1"
+  },
+  {
+    "path": "supabase/migrations/20260731230000_canonical_event_foundation.sql",
+    "sha256": "9d9c7a9aa8c674ee1a58a96c7ac5ece831d51c0eabf4c96bd81b37eb79093151"
+  },
+  {
+    "path": "supabase/migrations/20260731240000_canonical_event_acl_hardening.sql",
+    "sha256": "ad2c21874aa3401b081534e56eb4fe18085dc6ccc39c9ccb47ab992bf49d5348"
+  },
+  {
+    "path": "supabase/migrations/20260801100000_security_login_event_integration.sql",
+    "sha256": "e07938cfcf4666bc6394c909f7c25d568a429d6103707a0405531af9aa809441"
+  },
+  {
+    "path": "supabase/migrations/20260801110000_canonical_event_integrated_guard.sql",
+    "sha256": "554d4f63e35562d34286c0977ace778515f5b1f03dee1a59c60e6a87487b5cde"
+  },
+  {
+    "path": "supabase/migrations/20260801120000_add_signup_failed_event.sql",
+    "sha256": "5fdafad077e179381fed66780b386e78ee130a05b2d4373dd14b22a7458a24ae"
+  },
+  {
+    "path": "supabase/migrations/20260801130000_security_signup_event_integration.sql",
+    "sha256": "86b5968485682a73209445707b2820d4d208850a0abcbf72b0cfa791101f94af"
+  },
+  {
+    "path": "supabase/migrations/20260801140000_device_session_mpin_event_contracts.sql",
+    "sha256": "ab3fc9bb259b2e3b39f2efca9520a1f506197dfc02363e9529b01dbfed758965"
+  },
+  {
+    "path": "supabase/migrations/20260801150000_durable_server_session_foundation.sql",
+    "sha256": "1eeca97f540918c68f13f9d73b0b340302ba133cb17422085148d97d34895bc6"
+  },
+  {
+    "path": "supabase/migrations/20260801160000_trusted_device_hardening.sql",
+    "sha256": "06c395ebbf863474101028226049420b64a078809eb97f80f3eeddce664f01b9"
+  },
+  {
+    "path": "supabase/migrations/20260801170000_durable_session_runtime_events.sql",
+    "sha256": "15269efd60a276b613c6ffa6edd79126695f434d35a6e89d72c712d22ca9579b"
+  },
+  {
+    "path": "supabase/migrations/20260801180000_secure_mpin_access_lock.sql",
+    "sha256": "e31419c649bd5f5d9f16dffa2944d7a32b0f4ac665c1d0d86d6908f1701782a2"
+  },
+  {
+    "path": "supabase/migrations/20260801190000_reset_authorization_claims.sql",
+    "sha256": "fe172cf8aa4f3ac404e1f616f25f8e8f5db087c792263f504d407f2a39ef78c8"
+  },
+  {
+    "path": "supabase/migrations/20260801200000_genuine_session_activity.sql",
+    "sha256": "605929ded36e37e93a7d5dafb2de7b925fe79a02aad73e9df975ae44c46d357b"
+  },
+  {
+    "path": "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql",
+    "sha256": "d263e4f993c7ba6be549b6b0a64211fc6a3960db21fec16b7a33c80ef5ca5833"
+  },
+  {
+    "path": "supabase/migrations/20260801220000_mpin_step_up_high_risk_integration.sql",
+    "sha256": "e4e3fbab44cf3465d0a4d3652d50a4c6ebbf7215b164d13e415f52a4f8370f32"
+  },
+  {
+    "path": "supabase/migrations/20261021200000_truck_parts_marketplace.sql",
+    "sha256": "22728362fa78813f49b2509bc4e8a5da9115c75363090a315b61e794e0726641"
+  },
+  {
+    "path": "supabase/migrations/20261022100000_shop_inventory_products.sql",
+    "sha256": "ab48f5e0edf83a72627086c8490087ed77b6673df890bcdbe02f5551b9ea4236"
+  },
+  {
+    "path": "supabase/migrations/20261022110000_shop_sales_pos.sql",
+    "sha256": "ef7a9864073afe0d6c8a10d600810a34d34660ccb0aee0478e1b7154c10449f9"
+  },
+  {
+    "path": "supabase/migrations/20261022160000_contact_messages.sql",
+    "sha256": "7f1df74655d18d74a018cb84dee468dcf1d2b8e5d20d30151aac1491e3df8411"
+  },
+  {
+    "path": "supabase/migrations/20261022170000_fuel_station_portal.sql",
+    "sha256": "c41258222ec99f06b82c76d0edfd0f1997ba65ec86be9f3573a42a8ed269c4a8"
+  },
+  {
+    "path": "supabase/migrations/20261022180000_driver_role_and_tracking.sql",
+    "sha256": "e6298511427db6a3828e54752d72a4243ad9acc4081c1d8ace9db3fdd43fb5bb"
+  },
+  {
+    "path": "supabase/migrations/20261023190000_driver_fuel_logs.sql",
+    "sha256": "57b43db94dcb7692c4c225a3fb8f00a5f3a773b81f12c427fe706dbc0db2ba2a"
+  },
+  {
+    "path": "supabase/migrations/20261023203500_unrated_new_drivers.sql",
+    "sha256": "6d37a18c8f279ecd4a3c8fcb15875b791793d634de47b6328f20176f397f9677"
+  },
+  {
+    "path": "supabase/migrations/20261024010000_database_authorization_hardening.sql",
+    "sha256": "7dfea7573aebade4dc2723f35a6265c542b3157e8c5c4979fefd1f186fa14c63"
+  },
+  {
+    "path": "supabase/migrations/20261024020000_marketplace_financial_controls.sql",
+    "sha256": "d255fad291eeb8802939ff6e29b98e0f19012a7c3b8e003ead5baf175238384a"
+  },
+  {
+    "path": "supabase/migrations/20261024030000_private_operational_read_surfaces.sql",
+    "sha256": "fbe54c8ce5596cb4a06685061faf93a21cc3df45f47de29c512909e26aa183e9"
+  },
+  {
+    "path": "supabase/migrations/20261024040000_validate_wallet_money_invariants.sql",
+    "sha256": "9a50201f24e7035521dfd39dadc9836f7ad02faf289012c11a11ccf863d2be31"
+  },
+  {
+    "path": "supabase/migrations/20261025010000_driver_workflow_integrity.sql",
+    "sha256": "c704e775d694e306a6e6b1b28e5e8dda58c84eb9215115c84215f76f8ccd1b65"
+  },
+  {
+    "path": "supabase/migrations/20261025020000_payment_preference_convergence.sql",
+    "sha256": "706623b02198276fe2ffc59fc0dfb447eec2b1ae46d956c847bcad2d970143c5"
+  },
+  {
+    "path": "supabase/schema.sql",
+    "sha256": "d021ba2f60f27c04f3bc41ad98ec2f5cb3a216d8e54b4ce9be3c54915f58274a"
+  }
+]

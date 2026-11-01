@@ -1,0 +1,94 @@
+{
+  "date": "2026-10-24",
+  "timezone": "Asia/Karachi",
+  "scope": "20 requested priority fixes and related safeguards; original 75 findings not all closed",
+  "supabase_project": "fysupkvuvhvtowbfgoev",
+  "applied_forward_migrations": [
+    {
+      "name": "20261024010000_database_authorization_hardening.sql",
+      "sha256": "7dfea7573aebade4dc2723f35a6265c542b3157e8c5c4979fefd1f186fa14c63"
+    },
+    {
+      "name": "20261024020000_marketplace_financial_controls.sql",
+      "sha256": "d255fad291eeb8802939ff6e29b98e0f19012a7c3b8e003ead5baf175238384a"
+    },
+    {
+      "name": "20261024030000_private_operational_read_surfaces.sql",
+      "sha256": "fbe54c8ce5596cb4a06685061faf93a21cc3df45f47de29c512909e26aa183e9"
+    },
+    {
+      "name": "20261024040000_validate_wallet_money_invariants.sql",
+      "sha256": "9a50201f24e7035521dfd39dadc9836f7ad02faf289012c11a11ccf863d2be31"
+    }
+  ],
+  "database_security_totals": {
+    "public_tables": 68,
+    "rls_enabled_public_tables": 68,
+    "public_rls_policies": 112,
+    "verified_backend_only_tables": 19,
+    "browser_select_dml_denied_backend_only_tables": 19,
+    "service_role_select_dml_allowed_backend_only_tables": 19
+  },
+  "database_regressions": {
+    "passed": 64,
+    "failed": 0
+  },
+  "python_syntax": {
+    "files": 161,
+    "failures": 0
+  },
+  "backend_focused": {
+    "passed": 143,
+    "failed": 0,
+    "seconds": 123.88
+  },
+  "backend_final_auth_outage_subset": {
+    "passed": 4,
+    "failed": 0,
+    "seconds": 11.14,
+    "overlaps_focused": true
+  },
+  "backend_full_initial": {
+    "cases": 1132,
+    "failed": 5,
+    "errors": 0,
+    "skipped": 3,
+    "passed": 1124,
+    "seconds": 1448.74
+  },
+  "backend_current_failure_recheck": {
+    "cases": 5,
+    "failed": 0,
+    "errors": 0,
+    "skipped": 0,
+    "passed": 5,
+    "seconds": 22.3
+  },
+  "frontend_node": {
+    "passed": 97,
+    "failed": 0
+  },
+  "frontend_components": {
+    "passed": 34,
+    "failed": 0
+  },
+  "frontend_build": {
+    "files": 14,
+    "bytes": 3014482,
+    "seconds": 18.73,
+    "copied_node_modules": false
+  },
+  "source_manifest_files": 407,
+  "local_runner": {
+    "port": 15477,
+    "stopped": true,
+    "data_directory_retained": true,
+    "deletion_review_reason": "blocked by policy"
+  },
+  "limitations": [
+    "No second whole-backend run after focused test corrections",
+    "Three shared-project opt-in probes skipped in isolated run",
+    "No real payment provider, payout rail or double-entry ledger implemented",
+    "No claim of closing all original audit findings or production readiness with real funds"
+  ]
+}

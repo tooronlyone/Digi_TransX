@@ -1,0 +1,347 @@
+[
+  {
+    "module": "backend.tests.test_everyday_separation",
+    "name": "test_checkout_funding_split_by_role",
+    "message": "AssertionError: assert Decimal('50000.00') == 0"
+  },
+  {
+    "module": "backend.tests.test_location_eligibility",
+    "name": "test_checkout_rejects_truck_moved_outside_radius",
+    "message": "psycopg2.errors.UndefinedColumn: column \"market_key\" of relation \"shipment_bids\" does not exist\nLINE 4:                 market_key, market_reference_average, market...\n                        ^"
+  },
+  {
+    "module": "backend.tests.test_mpin_high_risk_routes_postgres",
+    "name": "test_wallet_only_checkout_consumes_real_authorization_and_writes_event",
+    "message": "AssertionError: {\n    \"code\": \"insurance_notice_acceptance_required\",\n    \"message\": \"Please acknowledge the goods insurance notice before accepting this booking.\",\n    \"success\": false\n  }\n  \nassert 400 == 200\n +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code"
+  },
+  {
+    "module": "backend.tests.test_mpin_high_risk_routes_postgres",
+    "name": "test_agreement_finalize_consumes_real_authorization_and_writes_event",
+    "message": "AssertionError: {\n    \"code\": \"agreement_escrow_policy_required\",\n    \"message\": \"New variable-fare agreements require an approved upfront escrow authorization and refund policy before finalization.\",\n    \"success\": false\n  }\n  \nassert 409 == 428\n +  where 409 = <WrapperTestResponse streamed [409 CONFLICT]>.status_code"
+  },
+  {
+    "module": "backend.tests.test_mpin_high_risk_step_up_integration",
+    "name": "test_exact_six_category_a_actions_and_security_extension",
+    "message": "AssertionError: assert {'agreement.f...request', ...} == {'agreement.f...mit.purchase'}\n  \n  Extra items in the left set:\n  'fuel.voucher.authorize'\n  Use -v to get more diff"
+  },
+  {
+    "module": "backend.tests.test_mpin_step_up_authorization_foundation",
+    "name": "test_exact_six_category_a_descriptors_and_security_extension[value0]",
+    "message": "AssertionError: assert 8 == 7\n +  where 8 = len({'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...})\n +    where {'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...} = step_up_service.ACTION_POLICIES"
+  },
+  {
+    "module": "backend.tests.test_mpin_step_up_authorization_foundation",
+    "name": "test_exact_six_category_a_descriptors_and_security_extension[value1]",
+    "message": "AssertionError: assert 8 == 7\n +  where 8 = len({'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...})\n +    where {'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...} = step_up_service.ACTION_POLICIES"
+  },
+  {
+    "module": "backend.tests.test_mpin_step_up_authorization_foundation",
+    "name": "test_exact_six_category_a_descriptors_and_security_extension[value2]",
+    "message": "AssertionError: assert 8 == 7\n +  where 8 = len({'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...})\n +    where {'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...} = step_up_service.ACTION_POLICIES"
+  },
+  {
+    "module": "backend.tests.test_mpin_step_up_authorization_foundation",
+    "name": "test_exact_six_category_a_descriptors_and_security_extension[value3]",
+    "message": "AssertionError: assert 8 == 7\n +  where 8 = len({'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...})\n +    where {'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...} = step_up_service.ACTION_POLICIES"
+  },
+  {
+    "module": "backend.tests.test_mpin_step_up_authorization_foundation",
+    "name": "test_exact_six_category_a_descriptors_and_security_extension[value4]",
+    "message": "AssertionError: assert 8 == 7\n +  where 8 = len({'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...})\n +    where {'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...} = step_up_service.ACTION_POLICIES"
+  },
+  {
+    "module": "backend.tests.test_mpin_step_up_authorization_foundation",
+    "name": "test_exact_six_category_a_descriptors_and_security_extension[value5]",
+    "message": "AssertionError: assert 8 == 7\n +  where 8 = len({'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...})\n +    where {'fuel.voucher.authorize': ActionPolicy(resource_type='trip', amount_required=True, destination_required=True, funding...(resource_type='wallet', amount_required=True, destination_required=False, funding_sources=frozenset({'wallet'})), ...} = step_up_service.ACTION_POLICIES"
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_everyday_quote_full_card_funding",
+    "message": "AssertionError: assert Decimal('100000.00') == 0.0"
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_business_shortfall_quote",
+    "message": "AssertionError: assert Decimal('100000.00') == 40000.0"
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_everyday_checkout_creates_held_payment_and_ready_trip",
+    "message": "shared.payments.CheckoutError: A funded wallet is required to accept this bid. Wallet onboarding for this account type requires an approved policy."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_everyday_checkout_requires_card_details",
+    "message": "AssertionError: assert 'wallet_onboarding_required' == 'card_required'\n  \n  - card_required\n  + wallet_onboarding_required"
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_invalid_card_causes_no_mutations",
+    "message": "AssertionError: assert 'wallet_onboarding_required' == 'invalid_card'\n  \n  - invalid_card\n  + wallet_onboarding_required"
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_business_wallet_covered_checkout",
+    "message": "shared.payments.CheckoutError: Please acknowledge the goods insurance notice before accepting this booking."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_business_shortfall_wallet_receives_exactly_shortfall",
+    "message": "shared.payments.CheckoutError: Insufficient balance. Please top up PKR 60,000.00 to accept this bid."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_auto_shortfall_charging_enabled_uses_default_card",
+    "message": "shared.payments.CheckoutError: Insufficient balance. Please top up PKR 60,000.00 to accept this bid."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_auto_disabled_requires_explicit_confirmation",
+    "message": "AssertionError: assert 'insufficient_wallet_balance' == 'card_confirmation_required'\n  \n  - card_confirmation_required\n  + insufficient_wallet_balance"
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_no_pan_or_cvc_persisted_anywhere",
+    "message": "shared.payments.CheckoutError: Insufficient balance. Please top up PKR 100,000.00 to accept this bid."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_expired_saved_card_fails_without_mutations",
+    "message": "AssertionError: assert 'insufficient_wallet_balance' == 'card_expired'\n  \n  - card_expired\n  + insufficient_wallet_balance"
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_idempotent_checkout_does_not_double_charge",
+    "message": "shared.payments.CheckoutError: Please acknowledge the goods insurance notice before accepting this booking."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_second_checkout_cannot_create_second_trip",
+    "message": "shared.payments.CheckoutError: Please acknowledge the goods insurance notice before accepting this booking."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_order_access_levels",
+    "message": "shared.payments.CheckoutError: Please acknowledge the goods insurance notice before accepting this booking."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_transporter_payment_summary_hides_funding_details",
+    "message": "shared.payments.CheckoutError: A funded wallet is required to accept this bid. Wallet onboarding for this account type requires an approved policy."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_start_trip_updates_trip_and_shipment_and_is_idempotent",
+    "message": "shared.payments.CheckoutError: A funded wallet is required to accept this bid. Wallet onboarding for this account type requires an approved policy."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_idempotency_key_reuse_for_different_checkout_is_conflict",
+    "message": "shared.payments.CheckoutError: Please acknowledge the goods insurance notice before accepting this booking."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_disputed_payment_still_blocks_second_active_payment",
+    "message": "shared.payments.CheckoutError: A funded wallet is required to accept this bid. Wallet onboarding for this account type requires an approved policy."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_start_trip_rejects_mismatched_payment",
+    "message": "shared.payments.CheckoutError: A funded wallet is required to accept this bid. Wallet onboarding for this account type requires an approved policy."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_start_trip_rejects_invalid_shipment_state",
+    "message": "shared.payments.CheckoutError: A funded wallet is required to accept this bid. Wallet onboarding for this account type requires an approved policy."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_max_bid_fully_card_funded_persists_without_overflow",
+    "message": "shared.payments.CheckoutError: A funded wallet is required to accept this bid. Wallet onboarding for this account type requires an approved policy."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_real_false_save_card_proceeds_without_saving",
+    "message": "shared.payments.CheckoutError: Insufficient balance. Please top up PKR 100,000.00 to accept this bid."
+  },
+  {
+    "module": "backend.tests.test_payments",
+    "name": "test_real_true_save_card_saves_tokenized_method",
+    "message": "shared.payments.CheckoutError: Insufficient balance. Please top up PKR 100,000.00 to accept this bid."
+  },
+  {
+    "module": "backend.tests.test_remaining_order_payment_performance",
+    "name": "test_withdraw_and_checkout_serialize_at_the_same_shipment_lock[checkout]",
+    "message": "AttributeError: 'RacingDb' object has no attribute 'execute_exact'"
+  },
+  {
+    "module": "backend.tests.test_remaining_order_payment_performance",
+    "name": "test_withdraw_and_checkout_serialize_at_the_same_shipment_lock[withdraw]",
+    "message": "AttributeError: 'RacingDb' object has no attribute 'execute_exact'"
+  },
+  {
+    "module": "backend.tests.test_remaining_order_payment_performance",
+    "name": "test_checkout_saving_new_default_updates_preferences_without_resetting_auto_charge",
+    "message": "shared.payments.CheckoutError: Insufficient balance. Please top up PKR 100.00 to accept this bid."
+  },
+  {
+    "module": "backend.tests.test_remaining_order_payment_performance",
+    "name": "test_mpin_owner_locked_checkout_and_card_creation_have_no_fk_advisory_deadlock",
+    "message": "shared.payments.CheckoutError: Please acknowledge the goods insurance notice before accepting this booking."
+  },
+  {
+    "module": "backend.tests.test_remaining_order_payment_performance",
+    "name": "test_checkout_owner_guard_allows_existing_wallet_writer_fk_lock",
+    "message": "AssertionError: Checkout never reached the held wallet\nassert False\n +  where False = wait(10)\n +    where wait = <threading.Event at 0x2b60fcd5d90: unset>.wait"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_quote_requires_ownership",
+    "message": "AssertionError: assert '100000.00' == 100000.0"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_everyday_card_checkout_route",
+    "message": "assert 409 == 200\n +  where 409 = <WrapperTestResponse streamed [409 CONFLICT]>.status_code"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_business_wallet_only_checkout_route",
+    "message": "assert 400 == 200\n +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_business_confirmed_shortfall_route",
+    "message": "assert 400 == 200\n +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_idempotent_replay_route_returns_same_payment",
+    "message": "assert (409 == 200)\n +  where 409 = <WrapperTestResponse streamed [409 CONFLICT]>.status_code"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_saved_method_and_auto_preference_flow",
+    "message": "assert 400 == 200\n +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_order_details_route_scopes_by_access",
+    "message": "assert 403 == 200\n +  where 403 = <WrapperTestResponse 54 bytes [403 FORBIDDEN]>.status_code"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_accepted_transporter_sees_only_their_own_enriched_bid",
+    "message": "KeyError: 'access'"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_valid_enriched_bid_completes_checkout",
+    "message": "assert 400 == 200\n +  where 400 = <WrapperTestResponse streamed [400 BAD REQUEST]>.status_code"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_start_trip_authorization_route",
+    "message": "KeyError: 'trip'"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_concurrent_checkout_creates_only_one_trip",
+    "message": "AssertionError: assert 0 == 1\n +  where 0 = <built-in method count of list object at 0x000002B60FA7C340>('ok')\n +    where <built-in method count of list object at 0x000002B60FA7C340> = ['error:insurance_notice_acceptance_required', 'error:insurance_notice_acceptance_required'].count"
+  },
+  {
+    "module": "backend.tests.test_routes",
+    "name": "test_withdraw_bid_lifecycle",
+    "message": "decimal.InvalidOperation: [<class 'decimal.ConversionSyntax'>]"
+  },
+  {
+    "module": "backend.tests.test_scheduler",
+    "name": "test_repeated_starts_reuse_one_scheduler",
+    "message": "AssertionError: assert {'apply_penal...yments_daily'} == {'apply_penal...yments_daily'}\n  \n  Extra items in the left set:\n  'expire_fuel_vouchers_interval'\n  Use -v to get more diff"
+  },
+  {
+    "module": "backend.tests.test_scheduler",
+    "name": "test_dedicated_worker_force_starts_all_three_jobs",
+    "message": "AssertionError: assert {'apply_penal...yments_daily'} == {'apply_penal...yments_daily'}\n  \n  Extra items in the left set:\n  'expire_fuel_vouchers_interval'\n  Use -v to get more diff"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_client_yes_missing_rating_causes_zero_mutations",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_client_yes_rating_bounds_commit_review_completion_and_payout[1]",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_client_yes_rating_bounds_commit_review_completion_and_payout[5]",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_client_yes_forced_review_insert_failure_rolls_back_completion_and_payout",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_client_yes_exact_replay_is_idempotent",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_client_yes_different_replay_returns_review_already_submitted",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_concurrent_client_yes_requests_create_one_review_and_one_payout",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_review_authorization_and_exact_derived_relationships",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_submitted_review_is_readable_by_client_transporter_and_admin",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_client_win_refund_rejects_review_and_has_no_pending_requirement",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_admin_transporter_win_pays_once_notifies_once_and_requires_later_review",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_later_pending_review_never_replays_payment_refund_or_status",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_standalone_pending_review_replay_is_idempotent_and_conflicting_replay_is_rejected",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_pending_gate_blocks_then_allows_new_one_time_order[everyday]",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_pending_gate_blocks_then_allows_new_one_time_order[business]",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  },
+  {
+    "module": "backend.tests.test_trip_reviews",
+    "name": "test_business_pending_review_does_not_gate_agreement_or_notification_routes",
+    "message": "psycopg2.errors.UndefinedColumn: column \"business_rules_version\" does not exist\nLINE 1: SELECT business_rules_version FROM payments WHERE trip_id=1 ...\n               ^"
+  }
+]

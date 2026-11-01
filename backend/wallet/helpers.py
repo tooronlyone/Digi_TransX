@@ -1,0 +1,269 @@
+from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
+
+from auth.helpers import json_response, timestamp_bundle
+from shared.db import open_db
+# Fee math lives in the shared payment service (single source of truth);
+# re-exported here because the wallet routes and older callers import it
+# from this module.
+from shared.payments import (  # noqa: F401  (re-exported)
+    calculate_gateway_fee,
+    calculate_required_gross_for_net,
+    MAX_MONEY_AMOUNT,
+    round_money,
+)
+
+
+TRANSPORTER_MINIMUM_REQUIRED = Decimal("30000")
+SUPPORTED_TOPUP_CARD_FIELDS = (
+    "card_number",
+    "card_expiry",
+    "card_cvc",
+    "card_holder_name",
+)
+
+
+def normalize_wallet_role(user_role):
+    """Wallet role for a user role.
+
+    Everyday users do NOT use a wallet (they pay by card at checkout), so
+    they get no wallet role at all. Business service seekers (and the legacy
+    'client' role) keep the client wallet; transporter rules are unchanged.
+    """
+    role = (user_role or "").strip().lower()
+    if role in {"client", "service_seeker"}:
+        return "client"
+    if role in {"transporter", "logistics_provider"}:
+        return "transporter"
+    if role in {"shopkeeper"}:
+        return "shopkeeper"
+    if role == "fuel_station_manager":
+        return "fuel_station"
+    if role == "driver":
+        return "driver"
+    return None
+
+
+def minimum_required_for_role(wallet_role):
+    """Client wallets have no minimum-balance reserve; transporters keep the
+    existing security-deposit minimum unchanged."""
+    if wallet_role == "transporter":
+        return round_money(TRANSPORTER_MINIMUM_REQUIRED)
+    return 0.0
+
+
+def available_balance(wallet_row):
+    balance = Decimal(str(wallet_row.get("balance") or 0))
+    locked = Decimal(str(wallet_row.get("locked_balance") or 0))
+    return float(max(Decimal("0"), balance - max(locked, security_deposit_floor(wallet_row))))
+
+
+def security_deposit_floor(wallet_row):
+    """Security collateral is not made spendable by a missing aggregate lock."""
+    if wallet_row.get("role") == "transporter":
+        return max(TRANSPORTER_MINIMUM_REQUIRED,
+                   Decimal(str(wallet_row.get("minimum_required") or 0)))
+    if wallet_row.get("role") == "driver":
+        return Decimal(str(wallet_row.get("minimum_required") or 0))
+    return Decimal("0")
+
+
+def _money_decimal(value, *, positive=False):
+    if isinstance(value, bool) or value is None:
+        raise ValueError("Amount must be a valid number.")
+    try:
+        amount = Decimal(str(value))
+        if not amount.is_finite() or abs(amount) > MAX_MONEY_AMOUNT:
+            raise ValueError("Amount is outside the supported range.")
+        if amount != amount.quantize(Decimal("0.01")):
+            raise ValueError("Amount supports at most two decimal places.")
+    except (InvalidOperation, TypeError, ValueError) as exc:
+        raise ValueError("Amount must be a finite number with at most two decimal places.") from exc
+    if positive and amount <= 0:
+        raise ValueError("Amount must be greater than 0.")
+    return amount.quantize(Decimal("0.01"))
+
+
+def lock_wallet_for_update(db, wallet, user_id):
+    """Refresh a caller's snapshot under a lock owned by its current transaction."""
+    row = db.execute(
+        "SELECT * FROM wallets WHERE id = %s AND user_id = %s FOR UPDATE",
+        (wallet["id"], user_id),
+    ).fetchone()
+    if row is None:
+        return None
+    wallet.clear()
+    wallet.update(row)
+    return wallet
+
+
+def serialize_wallet(wallet_row):
+    balance = round_money(wallet_row.get("balance"))
+    locked_balance = round_money(wallet_row.get("locked_balance"))
+    return {
+        "id": wallet_row.get("id"),
+        "balance": balance,
+        "locked_balance": locked_balance,
+        "available_balance": available_balance(wallet_row),
+        "minimum_required": round_money(wallet_row.get("minimum_required")),
+        "is_minimum_met": bool(wallet_row.get("is_minimum_met")),
+        "completed_trips_count": int(wallet_row.get("completed_trips_count") or 0),
+        "role": wallet_row.get("role"),
+        "created_at": wallet_row.get("created_at"),
+        "updated_at": wallet_row.get("updated_at"),
+    }
+
+
+def get_or_create_wallet_for_user(db, user):
+    wallet_role = normalize_wallet_role(user.get("role"))
+    if not wallet_role:
+        return None, json_response({"success": False, "message": "Wallet is not available for this account role."}, 403)
+
+    row = db.execute("SELECT * FROM wallets WHERE user_id = %s", (user["id"],)).fetchone()
+    if row:
+        return dict(row), None
+
+    stamp = timestamp_bundle()["display"]
+    minimum_required = minimum_required_for_role(wallet_role)
+    db.execute(
+        """
+        INSERT INTO wallets (
+            user_id, role, balance, locked_balance, minimum_required, is_minimum_met, completed_trips_count, created_at, updated_at
+        ) VALUES (%s, %s, 0, 0, %s, %s, 0, %s, %s)
+        ON CONFLICT (user_id) DO NOTHING
+        """,
+        (user["id"], wallet_role, minimum_required, minimum_required <= 0, stamp, stamp),
+    )
+    row = db.execute("SELECT * FROM wallets WHERE user_id = %s", (user["id"],)).fetchone()
+    if row is None:
+        raise RuntimeError("Wallet creation did not produce a visible row.")
+    return dict(row), None
+
+
+def get_or_create_wallet(user):
+    with open_db() as db:
+        wallet, error = get_or_create_wallet_for_user(db, user)
+        if error:
+            return None, error
+        db.commit()
+        return wallet, None
+
+
+def ensure_wallet_locked_balance(db, wallet, user_id, amount, reason="wallet_lock", reference_id=None):
+    try:
+        amount = _money_decimal(amount, positive=True)
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
+    if lock_wallet_for_update(db, wallet, user_id) is None:
+        return json_response({"success": False, "message": "Wallet not found."}, 404)
+    if Decimal(str(available_balance(wallet))) < amount:
+        return json_response({"success": False, "message": "Insufficient available balance"}, 400)
+
+    stamp = timestamp_bundle()["iso"]
+    # Repair an absent legacy security lock before adding a distinct new hold.
+    previous_locked = Decimal(str(wallet["locked_balance"]))
+    baseline = max(previous_locked, security_deposit_floor(wallet))
+    row = db.execute(
+        "UPDATE wallets SET locked_balance = %s + %s, updated_at = %s "
+        "WHERE id = %s AND user_id = %s RETURNING *",
+        (baseline, amount, stamp, wallet["id"], user_id),
+    ).fetchone()
+    wallet.update(row)
+    if baseline > previous_locked:
+        insert_wallet_transaction(db, wallet, user_id, "lock", baseline - previous_locked,
+                                  description="Transporter security deposit restored",
+                                  reference_id="minimum_security_deposit")
+    insert_wallet_transaction(db, wallet, user_id, "lock", amount,
+                              description=reason, reference_id=reference_id)
+    return None
+
+
+def insert_wallet_transaction(db, wallet, user_id, tx_type, amount, description="", reference_id=None, gross_amount=None, gateway_fee=0, provider_name=None, provider_reference=None):
+    stamp = timestamp_bundle()["display"]
+    db.execute(
+        """
+        INSERT INTO wallet_transactions (
+            wallet_id, user_id, type, amount, gross_amount, gateway_fee,
+            description, reference_id, provider_name, provider_reference,
+            balance_after, created_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            wallet["id"],
+            user_id,
+            tx_type,
+            Decimal(str(amount)).quantize(Decimal("0.01"),rounding=ROUND_HALF_UP),
+            Decimal(str(gross_amount)).quantize(Decimal("0.01"),rounding=ROUND_HALF_UP) if gross_amount is not None else None,
+            Decimal(str(gateway_fee)).quantize(Decimal("0.01"),rounding=ROUND_HALF_UP),
+            description or None,
+            reference_id,
+            provider_name,
+            provider_reference,
+            Decimal(str(wallet["balance"])).quantize(Decimal("0.01"),rounding=ROUND_HALF_UP),
+            stamp,
+        ),
+    )
+
+
+def ensure_wallet_unlocked_balance(db, wallet, user_id, amount, reason="wallet_unlock", reference_id=None):
+    try:
+        amount = _money_decimal(amount, positive=True)
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
+    if lock_wallet_for_update(db, wallet, user_id) is None:
+        return json_response({"success": False, "message": "Wallet not found."}, 404)
+    locked_balance = Decimal(str(wallet["locked_balance"]))
+    if locked_balance - amount < security_deposit_floor(wallet):
+        return json_response({"success": False, "message": "Locked balance is lower than the requested amount"}, 400)
+
+    stamp = timestamp_bundle()["iso"]
+    row = db.execute(
+        "UPDATE wallets SET locked_balance = locked_balance - %s, updated_at = %s "
+        "WHERE id = %s AND user_id = %s RETURNING *",
+        (amount, stamp, wallet["id"], user_id),
+    ).fetchone()
+    wallet.update(row)
+    insert_wallet_transaction(
+        db,
+        wallet,
+        user_id,
+        "unlock",
+        amount,
+        description=reason,
+        reference_id=reference_id,
+    )
+    return None
+
+
+def adjust_wallet_balance(db, wallet, user_id, delta_amount, tx_type, description="", reference_id=None, gross_amount=None, gateway_fee=0, provider_name=None, provider_reference=None):
+    try:
+        delta_amount = _money_decimal(delta_amount)
+    except ValueError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
+    if lock_wallet_for_update(db, wallet, user_id) is None:
+        return json_response({"success": False, "message": "Wallet not found."}, 404)
+    next_balance = Decimal(str(wallet["balance"])) + delta_amount
+    reserved = max(Decimal(str(wallet["locked_balance"])), security_deposit_floor(wallet))
+    if next_balance < 0 or (delta_amount < 0 and next_balance < reserved):
+        return json_response({"success": False, "message": "Insufficient unreserved wallet balance"}, 400)
+
+    stamp = timestamp_bundle()["iso"]
+    row = db.execute(
+        "UPDATE wallets SET balance = balance + %s, updated_at = %s "
+        "WHERE id = %s AND user_id = %s RETURNING *",
+        (delta_amount, stamp, wallet["id"], user_id),
+    ).fetchone()
+    wallet.update(row)
+    insert_wallet_transaction(
+        db,
+        wallet,
+        user_id,
+        tx_type,
+        delta_amount,
+        description=description,
+        reference_id=reference_id,
+        gross_amount=gross_amount,
+        gateway_fee=gateway_fee,
+        provider_name=provider_name,
+        provider_reference=provider_reference,
+    )
+    return None

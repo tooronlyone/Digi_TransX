@@ -1,0 +1,461 @@
+{
+  "findings": 75,
+  "severity": {
+    "Critical": 6,
+    "High": 40,
+    "Medium": 27,
+    "Low": 2
+  },
+  "source_ranges": [
+    {
+      "id": "DB-01",
+      "path": "supabase/schema.sql",
+      "start": 1661,
+      "end": 1687
+    },
+    {
+      "id": "DB-02",
+      "path": "supabase/schema.sql",
+      "start": 1738,
+      "end": 1740
+    },
+    {
+      "id": "DB-03",
+      "path": "supabase/migrations/20261022160000_contact_messages.sql",
+      "start": 2,
+      "end": 16
+    },
+    {
+      "id": "FIN-01",
+      "path": "backend/shared/payments.py",
+      "start": 313,
+      "end": 341
+    },
+    {
+      "id": "FIN-02",
+      "path": "backend/marketplace/routes.py",
+      "start": 65,
+      "end": 85
+    },
+    {
+      "id": "FIN-03",
+      "path": "backend/marketplace/routes.py",
+      "start": 470,
+      "end": 508
+    },
+    {
+      "id": "AUTH-01",
+      "path": "backend/auth/helpers.py",
+      "start": 391,
+      "end": 412
+    },
+    {
+      "id": "AUTH-02",
+      "path": "backend/auth/helpers.py",
+      "start": 400,
+      "end": 422
+    },
+    {
+      "id": "AUTH-04",
+      "path": "backend/auth/routes.py",
+      "start": 1086,
+      "end": 1112
+    },
+    {
+      "id": "AUTH-05",
+      "path": "backend/auth/routes.py",
+      "start": 993,
+      "end": 1030
+    },
+    {
+      "id": "AUTH-07",
+      "path": "backend/auth/routes.py",
+      "start": 898,
+      "end": 902
+    },
+    {
+      "id": "BE-01",
+      "path": "backend/trucks/routes.py",
+      "start": 189,
+      "end": 199
+    },
+    {
+      "id": "BE-02",
+      "path": "backend/trucks/routes.py",
+      "start": 312,
+      "end": 336
+    },
+    {
+      "id": "BE-03",
+      "path": "backend/agreements/helpers.py",
+      "start": 85,
+      "end": 92
+    },
+    {
+      "id": "BE-04",
+      "path": "backend/orders/helpers.py",
+      "start": 260,
+      "end": 275
+    },
+    {
+      "id": "BE-05",
+      "path": "backend/orders/routes.py",
+      "start": 456,
+      "end": 476
+    },
+    {
+      "id": "BE-06",
+      "path": "backend/agreements/routes.py",
+      "start": 733,
+      "end": 748
+    },
+    {
+      "id": "BE-07",
+      "path": "backend/agreements/routes.py",
+      "start": 751,
+      "end": 768
+    },
+    {
+      "id": "BE-08",
+      "path": "backend/agreements/helpers.py",
+      "start": 369,
+      "end": 387
+    },
+    {
+      "id": "BE-09",
+      "path": "backend/agreements/helpers.py",
+      "start": 390,
+      "end": 438
+    },
+    {
+      "id": "BE-10",
+      "path": "backend/agreements/helpers.py",
+      "start": 126,
+      "end": 128
+    },
+    {
+      "id": "DB-04",
+      "path": "supabase/schema.sql",
+      "start": 1764,
+      "end": 1800
+    },
+    {
+      "id": "DB-05",
+      "path": "supabase/schema.sql",
+      "start": 1864,
+      "end": 1870
+    },
+    {
+      "id": "DB-06",
+      "path": "supabase/schema.sql",
+      "start": 1889,
+      "end": 1898
+    },
+    {
+      "id": "DB-07",
+      "path": "backend/driver/routes.py",
+      "start": 400,
+      "end": 408
+    },
+    {
+      "id": "DB-13",
+      "path": "supabase/schema.sql",
+      "start": 295,
+      "end": 335
+    },
+    {
+      "id": "FE-001",
+      "path": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
+      "start": 5,
+      "end": 14
+    },
+    {
+      "id": "FE-002",
+      "path": "frontend-react/src/pages/transporter/PartsCartPage.jsx",
+      "start": 27,
+      "end": 36
+    },
+    {
+      "id": "FE-003",
+      "path": "frontend-react/src/components/driver/DriverLayout.jsx",
+      "start": 19,
+      "end": 27
+    },
+    {
+      "id": "FE-004",
+      "path": "frontend-react/src/pages/admin/AdminLogin.jsx",
+      "start": 16,
+      "end": 29
+    },
+    {
+      "id": "FE-005",
+      "path": "frontend-react/src/components/chat/ChatWindow.jsx",
+      "start": 88,
+      "end": 99
+    },
+    {
+      "id": "FE-012",
+      "path": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
+      "start": 179,
+      "end": 211
+    },
+    {
+      "id": "FE-014",
+      "path": "frontend-react/src/lib/aiAssistant.js",
+      "start": 3,
+      "end": 5
+    },
+    {
+      "id": "FIN-04",
+      "path": "backend/wallet/routes.py",
+      "start": 364,
+      "end": 400
+    },
+    {
+      "id": "FIN-05",
+      "path": "backend/wallet/helpers.py",
+      "start": 102,
+      "end": 114
+    },
+    {
+      "id": "FIN-06",
+      "path": "backend/wallet/withdrawal_limits.py",
+      "start": 57,
+      "end": 80
+    },
+    {
+      "id": "FIN-07",
+      "path": "backend/wallet/routes.py",
+      "start": 491,
+      "end": 526
+    },
+    {
+      "id": "FIN-08",
+      "path": "backend/admin/routes.py",
+      "start": 369,
+      "end": 384
+    },
+    {
+      "id": "FIN-09",
+      "path": "backend/marketplace/routes.py",
+      "start": 365,
+      "end": 409
+    },
+    {
+      "id": "FIN-10",
+      "path": "backend/driver/routes.py",
+      "start": 298,
+      "end": 367
+    },
+    {
+      "id": "FIN-11",
+      "path": "backend/driver/routes.py",
+      "start": 241,
+      "end": 288
+    },
+    {
+      "id": "FIN-12",
+      "path": "backend/driver/routes.py",
+      "start": 85,
+      "end": 121
+    },
+    {
+      "id": "FIN-13",
+      "path": "backend/driver/routes.py",
+      "start": 154,
+      "end": 175
+    },
+    {
+      "id": "FIN-14",
+      "path": "backend/fuelstation/routes.py",
+      "start": 252,
+      "end": 271
+    },
+    {
+      "id": "FIN-15",
+      "path": "backend/fuelstation/routes.py",
+      "start": 203,
+      "end": 205
+    },
+    {
+      "id": "TEST-01",
+      "path": "backend/tests/test_fixes_withdraw_history_contact.py",
+      "start": 1,
+      "end": 11
+    },
+    {
+      "id": "AUTH-03",
+      "path": "backend/auth/session_cache.py",
+      "start": 10,
+      "end": 27
+    },
+    {
+      "id": "AUTH-06",
+      "path": "backend/auth/routes.py",
+      "start": 450,
+      "end": 465
+    },
+    {
+      "id": "BE-11",
+      "path": "backend/agreements/routes.py",
+      "start": 687,
+      "end": 705
+    },
+    {
+      "id": "DB-08",
+      "path": "supabase/schema.sql",
+      "start": 1,
+      "end": 17
+    },
+    {
+      "id": "DB-09",
+      "path": "backend/shared/db.py",
+      "start": 52,
+      "end": 52
+    },
+    {
+      "id": "DB-10",
+      "path": "backend/shared/db.py",
+      "start": 84,
+      "end": 85
+    },
+    {
+      "id": "DB-11",
+      "path": "backend/shopkeeper/routes.py",
+      "start": 165,
+      "end": 177
+    },
+    {
+      "id": "DB-12",
+      "path": "supabase/schema.sql",
+      "start": 1296,
+      "end": 1307
+    },
+    {
+      "id": "DB-14",
+      "path": "backend/shared/db.py",
+      "start": 54,
+      "end": 70
+    },
+    {
+      "id": "DB-15",
+      "path": "backend/auth/routes.py",
+      "start": 273,
+      "end": 295
+    },
+    {
+      "id": "FE-006",
+      "path": "frontend-react/src/components/common/LocationPicker.jsx",
+      "start": 82,
+      "end": 90
+    },
+    {
+      "id": "FE-007",
+      "path": "frontend-react/src/pages/client/AgreementBids.jsx",
+      "start": 6,
+      "end": 14
+    },
+    {
+      "id": "FE-008",
+      "path": "frontend-react/src/pages/auth/Login.jsx",
+      "start": 42,
+      "end": 56
+    },
+    {
+      "id": "FE-009",
+      "path": "frontend-react/src/pages/driver/DriverActiveTrip.jsx",
+      "start": 20,
+      "end": 24
+    },
+    {
+      "id": "FE-010",
+      "path": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
+      "start": 174,
+      "end": 177
+    },
+    {
+      "id": "FE-011",
+      "path": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
+      "start": 150,
+      "end": 167
+    },
+    {
+      "id": "FE-013",
+      "path": "frontend-react/src/pages/transporter/partsCart.js",
+      "start": 3,
+      "end": 18
+    },
+    {
+      "id": "FE-015",
+      "path": "frontend-react/src/components/wallet/WalletWorkspace.jsx",
+      "start": 61,
+      "end": 64
+    },
+    {
+      "id": "FE-016",
+      "path": "frontend-react/vite.config.js",
+      "start": 4,
+      "end": 25
+    },
+    {
+      "id": "FIN-16",
+      "path": "backend/shopkeeper/routes.py",
+      "start": 231,
+      "end": 249
+    },
+    {
+      "id": "FIN-17",
+      "path": "backend/shopkeeper/routes.py",
+      "start": 211,
+      "end": 234
+    },
+    {
+      "id": "FIN-18",
+      "path": "backend/shared/payments.py",
+      "start": 762,
+      "end": 765
+    },
+    {
+      "id": "FIN-19",
+      "path": "backend/shopkeeper/routes.py",
+      "start": 44,
+      "end": 56
+    },
+    {
+      "id": "FIN-20",
+      "path": "backend/marketplace/routes.py",
+      "start": 410,
+      "end": 429
+    },
+    {
+      "id": "FIN-21",
+      "path": "backend/shared/payments.py",
+      "start": 434,
+      "end": 446
+    },
+    {
+      "id": "FIN-22",
+      "path": "backend/wallet/helpers.py",
+      "start": 70,
+      "end": 90
+    },
+    {
+      "id": "PERF-01",
+      "path": "backend/orders/routes.py",
+      "start": 959,
+      "end": 974
+    },
+    {
+      "id": "BE-12",
+      "path": "backend/contact/routes.py",
+      "start": 35,
+      "end": 46
+    },
+    {
+      "id": "TEST-02",
+      "path": "backend/tests/test_sms_channel_policy.py",
+      "start": 141,
+      "end": 146
+    }
+  ]
+}

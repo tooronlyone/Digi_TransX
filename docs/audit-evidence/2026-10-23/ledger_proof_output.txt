@@ -1,0 +1,11 @@
+balanced_funding: committed journal 1
+idempotent_replay: same journal, one header
+changed_payload: rejected: Idempotency key reused for different journal
+overdraft: rejected: Insufficient funds in account 2
+entry_immutability: rejected: Posted ledger history is immutable; post a reversing journal
+header_immutability: rejected: Posted ledger history is immutable; post a reversing journal
+unbalanced_direct_entries: insert accepted before deferred commit check
+unbalanced_direct_commit: rejected: Journal 5 is not balanced
+failed_posts_rollback: initial funds and journal count unchanged
+post_commit_balanced_append: rejected: Cannot append to a posted journal
+FINAL: all requested ledger checks passed against actual design SQL

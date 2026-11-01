@@ -1,0 +1,24 @@
+{
+  "findings": 75,
+  "severity": {
+    "Critical": 6,
+    "High": 40,
+    "Medium": 27,
+    "Low": 2
+  },
+  "required_sections": 7,
+  "validated_source_references": 127,
+  "correction_blocks": 82,
+  "javascript_jsx_blocks_parsed": 16,
+  "audited_source_hashes_verified": 387,
+  "ledger_checks_passed": true,
+  "pricing_example_minor": {
+    "total": 2020000,
+    "commission": 404000,
+    "transporter": 1616000
+  },
+  "report_sha256": "60b7bcffb9d45f83dab77fb90ca411e450ad773b36679aaf1e39069125bc16d1",
+  "audit_started_date": "2026-10-23",
+  "audit_completed_date": "2026-10-24",
+  "timezone": "Asia/Karachi"
+}

@@ -1,0 +1,247 @@
+{
+  "checked": 40,
+  "unchanged": 40,
+  "changed_or_missing": [],
+  "entries": [
+    {
+      "path": "supabase/migrations/20260721000000_commission_policies_and_terms.sql",
+      "baseline_sha256": "4162962d6ec07c45215105a10b52f4ecf73ccff94650862024b0b07b5cb4747e",
+      "current_sha256": "4162962d6ec07c45215105a10b52f4ecf73ccff94650862024b0b07b5cb4747e",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260721120000_one_time_payment_foundation.sql",
+      "baseline_sha256": "a742f4e181f3d91439b4ebff42d78c7a4baf3d58d9c84c5edf2650c46f6a0a1c",
+      "current_sha256": "a742f4e181f3d91439b4ebff42d78c7a4baf3d58d9c84c5edf2650c46f6a0a1c",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260721130000_tokenize_payout_cards.sql",
+      "baseline_sha256": "16ffda862c28bf4f70bb29de60873d60d220b3cd0c90a689d487824e3da186cc",
+      "current_sha256": "16ffda862c28bf4f70bb29de60873d60d220b3cd0c90a689d487824e3da186cc",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260722090000_vehicle_operating_location.sql",
+      "baseline_sha256": "8d80db84f4b6fb90a88d30ae7bb41d44837c25e95a9406aff49402cd42856176",
+      "current_sha256": "8d80db84f4b6fb90a88d30ae7bb41d44837c25e95a9406aff49402cd42856176",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260723090000_everyday_user_separation.sql",
+      "baseline_sha256": "96cb05deb6d071214cbbd809e02b8cbd375355dc56a6fd29f64a93ec0f4b3485",
+      "current_sha256": "96cb05deb6d071214cbbd809e02b8cbd375355dc56a6fd29f64a93ec0f4b3485",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260723100000_everyday_profile_hardening.sql",
+      "baseline_sha256": "bb9cf799516e0a6a8691c1a9d6c78688e5bcb710f12957d1dba3b082c0e9ac0b",
+      "current_sha256": "bb9cf799516e0a6a8691c1a9d6c78688e5bcb710f12957d1dba3b082c0e9ac0b",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260723110000_remove_dispatcher_role.sql",
+      "baseline_sha256": "1922c446e403db81f8d8adc51740986c4660f4109f43fe4c564dbff8f4f44d23",
+      "current_sha256": "1922c446e403db81f8d8adc51740986c4660f4109f43fe4c564dbff8f4f44d23",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260723120000_one_time_trip_completion_lifecycle.sql",
+      "baseline_sha256": "0d8db8c48fc2be0249b8bcb388d2da29b1e8ea435d2b8fdd759d665e52ec8c07",
+      "current_sha256": "0d8db8c48fc2be0249b8bcb388d2da29b1e8ea435d2b8fdd759d665e52ec8c07",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260724190000_one_time_coordinate_integrity.sql",
+      "baseline_sha256": "5c602c78b53710c1649a8480d973cd339cf73e0d487060829f7f394759d68453",
+      "current_sha256": "5c602c78b53710c1649a8480d973cd339cf73e0d487060829f7f394759d68453",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260726200000_shipment_trip_reviews.sql",
+      "baseline_sha256": "1d684ef155a12e3b2352082702d06124bb0c104d008114fc6842b78621c69194",
+      "current_sha256": "1d684ef155a12e3b2352082702d06124bb0c104d008114fc6842b78621c69194",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260731220000_schema_trigger_rls_baseline.sql",
+      "baseline_sha256": "c282731c2ef9e74fc6f6a3b70e99d5f2b5b0ab7bd200246884a5b72af8963fb1",
+      "current_sha256": "c282731c2ef9e74fc6f6a3b70e99d5f2b5b0ab7bd200246884a5b72af8963fb1",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260731230000_canonical_event_foundation.sql",
+      "baseline_sha256": "9d9c7a9aa8c674ee1a58a96c7ac5ece831d51c0eabf4c96bd81b37eb79093151",
+      "current_sha256": "9d9c7a9aa8c674ee1a58a96c7ac5ece831d51c0eabf4c96bd81b37eb79093151",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260731240000_canonical_event_acl_hardening.sql",
+      "baseline_sha256": "ad2c21874aa3401b081534e56eb4fe18085dc6ccc39c9ccb47ab992bf49d5348",
+      "current_sha256": "ad2c21874aa3401b081534e56eb4fe18085dc6ccc39c9ccb47ab992bf49d5348",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801100000_security_login_event_integration.sql",
+      "baseline_sha256": "e07938cfcf4666bc6394c909f7c25d568a429d6103707a0405531af9aa809441",
+      "current_sha256": "e07938cfcf4666bc6394c909f7c25d568a429d6103707a0405531af9aa809441",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801110000_canonical_event_integrated_guard.sql",
+      "baseline_sha256": "554d4f63e35562d34286c0977ace778515f5b1f03dee1a59c60e6a87487b5cde",
+      "current_sha256": "554d4f63e35562d34286c0977ace778515f5b1f03dee1a59c60e6a87487b5cde",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801120000_add_signup_failed_event.sql",
+      "baseline_sha256": "5fdafad077e179381fed66780b386e78ee130a05b2d4373dd14b22a7458a24ae",
+      "current_sha256": "5fdafad077e179381fed66780b386e78ee130a05b2d4373dd14b22a7458a24ae",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801130000_security_signup_event_integration.sql",
+      "baseline_sha256": "86b5968485682a73209445707b2820d4d208850a0abcbf72b0cfa791101f94af",
+      "current_sha256": "86b5968485682a73209445707b2820d4d208850a0abcbf72b0cfa791101f94af",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801140000_device_session_mpin_event_contracts.sql",
+      "baseline_sha256": "ab3fc9bb259b2e3b39f2efca9520a1f506197dfc02363e9529b01dbfed758965",
+      "current_sha256": "ab3fc9bb259b2e3b39f2efca9520a1f506197dfc02363e9529b01dbfed758965",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801150000_durable_server_session_foundation.sql",
+      "baseline_sha256": "1eeca97f540918c68f13f9d73b0b340302ba133cb17422085148d97d34895bc6",
+      "current_sha256": "1eeca97f540918c68f13f9d73b0b340302ba133cb17422085148d97d34895bc6",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801160000_trusted_device_hardening.sql",
+      "baseline_sha256": "06c395ebbf863474101028226049420b64a078809eb97f80f3eeddce664f01b9",
+      "current_sha256": "06c395ebbf863474101028226049420b64a078809eb97f80f3eeddce664f01b9",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801170000_durable_session_runtime_events.sql",
+      "baseline_sha256": "15269efd60a276b613c6ffa6edd79126695f434d35a6e89d72c712d22ca9579b",
+      "current_sha256": "15269efd60a276b613c6ffa6edd79126695f434d35a6e89d72c712d22ca9579b",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801180000_secure_mpin_access_lock.sql",
+      "baseline_sha256": "e31419c649bd5f5d9f16dffa2944d7a32b0f4ac665c1d0d86d6908f1701782a2",
+      "current_sha256": "e31419c649bd5f5d9f16dffa2944d7a32b0f4ac665c1d0d86d6908f1701782a2",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801190000_reset_authorization_claims.sql",
+      "baseline_sha256": "fe172cf8aa4f3ac404e1f616f25f8e8f5db087c792263f504d407f2a39ef78c8",
+      "current_sha256": "fe172cf8aa4f3ac404e1f616f25f8e8f5db087c792263f504d407f2a39ef78c8",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801200000_genuine_session_activity.sql",
+      "baseline_sha256": "605929ded36e37e93a7d5dafb2de7b925fe79a02aad73e9df975ae44c46d357b",
+      "current_sha256": "605929ded36e37e93a7d5dafb2de7b925fe79a02aad73e9df975ae44c46d357b",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql",
+      "baseline_sha256": "d263e4f993c7ba6be549b6b0a64211fc6a3960db21fec16b7a33c80ef5ca5833",
+      "current_sha256": "d263e4f993c7ba6be549b6b0a64211fc6a3960db21fec16b7a33c80ef5ca5833",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20260801220000_mpin_step_up_high_risk_integration.sql",
+      "baseline_sha256": "e4e3fbab44cf3465d0a4d3652d50a4c6ebbf7215b164d13e415f52a4f8370f32",
+      "current_sha256": "e4e3fbab44cf3465d0a4d3652d50a4c6ebbf7215b164d13e415f52a4f8370f32",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261021200000_truck_parts_marketplace.sql",
+      "baseline_sha256": "22728362fa78813f49b2509bc4e8a5da9115c75363090a315b61e794e0726641",
+      "current_sha256": "22728362fa78813f49b2509bc4e8a5da9115c75363090a315b61e794e0726641",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261022100000_shop_inventory_products.sql",
+      "baseline_sha256": "ab48f5e0edf83a72627086c8490087ed77b6673df890bcdbe02f5551b9ea4236",
+      "current_sha256": "ab48f5e0edf83a72627086c8490087ed77b6673df890bcdbe02f5551b9ea4236",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261022110000_shop_sales_pos.sql",
+      "baseline_sha256": "ef7a9864073afe0d6c8a10d600810a34d34660ccb0aee0478e1b7154c10449f9",
+      "current_sha256": "ef7a9864073afe0d6c8a10d600810a34d34660ccb0aee0478e1b7154c10449f9",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261022160000_contact_messages.sql",
+      "baseline_sha256": "7f1df74655d18d74a018cb84dee468dcf1d2b8e5d20d30151aac1491e3df8411",
+      "current_sha256": "7f1df74655d18d74a018cb84dee468dcf1d2b8e5d20d30151aac1491e3df8411",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261022170000_fuel_station_portal.sql",
+      "baseline_sha256": "c41258222ec99f06b82c76d0edfd0f1997ba65ec86be9f3573a42a8ed269c4a8",
+      "current_sha256": "c41258222ec99f06b82c76d0edfd0f1997ba65ec86be9f3573a42a8ed269c4a8",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261022180000_driver_role_and_tracking.sql",
+      "baseline_sha256": "e6298511427db6a3828e54752d72a4243ad9acc4081c1d8ace9db3fdd43fb5bb",
+      "current_sha256": "e6298511427db6a3828e54752d72a4243ad9acc4081c1d8ace9db3fdd43fb5bb",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261023190000_driver_fuel_logs.sql",
+      "baseline_sha256": "57b43db94dcb7692c4c225a3fb8f00a5f3a773b81f12c427fe706dbc0db2ba2a",
+      "current_sha256": "57b43db94dcb7692c4c225a3fb8f00a5f3a773b81f12c427fe706dbc0db2ba2a",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261023203500_unrated_new_drivers.sql",
+      "baseline_sha256": "6d37a18c8f279ecd4a3c8fcb15875b791793d634de47b6328f20176f397f9677",
+      "current_sha256": "6d37a18c8f279ecd4a3c8fcb15875b791793d634de47b6328f20176f397f9677",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261024010000_database_authorization_hardening.sql",
+      "baseline_sha256": "7dfea7573aebade4dc2723f35a6265c542b3157e8c5c4979fefd1f186fa14c63",
+      "current_sha256": "7dfea7573aebade4dc2723f35a6265c542b3157e8c5c4979fefd1f186fa14c63",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261024020000_marketplace_financial_controls.sql",
+      "baseline_sha256": "d255fad291eeb8802939ff6e29b98e0f19012a7c3b8e003ead5baf175238384a",
+      "current_sha256": "d255fad291eeb8802939ff6e29b98e0f19012a7c3b8e003ead5baf175238384a",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261024030000_private_operational_read_surfaces.sql",
+      "baseline_sha256": "fbe54c8ce5596cb4a06685061faf93a21cc3df45f47de29c512909e26aa183e9",
+      "current_sha256": "fbe54c8ce5596cb4a06685061faf93a21cc3df45f47de29c512909e26aa183e9",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261024040000_validate_wallet_money_invariants.sql",
+      "baseline_sha256": "9a50201f24e7035521dfd39dadc9836f7ad02faf289012c11a11ccf863d2be31",
+      "current_sha256": "9a50201f24e7035521dfd39dadc9836f7ad02faf289012c11a11ccf863d2be31",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261025010000_driver_workflow_integrity.sql",
+      "baseline_sha256": "c704e775d694e306a6e6b1b28e5e8dda58c84eb9215115c84215f76f8ccd1b65",
+      "current_sha256": "c704e775d694e306a6e6b1b28e5e8dda58c84eb9215115c84215f76f8ccd1b65",
+      "unchanged": true
+    },
+    {
+      "path": "supabase/migrations/20261025020000_payment_preference_convergence.sql",
+      "baseline_sha256": "706623b02198276fe2ffc59fc0dfb447eec2b1ae46d956c847bcad2d970143c5",
+      "current_sha256": "706623b02198276fe2ffc59fc0dfb447eec2b1ae46d956c847bcad2d970143c5",
+      "unchanged": true
+    }
+  ]
+}

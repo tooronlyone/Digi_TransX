@@ -1,0 +1,183 @@
+import { useEffect, useMemo, useState } from 'react'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
+import { apiGet } from '../../pages/client/clientUtils'
+import TermsUpdateNotice from '../common/TermsUpdateNotice'
+import NotificationBell from '../common/NotificationBell'
+import MobileBottomNavigation from '../common/MobileBottomNavigation'
+import PendingTransporterReviewGate from '../common/PendingTransporterReviewGate'
+import '../../styles/pages/client.css'
+import { logoutCurrentSession } from '../../auth/logout'
+import { AUTH_STATUSES, ShellPageSkeleton, useAuthVerification } from '../../auth/AuthVerificationContext'
+
+const NAV_ITEMS = [
+  { label: 'Dashboard', icon: 'fa-home', path: '/client/dashboard' },
+  { label: 'Post Order', icon: 'fa-shipping-fast', path: '/client/post-order' },
+  { label: 'My Orders', icon: 'fa-clipboard-list', path: '/client/orders' },
+  { label: 'Post Agreement', icon: 'fa-file-circle-plus', path: '/client/post-agreement' },
+  { label: 'My Agreements', icon: 'fa-file-contract', path: '/client/my-agreements' },
+  { label: 'Messages', icon: 'fa-comments', path: '/client/messages' },
+  { label: 'Your Wallet', icon: 'fa-wallet', path: '/client/wallet', match: ['/client/balance'] },
+  { label: 'Your Account', icon: 'fa-user-circle', path: '/client/account' },
+  { label: 'Security', icon: 'fa-shield-halved', path: '/client/security' },
+]
+
+const MOBILE_NAV_ITEMS = [
+  { label: 'Dashboard', icon: 'fa-home', path: '/client/dashboard' },
+  { label: 'Post Order', icon: 'fa-shipping-fast', path: '/client/post-order', match: ['/client/post-agreement'] },
+  { label: 'Wallet', icon: 'fa-wallet', path: '/client/wallet', match: ['/client/balance'] },
+  { label: 'Messages', icon: 'fa-comments', path: '/client/messages' },
+]
+
+export default function ClientLayout({ children }) {
+  const location = useLocation()
+  const navigate = useNavigate()
+  const [logoutError, setLogoutError] = useState('')
+  const { status } = useAuthVerification()
+  const verified = status === AUTH_STATUSES.VERIFIED
+  const [user, setUser] = useState({ name: 'Client', role: 'Service Seeker' })
+  const [unreadTotal, setUnreadTotal] = useState(0)
+
+  useEffect(() => {
+    const stored = sessionStorage.getItem('user')
+    if (!stored) return
+    try {
+      const parsed = JSON.parse(stored)
+      const full = [parsed.first_name, parsed.last_name].filter(Boolean).join(' ').trim()
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setUser({
+        name: parsed.company_name || parsed.full_name || full || parsed.username || parsed.email || 'Client',
+        role: parsed.organization_role_label || 'Service Seeker',
+      })
+    } catch { /* best-effort; ignore */ }
+  }, [])
+
+  useEffect(() => {
+    let mounted = true
+    async function loadUnread() {
+      try {
+        const json = await apiGet('/api/chat/threads')
+        if (!mounted) return
+        const total = (json.threads || []).reduce((sum, thread) => sum + Number(thread.unread_count || 0), 0)
+        setUnreadTotal(total)
+      } catch { /* best-effort; ignore */ }
+    }
+    if (!verified) return () => { mounted = false }
+    loadUnread()
+    const intervalId = window.setInterval(loadUnread, 30000)
+    return () => {
+      mounted = false
+      window.clearInterval(intervalId)
+    }
+  }, [verified])
+
+  const initials = useMemo(() => {
+    return user.name
+      .split(/\s+/)
+      .filter(Boolean)
+      .slice(0, 2)
+      .map((part) => part[0])
+      .join('')
+      .toUpperCase() || 'CL'
+  }, [user.name])
+
+  const navItems = useMemo(
+    () => NAV_ITEMS.map((item) => (
+      item.path === '/client/messages'
+        ? { ...item, badge: unreadTotal > 0 ? String(unreadTotal) : '' }
+        : item
+    )),
+    [unreadTotal],
+  )
+
+  const mobileNavItems = useMemo(
+    () => MOBILE_NAV_ITEMS.map((item) => (
+      item.path === '/client/messages'
+        ? { ...item, badge: unreadTotal > 0 ? String(unreadTotal) : '' }
+        : item
+    )),
+    [unreadTotal],
+  )
+
+  async function handleLogout() {
+    setLogoutError('')
+    try {
+      await logoutCurrentSession(navigate)
+    } catch (error) {
+      setLogoutError(error.message || 'Logout could not be confirmed. Please retry.')
+    }
+  }
+
+  function isActive(item) {
+    if (location.pathname === item.path) return true
+    if (item.match?.some((prefix) => location.pathname.startsWith(prefix))) return true
+    return location.pathname.startsWith(`${item.path}/`)
+  }
+
+  const sidebar = (
+    <nav className="sidebar role-sidebar" aria-label="Service seeker navigation">
+      <ul className="nav-menu">
+        {navItems.map((item) => {
+          const active = isActive(item)
+          return (
+            <li className="nav-item" key={item.path}>
+              <Link
+                to={item.path}
+                className={`nav-link${active ? ' active' : ''}`}
+              >
+                <i className={`fas ${item.icon}`} aria-hidden="true"></i>
+                <span className="nav-text">{item.label}</span>
+                {item.badge && <span className="dashboard-status-pill dashboard-status-pill--available">{item.badge}</span>}
+
+              </Link>
+            </li>
+          )
+        })}
+      </ul>
+    </nav>
+  )
+
+  return (
+    <div className="transporter-page service-seeker-page">
+      <nav className="navbar">
+        <div className="navbar-left">
+          <Link to="/client/dashboard" className="navbar-logo">
+            <div className="logo-icon">
+              <i className="fas fa-truck" aria-hidden="true"></i>
+            </div>
+            <div className="navbar-brand">Digi_Trans<span style={{ color: '#2563eb' }}>X</span></div>
+          </Link>
+        </div>
+
+        <div className="navbar-right">
+          {verified && <NotificationBell orderPath={(id) => `/client/order/${id}`} />}
+          <Link to="/client/account" className="user-info header-account-link" aria-label="Open My Account">
+            <div className="user-avatar">{initials}</div>
+            <div className="user-details">
+              <h3>{user.name}</h3>
+              <p>{user.role}</p>
+            </div>
+          </Link>
+          <button type="button" onClick={handleLogout} className="logout-btn header-logout" title="Logout" aria-label="Logout">
+            <i className="fas fa-sign-out-alt" aria-hidden="true"></i>
+          </button>
+        </div>
+      </nav>
+
+      {sidebar}
+      <MobileBottomNavigation items={mobileNavItems} isActive={isActive} label="Service seeker navigation" />
+
+      <main className="main-content">
+        {logoutError && <p className="security-message is-error" role="alert">{logoutError}</p>}
+        {verified && <TermsUpdateNotice termsPath="/client/terms" />}
+        {verified && <PendingTransporterReviewGate basePath="/client" />}
+        <div>{verified ? children : <ShellPageSkeleton />}</div>
+        <footer className="footer">
+          <p>&copy; 2026 Digi_TransX Transport Services. All rights reserved.</p>
+          <div className="footer-links">
+            <Link to="/client/terms">Terms &amp; Platform Fees</Link>
+          </div>
+        </footer>
+      </main>
+    </div>
+  )
+}

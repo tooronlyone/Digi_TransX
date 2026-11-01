@@ -1,0 +1,75 @@
+Digi_TransX frontend remediation verification — 24 October 2026
+
+Working directory: frontend-react
+Scope: final security fixes plus password-change/sign-in lifecycle corrections.
+Component tests use stubbed fetch responses; no real provider or account action
+was performed. Results below describe the final source after the last changes.
+
+1. Node regression suites
+
+Command (PowerShell):
+node --test (Get-ChildItem tests -Filter '*.test.mjs' | ForEach-Object FullName)
+
+Result: 97 tests passed; 0 failed, skipped, cancelled or todo.
+Runner duration: 4811.245 ms.
+
+2. Rendered component suites
+
+Command:
+npm run test:components
+
+Result: 4 test files passed; 34 tests passed; 0 failed.
+Runner duration: 24.69 seconds.
+
+The new tests/settingsPasswordLifecycle.test.jsx contains seven cases:
+- Confirmed password change clears shared authentication, preserves unrelated
+  drafts, sends CSRF and displays the server's sign-in message.
+- Unknown/pending password outcome retains its support/reconciliation explanation
+  at sign-in and clears revoked authentication presentation.
+- A definitively rejected password update retains its server explanation at
+  sign-in after authentication has been revoked.
+- OTP resend supplies the entered current password and exposes a rejected server
+  response instead of displaying a false success.
+- OTP resend refuses an empty current password without making another request.
+- Normal sign-in transmits the exact password, including surrounding spaces,
+  accepted by password change/reset (original audit FE-008).
+- Initial full-login denial clears stale authentication presentation before
+  redirecting, while preserving unrelated drafts.
+
+The password lifecycle tests use the real AccessLockProvider, shared logout
+helper, Settings and Login components. The file allows a 15-second test budget
+for typing through the full settings page during parallel component execution;
+the behavioral assertions are unchanged. Final new-file execution: 7 passed in
+14142 ms inside the full component run.
+
+3. Touched-source lint
+
+Command:
+npx eslint src/auth/logout.js src/components/security/AccessLockProvider.jsx src/pages/transporter/settings.jsx src/pages/auth/Login.jsx tests/settingsPasswordLifecycle.test.jsx
+
+Result: 0 errors; 1 existing react-hooks/exhaustive-deps warning concerning the
+initial refreshAuthority effect in AccessLockProvider.jsx. No lint rule was
+disabled for these corrections.
+
+4. Final production build
+
+Command:
+npm run build
+
+Result: success; 973 modules transformed; build completed in 18.73 seconds.
+Final dist: 14 files, 3,014,482 bytes. dist/node_modules is absent.
+Static copying remains restricted to favicon.svg and icons.svg; normal imported
+assets are emitted through Vite's module graph.
+
+Remaining build warnings: stale Browserslist data and large minified chunks;
+the main JavaScript chunk is approximately 1.60 MB before gzip. The build also
+reported CSS/plugin timing. Successful compilation does not establish production
+performance or close the remaining audit findings.
+
+5. Whitespace verification
+
+git diff --check passed for the touched frontend source and new test file.
+Git emitted an LF-to-CRLF working-copy notice; it reported no whitespace error.
+
+Production frontend source was frozen after these results. This record does not
+claim a production deployment or real-world payment/handoff verification.

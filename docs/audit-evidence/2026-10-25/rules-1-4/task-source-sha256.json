@@ -1,0 +1,488 @@
+[
+  {
+    "path": ".env.example",
+    "sha256": "c4c8592efe97f3f5a9cf2b9000b997f4bd945b670ca8ea0ce5446568fc091841",
+    "bytes": 2346,
+    "missing": false
+  },
+  {
+    "path": "backend/admin/routes.py",
+    "sha256": "01e9c32a2487f0b7ced98916e7632d10e59ae4a5906ec2d425df7d392ab3151f",
+    "bytes": 44564,
+    "missing": false
+  },
+  {
+    "path": "backend/agreements/helpers.py",
+    "sha256": "f95f27c99333e4521207ee6ca2b99847e7d2d271a1d722ab1aa0361a3497f09f",
+    "bytes": 20849,
+    "missing": false
+  },
+  {
+    "path": "backend/agreements/routes.py",
+    "sha256": "2831b4de40aaa44f3c98099e502987de8f5cc4bdbbd0d8e4cb4b96791f43a580",
+    "bytes": 47641,
+    "missing": false
+  },
+  {
+    "path": "backend/auth/session_service.py",
+    "sha256": "da5903bbe75f00120bcbc06150876221c373493fb97d75877cec3377c4d3d947",
+    "bytes": 17263,
+    "missing": false
+  },
+  {
+    "path": "backend/auth/step_up_service.py",
+    "sha256": "383d3b31f77756582391fa22577c47a07ad971c6cd16656806eb3361fa10f622",
+    "bytes": 31244,
+    "missing": false
+  },
+  {
+    "path": "backend/orders/business_lifecycle.py",
+    "sha256": "52e296471e220a40c0e88443fa12f468435ea256f0a31af3a86e17206ff3e4f3",
+    "bytes": 22440,
+    "missing": false
+  },
+  {
+    "path": "backend/orders/lifecycle.py",
+    "sha256": "a7d577d0b05f2245ae71d71d6c2424ecd83856d5eb19a525e9e4f2895a9e63bd",
+    "bytes": 25666,
+    "missing": false
+  },
+  {
+    "path": "backend/orders/market_pricing.py",
+    "sha256": "1092fa3a2eaeab0bc92e494e5ecd897f57b74a745a652d8c6cb5e9fca38fa579",
+    "bytes": 6542,
+    "missing": false
+  },
+  {
+    "path": "backend/orders/routes.py",
+    "sha256": "3a2898083c024c63df25749515df8290337d802f60c23393b22dc68427b4560c",
+    "bytes": 53595,
+    "missing": false
+  },
+  {
+    "path": "backend/shared/commissions.py",
+    "sha256": "cc974d0f0afcee5749b291109801f13ec8dfbd19eef3eea187d038eea367673d",
+    "bytes": 18507,
+    "missing": false
+  },
+  {
+    "path": "backend/shared/db.py",
+    "sha256": "f9a2fc88b029ff90c0017ecf5b38b1d7e3bda0e599304138d98535beaf840ca7",
+    "bytes": 5883,
+    "missing": false
+  },
+  {
+    "path": "backend/shared/financial_ledger.py",
+    "sha256": "d7ed0d1901d0d5bd674b1c9381b9977b30a35807443a07a4173290cfcf57a4c9",
+    "bytes": 2584,
+    "missing": false
+  },
+  {
+    "path": "backend/shared/fuel_credit.py",
+    "sha256": "26a8b07db3f91f87fbcf33bc81d34ed1fdb5f81282fd83b4ed1807a4ffaa1a1b",
+    "bytes": 28480,
+    "missing": false
+  },
+  {
+    "path": "backend/shared/payments.py",
+    "sha256": "df9ffe471702dcef31ebf2602c228a78be165d19bdaf8663d860e9ca78f0a465",
+    "bytes": 78539,
+    "missing": false
+  },
+  {
+    "path": "backend/shared/reserves.py",
+    "sha256": "6329107644466b14eaf2c1e3f6f10f9054699f473375b5a3bb25bd408e50b1cd",
+    "bytes": 6862,
+    "missing": false
+  },
+  {
+    "path": "backend/wallet/earnings.py",
+    "sha256": "91fd4e13e28c529c97c1cc92756d4c9022d00f6e0045c47fb13b521197b335c8",
+    "bytes": 2752,
+    "missing": false
+  },
+  {
+    "path": "backend/wallet/helpers.py",
+    "sha256": "14655dbfdb653a1049b5b03f98a38311ff862f44423f02a99303ee7903572246",
+    "bytes": 11093,
+    "missing": false
+  },
+  {
+    "path": "backend/wallet/routes.py",
+    "sha256": "aaf84c9c31d727c060b02973447459b5635188b59d00707f3e12c037c51596c8",
+    "bytes": 30515,
+    "missing": false
+  },
+  {
+    "path": "backend/trucks/routes.py",
+    "sha256": "037d8db75b37df3cf45755f57fb26daea08630bde6cd63183b8c11abfd8db5ff",
+    "bytes": 30060,
+    "missing": false
+  },
+  {
+    "path": "backend/fuelstation/routes.py",
+    "sha256": "a182cc4c6e0d34bcdcb4b9b1f55832d40948f19119f5c93c07a4e898012c97d5",
+    "bytes": 19229,
+    "missing": false
+  },
+  {
+    "path": "backend/fuelstation/vouchers.py",
+    "sha256": "0b73816f87040be83b205ce412d2ce0d90f6be5367aab7c00c1127255f1a7014",
+    "bytes": 6883,
+    "missing": false
+  },
+  {
+    "path": "backend/driver/routes.py",
+    "sha256": "54438c3d69c3901f6831cc9e1708be19d54fb163a2133edaf8129c63f2343903",
+    "bytes": 47192,
+    "missing": false
+  },
+  {
+    "path": "backend/driver/business_rules.py",
+    "sha256": "76469d118ec1a34b358782ae0f3c240d29e7bd5ce77ce1ef413b8243f8c82ba5",
+    "bytes": 15275,
+    "missing": false
+  },
+  {
+    "path": "backend/marketplace/routes.py",
+    "sha256": "5c08f6c91ba7f6b3e6306e6ad3c7d38d73e1a46823ca8bf48c760ab357015c8a",
+    "bytes": 24437,
+    "missing": false
+  },
+  {
+    "path": "backend/marketplace/service.py",
+    "sha256": "bcffe6a1fff0f01887406e2a80778ec40753c7af4e00436ad9f9c0d7c0987919",
+    "bytes": 26196,
+    "missing": false
+  },
+  {
+    "path": "backend/scheduler.py",
+    "sha256": "df41a12004c46d656ec9b3bfdc478559631fc489b9f1c0b7101d85d9e8f41899",
+    "bytes": 8882,
+    "missing": false
+  },
+  {
+    "path": "backend/scripts/process_overdue_confirmations.py",
+    "sha256": "c8bccc8b344b04749a90774c04f7bf16a9361219b7b3aa246dbfef75c739fa2d",
+    "bytes": 1583,
+    "missing": false
+  },
+  {
+    "path": "backend/scripts/reconcile_business_rules.py",
+    "sha256": "e1f523de6365648a7123393fd6c61982c82db5103d6349271b14584c8a05dcdf",
+    "bytes": 3753,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/conftest.py",
+    "sha256": "8eb64b54612a0c7f30da80960886be9b830e738ad0a7914fa5a036d57cbc17a1",
+    "bytes": 39657,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/remediation_harness.py",
+    "sha256": "6c58653716522c02bbe30d5b9bb680f663cb417b5ee4970ae98804f40ab6f883",
+    "bytes": 3980,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_payments.py",
+    "sha256": "fbb502f8613aa7f03c65e8a4536d4617ab1d38ebcbea81c53555da781cbbe954",
+    "bytes": 51060,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_routes.py",
+    "sha256": "2317922196eb89bce290a1c805691091ec752c0cf6f136b3972247538bc1a13f",
+    "bytes": 43504,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_everyday_separation.py",
+    "sha256": "5f591c8e17ad64b6d26feb1c58f502a4be77b1f4d8542cd3b383af7f2c2332e4",
+    "bytes": 20508,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_mpin_high_risk_routes_postgres.py",
+    "sha256": "5fa18faf8ede199569b6d7dfedbe23c62fe0a29924359c793fadf4e1691b8969",
+    "bytes": 18501,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_mpin_high_risk_step_up_integration.py",
+    "sha256": "4a80457426f6a93c7dbd136363a21195a3ff93c0fa0fb952837a93fda014129e",
+    "bytes": 6858,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_mpin_step_up_authorization_foundation.py",
+    "sha256": "6dc4a892acac28200e57838f16cfcf3a5638ba6e2372bd611066ec8cf66896d1",
+    "bytes": 36137,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_remaining_order_payment_performance.py",
+    "sha256": "fbfd6bccbe3a340eb1a4d63bc0afb49f946eefd823a76b17e0c9d5c90e3822f8",
+    "bytes": 22381,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_driver_workflow_hardening.py",
+    "sha256": "701841aeef139d81ab148869c21044f71d7202ef885794c6cf2bd3cc5dae01fd",
+    "bytes": 20770,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_financial_marketplace_hardening.py",
+    "sha256": "7fdb6a1081ee5dbfc8c7e656e0d4d787e8c98ac6d74e7ef4542277a238f58b48",
+    "bytes": 26099,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_scheduler.py",
+    "sha256": "f75aea8badd7e3498bd22ede3b6aa37519249b50327aca51a5a4f03aa43af1da",
+    "bytes": 6095,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_trip_reviews.py",
+    "sha256": "d2de348dddc9012a1a4b8a11ff7cc03667ab0b006766b4a07d14510176f86428",
+    "bytes": 28315,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_business_pricing_fees.py",
+    "sha256": "ab36d8f599d3cc832d2b0541d3451f89e21653270148af2bfd97ba41fbf061fd",
+    "bytes": 20307,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_business_escrow_settlement.py",
+    "sha256": "e2b2f2caab49c2be089e55467274c03e7170fb8834548b2fa292a25f7f3e49e0",
+    "bytes": 25289,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_business_fuel_credit.py",
+    "sha256": "4e60124a26df227c2ebccb7ea325a249d34d64bb89d8375c8765fae1e1ba539a",
+    "bytes": 26514,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_business_driver_rules.py",
+    "sha256": "cba209cd6a8134024a21e28a6f4d5fc431383832a1b0bd09db490ae05e30837f",
+    "bytes": 12515,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_business_migrations.py",
+    "sha256": "6f8867488b38724b2951ed68ec8747ed22cbb158b5f9c4f99297f13ecc7bac78",
+    "bytes": 4396,
+    "missing": false
+  },
+  {
+    "path": "backend/tests/test_business_legacy_earnings_recovery.py",
+    "sha256": "ee534409d2eb877475017f88a917271e7982ffa4bc40c5160ed1e685e8edc0b7",
+    "bytes": 18962,
+    "missing": false
+  },
+  {
+    "path": "supabase/schema.sql",
+    "sha256": "7a242fb9ff7984678f173de3a62c2c3702b6e88dfad9dada1a8cdf7c9ea6c3a8",
+    "bytes": 263650,
+    "missing": false
+  },
+  {
+    "path": "supabase/migrations/20261026000000_financial_journal.sql",
+    "sha256": "072605b93ed551c001c7c8bf7ba3d9511f94e9d2cde738f06dedecbfba7fd70c",
+    "bytes": 5013,
+    "missing": false
+  },
+  {
+    "path": "supabase/migrations/20261026010000_market_pricing_fees.sql",
+    "sha256": "8277cae764de86653cef874788989ab9cef539b5f3a20ad5d50673cf4d5f4779",
+    "bytes": 6209,
+    "missing": false
+  },
+  {
+    "path": "supabase/migrations/20261026020000_business_escrow_settlement.sql",
+    "sha256": "be1e8c8f9459d25d376f230634cfaac5326c2f61ec7146d30ffcb0fc6ed4f92c",
+    "bytes": 12747,
+    "missing": false
+  },
+  {
+    "path": "supabase/migrations/20261026030000_fuel_credit_owner_operator.sql",
+    "sha256": "79ba5d656a027b51033e78c6a712d8d434358ac2f5650df6e1226d051f4e5b7f",
+    "bytes": 17768,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/components/business/BusinessRules.jsx",
+    "sha256": "3677fa770d3da1bd73e180a727f4c8478f4db1b6f43618c48c2aa8405f75fae3",
+    "bytes": 6714,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/components/business/DeliveryClientHandshake.jsx",
+    "sha256": "90dcc0cb0f491d2939c9311d9855a54b4d3cd6ef0abb0a875a2e303b57f48556",
+    "bytes": 4685,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/components/business/FuelVoucherPanel.jsx",
+    "sha256": "d4566af80dddc93433ff4cfaf7f9379b13c93755450376a9ab708de46938be49",
+    "bytes": 8420,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/components/business/FuelVoucherRedemption.jsx",
+    "sha256": "0a5ce65c9c2b5e1fb79bc4a17a882870f0dc0adec1020cbc159030078e8bda0a",
+    "bytes": 5430,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/components/business/OperationalInvestigations.jsx",
+    "sha256": "bf22a034e23a7bd4576ec648cc2b6dd1536fb4ba508b422dbfb7e40e76b86102",
+    "bytes": 8734,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/components/business/TripOperationalActions.jsx",
+    "sha256": "7597c7e46ac0870ac7b298d1d0074db9b1aa34d9c65b9f00f32b2c7dcaa16557",
+    "bytes": 4748,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/components/transporter/DriverAssignmentPanel.jsx",
+    "sha256": "7e93b6659e4e743dc0ec799f4b69675b307b8e864961ec632e2719db6fe2d240",
+    "bytes": 11004,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/components/wallet/WalletWorkspace.jsx",
+    "sha256": "f377d3e182aba68370ae63be1921a4a9d20c0093742196847fef60a97f143217",
+    "bytes": 21996,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/lib/exactMoney.js",
+    "sha256": "e560e717c2b5ce4df60066f146c48613e8094f0528a3b58554b58eb624fb8410",
+    "bytes": 1161,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/admin/AdminDisputes.jsx",
+    "sha256": "eda78b2291451d33787475b973d31d3b548f7a94224bb77a12c9d4d5b1154951",
+    "bytes": 26276,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/client/AgreementBids.jsx",
+    "sha256": "5bafb06f8ff09b787e3fef7a3fc77667184575f39b115501a982b0deae138b14",
+    "bytes": 9175,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/client/AgreementDetail.jsx",
+    "sha256": "d69fb47b594fb12fe3ea8e0eb80c2f79f74b12aedb2a8a3fc75903b2b74769f8",
+    "bytes": 6946,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/client/BidCheckout.jsx",
+    "sha256": "e1b748aa68d6de2b1607050ec3708859600ec5916a82d8d180fce8980e2b3f8c",
+    "bytes": 25229,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/client/ClientOrderDetail.jsx",
+    "sha256": "c59f085db55d92899242ddb38af614249b8d0131bebcc9cbb457382859e40acf",
+    "bytes": 27407,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/client/PostOrder.jsx",
+    "sha256": "277b749d754f91515a96435549e480be510237b620ef92261e620bae5cee61bc",
+    "bytes": 18444,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverActiveTrip.jsx",
+    "sha256": "f12acf70ae77f6fa404cfb75d8e54ca30a12e5908caf0039b737f95f85686167",
+    "bytes": 10390,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverTrips.jsx",
+    "sha256": "451b52bcf9eee717db7cd2a7e4b7a5686c36f5fbfc154a963fbc36d300c55b31",
+    "bytes": 13194,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/driver/DriverWallet.jsx",
+    "sha256": "35f6e062a18dfbeeca013a1f552696620ee14f2859b14e8a75caff4f34d30891",
+    "bytes": 7142,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/fuelstation/FuelDispensePOS.jsx",
+    "sha256": "ad75b2d804e6d534b0c8509ed2e94aa9de857e3eb5093d10826de0bd5f23d9a6",
+    "bytes": 15073,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/shopkeeper/ShopkeeperPartsOrders.jsx",
+    "sha256": "b4f0e49ddea92113fb6e7edeec12ec12b58a7d1234afbe5ce2b318f28fdd7b52",
+    "bytes": 24880,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/AvailableBids.jsx",
+    "sha256": "f6f2a697e447c53cfa4b9cd11285343756b61b1592d5fdfd2784439898966f08",
+    "bytes": 12319,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/MyAgreements.jsx",
+    "sha256": "069c7ab65f34ceaa6f9a07cf314c902fbde15d4befd3568b11b7aa6bf7242af8",
+    "bytes": 10603,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/OrderTracking.jsx",
+    "sha256": "120b1e7af4022f92688b3215be0a35a5a4f3738ed9fa27ded8c17f6f27bd96fb",
+    "bytes": 17581,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/src/pages/transporter/earning.jsx",
+    "sha256": "59b5c44a82a224d410017bdc33a24163c01189a6f2ec315fb757edece3228997",
+    "bytes": 19493,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/tests/businessRules.test.jsx",
+    "sha256": "f516cc327a68ca6ddf9adb82653bd9583d6c09b46967654cc54e4af54f07bbc6",
+    "bytes": 32679,
+    "missing": false
+  },
+  {
+    "path": "frontend-react/tests/remainingWorkflowSecurity.test.jsx",
+    "sha256": "8f45227435d5bec3827d82ec3938c07a0a1954de37aec35b04e53f4808dea3f9",
+    "bytes": 34220,
+    "missing": false
+  },
+  {
+    "path": "docs/BUSINESS_RULES_FRONTEND_2026-10-25.md",
+    "sha256": "dd850f64ca32cbea91a06f5e3345d09d7f6bc431dcacad77cf62a434789ad5c0",
+    "bytes": 10972,
+    "missing": false
+  },
+  {
+    "path": "docs/BUSINESS_RULES_IMPLEMENTATION_2026-10-25.md",
+    "sha256": "8253e7c6d78fc8303d5f87000288666c9e0e3975ca38fc592b4360fea0c85b6c",
+    "bytes": 25890,
+    "missing": false
+  }
+]

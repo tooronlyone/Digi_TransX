@@ -1,0 +1,391 @@
+.parts-marketplace {
+  color: #172b4d;
+}
+
+.parts-marketplace-hero {
+  background: linear-gradient(125deg, #ffffff 0%, #f4f8ff 70%, #eef4ff 100%);
+  border: 1px solid #dfe8f4;
+  box-shadow: 0 14px 36px rgba(30, 64, 175, 0.08);
+}
+
+.parts-marketplace-hero::after {
+  content: "";
+  position: absolute;
+  width: 260px;
+  height: 260px;
+  right: -80px;
+  top: -110px;
+  border-radius: 50%;
+  background: rgba(47, 109, 246, 0.08);
+}
+
+.parts-marketplace-eyebrow {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  color: #2459d3;
+  background: #eaf1ff;
+  border: 1px solid #cbdcff;
+}
+
+.parts-marketplace-title {
+  color: #102a43 !important;
+  margin: 14px 0 8px;
+}
+
+.parts-marketplace-copy {
+  color: #52677e !important;
+  line-height: 1.55;
+}
+
+.parts-marketplace-copy strong { color: #078969; }
+
+.parts-marketplace-actions { margin-top: 18px; }
+
+.parts-truck-filter {
+  display: grid;
+  gap: 6px;
+  min-width: 330px;
+}
+
+.parts-truck-filter > span {
+  color: #52677e;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.parts-truck-filter select {
+  min-height: 42px;
+  color: #243b53;
+  background: #fff;
+  border: 1px solid #ced9e8;
+  box-shadow: 0 2px 6px rgba(15, 23, 42, 0.04);
+}
+
+.parts-rfq-button {
+  min-height: 42px;
+  color: #fff;
+  background: #ff7a18;
+  border: 1px solid #ff7a18;
+  box-shadow: 0 8px 18px rgba(255, 122, 24, 0.2);
+}
+
+.parts-rfq-button:hover { background: #e9670b; }
+
+.parts-marketplace-tools {
+  padding: 22px;
+  background: #fff;
+  border: 1px solid #e1e8f0;
+  border-radius: 18px;
+  box-shadow: 0 8px 26px rgba(15, 42, 67, 0.05);
+}
+
+.parts-tools-heading {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.parts-tools-heading h2 { margin: 0 0 3px; color: #102a43; font-size: 19px; }
+.parts-tools-heading p { margin: 0; color: #7b8da1; font-size: 13px; }
+
+.parts-cart-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 9px 13px;
+  color: #2459d3;
+  background: #eef4ff;
+  border: 1px solid #cbdcff;
+  border-radius: 10px;
+  font-size: 13px;
+  font-weight: 700;
+}
+
+.parts-cart-button span {
+  display: grid;
+  place-items: center;
+  min-width: 21px;
+  height: 21px;
+  color: #fff;
+  background: #2f6df6;
+  border-radius: 20px;
+}
+
+.parts-search-form input {
+  min-height: 48px;
+  color: #243b53 !important;
+  background: #f8fafc !important;
+  border: 1px solid #d9e2ec !important;
+  box-shadow: none !important;
+}
+
+.parts-search-form input:focus { background: #fff !important; border-color: #2f6df6 !important; }
+.parts-search-form input::placeholder { color: #8999aa; }
+
+.parts-search-button {
+  min-width: 110px;
+  color: #fff;
+  background: #2f6df6;
+  border: 0;
+}
+
+.parts-search-button:hover { background: #2459d3; }
+
+.parts-categories { padding-top: 2px; }
+
+.parts-category {
+  color: #52677e !important;
+  background: #fff !important;
+  border: 1px solid #d9e2ec !important;
+}
+
+.parts-category:hover { color: #2459d3 !important; border-color: #9fbbf8 !important; }
+.parts-category.is-active { color: #fff !important; background: #2f6df6 !important; border-color: #2f6df6 !important; }
+
+.parts-loading {
+  min-height: 280px;
+  background: #fff;
+  border: 1px dashed #ccd8e6;
+  border-radius: 18px;
+}
+
+.parts-loading-icon {
+  display: grid;
+  place-items: center;
+  width: 52px;
+  height: 52px;
+  margin: 0 auto 12px;
+  color: #2f6df6;
+  background: #eef4ff;
+  border-radius: 15px;
+  font-size: 21px;
+}
+
+.parts-loading h3 { margin: 0; color: #243b53; font-size: 16px; }
+
+.parts-product-grid { align-items: stretch; }
+
+.parts-product-card {
+  position: relative;
+  min-height: 310px;
+  color: #52677e;
+  background: #fff;
+  border: 1px solid #dfe7f0;
+  box-shadow: 0 8px 24px rgba(15, 42, 67, 0.055);
+  overflow: hidden;
+}
+
+.parts-product-card::before {
+  content: "";
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: 4px;
+  background: #2f6df6;
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+
+.parts-product-card:hover {
+  border-color: #b9cdf4;
+  box-shadow: 0 16px 34px rgba(30, 64, 175, 0.11);
+  transform: translateY(-2px);
+}
+
+.parts-product-card:hover::before { opacity: 1; }
+
+.parts-card-shop { color: #52677e !important; }
+.parts-card-shop i { color: #2f6df6 !important; }
+
+.parts-card-title {
+  min-height: 48px;
+  margin-top: 12px;
+  color: #102a43 !important;
+  line-height: 1.45;
+}
+
+.parts-product-card:hover .parts-card-title { color: #2459d3 !important; }
+.parts-card-meta { color: #8293a6 !important; }
+.parts-card-meta span { color: #40566d !important; }
+
+.parts-fit-tag {
+  color: #47627d !important;
+  background: #eff4f9 !important;
+  border: 1px solid #e1e8f0;
+}
+
+.parts-card-description {
+  min-height: 37px;
+  color: #6f8296 !important;
+  line-height: 1.5;
+}
+
+.parts-card-footer { border-top: 1px solid #e8eef5; }
+.parts-card-price { color: #102a43 !important; white-space: nowrap; }
+.parts-old-price { color: #91a0af !important; }
+.parts-warranty { color: #078969 !important; margin-top: 3px; }
+
+.parts-add-button {
+  flex: 0 0 auto;
+  color: #fff !important;
+  background: #2f6df6 !important;
+  border: 1px solid #2f6df6;
+  box-shadow: 0 6px 14px rgba(47, 109, 246, .18);
+}
+
+.parts-add-button:hover { background: #2459d3 !important; }
+
+.parts-rfq-overlay {
+  background: rgba(15, 35, 55, .48);
+  backdrop-filter: blur(5px);
+}
+
+.parts-rfq-modal {
+  color: #243b53;
+  background: #fff;
+  border: 1px solid rgba(255,255,255,.75);
+  box-shadow: 0 28px 70px rgba(15, 35, 55, .24);
+}
+
+.parts-rfq-header { border-bottom: 1px solid #e5ebf2; }
+.parts-rfq-icon, .parts-success-icon {
+  display: grid;
+  place-items: center;
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  color: #f0670b;
+  background: #fff1e7;
+  border-radius: 12px;
+}
+
+.parts-rfq-kicker { color: #f0670b; font-size: 10px; font-weight: 800; letter-spacing: .1em; }
+.parts-rfq-header h3 { margin: 2px 0 0; color: #102a43; font-size: 18px; }
+.parts-rfq-close {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  color: #687b8f;
+  background: #f1f5f9;
+  border: 0;
+  border-radius: 10px;
+}
+.parts-rfq-close:hover { color: #102a43; background: #e4ebf2; }
+.parts-rfq-intro { margin: 0; color: #667b91; line-height: 1.55; }
+.parts-rfq-form label { color: #334e68; font-size: 12px; font-weight: 700; }
+.parts-rfq-form label span { color: #dc3f3f; }
+.parts-rfq-form input, .parts-rfq-form select {
+  min-height: 44px;
+  color: #243b53 !important;
+  background: #f8fafc !important;
+  border: 1px solid #cfdae7 !important;
+  font-size: 13px;
+}
+.parts-rfq-form input:focus, .parts-rfq-form select:focus { background: #fff !important; border-color: #2f6df6 !important; box-shadow: 0 0 0 3px rgba(47,109,246,.1); }
+.parts-rfq-form input::placeholder { color: #95a3b2; }
+.parts-rfq-form small { display: block; margin-top: 5px; color: #8a9aaa; font-size: 10px; }
+.parts-rfq-note {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 12px;
+  color: #17745c;
+  background: #ecf9f4;
+  border: 1px solid #ccecdf;
+  border-radius: 10px;
+  font-size: 11px;
+}
+.parts-rfq-footer { display: flex; justify-content: flex-end; gap: 10px; padding-top: 4px; }
+.parts-rfq-cancel, .parts-rfq-submit { min-height: 42px; padding: 0 18px; border-radius: 10px; font-size: 12px; font-weight: 700; }
+.parts-rfq-cancel { color: #52677e; background: #fff; border: 1px solid #d2dce8; }
+.parts-rfq-submit { color: #fff; background: #ff7a18; border: 1px solid #ff7a18; box-shadow: 0 7px 16px rgba(255,122,24,.2); }
+.parts-rfq-submit:hover { background: #e9670b; }
+.parts-rfq-success { display: flex; flex-wrap: wrap; align-items: center; gap: 12px; color: #176b54; background: #ecf9f4; border: 1px solid #ccecdf; }
+.parts-rfq-success .parts-success-icon { color: #078969; background: #d6f4e8; }
+.parts-rfq-success h4 { margin: 0 0 3px; font-size: 14px; }
+.parts-rfq-success p { margin: 0; color: #487566; }
+.parts-rfq-success button { margin-left: auto; color: #fff; background: #078969; border: 0; }
+
+.parts-cart-overlay {
+  z-index: 10000;
+  background: rgba(15, 35, 55, .48);
+  backdrop-filter: blur(5px);
+}
+
+.parts-cart-drawer {
+  color: #243b53;
+  background: #f7f9fc;
+  box-shadow: -22px 0 55px rgba(15, 35, 55, .2);
+  overflow: hidden;
+}
+
+.parts-cart-header {
+  flex: 0 0 auto;
+  padding: 20px 22px;
+  background: #fff;
+  border-bottom: 1px solid #dfe7f0;
+}
+.parts-cart-icon { display: grid; place-items: center; width: 42px; height: 42px; color: #2f6df6; background: #eaf1ff; border-radius: 12px; }
+.parts-cart-kicker { display: block; color: #2f6df6; font-size: 9px; font-weight: 800; letter-spacing: .12em; }
+.parts-cart-header h2 { margin: 2px 0 0; color: #102a43; }
+.parts-cart-header h2 span { color: #6c8095; font-weight: 600; }
+.parts-cart-close { display: grid; place-items: center; width: 36px; height: 36px; color: #61758a; background: #eef2f6; border: 0; border-radius: 10px; font-size: 16px; }
+.parts-cart-close:hover { color: #102a43; background: #e2e9f0; }
+.parts-cart-body { flex: 1 1 auto; padding: 20px 22px; overflow-y: auto; }
+.parts-cart-item { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 14px; background: #fff; border: 1px solid #dfe7f0; border-radius: 13px; box-shadow: 0 4px 14px rgba(15,42,67,.04); }
+.parts-cart-item-copy { min-width: 0; }
+.parts-cart-item-copy h4 { margin: 0 0 4px; color: #102a43; font-size: 13px; line-height: 1.35; }
+.parts-cart-item-copy span { color: #2f6df6; font-size: 12px; font-weight: 700; }
+.parts-qty-control { display: flex; align-items: center; gap: 9px; flex: 0 0 auto; }
+.parts-qty-control button { display: grid; place-items: center; width: 30px; height: 30px; color: #31506c; background: #edf2f7; border: 1px solid #dce5ee; border-radius: 8px; font-size: 16px; font-weight: 700; }
+.parts-qty-control button:hover { color: #fff; background: #2f6df6; border-color: #2f6df6; }
+.parts-qty-control span { min-width: 18px; color: #102a43; text-align: center; font-size: 13px; font-weight: 800; }
+.parts-delivery-section { margin-top: 18px; padding-top: 18px; border-top: 1px solid #dfe7f0; }
+.parts-cart-section-title { display: grid; margin-bottom: 10px; }
+.parts-cart-section-title > span { color: #102a43; font-size: 13px; font-weight: 800; }
+.parts-cart-section-title small { margin-top: 2px; color: #8091a2; font-size: 10px; }
+.parts-delivery-options button { display: grid; grid-template-columns: auto 1fr; gap: 3px 8px; padding: 12px; color: #52677e; text-align: left; background: #fff; border: 1px solid #d5e0eb; border-radius: 12px; }
+.parts-delivery-options button > i { grid-row: 1 / 3; color: #71859a; margin-top: 2px; }
+.parts-delivery-options button span { display: grid; }
+.parts-delivery-options button strong { color: #243b53; font-size: 11px; }
+.parts-delivery-options button small { color: #8495a7; font-size: 9px; }
+.parts-delivery-options button b { grid-column: 2; color: #61758a; font-size: 10px; }
+.parts-delivery-options button.is-active { background: #edf4ff; border-color: #2f6df6; box-shadow: 0 0 0 2px rgba(47,109,246,.08); }
+.parts-delivery-options button.is-active i, .parts-delivery-options button.is-active strong, .parts-delivery-options button.is-active b { color: #2459d3; }
+.parts-cart-field { margin-top: 14px; }
+.parts-cart-field label { display: block; margin-bottom: 6px; color: #40566d; font-size: 11px; font-weight: 700; }
+.parts-cart-field label span { color: #dc3f3f; }
+.parts-cart-field input { width: 100%; min-height: 44px; padding: 0 12px; color: #243b53; background: #fff; border: 1px solid #ccd8e5; border-radius: 10px; outline: none; font-size: 12px; }
+.parts-cart-field input:focus { border-color: #2f6df6; box-shadow: 0 0 0 3px rgba(47,109,246,.1); }
+.parts-cart-field input::placeholder { color: #9aa8b6; }
+.parts-cart-footer { flex: 0 0 auto; padding: 16px 22px 20px; background: #fff; border-top: 1px solid #dfe7f0; box-shadow: 0 -8px 25px rgba(15,42,67,.05); }
+.parts-cart-totals { display: grid; gap: 7px; }
+.parts-cart-totals > div { display: flex; justify-content: space-between; color: #718397; font-size: 11px; }
+.parts-cart-totals .parts-grand-total { align-items: center; margin-top: 3px; padding-top: 10px; color: #102a43; border-top: 1px solid #e2e9f0; font-size: 14px; font-weight: 800; }
+.parts-grand-total strong { color: #2459d3; font-size: 17px; }
+.parts-escrow-note { display: flex; align-items: center; gap: 8px; margin: 12px 0; padding: 9px 11px; color: #17745c; background: #ecf9f4; border: 1px solid #ccecdf; border-radius: 9px; font-size: 10px; line-height: 1.4; }
+.parts-checkout-button { width: 100%; min-height: 48px; color: #fff; background: #2f6df6; border: 0; border-radius: 11px; box-shadow: 0 8px 18px rgba(47,109,246,.22); font-size: 13px; font-weight: 800; }
+.parts-checkout-button:hover { background: #2459d3; }
+.parts-checkout-button:disabled { opacity: .6; cursor: wait; }
+.parts-cart-empty { padding: 60px 20px; text-align: center; color: #8293a6; }
+.parts-cart-empty > i { margin-bottom: 14px; color: #aac0da; font-size: 34px; }
+.parts-cart-empty h3 { margin: 0 0 5px; color: #243b53; font-size: 15px; }
+.parts-cart-empty p { margin: 0; font-size: 11px; }
+
+@media (max-width: 700px) {
+  .parts-marketplace { padding: 14px !important; }
+  .parts-marketplace-hero, .parts-marketplace-tools { padding: 18px !important; }
+  .parts-truck-filter { min-width: 100%; }
+  .parts-rfq-button { width: 100%; justify-content: center; }
+  .parts-tools-heading { align-items: flex-start; }
+  .parts-search-form { flex-direction: column; }
+  .parts-search-button { width: 100%; }
+  .parts-product-card { min-height: 0; }
+  .parts-rfq-row { grid-template-columns: 1fr; }
+  .parts-rfq-footer { flex-direction: column-reverse; }
+  .parts-rfq-cancel, .parts-rfq-submit { width: 100%; }
+  .parts-cart-drawer { max-width: 100%; }
+  .parts-delivery-options { grid-template-columns: 1fr; }
+}

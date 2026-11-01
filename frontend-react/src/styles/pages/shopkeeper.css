@@ -1,0 +1,234 @@
+.shopkeeper-shell {
+  --shop-navy: #102a43;
+  --shop-blue: #2563eb;
+  --shop-orange: #f97316;
+  min-height: 100vh;
+  background: #f5f7fb;
+  color: #243b53;
+}
+
+.shopkeeper-sidebar {
+  position: fixed; inset: 0 auto 0 0; z-index: 50; width: 84px;
+  display: flex; flex-direction: column; padding: 22px 12px 18px;
+  color: #52667a; background: #fff;
+  border-right: 1px solid #e6ebf2; box-shadow: 8px 0 30px rgba(15, 42, 67, .045);
+  transition: width .24s ease, padding .24s ease, transform .25s ease;
+}
+.shopkeeper-sidebar:hover { width: 252px; padding-left: 16px; padding-right: 16px; box-shadow: 12px 0 38px rgba(15,42,67,.12); }
+.shopkeeper-brand { display: flex; align-items: center; justify-content: center; gap: 12px; padding: 0 0 22px; cursor: pointer; }
+.shopkeeper-sidebar:hover .shopkeeper-brand { justify-content: flex-start; padding-left: 8px; padding-right: 8px; }
+.shopkeeper-brand__mark { width: 42px; height: 42px; display: grid; place-items: center; border-radius: 13px; color: white; background: linear-gradient(135deg, #ff9b4a, #f97316); box-shadow: 0 8px 20px rgba(249,115,22,.25); }
+.shopkeeper-brand strong, .shopkeeper-brand small { display: block; }
+.shopkeeper-brand__copy { display: none; white-space: nowrap; }
+.shopkeeper-sidebar:hover .shopkeeper-brand__copy { display: block; }
+.shopkeeper-brand strong { color: #102a43; font-size: 18px; letter-spacing: -.35px; }
+.shopkeeper-brand small { margin-top: 1px; color: #829ab1; font-size: 11px; }
+.shopkeeper-store-card { display: none; align-items: center; gap: 10px; margin: 0 4px 22px; padding: 12px; border: 1px solid #e5eaf0; border-radius: 14px; background: #f8fafc; }
+.shopkeeper-sidebar:hover .shopkeeper-store-card { display: flex; }
+.shopkeeper-store-card__avatar { flex: 0 0 auto; width: 34px; height: 34px; display: grid; place-items: center; border-radius: 10px; color: white; background: #2563eb; font-weight: 800; }
+.shopkeeper-store-card small, .shopkeeper-store-card strong { display: block; max-width: 155px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.shopkeeper-store-card small { color: #829ab1; font-size: 10px; }
+.shopkeeper-store-card strong { color: #243b53; font-size: 13px; }
+.shopkeeper-nav p { display: none; padding: 0 12px 8px; color: #829ab1; font-size: 10px; font-weight: 800; letter-spacing: 1.1px; }
+.shopkeeper-sidebar:hover .shopkeeper-nav p { display: block; }
+.shopkeeper-nav__item { display: flex; align-items: center; justify-content: center; gap: 0; min-height: 48px; margin-bottom: 5px; padding: 8px 0; border-radius: 12px; color: #52667a; font-size: 13px; font-weight: 650; }
+.shopkeeper-sidebar:hover .shopkeeper-nav__item { justify-content: flex-start; gap: 12px; padding-left: 12px; padding-right: 12px; }
+.shopkeeper-nav__item:hover { color: #2563eb; background: #eff6ff; }
+.shopkeeper-nav__item.active { color: white; background: linear-gradient(135deg, #2f6fed, #2563eb); box-shadow: 0 8px 22px rgba(37,99,235,.25); }
+.shopkeeper-nav__icon { width: 28px; flex: 0 0 28px; text-align: center; font-size: 16px; }
+.shopkeeper-nav__label { display: none; white-space: nowrap; }
+.shopkeeper-sidebar:hover .shopkeeper-nav__label { display: inline; }
+.shopkeeper-sidebar__footer { margin-top: auto; padding-top: 16px; border-top: 1px solid #edf1f5; }
+.shopkeeper-sidebar__footer button { width: 100%; padding: 11px 13px; color: #627d98; background: transparent; text-align: center; font-weight: 650; white-space: nowrap; }
+.shopkeeper-sidebar__footer button span { display: none; }
+.shopkeeper-sidebar:hover .shopkeeper-sidebar__footer button { text-align: left; }
+.shopkeeper-sidebar:hover .shopkeeper-sidebar__footer button span { display: inline; }
+.shopkeeper-sidebar__footer button:hover { color: #dc2626; background: #fff1f2; }
+.shopkeeper-workspace { min-height: 100vh; margin-left: 84px; }
+.shopkeeper-workspace { transition: margin-left .24s ease; }
+.shopkeeper-topbar { position: sticky; top: 0; z-index: 30; min-height: 76px; display: flex; align-items: center; justify-content: space-between; padding: 12px 30px; border-bottom: 1px solid #e6ebf2; background: rgba(255,255,255,.94); backdrop-filter: blur(14px); }
+.shopkeeper-topbar__title { display: flex; align-items: center; gap: 13px; }
+.shopkeeper-topbar h1 { margin: 0; color: #102a43; font-size: 20px; letter-spacing: -.3px; }
+.shopkeeper-topbar p { margin: 3px 0 0; color: #7b8794; font-size: 12px; }
+.shopkeeper-menu-button { display: none; width: 40px; height: 40px; color: #243b53; background: #f1f5f9; }
+.shopkeeper-profile { display: flex; align-items: center; gap: 10px; }
+.shopkeeper-profile { cursor: pointer; padding: 5px; border-radius: 13px; }
+.shopkeeper-profile:hover { background: #f8fafc; }
+.shopkeeper-profile__avatar { width: 38px; height: 38px; display: grid; place-items: center; border-radius: 12px; color: white; background: linear-gradient(135deg, #fb923c, #f97316); font-weight: 800; }
+.shopkeeper-profile__copy strong, .shopkeeper-profile__copy small { display: block; }
+.shopkeeper-profile__copy strong { color: #243b53; font-size: 12px; }
+.shopkeeper-profile__copy small { color: #829ab1; font-size: 10px; }
+.shopkeeper-profile button { width: 36px; height: 36px; margin-left: 5px; color: #627d98; background: #f1f5f9; }
+.shopkeeper-profile button:hover { color: #dc2626; background: #fee2e2; }
+.shopkeeper-content { padding: 0 28px 36px; }
+.shopkeeper-content > .min-h-screen { min-height: auto; background: transparent; }
+.shopkeeper-content > .min-h-screen > header { display: none; }
+.shopkeeper-content > .min-h-screen > main { max-width: 1180px; padding-top: 28px; }
+
+.shopkeeper-welcome { position: relative; min-height: 174px; display: flex; align-items: center; justify-content: space-between; gap: 24px; margin-bottom: 30px; padding: 30px 34px; overflow: hidden; border-radius: 22px; color: white; background: linear-gradient(120deg, #1d4ed8 0%, #2563eb 56%, #3b82f6 100%); box-shadow: 0 16px 36px rgba(37,99,235,.18); }
+.shopkeeper-welcome > div { position: relative; z-index: 2; max-width: 600px; }
+.shopkeeper-welcome__eyebrow { display: block; margin-bottom: 8px; color: #bfdbfe; font-size: 10px; font-weight: 850; letter-spacing: 1.4px; }
+.shopkeeper-welcome h2 { margin: 0 0 8px; color: white; font-size: clamp(22px, 2.7vw, 29px); }
+.shopkeeper-welcome p { margin: 0; color: #dbeafe; font-size: 13px; }
+.shopkeeper-welcome button { position: relative; z-index: 2; flex: 0 0 auto; display: flex; align-items: center; gap: 9px; padding: 13px 18px; color: #1d4ed8; background: white; box-shadow: 0 10px 24px rgba(15,23,42,.16); font-size: 13px; font-weight: 800; }
+.shopkeeper-welcome button:hover { transform: translateY(-2px); box-shadow: 0 14px 30px rgba(15,23,42,.22); }
+.shopkeeper-welcome__art { position: absolute; right: 14%; bottom: -50px; color: rgba(255,255,255,.075); font-size: 170px; transform: rotate(-8deg); }
+.shopkeeper-section-heading { display: flex; align-items: center; justify-content: space-between; gap: 18px; margin-bottom: 14px; }
+.shopkeeper-section-heading h2 { margin: 0; color: #102a43; font-size: 18px; }
+.shopkeeper-section-heading p { margin: 3px 0 0; color: #829ab1; font-size: 12px; }
+.shopkeeper-action-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 14px; }
+.shopkeeper-action-card { min-height: 112px; display: flex; align-items: center; gap: 13px; padding: 18px; border: 1px solid #e3e8ef; border-radius: 17px; background: white; box-shadow: 0 4px 14px rgba(15,42,67,.035); text-align: left; }
+.shopkeeper-action-card:hover { transform: translateY(-3px); border-color: #cbd5e1; box-shadow: 0 13px 27px rgba(15,42,67,.09); }
+.shopkeeper-action-card__icon { flex: 0 0 auto; width: 45px; height: 45px; display: grid; place-items: center; border-radius: 13px; font-size: 17px; }
+.shopkeeper-action-card__icon.blue { color: #2563eb; background: #dbeafe; }
+.shopkeeper-action-card__icon.orange { color: #ea580c; background: #ffedd5; }
+.shopkeeper-action-card__icon.green { color: #059669; background: #d1fae5; }
+.shopkeeper-action-card__icon.purple { color: #7c3aed; background: #ede9fe; }
+.shopkeeper-action-card__copy { min-width: 0; flex: 1; }
+.shopkeeper-action-card__copy strong, .shopkeeper-action-card__copy small { display: block; }
+.shopkeeper-action-card__copy strong { margin-bottom: 4px; color: #243b53; font-size: 13px; }
+.shopkeeper-action-card__copy small { color: #7b8794; font-size: 11px; line-height: 1.45; }
+.shopkeeper-action-card__arrow { color: #bcccdc; font-size: 11px; }
+.shopkeeper-section-heading--records { margin-top: 36px; }
+.shopkeeper-secondary-action { display: flex; align-items: center; gap: 8px; padding: 10px 14px; color: white; background: #f97316; font-size: 12px; font-weight: 750; box-shadow: 0 7px 16px rgba(249,115,22,.2); }
+.shopkeeper-secondary-action:hover { background: #ea580c; transform: translateY(-1px); }
+.shopkeeper-friendly-notice { display: flex; align-items: center; gap: 13px; padding: 16px 18px; border: 1px solid #dbeafe; border-radius: 14px; color: #2563eb; background: #eff6ff; }
+.shopkeeper-friendly-notice > i { font-size: 18px; }
+.shopkeeper-friendly-notice strong, .shopkeeper-friendly-notice small { display: block; }
+.shopkeeper-friendly-notice strong { color: #1e3a5f; font-size: 12px; }
+.shopkeeper-friendly-notice small { margin-top: 2px; color: #627d98; font-size: 11px; }
+.shopkeeper-state-card { max-width: 700px; margin: 38px auto; padding: 48px 28px; border: 1px solid #e3e8ef; border-radius: 20px; background: white; box-shadow: 0 10px 30px rgba(15,42,67,.055); text-align: center; }
+.shopkeeper-state-card__icon { width: 66px; height: 66px; display: grid; place-items: center; margin: 0 auto 18px; border-radius: 20px; color: #2563eb; background: #eaf2ff; font-size: 27px; }
+.shopkeeper-state-card h2 { margin: 0 0 8px; color: #102a43; font-size: 19px; }
+.shopkeeper-state-card p { max-width: 450px; margin: 0 auto 21px; color: #627d98; font-size: 13px; line-height: 1.6; }
+.shopkeeper-state-card button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; padding: 11px 17px; color: #52667a; background: #eef2f6; font-size: 12px; font-weight: 750; }
+.shopkeeper-state-card button:hover { background: #e2e8f0; }
+.shopkeeper-state-card button.shopkeeper-state-card__primary { color: white; background: #f97316; box-shadow: 0 8px 18px rgba(249,115,22,.2); }
+.shopkeeper-state-card button.shopkeeper-state-card__primary:hover { background: #ea580c; transform: translateY(-1px); }
+.shopkeeper-state-card--error .shopkeeper-state-card__icon { color: #dc2626; background: #fee2e2; }
+.shopkeeper-state-card--sales .shopkeeper-state-card__icon { color: #059669; background: #d1fae5; }
+
+.shopkeeper-profile-page { max-width: 1080px; display: grid; grid-template-columns: 280px minmax(0, 1fr); gap: 22px; margin: 28px auto 0; }
+.shopkeeper-profile-summary, .shopkeeper-profile-form-card { border: 1px solid #e3e8ef; border-radius: 20px; background: white; box-shadow: 0 7px 24px rgba(15,42,67,.045); }
+.shopkeeper-profile-summary { align-self: start; padding: 30px 22px; text-align: center; }
+.shopkeeper-profile-summary__avatar { width: 82px; height: 82px; display: grid; place-items: center; margin: 0 auto 16px; border-radius: 24px; color: white; background: linear-gradient(135deg, #2563eb, #60a5fa); box-shadow: 0 12px 25px rgba(37,99,235,.2); font-size: 25px; font-weight: 850; }
+.shopkeeper-profile-summary h2 { margin: 0 0 5px; color: #102a43; font-size: 18px; }
+.shopkeeper-profile-summary > p { margin: 0 0 13px; color: #627d98; font-size: 12px; }
+.shopkeeper-profile-summary__badge { display: inline-flex; align-items: center; gap: 6px; padding: 6px 10px; border-radius: 999px; color: #047857; background: #d1fae5; font-size: 10px; font-weight: 750; }
+.shopkeeper-profile-summary__tip { display: flex; gap: 10px; margin-top: 28px; padding: 14px; border-radius: 14px; color: #d97706; background: #fffbeb; text-align: left; }
+.shopkeeper-profile-summary__tip > i { margin-top: 2px; }
+.shopkeeper-profile-summary__tip strong, .shopkeeper-profile-summary__tip small { display: block; }
+.shopkeeper-profile-summary__tip strong { color: #92400e; font-size: 11px; }
+.shopkeeper-profile-summary__tip small { margin-top: 3px; color: #a16207; font-size: 10px; line-height: 1.5; }
+.shopkeeper-profile-form-card { padding: 26px; }
+.shopkeeper-profile-form-card__heading { display: flex; align-items: center; justify-content: space-between; padding-bottom: 20px; margin-bottom: 22px; border-bottom: 1px solid #edf1f5; }
+.shopkeeper-profile-form-card__heading h2 { margin: 0 0 4px; color: #102a43; font-size: 18px; }
+.shopkeeper-profile-form-card__heading p { margin: 0; color: #829ab1; font-size: 11px; }
+.shopkeeper-profile-form-card__heading > span { width: 40px; height: 40px; display: grid; place-items: center; border-radius: 12px; color: #2563eb; background: #eaf2ff; }
+.shopkeeper-profile-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; }
+.shopkeeper-profile-grid label > span { display: block; margin-bottom: 7px; color: #334e68; font-size: 11px; font-weight: 750; }
+.shopkeeper-profile-grid input, .shopkeeper-profile-grid textarea { width: 100%; padding: 11px 12px; border: 1px solid #dce3ea; border-radius: 11px; color: #243b53; background: white; outline: none; font: inherit; font-size: 12px; resize: vertical; }
+.shopkeeper-profile-grid input:focus, .shopkeeper-profile-grid textarea:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(59,130,246,.12); }
+.shopkeeper-profile-grid input:disabled { color: #829ab1; background: #f8fafc; cursor: not-allowed; }
+.shopkeeper-profile-grid label > small { display: block; margin-top: 5px; color: #9aa8b6; font-size: 9px; }
+.shopkeeper-profile-grid__wide { grid-column: 1 / -1; }
+.shopkeeper-profile-actions { display: flex; justify-content: flex-end; margin-top: 24px; padding-top: 20px; border-top: 1px solid #edf1f5; }
+.shopkeeper-profile-actions button { min-width: 150px; display: flex; align-items: center; justify-content: center; gap: 8px; padding: 12px 18px; color: white; background: #2563eb; font-size: 12px; font-weight: 750; box-shadow: 0 8px 18px rgba(37,99,235,.2); }
+.shopkeeper-profile-actions button:hover { background: #1d4ed8; transform: translateY(-1px); }
+.shopkeeper-profile-actions button:disabled { opacity: .65; cursor: wait; }
+.shopkeeper-profile-message { margin-bottom: 18px; padding: 11px 13px; border-radius: 10px; font-size: 11px; font-weight: 650; }
+.shopkeeper-profile-message.success { color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; }
+.shopkeeper-profile-message.error { color: #b91c1c; background: #fef2f2; border: 1px solid #fecaca; }
+.shopkeeper-profile-loading { padding: 70px 20px; color: #627d98; text-align: center; }
+
+.shopkeeper-revenue-chart { overflow: hidden; border: 1px solid #e3e8ef; border-radius: 20px; background: white; box-shadow: 0 7px 24px rgba(15,42,67,.04); }
+.shopkeeper-revenue-chart__header { display: flex; align-items: center; justify-content: space-between; gap: 20px; padding: 22px 24px 18px; border-bottom: 1px solid #edf1f5; }
+.shopkeeper-revenue-chart__eyebrow { display: block; margin-bottom: 5px; color: #3b82f6; font-size: 9px; font-weight: 850; letter-spacing: 1.25px; }
+.shopkeeper-revenue-chart__header h2 { margin: 0 0 4px; color: #102a43; font-size: 18px; }
+.shopkeeper-revenue-chart__header p { margin: 0; color: #829ab1; font-size: 11px; }
+.shopkeeper-revenue-chart__total { flex: 0 0 auto; min-width: 150px; padding: 10px 13px; border: 1px solid #dbeafe; border-radius: 12px; background: #eff6ff; text-align: right; }
+.shopkeeper-revenue-chart__total small, .shopkeeper-revenue-chart__total strong { display: block; }
+.shopkeeper-revenue-chart__total small { margin-bottom: 2px; color: #6b8bb2; font-size: 9px; }
+.shopkeeper-revenue-chart__total strong { color: #1d4ed8; font-size: 14px; }
+.shopkeeper-revenue-chart__plot { padding: 4px 14px 10px 4px; }
+.shopkeeper-report-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.shopkeeper-report-actions > button { display: flex; align-items: center; gap: 14px; padding: 18px; border: 1px solid #e3e8ef; border-radius: 17px; background: white; box-shadow: 0 5px 18px rgba(15,42,67,.04); text-align: left; }
+.shopkeeper-report-actions > button:hover { transform: translateY(-2px); border-color: #bfdbfe; box-shadow: 0 12px 28px rgba(15,42,67,.09); }
+.shopkeeper-report-actions > button > span:first-child { width: 44px; height: 44px; display: grid; place-items: center; flex: 0 0 auto; border-radius: 13px; font-size: 17px; }
+.shopkeeper-report-actions .blue { color: #2563eb; background: #dbeafe; }
+.shopkeeper-report-actions .orange { color: #ea580c; background: #ffedd5; }
+.shopkeeper-report-actions > button > span:nth-child(2) { flex: 1; }
+.shopkeeper-report-actions strong, .shopkeeper-report-actions small { display: block; }
+.shopkeeper-report-actions strong { color: #243b53; font-size: 13px; }
+.shopkeeper-report-actions small { margin-top: 3px; color: #829ab1; font-size: 10px; }
+.shopkeeper-report-actions > button > i { color: #9fb3c8; font-size: 11px; }
+.shopkeeper-report-filters { display: flex; flex-wrap: wrap; align-items: flex-end; gap: 12px; margin-bottom: 24px; padding: 16px 18px; border: 1px solid #e3e8ef; border-radius: 16px; background: white; }
+.shopkeeper-report-filters input { border: 1px solid #d5dde7; border-radius: 10px; padding: 9px 11px; font-size: 12px; outline: none; }
+.shopkeeper-report-filters input:focus { border-color: #60a5fa; box-shadow: 0 0 0 3px rgba(59,130,246,.1); }
+.shopkeeper-report-filters__search { min-width: 230px; flex: 1; }
+.shopkeeper-report-filters__search > div { position: relative; }
+.shopkeeper-report-filters__search i { position: absolute; left: 11px; top: 50%; transform: translateY(-50%); color: #9fb3c8; font-size: 11px; }
+.shopkeeper-report-filters__search input { width: 100%; padding-left: 31px; }
+.shopkeeper-export-pdf { display: flex; align-items: center; gap: 8px; padding: 10px 14px; color: white; background: #dc2626; font-size: 12px; font-weight: 750; }
+.shopkeeper-export-pdf:hover { background: #b91c1c; }
+.shopkeeper-export-pdf:disabled { opacity: .45; cursor: not-allowed; }
+.shopkeeper-history-heading { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+.shopkeeper-history-heading h2 { margin: 0; color: #102a43; font-size: 18px; }
+.shopkeeper-history-heading p { margin: 3px 0 0; color: #829ab1; font-size: 10px; }
+.shopkeeper-history-heading > span { padding: 5px 9px; border-radius: 999px; color: #2563eb; background: #eff6ff; font-size: 10px; font-weight: 750; }
+.shopkeeper-parts-hero { background: linear-gradient(135deg, #ffffff 0%, #f8fbff 100%); box-shadow: 0 8px 28px rgba(15,42,67,.05); }
+.shopkeeper-parts-hero h1 { margin: 4px 0 5px; color: #102a43; }
+.shopkeeper-parts-hero p { color: #627d98; line-height: 1.5; }
+.shopkeeper-parts-tabs { border: 1px solid #e3e8ef; background: #eef3f8; }
+.shopkeeper-parts-tabs button { white-space: nowrap; }
+.shopkeeper-order-card { color: #334e68; transition: transform .2s ease, box-shadow .2s ease; }
+.shopkeeper-order-card:hover { transform: translateY(-2px); box-shadow: 0 12px 28px rgba(15,42,67,.09); }
+.shopkeeper-order-details strong { color: #243b53; }
+
+.shopkeeper-backdrop { display: none; }
+
+@media (max-width: 900px) {
+  .shopkeeper-sidebar { width: 252px; padding: 22px 16px 18px; transform: translateX(-105%); transition: transform .25s ease; }
+  .shopkeeper-sidebar.is-open { transform: translateX(0); }
+  .shopkeeper-sidebar:hover { width: 252px; padding-left: 16px; padding-right: 16px; }
+  .shopkeeper-brand, .shopkeeper-sidebar:hover .shopkeeper-brand { justify-content: flex-start; padding: 0 8px 22px; }
+  .shopkeeper-brand__copy, .shopkeeper-store-card, .shopkeeper-nav p, .shopkeeper-nav__label { display: initial; }
+  .shopkeeper-store-card { display: flex; }
+  .shopkeeper-nav p { display: block; }
+  .shopkeeper-nav__item, .shopkeeper-sidebar:hover .shopkeeper-nav__item { justify-content: flex-start; gap: 12px; padding: 8px 12px; }
+  .shopkeeper-sidebar__footer button, .shopkeeper-sidebar:hover .shopkeeper-sidebar__footer button { text-align: left; }
+  .shopkeeper-sidebar__footer button span { display: inline; }
+  .shopkeeper-workspace { margin-left: 0; }
+  .shopkeeper-menu-button { display: grid; place-items: center; }
+  .shopkeeper-backdrop { display: block; position: fixed; inset: 0; z-index: 45; border-radius: 0; background: rgba(15,23,42,.45); backdrop-filter: blur(2px); }
+  .shopkeeper-action-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .shopkeeper-profile-page { grid-template-columns: 1fr; }
+  .shopkeeper-profile-summary { display: none; }
+}
+@media (max-width: 640px) {
+  .shopkeeper-topbar { min-height: 68px; padding: 10px 15px; }
+  .shopkeeper-topbar h1 { font-size: 17px; }
+  .shopkeeper-topbar p, .shopkeeper-profile__copy { display: none; }
+  .shopkeeper-profile button { display: none; }
+  .shopkeeper-content { padding: 0 14px 28px; }
+  .shopkeeper-content > .min-h-screen > main { padding-top: 20px; }
+  .shopkeeper-welcome { min-height: 0; display: block; padding: 24px 20px; }
+  .shopkeeper-welcome p { max-width: 90%; }
+  .shopkeeper-welcome button { margin-top: 18px; }
+  .shopkeeper-welcome__art { right: -8px; font-size: 130px; }
+  .shopkeeper-action-grid { grid-template-columns: 1fr; gap: 10px; }
+  .shopkeeper-action-card { min-height: 88px; padding: 14px; }
+  .shopkeeper-section-heading--records { align-items: flex-start; flex-direction: column; }
+  .shopkeeper-profile-form-card { padding: 20px 16px; }
+  .shopkeeper-profile-grid { grid-template-columns: 1fr; }
+  .shopkeeper-profile-grid__wide { grid-column: auto; }
+  .shopkeeper-profile-actions button { width: 100%; }
+  .shopkeeper-revenue-chart__header { align-items: flex-start; padding: 18px; }
+  .shopkeeper-revenue-chart__header p { display: none; }
+  .shopkeeper-revenue-chart__total { min-width: 128px; }
+  .shopkeeper-revenue-chart__plot { padding-left: 0; padding-right: 4px; }
+  .shopkeeper-report-actions { grid-template-columns: 1fr; }
+  .shopkeeper-report-filters > div { width: 100%; }
+  .shopkeeper-report-filters input { width: 100%; }
+  .shopkeeper-report-filters > button { flex: 1; justify-content: center; }
+}
