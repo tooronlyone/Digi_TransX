@@ -136,7 +136,7 @@ def user_can_access_agreement(db, agreement, user):
 
 
 def active_gps_truck_where():
-    return "status = 'active' AND tracking_id IS NOT NULL AND trim(tracking_id) <> ''"
+    return "status = 'active'"
 
 
 def create_agreement_thread(db, post, transporter_user_id, bid_id=None):
@@ -339,7 +339,7 @@ def create_bid(post_id):
         ).fetchall()
         trucks = {row["id"]: dict(row) for row in rows}
         if len(trucks) != len(set(truck_ids)):
-            return json_response({"success": False, "message": "All selected trucks must be your active GPS-enabled trucks."}, 400)
+            return json_response({"success": False, "message": "All selected trucks must be your active trucks."}, 400)
         for item in parsed:
             truck = trucks[item["truck_id"]]
             if (truck.get("catalog_type_key") or "").strip() not in required_types:

@@ -75,6 +75,7 @@ export default function MyTruck() {
                 type="button"
                 className={`mytrucks-filter-pill${truckFilter === filter.value ? ' is-active' : ''}`}
                 onClick={() => setTruckFilter(filter.value)}
+                aria-pressed={truckFilter === filter.value}
               >
                 {filter.label}
               </button>
@@ -107,7 +108,9 @@ export default function MyTruck() {
               >
                 <div className="mytrucks-card-top">
                   <div>
-                    <strong>{truck.truck_number || truck.registration_number || emptyValue}</strong>
+                    <strong title={truck.truck_number || truck.registration_number || ''}>
+                      {truck.truck_number || truck.registration_number || emptyValue}
+                    </strong>
                     <p>{truck.truck_type || emptyValue} &middot; Driver: {truck.driver_name || emptyValue}</p>
                   </div>
                   {statusBadge(truck.status)}
@@ -122,15 +125,32 @@ export default function MyTruck() {
 
                 <div className="mytrucks-card-meta">
                   {/* TODO before deployment: implement real GPS location via tracking API */}
-                  <span><i className="fas fa-route"></i>{truck.current_city || truck.location || '—'}</span>
+                  <span title={truck.current_city || truck.location || ''}>
+                    <i className="fas fa-route" aria-hidden="true"></i>
+                    <span>{truck.current_city || truck.location || '—'}</span>
+                  </span>
                   <div>
-                    <Link to={`/transporter/trucks/edit/${truck.id}`} className="mytrucks-ghost-btn">Edit</Link>
+                    <Link
+                      to={`/transporter/trucks/edit/${truck.id}`}
+                      className="mytrucks-ghost-btn"
+                      aria-label={`Edit ${truck.truck_number || 'truck'}`}
+                    >
+                      Edit
+                    </Link>
                     {truck.status === 'active' || truck.status === 'available' || truck.status === 'on_job' ? (
-                      <Link to={`/transporter/trucks/${truck.id}/track`} className="mytrucks-action-small">
+                      <Link
+                        to={`/transporter/trucks/${truck.id}/track`}
+                        className="mytrucks-action-small"
+                        aria-label={`Track ${truck.truck_number || 'truck'}`}
+                      >
                         Track
                       </Link>
                     ) : (
-                      <Link to={`/transporter/trucks/config/${truck.id}`} className="mytrucks-action-small mytrucks-activate-btn">
+                      <Link
+                        to={`/transporter/trucks/config/${truck.id}`}
+                        className="mytrucks-action-small mytrucks-activate-btn"
+                        aria-label={`Activate ${truck.truck_number || 'truck'}`}
+                      >
                         Activate
                       </Link>
                     )}

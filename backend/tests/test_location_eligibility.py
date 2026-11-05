@@ -592,3 +592,167 @@ def test_checkout_rejects_truck_moved_outside_radius(client):
     assert db.execute("SELECT count(*) AS c FROM payments WHERE shipment_id = %s", (order_id,)).fetchone()["c"] == 0
     # And the order is still open (bid not accepted).
     assert db.execute("SELECT status FROM shipments WHERE id = %s", (order_id,)).fetchone()["status"] == "open"
+
+
+# ---------------------------------------------------------------------------
+# Hybrid Truck Model: Safety-Locked Uses, Presets & Legacy Self-Healing
+# ---------------------------------------------------------------------------
+
+def test_hybrid_fuel_tanker_cannot_match_edible_oil_order():
+    """Fuel tanker and Edible Oil tanker share fuel_oil_tanker catalog key,
+    but safety-locked allowed_commodities blocks cross-contamination."""
+    import json as _json
+    oil_required = required_truck_types("edible_oil")
+    fuel_required = required_truck_types("fuel")
+
+    fuel_truck = _truck(
+        *GUJRANWALA,
+        catalog_type_key="fuel_oil_tanker",
+        truck_type="Tanker",
+        body_style="Tanker",
+        capacity_tons=25,
+        payload_max_tons=25,
+        volume_max_cbm=25,
+        catalog_specs_json=_json.dumps({
+            "hybrid_version": 2,
+            "body_type": "Tanker",
+            "tanker_use": "fuel",
+            "allowed_commodities": ["fuel"],
+            "tank_capacity_liters": 25000,
+        }),
+    )
+
+    edible_oil_order = _order(
+        GUJRANWALA,
+        required=oil_required,
+        weight=10,
+        goods_commodity="edible_oil",
+        volume_liters=12000,
+    )
+    fuel_order = _order(
+        GUJRANWALA,
+        required=fuel_required,
+        weight=10,
+        goods_commodity="fuel",
+        volume_liters=12000,
+    )
+
+    assert truck_order_eligibility_mismatch(fuel_truck, fuel_required, fuel_order) is None
+    reason = truck_order_eligibility_mismatch(fuel_truck, oil_required, edible_oil_order)
+    assert reason is not None and "cannot carry these goods" in reason.lower()
+
+
+def test_hybrid_chilled_only_reefer_cannot_match_deep_frozen_order():
+    """A Chilled-only (0C to 8C) reefer matches fruits/pharma but is blocked
+    from -18C Frozen Food orders."""
+    import json as _json
+    frozen_req = required_truck_types("frozen_food")
+    fruits_req = required_truck_types("fruits_vegetables")
+
+    chilled_truck = _truck(
+        *GUJRANWALA,
+        catalog_type_key="refrigerated_rigid_truck",
+        truck_type="Refrigerated",
+        body_style="Refrigerated",
+        capacity_tons=8,
+        payload_max_tons=8,
+        volume_max_cbm=40,
+        catalog_specs_json=_json.dumps({
+            "hybrid_version": 2,
+            "body_type": "Refrigerated",
+            "size_class": "refrigerated_rigid_truck",
+            "temperature_range": "Chilled (0C to 8C)",
+            "allowed_commodities": ["fruits_vegetables", "pharmaceuticals"],
+        }),
+    )
+
+    fruits_order = _order(
+        GUJRANWALA,
+        required=fruits_req,
+        weight=5,
+        goods_commodity="fruits_vegetables",
+        temperature_c=4,
+    )
+    frozen_order = _order(
+        GUJRANWALA,
+        required=frozen_req,
+        weight=5,
+        goods_commodity="frozen_food",
+        temperature_c=-18,
+    )
+
+    assert truck_order_eligibility_mismatch(chilled_truck, fruits_req, fruits_order) is None
+    reason = truck_order_eligibility_mismatch(chilled_truck, frozen_req, frozen_order)
+    assert reason is not None and "cannot carry these goods" in reason.lower()
+
+
+def test_legacy_ui_registered_tanker_self_heals_and_matches_milk_order():
+    """A legacy truck registered with catalog_type_key=None, truck_type='Tanker',
+    and catalog_specs_json={'body_type': 'Tanker', 'detail_type': 'Milk'}
+    automatically resolves to milk_tanker and matches a milk order."""
+    import json as _json
+    legacy_milk_truck = {
+        "id": 999,
+        "owner_user_id": 201,
+        "status": "active",
+        "catalog_type_key": None,
+        "truck_type": "Tanker",
+        "body_style": "Tanker",
+        "capacity_tons": 15,
+        "payload_max_tons": 15,
+        "volume_max_cbm": None,
+        "bed_length_ft": None,
+        "bed_width_ft": None,
+        "bed_height_ft": None,
+        "catalog_specs_json": _json.dumps({
+            "body_type": "Tanker",
+            "detail_type": "Milk",
+        }),
+        "current_lat": GUJRANWALA[0],
+        "current_lng": GUJRANWALA[1],
+        "service_radius_km": 100,
+    }
+    milk_order = _order(
+        GUJRANWALA,
+        required=MILK_REQUIRED,
+        weight=12,
+        goods_commodity="milk",
+        volume_liters=12000,
+    )
+    assert truck_order_eligibility_mismatch(legacy_milk_truck, MILK_REQUIRED, milk_order) is None
+
+
+def test_operating_provinces_requires_both_pickup_and_dropoff_in_permitted_provinces():
+    """When operating_provinces is set on a truck, both the order's pickup
+    province and dropoff province must be in the truck's permitted provinces."""
+    punjab_only_truck = _truck(*GUJRANWALA, operating_provinces="Punjab")
+    punjab_sindh_truck = _truck(*GUJRANWALA, operating_provinces="Punjab,Sindh")
+
+    # Intra-Punjab order (Gujranwala -> Multan): permitted for Punjab-only truck
+    intra_punjab_order = _order(
+        GUJRANWALA,
+        dropoff=MULTAN,
+        required=REQUIRED,
+        pickup_city="Gujranwala, Punjab",
+        dropoff_city="Multan, Punjab",
+    )
+    assert truck_order_eligibility_mismatch(punjab_only_truck, REQUIRED, intra_punjab_order) is None
+
+    # Inter-province order (Gujranwala, Punjab -> Karachi, Sindh):
+    # Rejected for Punjab-only truck, accepted for Punjab+Sindh truck
+    punjab_to_sindh_order = _order(
+        GUJRANWALA,
+        dropoff=KARACHI,
+        required=REQUIRED,
+        pickup_city="Gujranwala, Punjab",
+        dropoff_city="Karachi, Sindh",
+    )
+    reason = truck_order_eligibility_mismatch(punjab_only_truck, REQUIRED, punjab_to_sindh_order)
+    assert reason is not None and "dropoff province (Sindh)" in reason
+    assert truck_order_eligibility_mismatch(punjab_sindh_truck, REQUIRED, punjab_to_sindh_order) is None
+
+    # Pickup province mismatch (e.g. truck near border or city-matched, but without pickup province permit)
+    sindh_only_truck = _truck(*GUJRANWALA, operating_provinces="Sindh")
+    pickup_reason = truck_order_eligibility_mismatch(sindh_only_truck, REQUIRED, punjab_to_sindh_order)
+    assert pickup_reason is not None and "pickup province (Punjab)" in pickup_reason
+

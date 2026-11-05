@@ -192,7 +192,6 @@ export default function TrackTruck() {
             },
             { label: 'Truck Number', value: truckNumber },
             { label: 'Truck Type', value: truckType },
-            { label: 'GPS Device', value: truck?.tracking_id || '—', muted: !truck?.tracking_id },
           ].map(({ label, value, content, muted }) => (
             <div key={label} style={{ background: '#fff', borderRadius: 14, padding: '16px 20px', boxShadow: '0 1px 3px rgba(0,0,0,0.07)' }}>
               <div style={{ fontSize: 11, fontWeight: 700, color: '#9CA3AF', textTransform: 'uppercase', letterSpacing: '0.06em', marginBottom: 8 }}>{label}</div>
@@ -206,7 +205,7 @@ export default function TrackTruck() {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16, flexWrap: 'wrap', gap: 10 }}>
             <div>
               <h2 style={{ margin: 0, fontSize: 16, fontWeight: 700, color: '#111827' }}>Live GPS Location</h2>
-              <p style={{ margin: '3px 0 0', fontSize: 13, color: '#6B7280' }}>Real-time position from GPS device. Auto-refreshes every 30 seconds.</p>
+              <p style={{ margin: '3px 0 0', fontSize: 13, color: '#6B7280' }}>Real-time position. Auto-refreshes every 30 seconds.</p>
             </div>
             <span style={{ display: 'inline-flex', alignItems: 'center', gap: 6, background: '#EEF2FF', color: '#4F46E5', padding: '5px 12px', borderRadius: 20, fontSize: 12, fontWeight: 600 }}>
               <i className="fas fa-circle" style={{ fontSize: 8 }}></i> LIVE

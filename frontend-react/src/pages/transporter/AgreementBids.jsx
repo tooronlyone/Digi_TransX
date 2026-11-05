@@ -70,7 +70,7 @@ export default function AgreementBids() {
 
   const selectedPost = useMemo(() => posts.find((post) => post.id === selectedPostId) || null, [posts, selectedPostId])
   const requiredTypes = useMemo(() => new Set((selectedPost?.trucks || []).map((truck) => truck.truck_type)), [selectedPost])
-  const eligibleTrucks = useMemo(() => trucks.filter((truck) => truck.status === 'active' && truck.tracking_id && requiredTypes.has(truck.catalog_type_key)), [trucks, requiredTypes])
+  const eligibleTrucks = useMemo(() => trucks.filter((truck) => truck.status === 'active' && requiredTypes.has(truck.catalog_type_key)), [trucks, requiredTypes])
 
   function typeName(typeKey) {
     return catalog.find((item) => item.type_key === typeKey)?.display_name || typeKey
@@ -126,7 +126,7 @@ export default function AgreementBids() {
       <div className="agreementbids-page-title">
         <div>
           <h1>Agreement Bids</h1>
-          <p>Open long-term posts matching your active GPS-enabled trucks.</p>
+          <p>Open long-term posts matching your active trucks.</p>
         </div>
       </div>
       {loading && <StateMessage type="loading">Loading agreement bids...</StateMessage>}
@@ -184,7 +184,7 @@ export default function AgreementBids() {
           <div className="agreementbids-form-header">
             <div>
               <h2>Bid for {selectedPost.title}</h2>
-              <p>Select GPS-enabled trucks and set monthly rates.</p>
+              <p>Select active trucks and set monthly rates.</p>
             </div>
             <SecondaryButton type="button" onClick={() => setSelectedPostId(null)}>Close</SecondaryButton>
           </div>
@@ -221,7 +221,7 @@ export default function AgreementBids() {
                 <i className={`fas ${submitting ? 'fa-spinner fa-spin' : 'fa-paper-plane'}`} aria-hidden="true"></i>
                 Submit bid
               </PrimaryButton>
-              {eligibleTrucks.length === 0 && <span className="agreementbids-warning">No eligible GPS-enabled truck for this post.</span>}
+              {eligibleTrucks.length === 0 && <span className="agreementbids-warning">No eligible active truck for this post.</span>}
             </div>
           </form>
         </div>

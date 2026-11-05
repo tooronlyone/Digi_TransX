@@ -100,8 +100,6 @@ def serialize_truck(row):
         "chassis_number": item.get("chassis_number") or "",
         "capacity_tons": item.get("capacity_tons"),
         "status": item.get("status") or "",
-        "tracking_id": item.get("tracking_id") or "",
-        "gps_enabled": bool((item.get("tracking_id") or "").strip()),
         "created_at": item.get("created_at") or "",
         "updated_at": item.get("updated_at") or "",
         "owner_name": item.get("owner_name") or "",

@@ -462,53 +462,6 @@ def test_chat_storage_provider_runs_without_database_context(client, monkeypatch
     assert active == 0
 
 
-def test_gps_provider_runs_without_db_and_final_write_revalidates_state(
-    client, monkeypatch, caplog
-):
-    db = client.db
-    client.login(_user(1, "logistics_provider"))
-    vehicle_id = db.execute(
-        "insert into vehicles(owner_user_id,truck_number,tracking_id) "
-        "values(1,'GPS-1','imei-1') returning id"
-    ).fetchone()["id"]
-    db.commit()
-    original = trucks_routes.open_db
-    active = 0
-
-    @contextmanager
-    def tracked_open_db():
-        nonlocal active
-        active += 1
-        try:
-            with original() as executor:
-                yield executor
-        finally:
-            active -= 1
-
-    def provider(imei, number):
-        assert active == 0
-        assert (imei, number) == ("imei-1", "GPS-1")
-        return "provider-device-1"
-
-    monkeypatch.setattr(trucks_routes, "open_db", tracked_open_db)
-    monkeypatch.setattr(trucks_routes, "register_device", provider)
-    assert not trucks_routes._register_and_link_gps_device(
-        vehicle_id, 1, "imei-1", "GPS-1"
-    )
-    assert active == 0
-    assert db.execute(
-        "select traccar_device_id from vehicles where id=%s", (vehicle_id,)
-    ).fetchone()["traccar_device_id"] == "provider-device-1"
-
-    db.execute("update vehicles set tracking_id='changed-concurrently' where id=%s", (vehicle_id,))
-    db.commit()
-    assert trucks_routes._register_and_link_gps_device(
-        vehicle_id, 1, "imei-1", "GPS-1"
-    )
-    assert "provider-device-1" not in caplog.text
-    assert "imei-1" not in caplog.text
-
-
 def test_latest_position_provider_exception_is_sanitized(client, monkeypatch, caplog):
     db = client.db
     client.login(_user(1, "logistics_provider"))

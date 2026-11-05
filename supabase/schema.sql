@@ -316,7 +316,6 @@ create table public.vehicles (
     catalog_specs_json jsonb,
     driver_name     text,
     driver_cnic     text,
-    tracking_id     text,
     traccar_device_id text,
     status          text not null default 'inactive',   -- active|inactive|on_job|maintenance|blocked
     status_reason_code text,

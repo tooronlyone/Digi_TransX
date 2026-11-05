@@ -175,12 +175,161 @@ def get_catalog_fields(type_key):
     return fields
 
 
+def _parse_specs_dict(raw):
+    if not raw:
+        return {}
+    if isinstance(raw, dict):
+        return dict(raw)
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return dict(parsed) if isinstance(parsed, dict) else {}
+        except (ValueError, TypeError):
+            return {}
+    return {}
+
+
+def infer_hybrid_truck_defaults(
+    *,
+    body_style=None,
+    truck_type=None,
+    catalog_type_key=None,
+    payload_max_tons=None,
+    volume_max_cbm=None,
+    bed_length_ft=None,
+    bed_width_ft=None,
+    bed_height_ft=None,
+    catalog_specs_raw=None,
+):
+    """Derive canonical catalog_type_key, volume_max_cbm, and bed dimensions
+    from the Hybrid Truck Model or legacy body/detail fields when not explicitly
+    supplied, so every registered truck is immediately matchable by both
+    One-Time Orders and Long-Term Agreements."""
+    specs = _parse_specs_dict(catalog_specs_raw)
+    body = (body_style or specs.get("body_type") or truck_type or "").strip()
+    detail = str(specs.get("detail_type") or "").strip().lower()
+    tanker_use = str(specs.get("tanker_use") or "").strip().lower()
+    size_class = str(specs.get("size_class") or "").strip()
+
+    valid_keys = {item["type_key"] for item in TRUCK_TYPES}
+    resolved_key = (catalog_type_key or specs.get("catalog_type_key") or "").strip()
+    if resolved_key not in valid_keys:
+        if size_class in valid_keys:
+            resolved_key = size_class
+        elif truck_type and truck_type.strip() in valid_keys:
+            resolved_key = truck_type.strip()
+        else:
+            resolved_key = ""
+
+    tons = float(payload_max_tons) if payload_max_tons is not None and payload_max_tons > 0 else 0.0
+    tank_liters = specs.get("tank_capacity_liters")
+    try:
+        tank_liters = float(tank_liters) if tank_liters not in (None, "") else None
+    except (TypeError, ValueError):
+        tank_liters = None
+
+    if not resolved_key:
+        body_low = body.lower()
+        if "tanker" in body_low:
+            if tanker_use == "milk_water" or "milk" in detail or "water" in detail:
+                resolved_key = "milk_tanker"
+            elif tanker_use in ("fuel", "edible_oil") or "fuel" in detail or "oil" in detail or "bitumen" in detail:
+                resolved_key = "fuel_oil_tanker"
+            elif tanker_use == "cement" or "cement" in detail or "powder" in detail:
+                resolved_key = "bulk_cement_tanker_powder_bulker"
+            elif tanker_use in ("chemicals_liquid", "lpg_cng") or "chem" in detail or "lpg" in detail:
+                resolved_key = "chemical_tanker"
+            else:
+                resolved_key = "milk_tanker"
+        elif "livestock" in body_low:
+            resolved_key = "livestock_carrier"
+        elif "dumper" in body_low or "tipper" in body_low:
+            resolved_key = "dump_truck_tipper"
+        elif "refrigerated" in body_low or "reefer" in body_low:
+            resolved_key = "reefer_trailer_reefer_container_carrier" if tons >= 13 else "refrigerated_rigid_truck"
+        elif "trailer" in body_low:
+            if "container" in detail or "skeletal" in detail:
+                resolved_key = "container_carrier_skeletal_trailer"
+            elif "low" in detail:
+                resolved_key = "low_bed_low_loader_trailer"
+            else:
+                resolved_key = "flatbed_trailer_open_semi_trailer"
+        elif "box" in body_low:
+            if 0 < tons <= 3.5:
+                resolved_key = "light_truck_2_3_5_ton"
+            elif 0 < tons <= 5:
+                resolved_key = "light_truck_3_5_5_ton"
+            elif 0 < tons <= 9:
+                resolved_key = "medium_rigid_truck_5_9_ton"
+            else:
+                resolved_key = "insulated_or_dry_box_truck"
+        elif "open" in body_low or body_low in ("truck", "cargo truck", ""):
+            if 0 < tons <= 1.2:
+                resolved_key = "mini_pickup"
+            elif 0 < tons <= 3.5:
+                resolved_key = "light_truck_2_3_5_ton"
+            elif 0 < tons <= 5.5:
+                resolved_key = "light_truck_3_5_5_ton"
+            elif 0 < tons <= 9.5:
+                resolved_key = "medium_rigid_truck_5_9_ton"
+            elif 0 < tons <= 15.5:
+                resolved_key = "heavy_rigid_truck_9_15_ton"
+            else:
+                resolved_key = "heavy_rigid_truck_15_25_ton"
+
+    catalog_entry = get_catalog_type(resolved_key) or {}
+
+    resolved_vol_max = volume_max_cbm
+    if resolved_vol_max is None or resolved_vol_max <= 0:
+        if tank_liters and tank_liters > 0:
+            resolved_vol_max = round(tank_liters / 1000.0, 3)
+        elif resolved_key in ("milk_tanker", "fuel_oil_tanker", "chemical_tanker") and tons > 0:
+            resolved_vol_max = max(float(catalog_entry.get("volume_max_cbm") or 0), round(tons, 3))
+        else:
+            cat_vol = float(catalog_entry.get("volume_max_cbm") or 0)
+            resolved_vol_max = max(cat_vol, round(tons * 2.5, 1)) if tons > 0 else (cat_vol or 30.0)
+
+    default_lengths = {
+        "mini_pickup": (8.0, 5.5, 5.0),
+        "light_truck_2_3_5_ton": (10.0, 6.5, 6.5),
+        "light_truck_3_5_5_ton": (16.0, 7.0, 7.0),
+        "medium_rigid_truck_5_9_ton": (19.0, 7.5, 8.0),
+        "heavy_rigid_truck_9_15_ton": (22.0, 8.0, 8.5),
+        "heavy_rigid_truck_15_25_ton": (26.0, 8.0, 9.0),
+        "insulated_or_dry_box_truck": (24.0, 8.0, 8.5),
+        "refrigerated_rigid_truck": (20.0, 8.0, 8.0),
+        "reefer_trailer_reefer_container_carrier": (40.0, 8.5, 9.0),
+        "flatbed_trailer_open_semi_trailer": (40.0, 8.5, 10.0),
+        "container_carrier_skeletal_trailer": (40.0, 8.5, 10.0),
+        "low_bed_low_loader_trailer": (45.0, 10.0, 12.0),
+        "dump_truck_tipper": (20.0, 8.0, 6.0),
+        "livestock_carrier": (22.0, 8.0, 8.0),
+        "milk_tanker": (24.0, 8.0, 8.0),
+        "fuel_oil_tanker": (26.0, 8.0, 8.0),
+        "chemical_tanker": (26.0, 8.0, 8.0),
+        "bulk_cement_tanker_powder_bulker": (28.0, 8.0, 9.0),
+    }
+    def_l, def_w, def_h = default_lengths.get(resolved_key, (20.0, 8.0, 8.0))
+    resolved_l = bed_length_ft if bed_length_ft is not None and bed_length_ft > 0 else def_l
+    resolved_w = bed_width_ft if bed_width_ft is not None and bed_width_ft > 0 else def_w
+    resolved_h = bed_height_ft if bed_height_ft is not None and bed_height_ft > 0 else def_h
+
+    return {
+        "catalog_type_key": resolved_key or None,
+        "volume_max_cbm": resolved_vol_max,
+        "bed_length_ft": resolved_l,
+        "bed_width_ft": resolved_w,
+        "bed_height_ft": resolved_h,
+    }
+
+
 def build_truck_payload(row):
     catalog_specs = row["catalog_specs_json"]
-    try:
-        catalog_specs = json.loads(catalog_specs) if catalog_specs else None
-    except json.JSONDecodeError:
-        catalog_specs = None
+    if isinstance(catalog_specs, str):
+        try:
+            catalog_specs = json.loads(catalog_specs) if catalog_specs else None
+        except json.JSONDecodeError:
+            catalog_specs = None
 
     return {
         "id": row["id"],
@@ -207,9 +356,8 @@ def build_truck_payload(row):
         "current_lat": row.get("current_lat") if isinstance(row, dict) else row["current_lat"],
         "current_lng": row.get("current_lng") if isinstance(row, dict) else row["current_lng"],
         "service_radius_km": row.get("service_radius_km") if isinstance(row, dict) else row["service_radius_km"],
-        "driver_name": row["driver_name"],
-        "driver_cnic": row["driver_cnic"],
-        "tracking_id": row["tracking_id"],
+        "driver_name": row.get("driver_name") if isinstance(row, dict) else row["driver_name"],
+        "driver_cnic": row.get("driver_cnic") if isinstance(row, dict) else row["driver_cnic"],
         "operating_provinces": row["operating_provinces"],
         "refrigeration_supported": bool(row["refrigeration_supported"]),
         "hazardous_supported": bool(row["hazardous_supported"]),
@@ -241,7 +389,7 @@ def build_configuration_payload(row):
         "truck_model": truck["truck_model"] or "",
         "truck_type": truck["truck_type"] or "",
         "catalog_type_key": truck["catalog_type_key"] or "",
-        "max_capacity": truck["max_capacity"] or "",
+        "max_capacity": truck["max_capacity"] if truck["max_capacity"] is not None else "",
         "chassis_number": truck["chassis_number"] or "",
         "operating_provinces": operating_provinces,
         "current_city": truck["current_city"] or "",
@@ -249,15 +397,14 @@ def build_configuration_payload(row):
         "current_lng": truck["current_lng"] if truck["current_lng"] is not None else "",
         "service_radius_km": truck["service_radius_km"] if truck["service_radius_km"] is not None else "",
         "body_style": truck["body_style"] or "",
-        "payload_min_tons": truck["payload_min_tons"] or "",
-        "payload_max_tons": truck["payload_max_tons"] or "",
-        "volume_min_cbm": truck["volume_min_cbm"] or "",
-        "volume_max_cbm": truck["volume_max_cbm"] or "",
-        "bed_length_ft": truck["bed_length_ft"] or "",
-        "bed_width_ft": truck["bed_width_ft"] or "",
-        "bed_height_ft": truck["bed_height_ft"] or "",
+        "payload_min_tons": truck["payload_min_tons"] if truck["payload_min_tons"] is not None else "",
+        "payload_max_tons": truck["payload_max_tons"] if truck["payload_max_tons"] is not None else "",
+        "volume_min_cbm": truck["volume_min_cbm"] if truck["volume_min_cbm"] is not None else "",
+        "volume_max_cbm": truck["volume_max_cbm"] if truck["volume_max_cbm"] is not None else "",
+        "bed_length_ft": truck["bed_length_ft"] if truck["bed_length_ft"] is not None else "",
+        "bed_width_ft": truck["bed_width_ft"] if truck["bed_width_ft"] is not None else "",
+        "bed_height_ft": truck["bed_height_ft"] if truck["bed_height_ft"] is not None else "",
         "catalog_specs_json": truck["catalog_specs_json"] or "",
-        "tracking_id": truck["tracking_id"] or "",
         "driver_name": truck["driver_name"] or "",
         "driver_cnic": truck["driver_cnic"] or "",
         "refrigeration_supported": bool(truck["refrigeration_supported"]),

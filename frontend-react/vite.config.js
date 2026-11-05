@@ -4,7 +4,9 @@ import process from 'node:process'
 import { controlledStaticAssets } from './build/staticAssets.mjs'
 
 export default defineConfig(() => {
-  const useMockApi = process.env.VITE_USE_MOCK_API !== 'false'
+  // Real Flask APIs are the default for local development and fresh clones.
+  // Mock mode must be enabled explicitly with VITE_USE_MOCK_API=true.
+  const useMockApi = process.env.VITE_USE_MOCK_API === 'true'
 
   return {
     publicDir: false,

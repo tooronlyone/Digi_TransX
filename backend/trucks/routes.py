@@ -8,7 +8,6 @@ from auth.helpers import json_response, login_required, csrf_error, timestamp_bu
 from shared.roles import TRANSPORTER_ROLES
 from shared.db import IntegrityError, open_db
 from shared.reserves import review_reserve_requirement
-from tracking.traccar import register_device
 from .helpers import (
     STATUS_OPTIONS,
     STATUS_REASON_LABELS,
@@ -20,6 +19,7 @@ from .helpers import (
     get_catalog_fields,
     get_catalog_type,
     get_status_reason_label,
+    infer_hybrid_truck_defaults,
     make_upload_relative_path,
     normalize_truck_model,
     parse_bool_flag,
@@ -30,6 +30,7 @@ from .helpers import (
 
 
 trucks_blueprint = Blueprint("trucks", __name__)
+MAX_TRUCK_CAPACITY_TONS = 100.0
 CHASSIS_NUMBER_REGEX = re.compile(r"^[A-HJ-NPR-Z0-9]{11,17}$")
 CHASSIS_NUMBER_MESSAGE = (
     "Chassis number must be 11-17 characters, letters and numbers only, and cannot "
@@ -74,52 +75,6 @@ def normalize_catalog_specs_json(value, fallback=None):
     except json.JSONDecodeError as exc:
         raise ValueError from exc
     return cleaned
-
-
-def _register_and_link_gps_device(truck_id, owner_user_id, imei, truck_number):
-    """Perform provider I/O first, then revalidate the exact truck on write.
-
-    ``True`` means the persisted tracking identifier remains explicit pending
-    reconciliation because provider registration or the final bounded write
-    could not be completed.
-    """
-
-    if not imei:
-        return False
-    try:
-        provider_device_id = register_device(imei, truck_number)
-    except Exception:
-        logging.getLogger(__name__).error("Truck GPS device registration failed.")
-        return True
-    if provider_device_id is None:
-        logging.getLogger(__name__).error("Truck GPS device registration failed.")
-        return True
-    try:
-        with open_db() as db:
-            linked = db.execute(
-                """
-                UPDATE vehicles
-                   SET traccar_device_id = %s
-                 WHERE id = %s AND owner_user_id = %s
-                   AND tracking_id = %s AND truck_number = %s
-                RETURNING id
-                """,
-                (
-                    str(provider_device_id),
-                    truck_id,
-                    owner_user_id,
-                    imei,
-                    truck_number,
-                ),
-            ).fetchone()
-            if not linked:
-                raise RuntimeError("Truck state changed before GPS linkage.")
-    except Exception:
-        logging.getLogger(__name__).error(
-            "Truck GPS linkage requires reconciliation."
-        )
-        return True
-    return False
 
 
 @trucks_blueprint.get("/api/catalog/truck-types")
@@ -221,15 +176,27 @@ def create_truck():
         capacity = float(capacity_raw)
         payload_min_tons = parse_optional_float(form.get("payload_min_tons"))
         payload_max_tons = parse_optional_float(form.get("payload_max_tons"))
+        volume_min_cbm = parse_optional_float(form.get("volume_min_cbm"))
+        volume_max_cbm = parse_optional_float(form.get("volume_max_cbm"))
     except (TypeError, ValueError):
         return json_response({"success": False, "message": "Weight capacity must be a valid ton value."}, 400)
 
+    if payload_min_tons is None and payload_max_tons is not None:
+        payload_min_tons = 0.0
     if capacity < 0:
         return json_response({"success": False, "message": "Weight capacity cannot be negative."}, 400)
     if payload_min_tons is None or payload_max_tons is None:
         return json_response({"success": False, "message": "Weight capacity min and max are required in tons."}, 400)
     if payload_min_tons < 0 or payload_max_tons <= 0:
         return json_response({"success": False, "message": "Weight capacity must be greater than 0 tons."}, 400)
+    if payload_max_tons > MAX_TRUCK_CAPACITY_TONS:
+        return json_response(
+            {
+                "success": False,
+                "message": "Weight capacity cannot exceed 100 tons. If entering liters, please switch the capacity unit to Liters.",
+            },
+            400,
+        )
     if payload_min_tons > payload_max_tons:
         return json_response({"success": False, "message": "Weight capacity min cannot be greater than max."}, 400)
     capacity = payload_max_tons
@@ -254,13 +221,31 @@ def create_truck():
         if dim is not None and dim < 0:
             return json_response({"success": False, "message": "Cargo bed dimensions cannot be negative."}, 400)
 
+    hybrid_defaults = infer_hybrid_truck_defaults(
+        body_style=body_style,
+        truck_type=truck_type,
+        catalog_type_key=catalog_type_key,
+        payload_max_tons=payload_max_tons,
+        volume_max_cbm=volume_max_cbm,
+        bed_length_ft=bed_length_ft,
+        bed_width_ft=bed_width_ft,
+        bed_height_ft=bed_height_ft,
+        catalog_specs_raw=catalog_specs_raw,
+    )
+    catalog_type_key = hybrid_defaults["catalog_type_key"]
+    volume_max_cbm = hybrid_defaults["volume_max_cbm"]
+    if volume_min_cbm is None:
+        volume_min_cbm = 0.0
+    bed_length_ft = hybrid_defaults["bed_length_ft"]
+    bed_width_ft = hybrid_defaults["bed_width_ft"]
+    bed_height_ft = hybrid_defaults["bed_height_ft"]
+
     # Current operating location (where this truck sits, for pickup proximity).
     location, location_error = parse_truck_location(form)
     if location_error:
         return json_response({"success": False, "message": location_error}, 400)
 
     stamp = timestamp_bundle()
-    imei = parse_optional_text(form.get("trackingId"))
     with open_db() as db:
         existing_truck_number = db.execute(
             "SELECT id FROM vehicles WHERE lower(trim(truck_number)) = lower(trim(%s)) LIMIT 1",
@@ -282,11 +267,12 @@ def create_truck():
                 INSERT INTO vehicles (
                     owner_user_id, truck_number, truck_company, truck_model, truck_type, catalog_type_key,
                     chassis_number, capacity_tons, main_use, payload_min_tons, payload_max_tons,
+                    volume_min_cbm, volume_max_cbm,
                     bed_length_ft, bed_width_ft, bed_height_ft,
-                    body_style, catalog_specs_json, driver_name, driver_cnic, tracking_id,
+                    body_style, catalog_specs_json, driver_name, driver_cnic,
                     current_city, current_lat, current_lng, service_radius_km,
                     status, created_at, updated_at
-                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
+                ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s,
                           %s, %s, %s, %s, 'inactive', %s, %s)
                 RETURNING id
                 """,
@@ -302,6 +288,8 @@ def create_truck():
                     main_use,
                     payload_min_tons,
                     payload_max_tons,
+                    volume_min_cbm,
+                    volume_max_cbm,
                     bed_length_ft,
                     bed_width_ft,
                     bed_height_ft,
@@ -309,7 +297,6 @@ def create_truck():
                     catalog_specs_raw,
                     None,
                     None,
-                    parse_optional_text(form.get("trackingId")),
                     location["current_city"],
                     location["current_lat"],
                     location["current_lng"],
@@ -338,20 +325,10 @@ def create_truck():
                 return json_response({"success": False, "message": "This chassis number is already registered in the system."}, 409)
             raise
 
-    gps_link_pending = _register_and_link_gps_device(
-        truck_id,
-        request.current_user["id"],
-        imei.strip() if imei else "",
-        truck_number,
-    )
-
     return json_response({
         "success": True,
-        "message": (
-            "Truck registered. Invite a driver to a trip; assignment requires the driver's acceptance. "
-            + ("GPS linkage is pending." if gps_link_pending else "")
-        ),
-        "gps_link_pending": gps_link_pending,
+        "message": "Truck registered successfully.",
+        "gps_link_pending": False,
         "driver_assignment_status": "unassigned",
     })
 
@@ -532,18 +509,51 @@ def update_truck_configuration(truck_id):
         max_capacity = float(max_capacity_raw)
         payload_min_tons = parse_optional_float(form.get("payload_min_tons"))
         payload_max_tons = parse_optional_float(form.get("payload_max_tons"))
+        volume_min_cbm = parse_optional_float(form.get("volume_min_cbm"))
+        volume_max_cbm = parse_optional_float(form.get("volume_max_cbm"))
     except (TypeError, ValueError):
         return json_response({"success": False, "message": "Weight capacity must be a valid ton value."}, 400)
 
+    if payload_max_tons is None and max_capacity > 0:
+        payload_max_tons = max_capacity
+    if payload_min_tons is None and payload_max_tons is not None:
+        payload_min_tons = 0.0
     if payload_min_tons is None or payload_max_tons is None:
         return json_response({"success": False, "message": "Weight capacity min and max are required in tons."}, 400)
     if payload_min_tons < 0 or payload_max_tons <= 0:
         return json_response({"success": False, "message": "Weight capacity must be greater than 0 tons."}, 400)
+    if payload_max_tons > MAX_TRUCK_CAPACITY_TONS:
+        return json_response(
+            {
+                "success": False,
+                "message": "Weight capacity cannot exceed 100 tons. If entering liters, please switch the capacity unit to Liters.",
+            },
+            400,
+        )
     if payload_min_tons > payload_max_tons:
         return json_response({"success": False, "message": "Weight capacity min cannot be greater than max."}, 400)
     max_capacity = payload_max_tons
     if not is_valid_chassis_number(chassis_number):
         return json_response({"success": False, "message": CHASSIS_NUMBER_MESSAGE}, 400)
+
+    hybrid_defaults = infer_hybrid_truck_defaults(
+        body_style=body_style,
+        truck_type=truck_type,
+        catalog_type_key=catalog_type_key or truck.get("catalog_type_key"),
+        payload_max_tons=payload_max_tons,
+        volume_max_cbm=volume_max_cbm if volume_max_cbm is not None else truck.get("volume_max_cbm"),
+        bed_length_ft=bed_length_ft if bed_length_ft is not None else truck.get("bed_length_ft"),
+        bed_width_ft=bed_width_ft if bed_width_ft is not None else truck.get("bed_width_ft"),
+        bed_height_ft=bed_height_ft if bed_height_ft is not None else truck.get("bed_height_ft"),
+        catalog_specs_raw=catalog_specs_raw,
+    )
+    catalog_type_key = hybrid_defaults["catalog_type_key"]
+    volume_max_cbm = hybrid_defaults["volume_max_cbm"]
+    if volume_min_cbm is None:
+        volume_min_cbm = 0.0
+    bed_length_ft = hybrid_defaults["bed_length_ft"]
+    bed_width_ft = hybrid_defaults["bed_width_ft"]
+    bed_height_ft = hybrid_defaults["bed_height_ft"]
 
     operating_provinces = ",".join([item.strip() for item in operating_provinces_raw.split(",") if item.strip()])
     if not operating_provinces:
@@ -587,7 +597,7 @@ def update_truck_configuration(truck_id):
             SET truck_number = %s, truck_company = %s, truck_model = %s, truck_type = %s, catalog_type_key = %s, chassis_number = %s,
                 capacity_tons = %s, operating_provinces = %s, body_style = %s, payload_min_tons = %s, payload_max_tons = %s,
                 bed_length_ft = %s, bed_width_ft = %s, bed_height_ft = %s,
-                volume_min_cbm = %s, volume_max_cbm = %s, catalog_specs_json = %s, tracking_id = %s,
+                volume_min_cbm = %s, volume_max_cbm = %s, catalog_specs_json = %s,
                 refrigeration_supported = %s, hazardous_supported = %s, fragile_supported = %s,
                 current_city = %s, current_lat = %s, current_lng = %s, service_radius_km = %s,
                 truck_photo_path = %s, insurance_photo_path = %s, rc_book_photo_path = %s,
@@ -609,10 +619,9 @@ def update_truck_configuration(truck_id):
                 bed_length_ft,
                 bed_width_ft,
                 bed_height_ft,
-                parse_optional_float(form.get("volume_min_cbm")),
-                parse_optional_float(form.get("volume_max_cbm")),
+                volume_min_cbm,
+                volume_max_cbm,
                 catalog_specs_raw,
-                parse_optional_text(form.get("tracking_id")),
                 parse_bool_flag(form.get("refrigeration_supported")),
                 parse_bool_flag(form.get("hazardous_supported")),
                 parse_bool_flag(form.get("fragile_supported")),
@@ -645,13 +654,6 @@ def update_truck_configuration(truck_id):
         review_reserve_requirement(db, request.current_user["id"])
         db.commit()
 
-    imei = parse_optional_text(form.get("tracking_id"))
-    gps_link_pending = _register_and_link_gps_device(
-        truck_id,
-        request.current_user["id"],
-        imei.strip() if imei else "",
-        truck_number,
-    )
     with open_db() as db:
         updated = db.execute(
             "SELECT * FROM vehicles WHERE id = %s AND owner_user_id = %s",
@@ -661,7 +663,7 @@ def update_truck_configuration(truck_id):
     return json_response({
         "success": True,
         "truck": build_configuration_payload(dict(updated)),
-        "gps_link_pending": gps_link_pending,
+        "gps_link_pending": False,
     })
 
 
@@ -692,6 +694,7 @@ def update_truck_status(truck_id):
         truck.get("capacity_tons"),
         truck.get("chassis_number"),
         truck.get("operating_provinces"),
+        truck.get("current_city"),
     ]
     if status == "active":
         if any(value in (None, "", []) for value in required_for_active):

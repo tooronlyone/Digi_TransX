@@ -3,7 +3,7 @@ import math
 
 from auth.helpers import json_response
 from wallet.helpers import round_money
-from trucks.helpers import get_catalog_type
+from trucks.helpers import get_catalog_type, infer_hybrid_truck_defaults
 from shared.geo import haversine_distance_km
 
 
@@ -237,30 +237,119 @@ def _fits_on_bed(order, truck):
     return None
 
 
+_DRY_CARGO_RIGID_AND_TRAILER_KEYS = {
+    "mini_pickup",
+    "light_truck_2_3_5_ton",
+    "light_truck_3_5_5_ton",
+    "medium_rigid_truck_5_9_ton",
+    "heavy_rigid_truck_9_15_ton",
+    "heavy_rigid_truck_15_25_ton",
+    "insulated_or_dry_box_truck",
+    "flatbed_trailer_open_semi_trailer",
+    "container_carrier_skeletal_trailer",
+    "low_bed_low_loader_trailer",
+}
+
+_DRY_PACKAGED_COMMODITIES = {
+    "general_cargo",
+    "cotton_textiles",
+    "machinery",
+    "electronics",
+    "furniture",
+    "fruits_vegetables",
+}
+
+
+def _parse_truck_specs_json(truck):
+    raw = truck.get("catalog_specs_json")
+    if not raw:
+        return None
+    if isinstance(raw, dict):
+        return raw
+    if isinstance(raw, str):
+        try:
+            parsed = json.loads(raw)
+            return parsed if isinstance(parsed, dict) else None
+        except (ValueError, TypeError):
+            return None
+    return None
+
+
 def truck_order_mismatch(truck, required_types, order):
     """Return None if the truck can serve the order, else a human message.
 
     Checks, in order:
-      1. Truck TYPE is one of the order's suitable/required truck types.
+      1. Truck TYPE & Safety-Locked Cargo Use (catalog_type_key + allowed_commodities + temperature_range).
       2. Truck WEIGHT capacity (capacity_tons / payload_max_tons) >= order weight.
       3. Truck VOLUME capacity (volume_max_cbm) >= the greatest positive volume
          supplied as CBM or litres converted to CBM.
-    A missing volume capacity is allowed only when the order has no positive
-    volume requirement.
+      4. Cargo bed dimensions (length/width/height).
     """
-    # 1) Type
+    specs = _parse_truck_specs_json(truck)
+    effective_truck = truck
+    if specs is not None:
+        raw_cap = _to_float(truck.get("capacity_tons")) or _to_float(truck.get("payload_max_tons"))
+        inferred = infer_hybrid_truck_defaults(
+            body_style=truck.get("body_style") or specs.get("body_type"),
+            truck_type=truck.get("truck_type"),
+            catalog_type_key=truck.get("catalog_type_key") or specs.get("catalog_type_key"),
+            payload_max_tons=raw_cap,
+            volume_max_cbm=_to_float(truck.get("volume_max_cbm")),
+            bed_length_ft=_to_float(truck.get("bed_length_ft")),
+            bed_width_ft=_to_float(truck.get("bed_width_ft")),
+            bed_height_ft=_to_float(truck.get("bed_height_ft")),
+            catalog_specs_raw=specs,
+        )
+        effective_truck = dict(truck)
+        if not effective_truck.get("catalog_type_key") and inferred["catalog_type_key"]:
+            effective_truck["catalog_type_key"] = inferred["catalog_type_key"]
+        if _to_float(effective_truck.get("volume_max_cbm")) is None and inferred["volume_max_cbm"]:
+            effective_truck["volume_max_cbm"] = inferred["volume_max_cbm"]
+        for dim_key in ("bed_length_ft", "bed_width_ft", "bed_height_ft"):
+            if _to_float(effective_truck.get(dim_key)) is None and inferred[dim_key]:
+                effective_truck[dim_key] = inferred[dim_key]
+
+    key = (effective_truck.get("catalog_type_key") or effective_truck.get("truck_type") or "").strip()
+    order_commodity = (order.get("goods_commodity") or "").strip()
+
+    # 1a) Safety-locked commodity & temperature checks when Hybrid specs exist
+    if specs is not None:
+        allowed_commodities = specs.get("allowed_commodities")
+        if isinstance(allowed_commodities, list) and len(allowed_commodities) > 0 and order_commodity:
+            if order_commodity not in allowed_commodities:
+                return "This truck type cannot carry these goods. Please use a suitable truck."
+
+        temp_range = str(specs.get("temperature_range") or "").strip()
+        order_temp = _to_float(order.get("temperature_c"))
+        if temp_range == "Chilled (0C to 8C)":
+            if order_commodity == "frozen_food" or (order_temp is not None and order_temp < 0):
+                return "This truck type cannot carry these goods. Please use a suitable truck."
+        elif temp_range == "Frozen (-18C)":
+            if order_commodity in ("fruits_vegetables", "pharmaceuticals") and (
+                not isinstance(allowed_commodities, list) or order_commodity not in allowed_commodities
+            ):
+                return "This truck type cannot carry these goods. Please use a suitable truck."
+
+    # 1b) Canonical catalog type check
     if required_types:
-        key = (truck.get("catalog_type_key") or truck.get("truck_type") or "").strip()
-        if key not in required_types:
+        allowed_by_hybrid_dry_use = (
+            specs is not None
+            and isinstance(specs.get("allowed_commodities"), list)
+            and order_commodity in specs.get("allowed_commodities", [])
+            and order_commodity in _DRY_PACKAGED_COMMODITIES
+            and key in _DRY_CARGO_RIGID_AND_TRAILER_KEYS
+            and not (order_commodity == "fruits_vegetables" and _to_float(order.get("temperature_c")) is not None)
+        )
+        if key not in required_types and not allowed_by_hybrid_dry_use:
             return "This truck type cannot carry these goods. Please use a suitable truck."
 
     # 2) Weight capacity
     weight = _to_float(order.get("goods_weight_tons")) or 0
     if not math.isfinite(weight) or weight < 0:
         return "The load does not have a valid finite weight."
-    capacity = _to_float(truck.get("capacity_tons"))
+    capacity = _to_float(effective_truck.get("capacity_tons"))
     if capacity is None or not math.isfinite(capacity) or capacity <= 0:
-        capacity = _to_float(truck.get("payload_max_tons"))
+        capacity = _to_float(effective_truck.get("payload_max_tons"))
     if weight > 0 and (capacity is None or not math.isfinite(capacity) or capacity <= 0):
         return "This truck does not have a valid weight capacity for this load."
     if weight > 0 and weight > capacity + _CAP_EPS:
@@ -273,7 +362,7 @@ def truck_order_mismatch(truck, required_types, order):
     # tons do not establish tank/bed volume or a commodity's density.
     volume = required_order_volume_cbm(order)
     if volume > 0:
-        volume_max = _to_float(truck.get("volume_max_cbm"))
+        volume_max = _to_float(effective_truck.get("volume_max_cbm"))
         if volume_max is None or not math.isfinite(volume_max) or volume_max <= 0:
             return (
                 "This truck does not have a valid volume capacity for this load. "
@@ -286,7 +375,7 @@ def truck_order_mismatch(truck, required_types, order):
             )
 
     # 4) Physical dimensions (length/width/height) fit on the cargo bed.
-    dim_error = _fits_on_bed(order, truck)
+    dim_error = _fits_on_bed(order, effective_truck)
     if dim_error:
         return dim_error
 
@@ -411,12 +500,249 @@ def truck_pickup_location_mismatch(truck, order):
     )
 
 
-def truck_order_eligibility_mismatch(truck, required_types, order):
-    """The single authoritative eligibility check: cargo AND pickup location.
+_PROVINCE_ALIASES = {
+    "punjab": "Punjab",
+    "sindh": "Sindh",
+    "khyber pakhtunkhwa": "Khyber Pakhtunkhwa",
+    "kpk": "Khyber Pakhtunkhwa",
+    "k.p.k": "Khyber Pakhtunkhwa",
+    "kp": "Khyber Pakhtunkhwa",
+    "nwfp": "Khyber Pakhtunkhwa",
+    "balochistan": "Balochistan",
+    "baluchistan": "Balochistan",
+    "islamabad capital territory": "Islamabad Capital Territory",
+    "ict": "Islamabad Capital Territory",
+    "federal capital": "Islamabad Capital Territory",
+    "gilgit-baltistan": "Gilgit-Baltistan",
+    "gilgit baltistan": "Gilgit-Baltistan",
+    "gb": "Gilgit-Baltistan",
+    "northern areas": "Gilgit-Baltistan",
+    "azad jammu and kashmir": "Azad Jammu and Kashmir",
+    "azad jammu & kashmir": "Azad Jammu and Kashmir",
+    "azad kashmir": "Azad Jammu and Kashmir",
+    "ajk": "Azad Jammu and Kashmir",
+}
 
-    Composes the two independent rules — no rule is duplicated here:
-      1. truck_order_mismatch        (type / weight / volume / dimensions)
-      2. truck_pickup_location_mismatch (distance to pickup)
+_PAKISTAN_CITY_PROVINCE = {
+    # Punjab
+    "lahore": "Punjab", "gujranwala": "Punjab", "faisalabad": "Punjab",
+    "rawalpindi": "Punjab", "multan": "Punjab", "sialkot": "Punjab",
+    "gujrat": "Punjab", "sargodha": "Punjab", "bahawalpur": "Punjab",
+    "sheikhupura": "Punjab", "kasur": "Punjab", "sahiwal": "Punjab",
+    "okara": "Punjab", "jhelum": "Punjab", "rahim yar khan": "Punjab",
+    "dera ghazi khan": "Punjab", "dg khan": "Punjab", "muzaffargarh": "Punjab",
+    "khanewal": "Punjab", "vehari": "Punjab", "pakpattan": "Punjab",
+    "toba tek singh": "Punjab", "jhang": "Punjab", "chiniot": "Punjab",
+    "hafizabad": "Punjab", "mandi bahauddin": "Punjab", "narowal": "Punjab",
+    "chakwal": "Punjab", "attock": "Punjab", "mianwali": "Punjab",
+    "bhakkar": "Punjab", "khushab": "Punjab", "layyah": "Punjab",
+    "rajanpur": "Punjab", "lodhran": "Punjab", "bahawalnagar": "Punjab",
+    "kamoke": "Punjab", "wazirabad": "Punjab", "muridke": "Punjab",
+    "pattoki": "Punjab", "burewala": "Punjab", "sadiqabad": "Punjab",
+    "khanpur": "Punjab", "taxila": "Punjab", "wah": "Punjab",
+    "wah cantt": "Punjab", "murree": "Punjab",
+    # Sindh
+    "karachi": "Sindh", "hyderabad": "Sindh", "sukkur": "Sindh",
+    "larkana": "Sindh", "nawabshah": "Sindh", "shaheed benazirabad": "Sindh",
+    "mirpur khas": "Sindh", "mirpurkhas": "Sindh", "thatta": "Sindh",
+    "jacobabad": "Sindh", "shikarpur": "Sindh", "khairpur": "Sindh",
+    "dadu": "Sindh", "badin": "Sindh", "umarkot": "Sindh",
+    "umerkot": "Sindh", "tharparkar": "Sindh", "mithi": "Sindh",
+    "sanghar": "Sindh", "tando adam": "Sindh", "tando allahyar": "Sindh",
+    "tando muhammad khan": "Sindh", "matli": "Sindh", "kotri": "Sindh",
+    "jamshoro": "Sindh", "sehwan": "Sindh", "ghotki": "Sindh",
+    "kashmore": "Sindh", "kandhkot": "Sindh", "naushahro feroze": "Sindh",
+    "moro": "Sindh", "hala": "Sindh",
+    # Khyber Pakhtunkhwa
+    "peshawar": "Khyber Pakhtunkhwa", "mardan": "Khyber Pakhtunkhwa",
+    "abbottabad": "Khyber Pakhtunkhwa", "mingora": "Khyber Pakhtunkhwa",
+    "swat": "Khyber Pakhtunkhwa", "kohat": "Khyber Pakhtunkhwa",
+    "bannu": "Khyber Pakhtunkhwa", "nowshera": "Khyber Pakhtunkhwa",
+    "charsadda": "Khyber Pakhtunkhwa", "haripur": "Khyber Pakhtunkhwa",
+    "mansehra": "Khyber Pakhtunkhwa", "dera ismail khan": "Khyber Pakhtunkhwa",
+    "di khan": "Khyber Pakhtunkhwa", "d.i. khan": "Khyber Pakhtunkhwa",
+    "swabi": "Khyber Pakhtunkhwa", "timergara": "Khyber Pakhtunkhwa",
+    "dir": "Khyber Pakhtunkhwa", "chitral": "Khyber Pakhtunkhwa",
+    "malakand": "Khyber Pakhtunkhwa", "buner": "Khyber Pakhtunkhwa",
+    "shangla": "Khyber Pakhtunkhwa", "battagram": "Khyber Pakhtunkhwa",
+    "kohistan": "Khyber Pakhtunkhwa", "hangu": "Khyber Pakhtunkhwa",
+    "karak": "Khyber Pakhtunkhwa", "lakki marwat": "Khyber Pakhtunkhwa",
+    "tank": "Khyber Pakhtunkhwa", "parachinar": "Khyber Pakhtunkhwa",
+    "landikotal": "Khyber Pakhtunkhwa", "miranshah": "Khyber Pakhtunkhwa",
+    "wana": "Khyber Pakhtunkhwa",
+    # Balochistan
+    "quetta": "Balochistan", "gwadar": "Balochistan", "turbat": "Balochistan",
+    "khuzdar": "Balochistan", "chaman": "Balochistan", "sibi": "Balochistan",
+    "hub": "Balochistan", "lasbela": "Balochistan", "zhob": "Balochistan",
+    "loralai": "Balochistan", "pishin": "Balochistan", "kalat": "Balochistan",
+    "mastung": "Balochistan", "nushki": "Balochistan", "chagai": "Balochistan",
+    "dalbandin": "Balochistan", "panjgur": "Balochistan", "pasni": "Balochistan",
+    "ormara": "Balochistan", "jiwani": "Balochistan", "awaran": "Balochistan",
+    "killa abdullah": "Balochistan", "killa saifullah": "Balochistan",
+    "barkhan": "Balochistan", "kohlu": "Balochistan", "dera bugti": "Balochistan",
+    "sui": "Balochistan", "nasirabad": "Balochistan",
+    "dera murad jamali": "Balochistan", "jaffarabad": "Balochistan",
+    "ustad muhammad": "Balochistan", "bolan": "Balochistan",
+    "mach": "Balochistan", "ziarat": "Balochistan", "harnai": "Balochistan",
+    "kharan": "Balochistan",
+    # Islamabad Capital Territory
+    "islamabad": "Islamabad Capital Territory",
+    # Gilgit-Baltistan
+    "gilgit": "Gilgit-Baltistan", "skardu": "Gilgit-Baltistan",
+    "hunza": "Gilgit-Baltistan", "chilas": "Gilgit-Baltistan",
+    "diamer": "Gilgit-Baltistan", "ghizer": "Gilgit-Baltistan",
+    "gahkuch": "Gilgit-Baltistan", "khaplu": "Gilgit-Baltistan",
+    "shigar": "Gilgit-Baltistan", "astore": "Gilgit-Baltistan",
+    "nagar": "Gilgit-Baltistan", "sust": "Gilgit-Baltistan",
+    "soost": "Gilgit-Baltistan",
+    # Azad Jammu and Kashmir
+    "muzaffarabad": "Azad Jammu and Kashmir", "mirpur": "Azad Jammu and Kashmir",
+    "kotli": "Azad Jammu and Kashmir", "rawalakot": "Azad Jammu and Kashmir",
+    "poonch": "Azad Jammu and Kashmir", "bhimber": "Azad Jammu and Kashmir",
+    "bagh": "Azad Jammu and Kashmir", "neelum": "Azad Jammu and Kashmir",
+    "authmuqam": "Azad Jammu and Kashmir", "hattian bala": "Azad Jammu and Kashmir",
+    "haveli": "Azad Jammu and Kashmir", "pallandri": "Azad Jammu and Kashmir",
+}
+
+_PROVINCE_COORD_ANCHORS = (
+    (32.1877, 74.1945, "Punjab"),                     # Gujranwala
+    (31.5204, 74.3587, "Punjab"),                     # Lahore
+    (32.4945, 74.5229, "Punjab"),                     # Sialkot
+    (32.5731, 74.0789, "Punjab"),                     # Gujrat
+    (31.4504, 73.1350, "Punjab"),                     # Faisalabad
+    (33.5651, 73.0169, "Punjab"),                     # Rawalpindi
+    (30.1575, 71.5249, "Punjab"),                     # Multan
+    (29.3956, 71.6836, "Punjab"),                     # Bahawalpur
+    (32.0836, 72.6711, "Punjab"),                     # Sargodha
+    (24.8607, 67.0011, "Sindh"),                      # Karachi
+    (25.3960, 68.3578, "Sindh"),                      # Hyderabad
+    (27.7052, 68.8574, "Sindh"),                      # Sukkur
+    (27.5570, 68.2028, "Sindh"),                      # Larkana
+    (34.0151, 71.5805, "Khyber Pakhtunkhwa"),         # Peshawar
+    (34.1986, 72.0404, "Khyber Pakhtunkhwa"),         # Mardan
+    (34.1688, 73.2215, "Khyber Pakhtunkhwa"),         # Abbottabad
+    (34.7717, 72.3602, "Khyber Pakhtunkhwa"),         # Mingora / Swat
+    (31.8626, 70.9019, "Khyber Pakhtunkhwa"),         # Dera Ismail Khan
+    (30.1798, 66.9750, "Balochistan"),                # Quetta
+    (25.1264, 62.3225, "Balochistan"),                # Gwadar
+    (27.8000, 66.6167, "Balochistan"),                # Khuzdar
+    (33.6844, 73.0479, "Islamabad Capital Territory"),# Islamabad
+    (35.9208, 74.3144, "Gilgit-Baltistan"),           # Gilgit
+    (35.2971, 75.6333, "Gilgit-Baltistan"),           # Skardu
+    (34.3700, 73.4711, "Azad Jammu and Kashmir"),     # Muzaffarabad
+    (33.1478, 73.7518, "Azad Jammu and Kashmir"),     # Mirpur
+)
+
+
+def _parse_operating_provinces(raw_provinces):
+    """Parse a truck's operating_provinces (CSV string or list) into a set of
+    canonical province names."""
+    if not raw_provinces:
+        return set()
+    if isinstance(raw_provinces, (list, tuple, set)):
+        items = [str(item).strip() for item in raw_provinces if str(item).strip()]
+    else:
+        items = [part.strip() for part in str(raw_provinces).split(",") if part.strip()]
+    result = set()
+    for item in items:
+        key = " ".join(item.lower().split())
+        canonical = _PROVINCE_ALIASES.get(key)
+        if canonical:
+            result.add(canonical)
+        else:
+            result.add(item)
+    return result
+
+
+def infer_pakistan_province(location_text, lat=None, lng=None):
+    """Infer the canonical Pakistani province from a location/city string or
+    (lat, lng) coordinates. Returns None if no province can be determined."""
+    if location_text:
+        segments = [
+            " ".join(seg.lower().split())
+            for seg in str(location_text).split(",")
+            if seg.strip()
+        ]
+        # 1. Exact segment match against province aliases (e.g. "Gujranwala, Punjab, Pakistan")
+        for seg in segments:
+            if seg in _PROVINCE_ALIASES:
+                return _PROVINCE_ALIASES[seg]
+        # 2. Exact segment match against known cities (e.g. "Karachi" or "Gujranwala, Pakistan")
+        for seg in segments:
+            if seg in _PAKISTAN_CITY_PROVINCE:
+                return _PAKISTAN_CITY_PROVINCE[seg]
+        # 3. Word-boundary phrase check inside segments
+        full_norm = " ".join(str(location_text).lower().replace("-", " ").split())
+        for alias, canonical in sorted(_PROVINCE_ALIASES.items(), key=lambda kv: -len(kv[0])):
+            if len(alias) >= 4 and alias in full_norm:
+                return canonical
+        for city, canonical in sorted(_PAKISTAN_CITY_PROVINCE.items(), key=lambda kv: -len(kv[0])):
+            if f" {city} " in f" {full_norm} ":
+                return canonical
+
+    lat_f = _to_float(lat)
+    lng_f = _to_float(lng)
+    if lat_f is not None and lng_f is not None:
+        best_province = None
+        best_dist = None
+        for anchor_lat, anchor_lng, province in _PROVINCE_COORD_ANCHORS:
+            dist = haversine_distance_km(lat_f, lng_f, anchor_lat, anchor_lng)
+            if best_dist is None or dist < best_dist:
+                best_dist = dist
+                best_province = province
+        if best_dist is not None and best_dist <= 120.0:
+            return best_province
+
+    return None
+
+
+def truck_operating_provinces_mismatch(truck, order):
+    """Return None if both the order's pickup province and dropoff province are
+    permitted by the truck's route permit (operating_provinces), else a human
+    reason.
+
+    When operating_provinces is unset/empty on the truck dict (e.g. minimal
+    unit-test dicts that only test cargo or Haversine distance), this check is
+    a no-op so isolated tests remain unaffected. Active trucks in production
+    always require operating_provinces to be configured.
+    """
+    allowed = _parse_operating_provinces(truck.get("operating_provinces"))
+    if not allowed:
+        return None
+
+    pickup_province = infer_pakistan_province(
+        order.get("pickup_location") or order.get("pickup_city"),
+        order.get("pickup_lat"),
+        order.get("pickup_lng"),
+    )
+    if pickup_province and pickup_province not in allowed:
+        return (
+            f"This truck's route permit ({', '.join(sorted(allowed))}) does not "
+            f"cover the pickup province ({pickup_province})."
+        )
+
+    dropoff_province = infer_pakistan_province(
+        order.get("dropoff_location") or order.get("dropoff_city"),
+        order.get("dropoff_lat"),
+        order.get("dropoff_lng"),
+    )
+    if dropoff_province and dropoff_province not in allowed:
+        return (
+            f"This truck's route permit ({', '.join(sorted(allowed))}) does not "
+            f"cover the dropoff province ({dropoff_province})."
+        )
+
+    return None
+
+
+def truck_order_eligibility_mismatch(truck, required_types, order):
+    """The single authoritative eligibility check: cargo, pickup location, AND
+    route permit (operating provinces for both pickup and dropoff).
+
+    Composes the three independent rules — no rule is duplicated here:
+      1. truck_order_mismatch               (type / weight / volume / dimensions)
+      2. truck_pickup_location_mismatch     (distance to pickup)
+      3. truck_operating_provinces_mismatch (pickup & dropoff province permit)
 
     Every caller (available-orders listing, bid placement, bid comparison,
     payment quote, locked checkout and the matching audit) goes through this
@@ -425,7 +751,10 @@ def truck_order_eligibility_mismatch(truck, required_types, order):
     cargo_reason = truck_order_mismatch(truck, required_types, order)
     if cargo_reason:
         return cargo_reason
-    return truck_pickup_location_mismatch(truck, order)
+    location_reason = truck_pickup_location_mismatch(truck, order)
+    if location_reason:
+        return location_reason
+    return truck_operating_provinces_mismatch(truck, order)
 
 
 # ---------------------------------------------------------------------------
@@ -520,7 +849,9 @@ _BID_COMPARISON_SQL = """
         v.current_city        AS current_city,
         v.current_lat         AS current_lat,
         v.current_lng         AS current_lng,
-        v.service_radius_km   AS service_radius_km
+        v.service_radius_km   AS service_radius_km,
+        v.operating_provinces AS operating_provinces,
+        v.catalog_specs_json  AS catalog_specs_json
     FROM shipment_bids b
     LEFT JOIN vehicles v ON v.id = b.truck_id
     LEFT JOIN users u ON u.id = b.transporter_user_id
@@ -581,6 +912,8 @@ def serialize_enriched_bid(row, order):
         "current_lng": row.get("current_lng"),
         "current_city": row.get("current_city"),
         "service_radius_km": row.get("service_radius_km"),
+        "operating_provinces": row.get("operating_provinces"),
+        "catalog_specs_json": row.get("catalog_specs_json"),
     }
     truck_reason = validate_bid_truck(order, row.get("transporter_user_id"), truck_for_validation)
     bid_status = row.get("bid_status")

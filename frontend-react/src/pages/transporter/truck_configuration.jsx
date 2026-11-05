@@ -4,28 +4,76 @@ import { Link, useParams } from 'react-router-dom'
 import { useApi } from '../../hooks/useApi'
 import LocationPicker from '../../components/common/LocationPicker'
 import Notification from '../../components/common/Notification'
+import {
+  HYBRID_BODY_TYPES,
+  SIZE_CLASS_PRESETS,
+  TANKER_USE_OPTIONS,
+  REEFER_TEMPERATURE_OPTIONS,
+  CARGO_USE_OPTIONS_BY_BODY,
+  LIVESTOCK_ANIMAL_OPTIONS,
+  MIN_CAPACITY_TONS,
+  MAX_CAPACITY_TONS,
+  MIN_CAPACITY_LITERS,
+  MAX_CAPACITY_LITERS,
+  computeHybridTruckPayload,
+  extractHybridStateFromTruck,
+} from '../../lib/hybridTruckModel'
 import '../../styles/pages/truck-configuration.css'
 
 const MAX_RADIUS_KM = 150
 
 const EMPTY_FORM = {
-  truck_number: '', truck_company: '', truck_model: '', truck_type: '', max_capacity: '', chassis_number: '',
+  truck_number: '',
+  truck_company: '',
+  truck_model: '',
+  truck_type: '',
+  max_capacity: '',
+  chassis_number: '',
   operating_provinces: [],
-  catalog_type_key: '', body_style: '', payload_min_tons: '', payload_max_tons: '',
-  volume_min_cbm: '', volume_max_cbm: '', catalog_specs_json: '',
-  bed_length_ft: '', bed_width_ft: '', bed_height_ft: '',
-  current_city: '', current_lat: '', current_lng: '', service_radius_km: 100,
-  tracking_id: '', driver_name: '', driver_cnic: '',
-  refrigeration_supported: true, hazardous_supported: true, fragile_supported: true,
-  photo: '', insurance_photo: '', rc_book_photo: '',
-  status: 'inactive', status_reason_code: '', status_reason: '',
+  catalog_type_key: '',
+  body_style: '',
+  payload_min_tons: '0',
+  payload_max_tons: '',
+  volume_min_cbm: '0',
+  volume_max_cbm: '',
+  catalog_specs_json: '',
+  bed_length_ft: '',
+  bed_width_ft: '',
+  bed_height_ft: '',
+  current_city: '',
+  current_lat: '',
+  current_lng: '',
+  service_radius_km: 100,
+  refrigeration_supported: false,
+  hazardous_supported: false,
+  fragile_supported: true,
+  photo: '',
+  insurance_photo: '',
+  rc_book_photo: '',
+  status: 'inactive',
+  status_reason_code: '',
+  status_reason: '',
 }
 
-const REQUIRED = ['truck_number', 'truck_company', 'truck_model', 'body_style', 'payload_min_tons', 'payload_max_tons', 'chassis_number', 'operating_provinces']
+const REQUIRED = [
+  'truck_number',
+  'truck_company',
+  'truck_model',
+  'body_style',
+  'payload_max_tons',
+  'chassis_number',
+  'operating_provinces',
+  'current_city',
+]
 
 const PROVINCES = [
-  'Punjab', 'Sindh', 'Khyber Pakhtunkhwa', 'Balochistan',
-  'Islamabad Capital Territory', 'Gilgit-Baltistan', 'Azad Jammu and Kashmir',
+  'Punjab',
+  'Sindh',
+  'Khyber Pakhtunkhwa',
+  'Balochistan',
+  'Islamabad Capital Territory',
+  'Gilgit-Baltistan',
+  'Azad Jammu and Kashmir',
 ]
 
 const STATUS_OPTIONS = [
@@ -35,8 +83,6 @@ const STATUS_OPTIONS = [
   { value: 'maintenance', label: 'Maintenance' },
   { value: 'blocked', label: 'Blocked' },
 ]
-
-const BODY_STYLE_OPTIONS = ['Open Body', 'Box Body', 'Trailer', 'Tanker', 'Refrigerated', 'Dumper', 'Livestock', 'Car Carrier', 'Other']
 
 const STATUS_REASONS = [
   { value: 'assigned_job', label: 'On job / assigned to job' },
@@ -51,36 +97,21 @@ const STATUS_REASONS = [
   { value: 'blocked_by_admin', label: 'Blocked by admin' },
 ]
 
-const FALLBACK_TRUCK_TYPES = [
-  { type_key: 'mini_pickup', display_name: 'Mini pickup', common_uses: ['Last-mile retail supply', 'Cartons'], payload_min_tons: 0.5, payload_max_tons: 0.7, volume_min_cbm: 2, volume_max_cbm: 3, typical_body_style: 'Low-side deck', class_segment: 'Small urban cargo' },
-  { type_key: 'light_truck_2_3_5_ton', display_name: 'Light truck 2-3.5 ton', common_uses: ['Branch replenishment', 'Consumer goods'], payload_min_tons: 2, payload_max_tons: 3.5, volume_min_cbm: 10, volume_max_cbm: 18, typical_body_style: 'Open bed / dry box', class_segment: 'Light rigid truck' },
-  { type_key: 'light_truck_3_5_5_ton', display_name: 'Light truck 3.5-5 ton', common_uses: ['Retail distribution', 'Packaging'], payload_min_tons: 3.5, payload_max_tons: 5, volume_min_cbm: 15, volume_max_cbm: 24, typical_body_style: 'Open bed / dry box', class_segment: 'Light rigid truck' },
-  { type_key: 'medium_rigid_truck_5_9_ton', display_name: 'Medium rigid truck 5-9 ton', common_uses: ['General cargo', 'Textile'], payload_min_tons: 5, payload_max_tons: 9, volume_min_cbm: 20, volume_max_cbm: 36, typical_body_style: 'Rigid cargo body', class_segment: 'Medium rigid truck' },
-  { type_key: 'heavy_rigid_truck_9_15_ton', display_name: 'Heavy rigid truck 9-15 ton', common_uses: ['Long-route cargo', 'Industrial goods'], payload_min_tons: 9, payload_max_tons: 15, volume_min_cbm: 30, volume_max_cbm: 55, typical_body_style: 'Rigid cargo body', class_segment: 'Heavy rigid truck' },
-  { type_key: 'heavy_rigid_truck_15_25_ton', display_name: 'Heavy rigid truck 15-25 ton', common_uses: ['Heavy cargo', 'Bulk industrial loads'], payload_min_tons: 15, payload_max_tons: 25, volume_min_cbm: 40, volume_max_cbm: 70, typical_body_style: 'Rigid cargo body', class_segment: 'Heavy rigid truck' },
-  { type_key: 'flatbed_trailer_open_semi_trailer', display_name: 'Flatbed trailer / open semi-trailer', common_uses: ['Steel', 'Machinery'], payload_min_tons: 20, payload_max_tons: 45, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Open flatbed', class_segment: 'Trailer-based heavy transport' },
-  { type_key: 'container_carrier_skeletal_trailer', display_name: 'Container carrier / skeletal trailer', common_uses: ['Container transport'], payload_min_tons: 20, payload_max_tons: 30, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Skeletal semi-trailer', class_segment: 'Trailer-based heavy transport' },
-  { type_key: 'low_bed_low_loader_trailer', display_name: 'Low-bed / low-loader trailer', common_uses: ['Heavy machinery', 'Oversized loads'], payload_min_tons: 25, payload_max_tons: 60, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Low-bed trailer', class_segment: 'Trailer-based heavy transport' },
-  { type_key: 'fuel_oil_tanker', display_name: 'Fuel / oil tanker', common_uses: ['Petrol', 'Diesel', 'Furnace oil'], payload_min_tons: 8, payload_max_tons: 35, volume_min_cbm: 10, volume_max_cbm: 45, typical_body_style: 'Tanker', class_segment: 'Tanker vehicle' },
-  { type_key: 'milk_tanker', display_name: 'Milk tanker', common_uses: ['Raw milk', 'Dairy liquids'], payload_min_tons: 5, payload_max_tons: 28, volume_min_cbm: 6, volume_max_cbm: 30, typical_body_style: 'Food-grade tanker', class_segment: 'Tanker vehicle' },
-  { type_key: 'chemical_tanker', display_name: 'Chemical tanker', common_uses: ['Industrial chemicals'], payload_min_tons: 8, payload_max_tons: 32, volume_min_cbm: 10, volume_max_cbm: 40, typical_body_style: 'Chemical tanker', class_segment: 'Tanker vehicle' },
-  { type_key: 'refrigerated_rigid_truck', display_name: 'Refrigerated rigid truck', common_uses: ['Frozen food', 'Pharma', 'Fresh produce'], payload_min_tons: 1, payload_max_tons: 12, volume_min_cbm: 6, volume_max_cbm: 40, typical_body_style: 'Insulated reefer body', class_segment: 'Cold-chain vehicle' },
-  { type_key: 'reefer_trailer_reefer_container_carrier', display_name: 'Reefer trailer / reefer container carrier', common_uses: ['Frozen exports', 'Cold-chain bulk'], payload_min_tons: 12, payload_max_tons: 28, volume_min_cbm: 40, volume_max_cbm: 75, typical_body_style: 'Reefer trailer', class_segment: 'Cold-chain vehicle' },
-  { type_key: 'insulated_or_dry_box_truck', display_name: 'Insulated or dry box truck', common_uses: ['Sensitive packaged goods', 'Dry groceries'], payload_min_tons: 1, payload_max_tons: 12, volume_min_cbm: 8, volume_max_cbm: 45, typical_body_style: 'Closed box body', class_segment: 'Enclosed cargo' },
-  { type_key: 'dump_truck_tipper', display_name: 'Dump truck / tipper', common_uses: ['Sand', 'Gravel', 'Construction materials'], payload_min_tons: 5, payload_max_tons: 25, volume_min_cbm: 4, volume_max_cbm: 16, typical_body_style: 'Tipper body', class_segment: 'Construction and bulk haulage' },
-  { type_key: 'bulk_cement_tanker_powder_bulker', display_name: 'Bulk cement tanker / powder bulker', common_uses: ['Bulk cement', 'Fly ash'], payload_min_tons: 15, payload_max_tons: 35, volume_min_cbm: 18, volume_max_cbm: 45, typical_body_style: 'Pneumatic dry bulk tanker', class_segment: 'Construction and bulk haulage' },
-  { type_key: 'livestock_carrier', display_name: 'Livestock carrier', common_uses: ['Livestock', 'Poultry'], payload_min_tons: 0, payload_max_tons: 0, volume_min_cbm: 0, volume_max_cbm: 0, typical_body_style: 'Ventilated body', class_segment: 'Specialized cargo' },
-]
-
 export default function TruckConfiguration() {
   const { id } = useParams()
   const api = useApi()
   const [form, setForm] = useState(EMPTY_FORM)
-  const [truckTypes, setTruckTypes] = useState([])
-  const [_catalogFields, setCatalogFields] = useState([])
+  const [sizeClass, setSizeClass] = useState('')
+  const [tankerUse, setTankerUse] = useState('')
+  const [temperatureRange, setTemperatureRange] = useState('Both')
+  const [allowedCommodities, setAllowedCommodities] = useState([])
+  const [livestockTypes, setLivestockTypes] = useState([...LIVESTOCK_ANIMAL_OPTIONS])
+  const [capacityUnit, setCapacityUnit] = useState('tons')
+  const [tankLiters, setTankLiters] = useState('')
+  const [capacityWarning, setCapacityWarning] = useState('')
   const [truckPhoto, setTruckPhoto] = useState(null)
   const [insurancePhoto, setInsurancePhoto] = useState(null)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(() => Boolean(id))
   const [saving, setSaving] = useState(false)
   const [statusSaving, setStatusSaving] = useState(false)
   const [statusForm, setStatusForm] = useState({ status: 'inactive', reason_code: '' })
@@ -89,76 +120,82 @@ export default function TruckConfiguration() {
   function normalizeConfig(raw) {
     const cfg = raw || {}
     const catalogSpecs = cfg.catalog_specs_json
+    const hybrid = extractHybridStateFromTruck(cfg)
     return {
-      ...EMPTY_FORM,
-      ...cfg,
-      operating_provinces: Array.isArray(cfg.operating_provinces)
-        ? cfg.operating_provinces
-        : typeof cfg.operating_provinces === 'string'
-          ? cfg.operating_provinces.split(',').map(s => s.trim()).filter(Boolean)
-          : [],
-      catalog_specs_json: catalogSpecs && typeof catalogSpecs === 'object'
-        ? JSON.stringify(catalogSpecs)
-        : catalogSpecs || '',
-      photo: cfg.photo || cfg.truck_photo_path || '',
-      insurance_photo: cfg.insurance_photo || cfg.insurance_photo_path || '',
-      rc_book_photo: cfg.rc_book_photo || cfg.rc_book_photo_path || '',
+      nextForm: {
+        ...EMPTY_FORM,
+        ...cfg,
+        body_style: hybrid.bodyType || cfg.body_style || '',
+        payload_max_tons: hybrid.capacityTons || (cfg.payload_max_tons !== undefined && cfg.payload_max_tons !== null ? String(cfg.payload_max_tons) : ''),
+        max_capacity: hybrid.capacityTons || (cfg.max_capacity !== undefined && cfg.max_capacity !== null ? String(cfg.max_capacity) : ''),
+        operating_provinces: Array.isArray(cfg.operating_provinces)
+          ? cfg.operating_provinces
+          : typeof cfg.operating_provinces === 'string'
+            ? cfg.operating_provinces.split(',').map((s) => s.trim()).filter(Boolean)
+            : [],
+        catalog_specs_json:
+          catalogSpecs && typeof catalogSpecs === 'object'
+            ? JSON.stringify(catalogSpecs)
+            : catalogSpecs || '',
+        photo: cfg.photo || cfg.truck_photo_path || '',
+        insurance_photo: cfg.insurance_photo || cfg.insurance_photo_path || '',
+        rc_book_photo: cfg.rc_book_photo || cfg.rc_book_photo_path || '',
+      },
+      hybrid,
     }
   }
 
   function loadConfig() {
-    if (!id) { setLoading(false); return }
+    if (!id) {
+      setLoading(false)
+      return
+    }
     setLoading(true)
-    api.get(`/api/trucks/${id}/configuration`)
-      .then(d => {
+    api
+      .get(`/api/trucks/${id}/configuration`)
+      .then((d) => {
         const cfg = d.configuration || d.truck || d
         applySavedTruck(cfg)
       })
       .catch(() => {
-        api.get(`/api/trucks/${id}`)
-          .then(d => {
+        api
+          .get(`/api/trucks/${id}`)
+          .then((d) => {
             const t = d.truck || d
-            setForm(f => ({
-              ...f,
-              truck_number: t.truck_number || '',
-              truck_company: t.truck_company || '',
-              truck_model: t.truck_model || '',
-              truck_type: t.truck_type || '',
-          max_capacity: t.max_capacity || '',
-          chassis_number: t.chassis_number || '',
-        }))
-      })
+            applySavedTruck(t)
+          })
           .catch(() => undefined)
       })
       .finally(() => setLoading(false))
   }
 
-  function loadCatalog() {
-    api.get('/api/catalog/truck-types')
-      .then(data => {
-        const items = data.truck_types || data.items || []
-        setTruckTypes(items.length ? items : FALLBACK_TRUCK_TYPES)
-      })
-      .catch(() => setTruckTypes(FALLBACK_TRUCK_TYPES))
-  }
-
-  // eslint-disable-next-line react-hooks/set-state-in-effect
-  useEffect(() => { loadConfig() }, [id])
-  useEffect(() => { loadCatalog() }, [])
-
   useEffect(() => {
+    if (!id) return
     let active = true
-    if (!form.catalog_type_key) {
-      queueMicrotask(() => {
-        if (active) setCatalogFields([])
+    api
+      .get(`/api/trucks/${id}/configuration`)
+      .then((d) => {
+        if (!active) return
+        const cfg = d.configuration || d.truck || d
+        applySavedTruck(cfg)
       })
-      return () => { active = false }
+      .catch(() => {
+        api
+          .get(`/api/trucks/${id}`)
+          .then((d) => {
+            if (!active) return
+            const t = d.truck || d
+            applySavedTruck(t)
+          })
+          .catch(() => undefined)
+      })
+      .finally(() => {
+        if (active) setLoading(false)
+      })
+    return () => {
+      active = false
     }
-    api.get(`/api/catalog/truck-types/${encodeURIComponent(form.catalog_type_key)}/fields`)
-      .then(data => { if (active) setCatalogFields(data.fields || []) })
-      .catch(() => { if (active) setCatalogFields([]) })
-    return () => { active = false }
-  }, [form.catalog_type_key])
+  }, [id])
 
   useEffect(() => {
     document.title = 'Truck Configuration - Digi_TransX'
@@ -168,40 +205,194 @@ export default function TruckConfiguration() {
     setToast({ msg, type })
   }
 
-  function setField(e) {
-    const { name, value, type, checked } = e.target
-    if (type === 'checkbox') {
-      setForm(f => ({ ...f, [name]: checked }))
-    } else if (name === 'payload_max_tons') {
-      setForm(f => ({ ...f, payload_max_tons: value, max_capacity: value }))
-    } else if (name === 'body_style') {
-      setForm(f => ({ ...f, body_style: value, truck_type: value || f.truck_type }))
+  function applySavedTruck(truck) {
+    if (truck) {
+      const { nextForm, hybrid } = normalizeConfig(truck)
+      setForm(nextForm)
+      setSizeClass(hybrid.sizeClass)
+      setTankerUse(hybrid.tankerUse)
+      setTemperatureRange(hybrid.temperatureRange)
+      setAllowedCommodities(hybrid.allowedCommodities)
+      setLivestockTypes(hybrid.livestockTypes)
+      setTankLiters(hybrid.tankLiters)
+      setCapacityUnit(hybrid.capacityUnit || 'tons')
+      setCapacityWarning('')
+      setStatusForm({
+        status: nextForm.status || 'inactive',
+        reason_code: nextForm.status_reason_code || '',
+      })
+    }
+    setTruckPhoto(null)
+    setInsurancePhoto(null)
+  }
+
+  function syncCapacityFromTons(tonsVal) {
+    const num = Number(tonsVal)
+    const str = String(tonsVal)
+    setForm((f) => ({ ...f, payload_max_tons: str, max_capacity: str }))
+    if (Number.isFinite(num) && num > 0) {
+      setTankLiters(String(Math.round(num * 1000)))
     } else {
-      setForm(f => ({ ...f, [name]: value }))
+      setTankLiters('')
     }
   }
 
-  function _applyCatalogType(typeKey) {
-    const catalog = truckTypes.find(item => item.type_key === typeKey)
-    setForm(f => ({
+  function handleBodyTypeChange(nextBody) {
+    setCapacityWarning('')
+    setCapacityUnit('tons')
+    const presets = SIZE_CLASS_PRESETS[nextBody] || []
+    let defaultTons = form.payload_max_tons || '10'
+    if (presets.length > 0) {
+      const firstPreset = presets[0]
+      setSizeClass(firstPreset.key)
+      defaultTons = String(firstPreset.default_tons)
+    } else {
+      setSizeClass('')
+    }
+
+    if (nextBody === 'Tanker') {
+      const firstTanker = TANKER_USE_OPTIONS[0]
+      setTankerUse(firstTanker.key)
+      defaultTons = String(firstTanker.default_tons || 12)
+      setAllowedCommodities([...firstTanker.allowed_commodities])
+    } else if (nextBody === 'Refrigerated') {
+      setTemperatureRange('Both')
+      const bothOpt = REEFER_TEMPERATURE_OPTIONS.find((t) => t.value === 'Both')
+      setAllowedCommodities(
+        bothOpt ? [...bothOpt.allowed_commodities] : ['frozen_food', 'fruits_vegetables', 'pharmaceuticals'],
+      )
+    } else if (nextBody === 'Dumper') {
+      defaultTons = '18'
+      setAllowedCommodities((CARGO_USE_OPTIONS_BY_BODY.Dumper || []).map((o) => o.key))
+    } else if (nextBody === 'Livestock') {
+      defaultTons = '10'
+      setLivestockTypes([...LIVESTOCK_ANIMAL_OPTIONS])
+      setAllowedCommodities(['livestock'])
+    } else {
+      const cargoOpts = CARGO_USE_OPTIONS_BY_BODY[nextBody] || []
+      setAllowedCommodities(cargoOpts.map((o) => o.key))
+    }
+
+    setForm((f) => ({
       ...f,
-      catalog_type_key: typeKey,
-      truck_type: catalog?.display_name || f.truck_type,
-      max_capacity: catalog?.payload_max_tons ? String(catalog.payload_max_tons) : f.max_capacity,
-      body_style: catalog?.typical_body_style || f.body_style,
-      payload_min_tons: catalog?.payload_min_tons || f.payload_min_tons,
-      payload_max_tons: catalog?.payload_max_tons || f.payload_max_tons,
-      volume_min_cbm: catalog?.volume_min_cbm || f.volume_min_cbm,
-      volume_max_cbm: catalog?.volume_max_cbm || f.volume_max_cbm,
-      catalog_specs_json: catalog ? JSON.stringify({
-        class_segment: catalog.class_segment,
-        common_local_names: catalog.common_local_names,
-        companies_models: catalog.companies_models,
-        engine_fuel_notes: catalog.engine_fuel_notes,
-        routes_terrain_suitability: catalog.routes_terrain_suitability,
-        special_transport_features: catalog.special_transport_features,
-      }) : f.catalog_specs_json,
+      body_style: nextBody,
+      truck_type: nextBody || f.truck_type,
+      payload_max_tons: defaultTons,
+      max_capacity: defaultTons,
     }))
+    setTankLiters(String(Math.round(Number(defaultTons) * 1000)))
+  }
+
+  function handleSizeClassSelect(preset) {
+    setSizeClass(preset.key)
+    setCapacityWarning('')
+    syncCapacityFromTons(preset.default_tons)
+  }
+
+  function handleTankerUseSelect(option) {
+    setTankerUse(option.key)
+    setCapacityWarning('')
+    if (option.capacity_mode !== 'liters') {
+      setCapacityUnit('tons')
+    }
+    setAllowedCommodities([...option.allowed_commodities])
+    const defTons = option.default_tons || (option.default_liters || 15000) / 1000
+    syncCapacityFromTons(defTons)
+  }
+
+  function handleTemperatureSelect(opt) {
+    setTemperatureRange(opt.value)
+    setAllowedCommodities([...opt.allowed_commodities])
+  }
+
+  function toggleCommodity(key) {
+    setAllowedCommodities((prev) =>
+      prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key],
+    )
+  }
+
+  function toggleLivestock(animal) {
+    setLivestockTypes((prev) =>
+      prev.includes(animal) ? prev.filter((a) => a !== animal) : [...prev, animal],
+    )
+  }
+
+  const selectedTankerOpt = TANKER_USE_OPTIONS.find((o) => o.key === tankerUse)
+  const supportsLiters = form.body_style === 'Tanker' && selectedTankerOpt?.capacity_mode === 'liters'
+  const activeCapacityUnit = supportsLiters ? capacityUnit : 'tons'
+
+  function handleCapacityUnitChange(nextUnit) {
+    if (nextUnit === capacityUnit) return
+    setCapacityUnit(nextUnit)
+    setCapacityWarning('')
+    if (nextUnit === 'liters') {
+      const tonsNum = Number(form.payload_max_tons)
+      if (Number.isFinite(tonsNum) && tonsNum > 0) {
+        setTankLiters(String(Math.round(tonsNum * 1000)))
+      }
+    } else {
+      const litersNum = Number(tankLiters)
+      if (Number.isFinite(litersNum) && litersNum > 0) {
+        const tonsStr = String(Number((litersNum / 1000).toFixed(2)))
+        setForm((f) => ({ ...f, payload_max_tons: tonsStr, max_capacity: tonsStr }))
+      }
+    }
+  }
+
+  function handleCapacityTonsInput(e) {
+    const raw = e.target.value
+    if (raw === '') {
+      setForm((f) => ({ ...f, payload_max_tons: '', max_capacity: '' }))
+      setTankLiters('')
+      setCapacityWarning('')
+      return
+    }
+    const num = Number(raw)
+    if (Number.isFinite(num) && num > MAX_CAPACITY_TONS) {
+      const clamped = String(MAX_CAPACITY_TONS)
+      setForm((f) => ({ ...f, payload_max_tons: clamped, max_capacity: clamped }))
+      setTankLiters(String(MAX_CAPACITY_LITERS))
+      setCapacityWarning(
+        supportsLiters
+          ? `Maximum allowed weight is ${MAX_CAPACITY_TONS} Tons. If you want to enter Liters (e.g. 12,000 L), switch the unit to Liters.`
+          : `Maximum allowed weight is ${MAX_CAPACITY_TONS} Tons (please enter weight in Tons, not kg).`,
+      )
+      return
+    }
+    setCapacityWarning('')
+    setForm((f) => ({ ...f, payload_max_tons: raw, max_capacity: raw }))
+    if (Number.isFinite(num) && num > 0) {
+      setTankLiters(String(Math.round(num * 1000)))
+    }
+  }
+
+  function handleTankLitersInput(e) {
+    const raw = e.target.value
+    if (raw === '') {
+      setTankLiters('')
+      setForm((f) => ({ ...f, payload_max_tons: '', max_capacity: '' }))
+      setCapacityWarning('')
+      return
+    }
+    const num = Number(raw)
+    if (Number.isFinite(num) && num > MAX_CAPACITY_LITERS) {
+      setTankLiters(String(MAX_CAPACITY_LITERS))
+      const clampedTons = String(MAX_CAPACITY_TONS)
+      setForm((f) => ({ ...f, payload_max_tons: clampedTons, max_capacity: clampedTons }))
+      setCapacityWarning(`Maximum allowed capacity is ${MAX_CAPACITY_LITERS.toLocaleString()} Liters (${MAX_CAPACITY_TONS} Tons).`)
+      return
+    }
+    setCapacityWarning('')
+    setTankLiters(raw)
+    if (Number.isFinite(num) && num > 0) {
+      const tonsStr = String(Number((num / 1000).toFixed(2)))
+      setForm((f) => ({ ...f, payload_max_tons: tonsStr, max_capacity: tonsStr }))
+    }
+  }
+
+  function setField(e) {
+    const { name, value } = e.target
+    setForm((f) => ({ ...f, [name]: value }))
   }
 
   function fileName(path) {
@@ -209,24 +400,42 @@ export default function TruckConfiguration() {
     return text.split('/').filter(Boolean).pop() || text
   }
 
-  function applySavedTruck(truck) {
-    if (truck) {
-      const next = normalizeConfig(truck)
-      setForm(next)
-      setStatusForm({
-        status: next.status || 'inactive',
-        reason_code: next.status_reason_code || '',
-      })
+  function toggleProvince(province) {
+    setForm((f) => {
+      const list = f.operating_provinces || []
+      return {
+        ...f,
+        operating_provinces: list.includes(province)
+          ? list.filter((p) => p !== province)
+          : [...list, province],
+      }
+    })
+  }
+
+  function calcCompleteness() {
+    let filled = 0
+    for (const key of REQUIRED) {
+      const val = form[key]
+      if (Array.isArray(val) ? val.length > 0 : val && String(val).trim() !== '') filled++
     }
-    setTruckPhoto(null)
-    setInsurancePhoto(null)
+    return Math.round((filled / REQUIRED.length) * 100)
+  }
+
+  function getMissing() {
+    return REQUIRED.filter((key) => {
+      const val = form[key]
+      return Array.isArray(val) ? val.length === 0 : !val || String(val).trim() === ''
+    })
   }
 
   async function handleStatusUpdate() {
     const nextStatus = statusForm.status || 'inactive'
     const missing = getMissing()
     if (nextStatus === 'active' && missing.length > 0) {
-      showToast(`Complete required fields first: ${missing.map(k => k.replace(/_/g, ' ')).join(', ')}`, 'error')
+      showToast(
+        `Complete and save required fields first: ${missing.map((k) => k.replace(/_/g, ' ')).join(', ')}`,
+        'error',
+      )
       return
     }
     if (nextStatus !== 'active' && !statusForm.reason_code) {
@@ -248,39 +457,11 @@ export default function TruckConfiguration() {
     }
   }
 
-  function toggleProvince(province) {
-    setForm(f => {
-      const list = f.operating_provinces || []
-      return {
-        ...f,
-        operating_provinces: list.includes(province)
-          ? list.filter(p => p !== province)
-          : [...list, province],
-      }
-    })
-  }
-
-  function calcCompleteness() {
-    let filled = 0
-    for (const key of REQUIRED) {
-      const val = form[key]
-      if (Array.isArray(val) ? val.length > 0 : val && String(val).trim() !== '') filled++
-    }
-    return Math.round((filled / REQUIRED.length) * 100)
-  }
-
-  function getMissing() {
-    return REQUIRED.filter(key => {
-      const val = form[key]
-      return Array.isArray(val) ? val.length === 0 : !val || String(val).trim() === ''
-    })
-  }
-
   async function handleSubmit(e) {
     e.preventDefault()
     const missing = getMissing()
     if (missing.length > 0) {
-      showToast(`Please fill: ${missing.map(k => k.replace(/_/g, ' ')).join(', ')}`, 'error')
+      showToast(`Please fill: ${missing.map((k) => k.replace(/_/g, ' ')).join(', ')}`, 'error')
       return
     }
     const radiusNum = Number(form.service_radius_km)
@@ -292,16 +473,32 @@ export default function TruckConfiguration() {
       showToast('Operating location needs both latitude and longitude, or neither.', 'error')
       return
     }
+
+    const computed = computeHybridTruckPayload({
+      bodyStyle: form.body_style,
+      sizeClass,
+      tankerUse,
+      temperatureRange,
+      allowedCommodities,
+      livestockTypes,
+      capacityTons: form.payload_max_tons,
+      tankLiters,
+      capacityUnit: activeCapacityUnit,
+    })
+
+    if (computed.error) {
+      showToast(computed.error, 'error')
+      return
+    }
+
     setSaving(true)
     try {
       const fd = new FormData()
       const payload = {
         ...form,
-        truck_type: form.truck_type || form.body_style || 'Truck',
-        max_capacity: form.payload_max_tons || form.max_capacity,
+        ...computed.fields,
+        operating_provinces: form.operating_provinces,
       }
-      delete payload.driver_name
-      delete payload.driver_cnic
       Object.entries(payload).forEach(([k, v]) => {
         if (Array.isArray(v)) fd.append(k, v.join(','))
         else if (typeof v === 'boolean') fd.append(k, v ? '1' : '0')
@@ -322,13 +519,31 @@ export default function TruckConfiguration() {
 
   const completeness = calcCompleteness()
   const missing = getMissing()
-  const statusLabel = STATUS_OPTIONS.find(item => item.value === form.status)?.label || form.status || 'Inactive'
+  const statusLabel = STATUS_OPTIONS.find((item) => item.value === form.status)?.label || form.status || 'Inactive'
   const statusIsActive = form.status === 'active'
+  const sizePresets = SIZE_CLASS_PRESETS[form.body_style] || []
+  const cargoOptions = CARGO_USE_OPTIONS_BY_BODY[form.body_style] || []
+  const preview = form.body_style
+    ? computeHybridTruckPayload({
+        bodyStyle: form.body_style,
+        sizeClass,
+        tankerUse,
+        temperatureRange,
+        allowedCommodities,
+        livestockTypes,
+        capacityTons: form.payload_max_tons,
+        tankLiters,
+        capacityUnit: activeCapacityUnit,
+      })
+    : null
 
   return (
     <div className="truck-config-page">
       <div className="truck-config-shell">
-        <Link to="/transporter/trucks" className="inline-flex items-center gap-2 text-sm font-semibold text-[#6B7280] hover:text-[#4F46E5]">
+        <Link
+          to="/transporter/trucks"
+          className="inline-flex items-center gap-2 text-sm font-semibold text-[#6B7280] hover:text-[#4F46E5]"
+        >
           <i className="fas fa-arrow-left" aria-hidden="true"></i>
           Back To My Trucks
         </Link>
@@ -336,7 +551,9 @@ export default function TruckConfiguration() {
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
             <h1 className="text-2xl font-bold text-[#111827]">Truck Configuration</h1>
-            <p className="mt-1 text-sm text-[#6B7280]">Set this truck&apos;s pricing, profile, and documents in one place.</p>
+            <p className="mt-1 text-sm text-[#6B7280]">
+              Configure your truck&apos;s hybrid cargo profile, route permits (operating provinces), location, and status.
+            </p>
           </div>
         </div>
 
@@ -357,7 +574,11 @@ export default function TruckConfiguration() {
                   </span>
                   <div>
                     <div className="text-xs font-bold uppercase tracking-wide text-gray-400">Current Status</div>
-                    <span className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusIsActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'}`}>
+                    <span
+                      className={`mt-2 inline-flex rounded-full px-3 py-1 text-xs font-semibold ${
+                        statusIsActive ? 'bg-green-100 text-green-700' : 'bg-gray-100 text-gray-500'
+                      }`}
+                    >
                       {statusLabel}
                     </span>
                   </div>
@@ -384,24 +605,35 @@ export default function TruckConfiguration() {
 
             {missing.length > 0 && (
               <div className="rounded-lg border-l-4 border-blue-500 bg-[#EFF6FF] p-4 text-sm text-[#1E40AF]">
-                <strong>Missing fields:</strong> {missing.map(k => k.replace(/_/g, ' ')).join(', ')}
+                <strong>Required before activating:</strong> {missing.map((k) => k.replace(/_/g, ' ')).join(', ')}
               </div>
             )}
 
             <form className="truck-config-form" onSubmit={handleSubmit} noValidate>
+              {/* SECTION 1: Truck Status */}
               <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <h2 className="text-lg font-bold text-[#111827]">Truck Status</h2>
-                <p className="mt-1 text-sm text-[#6B7280]">Change truck status. Active requires all required fields to be filled.</p>
+                <h2 className="text-lg font-bold text-[#111827]">1. Truck Status</h2>
+                <p className="mt-1 text-sm text-[#6B7280]">
+                  A truck cannot be set to Active until all required details (including Operating Provinces and Location) are saved.
+                </p>
                 <div className="mt-5 grid gap-5 md:grid-cols-2">
                   <label className="block">
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Status</span>
                     <select
                       className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
                       value={statusForm.status}
-                      onChange={e => setStatusForm(s => ({ ...s, status: e.target.value, reason_code: e.target.value === 'active' ? '' : s.reason_code }))}
+                      onChange={(e) =>
+                        setStatusForm((s) => ({
+                          ...s,
+                          status: e.target.value,
+                          reason_code: e.target.value === 'active' ? '' : s.reason_code,
+                        }))
+                      }
                     >
-                      {STATUS_OPTIONS.map(opt => (
-                        <option key={opt.value} value={opt.value}>{opt.label}</option>
+                      {STATUS_OPTIONS.map((opt) => (
+                        <option key={opt.value} value={opt.value}>
+                          {opt.label}
+                        </option>
                       ))}
                     </select>
                   </label>
@@ -411,16 +643,22 @@ export default function TruckConfiguration() {
                       <select
                         className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
                         value={statusForm.reason_code}
-                        onChange={e => setStatusForm(s => ({ ...s, reason_code: e.target.value }))}
+                        onChange={(e) => setStatusForm((s) => ({ ...s, reason_code: e.target.value }))}
                       >
                         <option value="">Select reason</option>
-                        {STATUS_REASONS.map(r => <option key={r.value} value={r.value}>{r.label}</option>)}
+                        {STATUS_REASONS.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
                       </select>
                     </label>
                   )}
                 </div>
                 {form.status_reason && (
-                  <p className="mt-3 text-sm text-[#6B7280]">Last reason: <strong>{form.status_reason}</strong></p>
+                  <p className="mt-3 text-sm text-[#6B7280]">
+                    Last reason: <strong>{form.status_reason}</strong>
+                  </p>
                 )}
                 <div className="mt-5">
                   <button
@@ -435,86 +673,457 @@ export default function TruckConfiguration() {
                 </div>
               </section>
 
+              {/* SECTION 2: Truck Identity & Hybrid Smart Matching Setup */}
               <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <h2 className="text-lg font-bold text-[#111827]">Truck Details</h2>
+                <h2 className="text-lg font-bold text-[#111827]">2. Truck Identity &amp; Smart Matching Setup</h2>
+                <p className="mt-1 text-sm text-[#6B7280]">
+                  Same 3-step hybrid setup as Add Truck — vehicle class, bed dimensions, and CBM volume are configured automatically.
+                </p>
+
                 <div className="mt-5 grid gap-5 md:grid-cols-2">
                   <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Number</span>
-                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="truck_number" value={form.truck_number} onChange={setField} placeholder="Example: LE-1234, ABC 12345" required />
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Number *</span>
+                    <input
+                      className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
+                      type="text"
+                      name="truck_number"
+                      value={form.truck_number}
+                      onChange={setField}
+                      placeholder="Example: LE-1234, ABC 12345"
+                      required
+                    />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Company</span>
-                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="truck_company" value={form.truck_company} onChange={setField} placeholder="Example: Hino, ISUZU" required />
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Company *</span>
+                    <input
+                      className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
+                      type="text"
+                      name="truck_company"
+                      value={form.truck_company}
+                      onChange={setField}
+                      placeholder="Example: Hino, ISUZU"
+                      required
+                    />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Model</span>
-                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="truck_model" value={form.truck_model} onChange={setField} placeholder="Example: Hino 500, ISUZU NPR" required />
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Truck Model *</span>
+                    <input
+                      className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
+                      type="text"
+                      name="truck_model"
+                      value={form.truck_model}
+                      onChange={setField}
+                      placeholder="Example: Hino 500, Shehzore, Mazda T3500"
+                      required
+                    />
                   </label>
                   <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Chassis Number</span>
-                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="text" name="chassis_number" value={form.chassis_number} onChange={setField} placeholder="Enter chassis number" pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{11,17}" required />
-                    <span className="mt-2 block text-xs italic text-gray-400">11-17 characters, letters and numbers only (I, O, Q not allowed)</span>
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Chassis Number *</span>
+                    <input
+                      className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
+                      type="text"
+                      name="chassis_number"
+                      value={form.chassis_number}
+                      onChange={setField}
+                      placeholder="11 to 17 letters/numbers"
+                      pattern="[A-HJ-NPR-Za-hj-npr-z0-9]{11,17}"
+                      required
+                    />
+                    <span className="mt-1 block text-xs italic text-gray-400">
+                      11-17 characters, letters and numbers only (I, O, Q not allowed)
+                    </span>
                   </label>
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Body Type</span>
-                    <select className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" name="body_style" value={form.body_style} onChange={setField} required>
+
+                  <label className="block md:col-span-2">
+                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Body Type *</span>
+                    <select
+                      className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
+                      name="body_style"
+                      value={form.body_style}
+                      onChange={(e) => handleBodyTypeChange(e.target.value)}
+                      required
+                    >
                       <option value="">Select Body Type</option>
-                      {BODY_STYLE_OPTIONS.map(option => <option key={option} value={option}>{option}</option>)}
+                      {HYBRID_BODY_TYPES.map((option) => (
+                        <option key={option.value} value={option.value}>
+                          {option.label} — {option.subtitle}
+                        </option>
+                      ))}
                     </select>
-                    <input type="hidden" name="truck_type" value={form.truck_type || form.body_style || 'Truck'} />
                   </label>
-                  <div className="truck-config-weight-field">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Weight Capacity</span>
-                    <div className="truck-config-weight-row">
-                      <div className="truck-config-weight-input">
-                        <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="number" name="payload_min_tons" value={form.payload_min_tons} onChange={setField} min="0" step="0.1" placeholder="Min" required />
-                        <span>ton</span>
-                      </div>
-                      <div className="truck-config-weight-input">
-                        <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="number" name="payload_max_tons" value={form.payload_max_tons} onChange={setField} min="0" step="0.1" placeholder="Max" required />
-                        <span>ton</span>
-                      </div>
-                    </div>
-                    <input type="hidden" name="max_capacity" value={form.payload_max_tons || form.max_capacity} />
-                  </div>
-                  <div className="truck-config-weight-field truck-config-bed-field">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Cargo Bed Size (feet)</span>
-                    <div className="truck-config-bed-grid">
-                      <div className="truck-config-weight-input">
-                        <input className="w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="number" name="bed_length_ft" value={form.bed_length_ft} onChange={setField} min="0" step="0.5" placeholder="Length" />
-                        <span>ft</span>
-                      </div>
-                      <div className="truck-config-weight-input">
-                        <input className="w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="number" name="bed_width_ft" value={form.bed_width_ft} onChange={setField} min="0" step="0.5" placeholder="Width" />
-                        <span>ft</span>
-                      </div>
-                      <div className="truck-config-weight-input">
-                        <input className="w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500" type="number" name="bed_height_ft" value={form.bed_height_ft} onChange={setField} min="0" step="0.5" placeholder="Height" />
-                        <span>ft</span>
-                      </div>
-                    </div>
-                  </div>
                 </div>
+
+                {/* Preset Cards for Open Body / Box Body / Trailer / Refrigerated */}
+                {sizePresets.length > 0 && (
+                  <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+                    <div className="text-xs font-bold uppercase tracking-wide text-indigo-900">
+                      Truck Size / Class Preset *
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Select your truck&apos;s size class — cargo bed length and volume are configured automatically.
+                    </p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {sizePresets.map((preset) => {
+                        const active = sizeClass === preset.key
+                        return (
+                          <button
+                            key={preset.key}
+                            type="button"
+                            onClick={() => handleSizeClassSelect(preset)}
+                            className={`flex flex-col items-start justify-between gap-1.5 rounded-xl border p-3.5 text-left transition ${
+                              active
+                                ? 'border-indigo-600 bg-white ring-2 ring-indigo-500/20'
+                                : 'border-gray-200 bg-white hover:border-indigo-300'
+                            }`}
+                          >
+                            <div className="flex w-full items-start justify-between gap-2">
+                              <span className="text-sm font-bold text-gray-900">{preset.title}</span>
+                              <i
+                                className={`fas ${
+                                  active ? 'fa-circle-check text-indigo-600' : 'fa-circle text-gray-300'
+                                }`}
+                              ></i>
+                            </div>
+                            <span className="text-xs text-gray-500">{preset.specLabel}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dedicated Tanker Use (Safety-Locked) */}
+                {form.body_style === 'Tanker' && (
+                  <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+                    <div className="text-xs font-bold uppercase tracking-wide text-indigo-900">
+                      Dedicated Tanker Use (Safety-Locked) *
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      For hygiene and hazard safety, a tanker is locked to one dedicated cargo category.
+                    </p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+                      {TANKER_USE_OPTIONS.map((opt) => {
+                        const active = tankerUse === opt.key
+                        return (
+                          <button
+                            key={opt.key}
+                            type="button"
+                            onClick={() => handleTankerUseSelect(opt)}
+                            className={`flex flex-col items-start justify-between gap-2 rounded-xl border p-3.5 text-left transition ${
+                              active
+                                ? 'border-indigo-600 bg-white ring-2 ring-indigo-500/20'
+                                : 'border-gray-200 bg-white hover:border-indigo-300'
+                            }`}
+                          >
+                            <div className="flex w-full items-start justify-between gap-2">
+                              <span className="text-sm font-bold text-gray-900">{opt.label}</span>
+                              <i
+                                className={`fas ${
+                                  active ? 'fa-circle-check text-indigo-600' : 'fa-circle text-gray-300'
+                                }`}
+                              ></i>
+                            </div>
+                            <span
+                              className={`inline-flex rounded-full px-2.5 py-0.5 text-[11px] font-bold ${
+                                opt.hazardous ? 'bg-amber-100 text-amber-800' : 'bg-emerald-100 text-emerald-800'
+                              }`}
+                            >
+                              {opt.badge}
+                            </span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cooling / Temperature Capability for Refrigerated */}
+                {form.body_style === 'Refrigerated' && (
+                  <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+                    <div className="text-xs font-bold uppercase tracking-wide text-indigo-900">
+                      Cooling / Temperature Capability *
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Chilled-only trucks are protected from deep-frozen (-18°C) meat/ice-cream orders.
+                    </p>
+                    <div className="mt-3 grid gap-3 sm:grid-cols-3">
+                      {REEFER_TEMPERATURE_OPTIONS.map((opt) => {
+                        const active = temperatureRange === opt.value
+                        return (
+                          <button
+                            key={opt.value}
+                            type="button"
+                            onClick={() => handleTemperatureSelect(opt)}
+                            className={`flex flex-col items-start justify-between gap-1.5 rounded-xl border p-3.5 text-left transition ${
+                              active
+                                ? 'border-indigo-600 bg-white ring-2 ring-indigo-500/20'
+                                : 'border-gray-200 bg-white hover:border-indigo-300'
+                            }`}
+                          >
+                            <div className="flex w-full items-start justify-between gap-2">
+                              <span className="text-sm font-bold text-gray-900">{opt.label}</span>
+                              <i
+                                className={`fas ${
+                                  active ? 'fa-circle-check text-indigo-600' : 'fa-circle text-gray-300'
+                                }`}
+                              ></i>
+                            </div>
+                            <span className="text-xs text-gray-500">{opt.subtitle}</span>
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Cargo Use Checkboxes for Open Body / Box Body / Trailer / Dumper */}
+                {cargoOptions.length > 0 && (
+                  <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <span className="text-xs font-bold uppercase tracking-wide text-indigo-900">
+                        Truck Use (What cargo does this truck carry?) *
+                      </span>
+                      <div className="inline-flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setAllowedCommodities(cargoOptions.map((o) => o.key))}
+                          className="rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-xs font-bold text-indigo-600 hover:bg-indigo-50"
+                        >
+                          Select All
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => setAllowedCommodities([])}
+                          className="rounded-md border border-indigo-200 bg-white px-2.5 py-1 text-xs font-bold text-indigo-600 hover:bg-indigo-50"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <p className="mt-1 text-xs text-gray-500">
+                      You will receive client orders matching the cargo uses ticked below.
+                    </p>
+                    <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-3">
+                      {cargoOptions.map((opt) => {
+                        const checked = allowedCommodities.includes(opt.key)
+                        return (
+                          <label
+                            key={opt.key}
+                            className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition ${
+                              checked
+                                ? 'border-indigo-600 bg-white text-gray-900'
+                                : 'border-gray-200 bg-white text-gray-600'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 accent-indigo-600"
+                              checked={checked}
+                              onChange={() => toggleCommodity(opt.key)}
+                            />
+                            <span>{opt.label}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Livestock Checkboxes */}
+                {form.body_style === 'Livestock' && (
+                  <div className="mt-5 rounded-xl border border-indigo-100 bg-indigo-50/40 p-4">
+                    <div className="text-xs font-bold uppercase tracking-wide text-indigo-900">Livestock Use *</div>
+                    <div className="mt-3 grid gap-2.5 sm:grid-cols-2 lg:grid-cols-4">
+                      {LIVESTOCK_ANIMAL_OPTIONS.map((animal) => {
+                        const checked = livestockTypes.includes(animal)
+                        return (
+                          <label
+                            key={animal}
+                            className={`flex cursor-pointer items-center gap-2.5 rounded-xl border px-3.5 py-2.5 text-sm font-semibold transition ${
+                              checked
+                                ? 'border-indigo-600 bg-white text-gray-900'
+                                : 'border-gray-200 bg-white text-gray-600'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              className="h-4 w-4 accent-indigo-600"
+                              checked={checked}
+                              onChange={() => toggleLivestock(animal)}
+                            />
+                            <span>{animal}</span>
+                          </label>
+                        )
+                      })}
+                    </div>
+                  </div>
+                )}
+
+                {/* Dynamic Capacity Input */}
+                <div className="mt-5 max-w-lg">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <label
+                      htmlFor={activeCapacityUnit === 'liters' ? 'configTankLiters' : 'configCapacityTons'}
+                      className="text-xs font-bold uppercase tracking-wide text-gray-400"
+                    >
+                      {activeCapacityUnit === 'liters'
+                        ? 'Tank Capacity (Liters) *'
+                        : 'Max Weight Capacity (Tons) *'}
+                    </label>
+                    {supportsLiters && (
+                      <div className="inline-flex rounded-lg border border-gray-200 bg-gray-100 p-0.5 text-xs font-bold">
+                        <button
+                          type="button"
+                          onClick={() => handleCapacityUnitChange('tons')}
+                          className={`rounded-md px-2.5 py-1 transition ${
+                            activeCapacityUnit === 'tons' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'
+                          }`}
+                        >
+                          Tons (Default)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => handleCapacityUnitChange('liters')}
+                          className={`rounded-md px-2.5 py-1 transition ${
+                            activeCapacityUnit === 'liters' ? 'bg-white text-indigo-600 shadow-sm' : 'text-gray-500'
+                          }`}
+                        >
+                          Liters
+                        </button>
+                      </div>
+                    )}
+                  </div>
+
+                  {activeCapacityUnit === 'liters' ? (
+                    <div className="truck-config-weight-input">
+                      <input
+                        id="configTankLiters"
+                        className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
+                        type="number"
+                        min={MIN_CAPACITY_LITERS}
+                        max={MAX_CAPACITY_LITERS}
+                        step="100"
+                        value={tankLiters}
+                        onChange={handleTankLitersInput}
+                        placeholder="Example: 12000 (Max 100,000)"
+                        required
+                      />
+                      <span>Liters</span>
+                    </div>
+                  ) : (
+                    <div className="truck-config-weight-input">
+                      <input
+                        id="configCapacityTons"
+                        className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-gray-50 px-4 py-3 text-sm font-semibold text-[#111827] outline-none focus:ring-2 focus:ring-indigo-500"
+                        type="number"
+                        name="payload_max_tons"
+                        min={MIN_CAPACITY_TONS}
+                        max={MAX_CAPACITY_TONS}
+                        step="0.1"
+                        value={form.payload_max_tons}
+                        onChange={handleCapacityTonsInput}
+                        placeholder={`Example: 12 (Max ${MAX_CAPACITY_TONS} Tons)`}
+                        required
+                      />
+                      <span>Tons</span>
+                    </div>
+                  )}
+
+                  <span className="mt-1.5 block text-xs text-gray-400">
+                    {supportsLiters
+                      ? `Allowed range: ${MIN_CAPACITY_TONS} – ${MAX_CAPACITY_TONS} Tons (500 – 100,000 Liters).`
+                      : `Allowed range: ${MIN_CAPACITY_TONS} – ${MAX_CAPACITY_TONS} Tons.`}
+                  </span>
+
+                  {capacityWarning && (
+                    <div
+                      className="mt-2 flex items-center gap-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs font-semibold text-amber-800"
+                      role="alert"
+                    >
+                      <i className="fas fa-triangle-exclamation"></i>
+                      <span>{capacityWarning}</span>
+                    </div>
+                  )}
+                </div>
+
+                {/* Auto-Configured Matching Profile Ready Banner */}
+                {preview && !preview.error && (
+                  <div className="mt-5 flex items-start gap-3 rounded-xl border border-emerald-200 bg-emerald-50/70 p-4">
+                    <span className="grid h-9 w-9 shrink-0 place-items-center rounded-lg bg-emerald-100 text-emerald-700">
+                      <i className="fas fa-wand-magic-sparkles"></i>
+                    </span>
+                    <div>
+                      <div className="text-xs font-extrabold uppercase tracking-wide text-emerald-900">
+                        Matched Vehicle Class (Auto-Set)
+                      </div>
+                      <div className="mt-2 flex flex-wrap gap-2">
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">
+                          <i className="fas fa-tag"></i> {preview.fields.mainUse}
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">
+                          <i className="fas fa-weight-hanging"></i> Up to {preview.fields.payload_max_tons} Tons
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">
+                          <i className="fas fa-cube"></i> {preview.fields.volume_max_cbm} CBM
+                        </span>
+                        <span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-white px-3 py-1 text-xs font-bold text-emerald-800">
+                          <i className="fas fa-ruler-horizontal"></i> {preview.fields.bed_length_ft} ft Deck
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </section>
 
+              {/* SECTION 3: Operating Provinces (Route Permit) */}
               <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <h2 className="text-lg font-bold text-[#111827]">Operating Provinces</h2>
+                <div className="flex flex-wrap items-center justify-between gap-2">
+                  <div>
+                    <h2 className="text-lg font-bold text-[#111827]">3. Operating Provinces (Route Permit) *</h2>
+                    <p className="mt-1 text-xs text-gray-500">
+                      Select the provinces where this truck is legally permitted to operate. Client orders will only match when both pickup and dropoff are within your permitted provinces.
+                    </p>
+                  </div>
+                  <div className="inline-flex gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, operating_provinces: [...PROVINCES] }))}
+                      className="rounded-md border border-indigo-200 bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-700 hover:bg-indigo-100"
+                    >
+                      Select All Provinces
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setForm((f) => ({ ...f, operating_provinces: [] }))}
+                      className="rounded-md border border-gray-200 bg-white px-3 py-1.5 text-xs font-bold text-gray-600 hover:bg-gray-50"
+                    >
+                      Clear
+                    </button>
+                  </div>
+                </div>
                 <div className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-                  {PROVINCES.map(p => (
-                    <label key={p} className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-semibold text-[#111827] transition hover:border-indigo-200 hover:bg-indigo-50/50">
-                      <input className="h-4 w-4 accent-indigo-600 focus:ring-2 focus:ring-indigo-500" type="checkbox" checked={form.operating_provinces.includes(p)} onChange={() => toggleProvince(p)} />
+                  {PROVINCES.map((p) => (
+                    <label
+                      key={p}
+                      className="flex min-h-12 cursor-pointer items-center gap-3 rounded-lg border border-[#E5E7EB] bg-white px-4 py-3 text-sm font-semibold text-[#111827] transition hover:border-indigo-200 hover:bg-indigo-50/50"
+                    >
+                      <input
+                        className="h-4 w-4 accent-indigo-600 focus:ring-2 focus:ring-indigo-500"
+                        type="checkbox"
+                        checked={form.operating_provinces.includes(p)}
+                        onChange={() => toggleProvince(p)}
+                      />
                       <span>{p}</span>
                     </label>
                   ))}
                 </div>
-                <p className="mt-4 text-xs text-gray-400">Click to select or deselect provinces.</p>
               </section>
 
+              {/* SECTION 4: Operating Location */}
               <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <h2 className="text-lg font-bold text-[#111827]">Operating Location</h2>
-                <p className="mt-1 text-xs text-gray-400">
-                  Where this truck is based now. You will only see orders whose pickup is within
-                  the service radius of this location.
+                <h2 className="text-lg font-bold text-[#111827]">4. Operating Location *</h2>
+                <p className="mt-1 text-xs text-gray-500">
+                  Where this truck is based now. You will only see orders whose pickup is within the service radius of this location.
                 </p>
                 <div className="mt-5 grid gap-5 md:grid-cols-2">
                   <div className="md:col-span-2">
@@ -525,12 +1134,14 @@ export default function TruckConfiguration() {
                         lat: form.current_lat === '' || form.current_lat == null ? null : Number(form.current_lat),
                         lng: form.current_lng === '' || form.current_lng == null ? null : Number(form.current_lng),
                       }}
-                      onChange={(next) => setForm(f => ({
-                        ...f,
-                        current_city: next.location || '',
-                        current_lat: next.lat == null ? '' : next.lat,
-                        current_lng: next.lng == null ? '' : next.lng,
-                      }))}
+                      onChange={(next) =>
+                        setForm((f) => ({
+                          ...f,
+                          current_city: next.location || '',
+                          current_lat: next.lat == null ? '' : next.lat,
+                          current_lng: next.lng == null ? '' : next.lng,
+                        }))
+                      }
                       placeholder="City / area where the truck is currently parked"
                     />
                   </div>
@@ -538,98 +1149,119 @@ export default function TruckConfiguration() {
                     <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Service radius (km)</span>
                     <input
                       className="mt-2 w-full rounded-lg border border-[#E5E7EB] px-4 py-3 text-sm text-[#111827] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500"
-                      type="number" name="service_radius_km" min="1" max={MAX_RADIUS_KM} step="1"
-                      value={form.service_radius_km} onChange={setField} placeholder="Default 100"
+                      type="number"
+                      name="service_radius_km"
+                      min="1"
+                      max={MAX_RADIUS_KM}
+                      step="1"
+                      value={form.service_radius_km}
+                      onChange={setField}
+                      placeholder="Default 100"
                     />
-                    <span className="mt-1 block text-xs text-gray-400">Default 100 km, maximum {MAX_RADIUS_KM} km.</span>
+                    <span className="mt-1 block text-xs text-gray-400">
+                      Default 100 km, maximum {MAX_RADIUS_KM} km.
+                    </span>
                   </label>
                 </div>
               </section>
 
+              {/* SECTION 5: Documents (Optional) */}
               <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <h2 className="text-lg font-bold text-[#111827]">Optional Details</h2>
-                <div className="mt-5 grid gap-5 md:grid-cols-3">
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Tracking ID</span>
-                    <input className="mt-2 w-full rounded-lg border border-[#E5E7EB] px-4 py-3 text-sm text-[#111827] outline-none placeholder:text-gray-400 focus:ring-2 focus:ring-indigo-500" type="text" name="tracking_id" value={form.tracking_id} onChange={setField} placeholder="Optional - Tracking / device ID" />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Driver CNIC</span>
-                    <input readOnly className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-slate-50 px-4 py-3 text-sm text-[#111827]" type="text" value={form.driver_cnic} placeholder="Linked after driver acceptance" />
-                  </label>
-                  <label className="block">
-                    <span className="text-xs font-bold uppercase tracking-wide text-gray-400">Driver Name</span>
-                    <input readOnly className="mt-2 w-full rounded-lg border border-[#E5E7EB] bg-slate-50 px-4 py-3 text-sm text-[#111827]" type="text" value={form.driver_name} placeholder="Linked after driver acceptance" />
-                    <span className="mt-1 block text-xs text-slate-500">Invite a driver from the shipment or agreement trip. Driver identity is linked only after acceptance.</span>
-                  </label>
-                </div>
-              </section>
-
-              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <h2 className="text-lg font-bold text-[#111827]">Documents (Optional)</h2>
+                <h2 className="text-lg font-bold text-[#111827]">5. Documents (Optional)</h2>
                 <div className="mt-5 grid gap-5 md:grid-cols-2">
                   <div>
                     <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 px-5 py-8 text-center transition hover:border-indigo-400 hover:bg-indigo-50/40">
                       <i className="fas fa-cloud-arrow-up text-4xl text-gray-300" aria-hidden="true"></i>
                       <span className="mt-3 font-bold text-[#111827]">Truck Pic</span>
                       <span className="mt-1 text-sm font-semibold text-[#4F46E5]">Choose File</span>
-                      <span className="mt-1 text-sm text-gray-400">{truckPhoto ? truckPhoto.name : form.photo ? `Saved: ${fileName(form.photo)}` : 'No file chosen'}</span>
-                      <input className="hidden" type="file" accept=".jpg,.jpeg,.png,.webp" onChange={e => setTruckPhoto(e.target.files[0] || null)} />
+                      <span className="mt-1 text-sm text-gray-400">
+                        {truckPhoto ? truckPhoto.name : form.photo ? `Saved: ${fileName(form.photo)}` : 'No file chosen'}
+                      </span>
+                      <input
+                        className="hidden"
+                        type="file"
+                        accept=".jpg,.jpeg,.png,.webp"
+                        onChange={(e) => setTruckPhoto(e.target.files[0] || null)}
+                      />
                     </label>
-                    <p className="mt-2 text-xs text-gray-400">{truckPhoto ? truckPhoto.name : form.photo ? `Saved truck photo: ${fileName(form.photo)}` : 'No truck photo selected.'}</p>
-                    {form.photo && !truckPhoto && <a href={form.photo} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs font-semibold text-[#4F46E5]">View saved truck pic</a>}
+                    <p className="mt-2 text-xs text-gray-400">
+                      {truckPhoto ? truckPhoto.name : form.photo ? `Saved truck photo: ${fileName(form.photo)}` : 'No truck photo selected.'}
+                    </p>
+                    {form.photo && !truckPhoto && (
+                      <a
+                        href={form.photo}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex text-xs font-semibold text-[#4F46E5]"
+                      >
+                        View saved truck pic
+                      </a>
+                    )}
                   </div>
                   <div>
                     <label className="flex min-h-44 cursor-pointer flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-300 px-5 py-8 text-center transition hover:border-indigo-400 hover:bg-indigo-50/40">
                       <i className="fas fa-file-arrow-up text-4xl text-gray-300" aria-hidden="true"></i>
                       <span className="mt-3 font-bold text-[#111827]">Insurance Paper</span>
                       <span className="mt-1 text-sm font-semibold text-[#4F46E5]">Choose File</span>
-                      <span className="mt-1 text-sm text-gray-400">{insurancePhoto ? insurancePhoto.name : form.insurance_photo ? `Saved: ${fileName(form.insurance_photo)}` : 'No file chosen'}</span>
-                      <input className="hidden" type="file" accept=".pdf,.jpg,.jpeg,.png,.webp" onChange={e => setInsurancePhoto(e.target.files[0] || null)} />
+                      <span className="mt-1 text-sm text-gray-400">
+                        {insurancePhoto
+                          ? insurancePhoto.name
+                          : form.insurance_photo
+                            ? `Saved: ${fileName(form.insurance_photo)}`
+                            : 'No file chosen'}
+                      </span>
+                      <input
+                        className="hidden"
+                        type="file"
+                        accept=".pdf,.jpg,.jpeg,.png,.webp"
+                        onChange={(e) => setInsurancePhoto(e.target.files[0] || null)}
+                      />
                     </label>
-                    <p className="mt-2 text-xs text-gray-400">{insurancePhoto ? insurancePhoto.name : form.insurance_photo ? `Saved insurance paper: ${fileName(form.insurance_photo)}` : 'No insurance document selected.'}</p>
-                    {form.insurance_photo && !insurancePhoto && <a href={form.insurance_photo} target="_blank" rel="noreferrer" className="mt-2 inline-flex text-xs font-semibold text-[#4F46E5]">View saved insurance paper</a>}
+                    <p className="mt-2 text-xs text-gray-400">
+                      {insurancePhoto
+                        ? insurancePhoto.name
+                        : form.insurance_photo
+                          ? `Saved insurance paper: ${fileName(form.insurance_photo)}`
+                          : 'No insurance document selected.'}
+                    </p>
+                    {form.insurance_photo && !insurancePhoto && (
+                      <a
+                        href={form.insurance_photo}
+                        target="_blank"
+                        rel="noreferrer"
+                        className="mt-2 inline-flex text-xs font-semibold text-[#4F46E5]"
+                      >
+                        View saved insurance paper
+                      </a>
+                    )}
                   </div>
                 </div>
               </section>
 
-              <section className="rounded-2xl bg-white p-6 shadow-[0px_4px_6px_-1px_rgba(0,0,0,0.1)]">
-                <h2 className="text-lg font-bold text-[#111827]">Special Capabilities</h2>
-                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                  {[
-                    ['refrigeration_supported', 'Refrigeration Supported'],
-                    ['hazardous_supported', 'Hazardous Material License'],
-                    ['fragile_supported', 'Fragile Goods Supported'],
-                  ].map(([name, label]) => (
-                    <label key={name} className="flex items-center justify-between gap-4 rounded-xl border border-[#E5E7EB] bg-white px-4 py-4 text-sm font-semibold text-[#111827]">
-                      <span>{label}</span>
-                      <input className="h-5 w-5 accent-indigo-600 focus:ring-2 focus:ring-indigo-500" type="checkbox" name={name} checked={form[name]} onChange={setField} />
-                    </label>
-                  ))}
-                </div>
-              </section>
-
               <div className="truck-config-actions">
-                <button type="button" className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60" onClick={loadConfig} disabled={loading}>
+                <button
+                  type="button"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg border border-gray-300 bg-white px-5 py-2 text-sm font-semibold text-gray-700 transition hover:bg-gray-50 disabled:opacity-60"
+                  onClick={loadConfig}
+                  disabled={loading}
+                >
                   <i className="fas fa-sync-alt" aria-hidden="true"></i>
                   Reload
                 </button>
-                <button type="submit" className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#4F46E5] px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60" disabled={saving}>
+                <button
+                  type="submit"
+                  className="inline-flex min-h-11 items-center gap-2 rounded-lg bg-[#4F46E5] px-5 py-2 text-sm font-semibold text-white transition hover:bg-indigo-700 disabled:opacity-60"
+                  disabled={saving}
+                >
                   <i className="fas fa-save" aria-hidden="true"></i>
                   {saving ? 'Saving...' : 'Save Configuration'}
                 </button>
               </div>
             </form>
-
-
           </>
         )}
 
-        <Notification
-          type={toast?.type || 'info'}
-          message={toast?.msg}
-          onClose={() => setToast(null)}
-        />
+        <Notification type={toast?.type || 'info'} message={toast?.msg} onClose={() => setToast(null)} />
       </div>
     </div>
   )

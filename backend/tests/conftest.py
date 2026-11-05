@@ -284,7 +284,6 @@ create table vehicles (
     truck_photo_path text,
     insurance_photo_path text,
     rc_book_photo_path text,
-    tracking_id     text,
     traccar_device_id text,
     current_city    text,
     current_lat     double precision,
