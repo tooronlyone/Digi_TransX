@@ -129,7 +129,7 @@ export default function ResetPassword() {
   }
 
   return (
-    <AuthCard title={stepTitles[step]} subtitle="Account recovery">
+    <AuthCard pageClassName="reset-password-page" useBrandLogo title={stepTitles[step]} subtitle="Account recovery">
       <Notification
         type={notification.type}
         message={notification.message}
@@ -147,19 +147,19 @@ export default function ResetPassword() {
             onChange={event => setLoginId(event.target.value)}
             error={errors.loginId}
           />
-          <p className="text-gray-400 text-xs mb-5">
+          <p className="reset-password-help text-gray-400 text-xs mb-5">
             DigiTransX will send a 6 digit code to the registered email linked with this account.
           </p>
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="auth-submit reset-password-action w-full py-3 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
             {loading ? 'Sending...' : 'Request reset'}
           </button>
           <div className="text-center mt-4">
-            <Link to="/login" className="text-gray-500 text-sm hover:text-blue-500 hover:underline">Back to login</Link>
+            <Link to="/login" className="reset-password-link text-sm hover:underline">Back to login</Link>
           </div>
         </form>
       )}
@@ -184,7 +184,7 @@ export default function ResetPassword() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="auth-submit reset-password-action w-full py-3 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
             {loading ? 'Verifying...' : 'Verify code'}
@@ -193,7 +193,7 @@ export default function ResetPassword() {
             <button
               type="button"
               onClick={() => setStep(STEPS.REQUEST)}
-              className="text-gray-500 text-sm hover:text-blue-500 hover:underline bg-transparent border-none cursor-pointer"
+              className="reset-password-link text-sm hover:underline bg-transparent border-none cursor-pointer"
             >
               Try a different account
             </button>
@@ -224,7 +224,7 @@ export default function ResetPassword() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full py-3 bg-blue-500 hover:bg-blue-600 disabled:bg-gray-400 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
+            className="auth-submit reset-password-action w-full py-3 text-white font-semibold rounded-lg transition-colors flex items-center justify-center gap-2"
           >
             {loading && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
             {loading ? 'Saving...' : 'Save new password'}
@@ -240,7 +240,7 @@ export default function ResetPassword() {
           <p className="text-gray-600 mb-6">Your password has been reset successfully.</p>
           <Link
             to="/login"
-            className="block w-full py-3 bg-blue-500 hover:bg-blue-600 text-white font-semibold rounded-lg transition-colors text-center"
+            className="auth-submit reset-password-action block w-full py-3 text-white font-semibold rounded-lg transition-colors text-center"
           >
             Back to Login
           </Link>

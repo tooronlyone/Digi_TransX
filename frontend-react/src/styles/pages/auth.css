@@ -178,6 +178,22 @@
   font-weight: 760 !important;
 }
 
+.auth-card-brand-accent {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.auth-card-real-logo {
+  width: 64px;
+  height: 42px;
+  flex: 0 0 auto;
+  object-fit: contain;
+  object-position: center;
+}
+
 .auth-shell__intro {
   margin-top: 26px;
   margin-bottom: 24px;
@@ -310,6 +326,263 @@
 .auth-shell__primary:hover,
 .auth-submit:hover {
   background: linear-gradient(135deg, #1d4ed8, #2563eb) !important;
+}
+
+/* Create Account uses the Digi TransX maroon palette without affecting other auth pages. */
+.auth-card-page.signup-page {
+  background: #f8f6f1 !important;
+}
+
+.auth-card-page.signup-page,
+.auth-card-page.reset-password-page,
+.auth-card-page.signup-terms-page,
+.auth-role-page {
+  position: relative;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.auth-card-page.signup-page::before,
+.auth-card-page.reset-password-page::before,
+.auth-card-page.signup-terms-page::before,
+.auth-role-page::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  background-position: center;
+  background-size: cover;
+  background-repeat: no-repeat;
+  opacity: 0.11;
+  pointer-events: none;
+}
+
+.auth-card-page.signup-page::before {
+  background-image: url("../../assets/backgrounds/signup-freight-mono.png");
+  background-size: 100% auto;
+  opacity: 0.15;
+}
+
+.auth-card-page.reset-password-page::before {
+  background-image: url("../../assets/backgrounds/reset-transport-logistics.png");
+  background-size: 100% auto;
+  background-position: calc(50% + clamp(12px, 1.25vw, 24px)) 60%;
+  opacity: 0.17;
+}
+
+.auth-card-page.signup-terms-page::before {
+  background-image: url("../../assets/backgrounds/terms-agreement-mono.png");
+  background-size: 100% auto;
+  background-position: center 58%;
+  opacity: 0.14;
+}
+
+.auth-role-page::before {
+  background-image: url("../../assets/backgrounds/roles-ecosystem-mono.png");
+  background-size: 100% auto;
+  background-position: center;
+  opacity: 0.16;
+  clip-path: inset(0 50% 0 0);
+}
+
+.auth-role-page::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background-image: url("../../assets/backgrounds/roles-ecosystem-mono.png");
+  background-position: calc(50% + 135px) center;
+  background-size: 100% auto;
+  background-repeat: no-repeat;
+  opacity: 0.16;
+  clip-path: inset(0 0 0 50%);
+  pointer-events: none;
+}
+
+.auth-card-page.signup-page > .auth-card,
+.auth-card-page.reset-password-page > .auth-card,
+.auth-card-page.signup-terms-page > .auth-card,
+.auth-role-page > .auth-role-card {
+  position: relative;
+  z-index: 1;
+}
+
+.signup-page .auth-card-logo {
+  background: linear-gradient(135deg, #7d163a, #a51e4d) !important;
+  box-shadow: 0 16px 34px rgba(125, 22, 58, 0.26);
+}
+
+.signup-page .auth-card-brand {
+  gap: 4px !important;
+}
+
+.signup-page .auth-card-real-logo {
+  width: 68px;
+  height: 44px;
+  margin: -2px -5px -2px 0;
+}
+
+.signup-page .auth-card-brand-accent {
+  background: linear-gradient(135deg, #7d163a, #a51e4d);
+  background-clip: text;
+  -webkit-background-clip: text;
+  color: transparent;
+  -webkit-text-fill-color: transparent;
+}
+
+.signup-page .auth-form-input:focus {
+  border-color: #a51e4d !important;
+  background: #fbfaf8 !important;
+  box-shadow: 0 0 0 4px rgba(165, 30, 77, 0.14) !important;
+}
+
+.signup-page .auth-form-input {
+  border-color: #dedad2 !important;
+  background: #fbfaf8 !important;
+  color: #181b1a !important;
+  caret-color: #7d163a;
+}
+
+.signup-page .auth-form-input::placeholder {
+  color: #686f6c;
+  opacity: 1;
+}
+
+.signup-page .auth-form-input:-webkit-autofill,
+.signup-page .auth-form-input:-webkit-autofill:hover,
+.signup-page .auth-form-input:-webkit-autofill:focus,
+.signup-page .auth-form-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #181b1a !important;
+  caret-color: #181b1a;
+  box-shadow: 0 0 0 1000px #fbfaf8 inset !important;
+  -webkit-box-shadow: 0 0 0 1000px #fbfaf8 inset !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.signup-page .auth-form-input:-webkit-autofill:focus {
+  border-color: #a51e4d !important;
+  box-shadow:
+    0 0 0 1000px #fbfaf8 inset,
+    0 0 0 4px rgba(165, 30, 77, 0.14) !important;
+  -webkit-box-shadow:
+    0 0 0 1000px #fbfaf8 inset,
+    0 0 0 4px rgba(165, 30, 77, 0.14) !important;
+}
+
+.signup-page .auth-form-input.border-red-400 {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1) !important;
+}
+
+.signup-page .auth-submit {
+  background: #922044 !important;
+  color: #fff !important;
+  box-shadow: none;
+}
+
+.signup-page .auth-submit:hover {
+  background: #922044 !important;
+  color: #fff !important;
+}
+
+.signup-page .auth-submit:active {
+  background: #922044 !important;
+}
+
+.signup-page .auth-submit:focus-visible {
+  outline: 3px solid rgba(165, 30, 77, 0.3);
+  outline-offset: 3px;
+}
+
+.signup-page .auth-card-footer a,
+.signup-page .auth-card-footer a:hover {
+  color: #7d163a !important;
+}
+
+/* Password recovery follows the approved paper, ink and solid-maroon treatment. */
+.auth-card-page.reset-password-page {
+  background: #f8f6f1 !important;
+  align-items: flex-start !important;
+  padding-top: clamp(56px, 8vh, 84px) !important;
+  padding-bottom: 32px !important;
+}
+
+.reset-password-page .auth-card-brand {
+  gap: 4px !important;
+}
+
+.reset-password-page .auth-card-real-logo {
+  width: 68px;
+  height: 44px;
+  margin: -2px -5px -2px 0;
+}
+
+.reset-password-page .auth-card-brand-accent {
+  background: none;
+  color: #922044;
+  -webkit-text-fill-color: #922044;
+}
+
+.reset-password-page .auth-form-input {
+  border-color: #dedad2 !important;
+  background: #fbfaf8 !important;
+  color: #181b1a !important;
+  caret-color: #922044;
+}
+
+.reset-password-page .auth-form-input::placeholder {
+  color: #686f6c;
+  opacity: 1;
+}
+
+.reset-password-page .auth-form-input:focus {
+  border-color: #922044 !important;
+  background: #fbfaf8 !important;
+  box-shadow: 0 0 0 4px rgba(146, 32, 68, 0.14) !important;
+}
+
+.reset-password-page .auth-form-input:-webkit-autofill,
+.reset-password-page .auth-form-input:-webkit-autofill:hover,
+.reset-password-page .auth-form-input:-webkit-autofill:focus,
+.reset-password-page .auth-form-input:-webkit-autofill:active {
+  -webkit-text-fill-color: #181b1a !important;
+  caret-color: #181b1a;
+  box-shadow: 0 0 0 1000px #fbfaf8 inset !important;
+  -webkit-box-shadow: 0 0 0 1000px #fbfaf8 inset !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.reset-password-page .auth-form-input.border-red-400 {
+  border-color: #dc2626 !important;
+  box-shadow: 0 0 0 4px rgba(220, 38, 38, 0.1) !important;
+}
+
+.reset-password-page .reset-password-help {
+  color: #626966 !important;
+  line-height: 1.55;
+}
+
+.reset-password-page .reset-password-action,
+.reset-password-page .reset-password-action:hover,
+.reset-password-page .reset-password-action:active {
+  background: #922044 !important;
+  color: #f8f6f1 !important;
+  box-shadow: none !important;
+}
+
+.reset-password-page .reset-password-action:focus-visible {
+  outline: 3px solid rgba(146, 32, 68, 0.3);
+  outline-offset: 3px;
+}
+
+.reset-password-page .reset-password-action:disabled {
+  background: #62434e !important;
+  color: #f8f6f1 !important;
+}
+
+.reset-password-page .reset-password-link,
+.reset-password-page .reset-password-link:hover {
+  color: #922044 !important;
 }
 
 .auth-shell__primary:disabled,
@@ -499,18 +772,15 @@
   display: flex;
   align-items: center;
   justify-content: center;
-  background:
-    radial-gradient(circle at 12% 12%, rgba(37, 99, 235, 0.16), transparent 28%),
-    radial-gradient(circle at 88% 18%, rgba(16, 185, 129, 0.12), transparent 24%),
-    linear-gradient(135deg, #f8fafc 0%, #eef4ff 48%, #f8fafc 100%);
+  background: #f8f6f1;
   padding: 28px;
 }
 
 .auth-role-card {
   width: min(100%, 880px);
-  border: 1px solid rgba(226, 232, 240, 0.95);
+  border: 1px solid #dedad2;
   border-radius: 24px;
-  background: rgba(255, 255, 255, 0.96);
+  background: #fff;
   box-shadow: 0 24px 60px rgba(15, 23, 42, 0.12);
   padding: 30px;
 }
@@ -521,6 +791,19 @@
 
 .auth-role-header .auth-card-brand {
   justify-content: center;
+  gap: 4px !important;
+}
+
+.auth-role-header .auth-card-real-logo {
+  width: 68px;
+  height: 44px;
+  margin: -2px -5px -2px 0;
+}
+
+.auth-role-header .auth-card-brand-accent {
+  background: none;
+  color: #922044;
+  -webkit-text-fill-color: #922044;
 }
 
 .auth-role-header h1 {
@@ -570,12 +853,12 @@
 
 .auth-step--done span,
 .auth-step--active span {
-  background: #2563eb;
-  color: white;
+  background: #922044;
+  color: #f8f6f1;
 }
 
 .auth-step--active strong {
-  color: #2563eb;
+  color: #922044;
 }
 
 .auth-step-line {
@@ -596,9 +879,9 @@
   grid-template-columns: auto minmax(0, 1fr) auto;
   align-items: flex-start;
   gap: 14px;
-  border: 1px solid #dbe3ef;
+  border: 1px solid #dedad2;
   border-radius: 16px;
-  background: white;
+  background: #fbfaf8;
   padding: 18px;
   text-align: left;
   cursor: pointer;
@@ -606,10 +889,15 @@
 }
 
 .auth-role-option:hover {
-  border-color: rgba(37, 99, 235, 0.42);
-  background: rgba(37, 99, 235, 0.04);
-  box-shadow: 0 14px 30px rgba(15, 23, 42, 0.1);
+  border-color: #922044;
+  background: #f8f6f1;
+  box-shadow: 0 10px 24px rgba(24, 27, 26, 0.08);
   transform: translateY(-2px);
+}
+
+.auth-role-option:focus-visible {
+  outline: 3px solid rgba(146, 32, 68, 0.28);
+  outline-offset: 3px;
 }
 
 .auth-role-option__icon {
@@ -618,8 +906,8 @@
   display: grid;
   place-items: center;
   border-radius: 14px;
-  background: rgba(37, 99, 235, 0.1);
-  color: #2563eb;
+  background: rgba(146, 32, 68, 0.1);
+  color: #922044;
   font-size: 18px;
 }
 
@@ -629,8 +917,8 @@
 }
 
 .auth-role-option--logistics_provider .auth-role-option__icon {
-  background: rgba(37, 99, 235, 0.12);
-  color: #2563eb;
+  background: #e2e8f0;
+  color: #334155;
 }
 
 .auth-role-option--everyday_user .auth-role-option__icon {
@@ -646,6 +934,11 @@
 .auth-role-option--shopkeeper .auth-role-option__icon {
   background: rgba(249, 115, 22, 0.14);
   color: #ea580c;
+}
+
+.auth-role-option--driver .auth-role-option__icon {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
 }
 
 .auth-role-option__body {
@@ -683,8 +976,8 @@
 }
 
 .auth-role-option:hover .auth-role-option__arrow {
-  background: #2563eb;
-  color: white;
+  background: #922044;
+  color: #f8f6f1;
 }
 
 .auth-role-footer {
@@ -697,7 +990,7 @@
 }
 
 .auth-role-footer a {
-  color: #2563eb;
+  color: #922044;
   font-weight: 650;
   text-decoration: none;
 }
@@ -798,19 +1091,28 @@
   justify-content: center;
   gap: 8px;
   margin-top: 14px;
-  border: 1px solid #dbe3ef;
+  border: 1px solid #922044;
   border-radius: 12px;
-  background: white;
-  color: #475569;
+  background: #922044;
+  color: #f8f6f1 !important;
   font-size: 13px;
   font-weight: 650;
   cursor: pointer;
 }
 
 .auth-change-role-btn:hover {
-  border-color: rgba(37, 99, 235, 0.32);
-  background: rgba(37, 99, 235, 0.04);
-  color: #2563eb;
+  border-color: #922044;
+  background: #922044;
+  color: #f8f6f1 !important;
+}
+
+.auth-change-role-btn i {
+  color: #f8f6f1 !important;
+}
+
+.auth-change-role-btn:focus-visible {
+  outline: 3px solid rgba(146, 32, 68, 0.28);
+  outline-offset: 3px;
 }
 
 @media (max-width: 980px) {
@@ -876,6 +1178,32 @@
     grid-template-columns: auto minmax(0, 1fr);
   }
 
+  .auth-card-page.signup-page::before,
+  .auth-card-page.reset-password-page::before,
+  .auth-card-page.signup-terms-page::before,
+  .auth-role-page::before {
+    background-position: center;
+    opacity: 0.07;
+  }
+
+  .auth-card-page.reset-password-page::before {
+    background-position: center 62%;
+    opacity: 0.09;
+  }
+
+  .auth-card-page.reset-password-page {
+    align-items: center !important;
+    padding: 16px !important;
+  }
+
+  .auth-role-page::before {
+    clip-path: none;
+  }
+
+  .auth-role-page::after {
+    display: none;
+  }
+
   .auth-role-option__arrow {
     display: none;
   }
@@ -888,6 +1216,204 @@
     border-radius: 18px;
     padding: 22px;
   }
+}
+
+/* Role details — shared Digi TransX paper, ink and maroon theme. */
+.auth-details-page {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 12% 15%, rgba(146, 32, 68, 0.08), transparent 28%),
+    radial-gradient(circle at 88% 84%, rgba(146, 32, 68, 0.05), transparent 25%),
+    #f8f6f1;
+}
+
+.auth-details-page::before {
+  position: absolute;
+  z-index: 0;
+  inset: 0;
+  background-repeat: no-repeat;
+  background-position: center 64%;
+  background-size: cover;
+  content: '';
+  opacity: 0.16;
+  pointer-events: none;
+}
+
+.auth-details-page--service-seeker::before {
+  background-image: url('../../assets/backgrounds/service-seeker-freight-mono.png');
+}
+
+.auth-details-page--logistics-provider::before {
+  background-image: url('../../assets/backgrounds/logistics-provider-fleet-mono.png');
+}
+
+.auth-details-page--everyday-user::before {
+  background-image: url('../../assets/backgrounds/everyday-user-city-mono.png');
+}
+
+.auth-details-page--fuel-station-manager::before {
+  background-image: url('../../assets/backgrounds/fuel-station-highway-mono.png');
+}
+
+.auth-details-page--shopkeeper::before {
+  background-image: url('../../assets/backgrounds/shop-vendor-delivery-mono.png');
+}
+
+.auth-details-page--driver::before {
+  background-image: url('../../assets/backgrounds/truck-driver-highway-mono.png');
+}
+
+/* Generated role artwork is naturally paler than the Service Seeker asset. */
+.auth-details-page--logistics-provider::before,
+.auth-details-page--everyday-user::before,
+.auth-details-page--fuel-station-manager::before,
+.auth-details-page--shopkeeper::before,
+.auth-details-page--driver::before {
+  opacity: 0.26;
+}
+
+.auth-details-page .auth-details-card {
+  position: relative;
+  z-index: 1;
+  border-color: #dedad2;
+  background: rgba(255, 254, 251, 0.975);
+  box-shadow: 0 24px 60px rgba(38, 27, 29, 0.12);
+}
+
+.auth-details-page .auth-card-brand {
+  gap: 4px !important;
+}
+
+.auth-details-page .auth-card-real-logo {
+  width: 68px;
+  height: 44px;
+  margin: -2px -5px -2px 0;
+}
+
+.auth-details-page .auth-card-brand-accent {
+  background: none;
+  color: #922044;
+  -webkit-text-fill-color: #922044;
+}
+
+.auth-details-page .auth-card-brand-text > span {
+  color: #922044;
+}
+
+.auth-details-page .auth-step-line {
+  background: #d8ceca;
+}
+
+.auth-details-page .auth-details-icon {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  box-shadow: none;
+}
+
+/* Keep each role's category colour consistent from role selection to details. */
+.auth-details-page--service-seeker .auth-details-icon {
+  background: rgba(16, 185, 129, 0.12);
+  color: #10b981;
+  box-shadow: none;
+}
+
+.auth-details-page--logistics-provider .auth-details-icon {
+  background: #e2e8f0;
+  color: #334155;
+  box-shadow: none;
+}
+
+.auth-details-page--everyday-user .auth-details-icon {
+  background: rgba(124, 58, 237, 0.12);
+  color: #7c3aed;
+  box-shadow: none;
+}
+
+.auth-details-page--fuel-station-manager .auth-details-icon {
+  background: rgba(245, 158, 11, 0.14);
+  color: #d97706;
+  box-shadow: none;
+}
+
+.auth-details-page--shopkeeper .auth-details-icon {
+  background: rgba(249, 115, 22, 0.12);
+  color: #ea580c;
+  box-shadow: none;
+}
+
+.auth-details-page--driver .auth-details-icon {
+  background: rgba(37, 99, 235, 0.12);
+  color: #2563eb;
+  box-shadow: none;
+}
+
+.auth-details-page .auth-details-heading h1 {
+  color: #181b1a;
+}
+
+.auth-details-page .auth-details-heading p {
+  color: #6f6865;
+}
+
+.auth-details-page .auth-details-body .auth-form-field label {
+  color: #181b1a !important;
+}
+
+.auth-details-page .auth-details-body .auth-form-field label span {
+  color: #8c8581 !important;
+}
+
+.auth-details-page .auth-details-body .auth-form-input,
+.auth-details-page .auth-details-body .auth-form-select {
+  border-color: #dedad2 !important;
+  background-color: #fbfaf8 !important;
+  color: #181b1a !important;
+}
+
+.auth-details-page .auth-details-body .auth-form-input:focus,
+.auth-details-page .auth-details-body .auth-form-select:focus {
+  border-color: #922044 !important;
+  background-color: #fff !important;
+  box-shadow: 0 0 0 4px rgba(146, 32, 68, 0.12) !important;
+}
+
+.auth-details-page .auth-details-body .auth-form-select {
+  background-image:
+    linear-gradient(45deg, transparent 50%, #6f6865 50%),
+    linear-gradient(135deg, #6f6865 50%, transparent 50%) !important;
+}
+
+.auth-details-page .auth-details-body .auth-submit,
+.auth-details-page .auth-details-body .auth-submit:hover,
+.auth-details-page .auth-details-body .auth-submit:active {
+  border-color: #922044 !important;
+  background: #922044 !important;
+  color: #f8f6f1 !important;
+  box-shadow: none !important;
+}
+
+.auth-details-page .auth-details-body .auth-submit:hover {
+  border-color: #7d163a !important;
+  background: #7d163a !important;
+}
+
+.auth-details-page .auth-change-role-btn,
+.auth-details-page .auth-change-role-btn:visited {
+  border-color: #d8ceca !important;
+  background: transparent !important;
+  color: #922044 !important;
+}
+
+.auth-details-page .auth-change-role-btn i {
+  color: #922044 !important;
+}
+
+.auth-details-page .auth-change-role-btn:hover {
+  border-color: rgba(146, 32, 68, 0.38) !important;
+  background: rgba(146, 32, 68, 0.05) !important;
+  color: #7d163a !important;
 }
 
 /* Role details page polish */
@@ -976,25 +1502,37 @@
 
 .auth-detail-note {
   margin: 0 !important;
-  border: 1px solid rgba(124, 58, 237, 0.18) !important;
+  border: 1px solid rgba(146, 32, 68, 0.18) !important;
   border-radius: 14px !important;
-  background: rgba(124, 58, 237, 0.07) !important;
-  color: #5b21b6 !important;
+  background: rgba(146, 32, 68, 0.06) !important;
+  color: #6f1836 !important;
   padding: 13px 14px !important;
   font-size: 13px !important;
   line-height: 1.5 !important;
 }
 
-.auth-change-role-btn {
+.auth-detail-note i {
+  margin-right: 7px;
+  color: #922044;
+}
+
+.auth-details-page .auth-change-role-btn {
   min-height: 48px !important;
   margin-top: 16px !important;
-  border-color: rgba(37, 99, 235, 0.24) !important;
-  color: #2563eb !important;
+  border-color: #d8ceca !important;
+  background: transparent !important;
+  color: #922044 !important;
   font-size: 14px !important;
   font-weight: 700 !important;
 }
 
 @media (max-width: 560px) {
+  .auth-details-page::before {
+    background-position: center 76%;
+    background-size: auto 82%;
+    opacity: 0.07;
+  }
+
   .auth-details-card {
     width: min(100%, 440px) !important;
     padding: 20px !important;
@@ -1019,20 +1557,136 @@
 .signup-terms-acceptance { display: flex; gap: 12px; align-items: flex-start; font-size: 14px; line-height: 1.6; color: #334155; }
 .signup-terms-acceptance input { flex: 0 0 auto; margin-top: 5px; accent-color: #2563eb; }
 
+.auth-card-page.signup-terms-page {
+  background: #f8f6f1 !important;
+}
+
+.signup-terms-page .auth-card-brand {
+  gap: 4px !important;
+}
+
+.signup-terms-page .auth-card-real-logo {
+  width: 68px;
+  height: 44px;
+  margin: -2px -5px -2px 0;
+}
+
+.signup-terms-page .auth-card-brand-accent {
+  background: none;
+  color: #922044;
+  -webkit-text-fill-color: #922044;
+}
+
+.signup-terms-page .auth-submit,
+.signup-terms-page .auth-submit:hover,
+.signup-terms-page .auth-submit:active {
+  background: #922044 !important;
+  color: #f8f6f1 !important;
+  box-shadow: none !important;
+}
+
+.signup-terms-page .signup-terms-acceptance input {
+  accent-color: #922044;
+}
+
+.signup-terms-error {
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr);
+  align-items: center;
+  gap: 12px;
+  border: 1px solid #dedad2;
+  border-radius: 14px;
+  background: #fbfaf8;
+  padding: 16px;
+  color: #181b1a;
+}
+
+.signup-terms-error__icon {
+  width: 38px;
+  height: 38px;
+  display: grid;
+  place-items: center;
+  border-radius: 11px;
+  background: rgba(146, 32, 68, 0.1);
+  color: #922044;
+}
+
+.signup-terms-error strong {
+  display: block;
+  font-size: 14px;
+}
+
+.signup-terms-error p {
+  margin: 3px 0 0;
+  color: #626966;
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.signup-terms-return {
+  grid-column: 1 / -1;
+  min-height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid #922044;
+  border-radius: 10px;
+  background: #922044;
+  color: #f8f6f1;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.signup-terms-return:hover {
+  background: #922044;
+  color: #f8f6f1;
+}
+
+.signup-terms-return:focus-visible,
+.signup-terms-change-role:focus-visible {
+  outline: 3px solid rgba(146, 32, 68, 0.28);
+  outline-offset: 3px;
+}
+
+.signup-terms-status {
+  margin: 0;
+  color: #626966;
+  text-align: center;
+}
+
+.signup-terms-change-role {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  color: #922044;
+  font-size: 13px;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.signup-terms-change-role:hover {
+  color: #922044;
+  text-decoration: underline;
+  text-underline-offset: 4px;
+}
+
 /* ============================================
    LOGIN — EDITORIAL FREIGHT / PAPER, INK & SIGNAL
    Scoped to the login route so every other surface stays untouched.
    ============================================ */
 
 .login-shell {
-  --login-paper: #f4f0e7;
-  --login-paper-light: #fffcf7;
+  --login-paper: #f8f6f1;
+  --login-paper-light: #f8f6f1;
   --login-ink: #181b1a;
   --login-ink-soft: #242a28;
   --login-muted: #5b625f;
-  --login-signal: #f46a4e;
-  --login-signal-dark: #bd4633;
-  --login-signal-soft: #ffb29f;
+  --login-signal: #922044;
+  --login-signal-dark: #922044;
+  --login-signal-soft: #922044;
   --login-line: #d6d1c7;
   position: relative;
   grid-template-columns: minmax(0, 1.18fr) minmax(440px, 0.82fr);
@@ -1042,7 +1696,7 @@
 }
 
 .login-shell ::selection {
-  background: rgba(244, 106, 78, 0.32);
+  background: rgba(146, 32, 68, 0.3);
   color: var(--login-ink);
 }
 
@@ -1065,6 +1719,67 @@
   max-width: 680px;
 }
 
+.login-shell .login-brand-lockup {
+  width: fit-content;
+  max-width: 100%;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+}
+
+.login-shell .login-brand-lockup__mark {
+  width: 104px;
+  height: 62px;
+  flex: 0 0 auto;
+  display: block;
+  object-fit: contain;
+}
+
+.login-shell .login-brand-lockup__copy {
+  min-width: 0;
+  display: grid;
+  gap: 5px;
+  color: var(--login-ink);
+  line-height: 1;
+  text-align: left;
+}
+
+.login-shell .login-brand-lockup__copy strong {
+  font-family: var(--font-primary, Inter, system-ui, sans-serif);
+  font-size: 27px;
+  font-stretch: normal;
+  font-weight: 760;
+  letter-spacing: -0.025em;
+  white-space: nowrap;
+}
+
+.login-shell .login-brand-lockup__copy strong span {
+  color: var(--login-signal);
+}
+
+.login-shell .login-brand-lockup__copy small {
+  width: 100%;
+  justify-self: stretch;
+  display: flex;
+  justify-content: space-between;
+  gap: 8px;
+  color: #737373;
+  font-family: "Arial Narrow", Arial, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  letter-spacing: normal;
+  text-align: left;
+  white-space: nowrap;
+}
+
+.login-shell .login-brand-lockup__copy small span {
+  letter-spacing: 0.16em;
+}
+
+.login-shell .login-brand-lockup__copy small span:last-child {
+  margin-right: 0;
+}
+
 .login-shell .auth-shell__hero-logo {
   width: 62px;
   height: 62px;
@@ -1079,7 +1794,7 @@
 }
 
 .login-shell .auth-shell__hero-logo path {
-  stroke: var(--login-signal);
+  stroke: var(--login-signal-soft);
 }
 
 .login-shell .auth-shell__story h2 {
@@ -1175,8 +1890,8 @@
 }
 
 .login-shell .auth-shell__brand {
-  gap: 14px !important;
-  color: var(--login-paper-light) !important;
+  gap: 7px !important;
+  color: #f8f6f1 !important;
 }
 
 .login-shell .auth-shell__brand-logo {
@@ -1188,15 +1903,39 @@
   box-shadow: none;
 }
 
+.login-shell .auth-shell__brand-logo--image {
+  width: 76px;
+  height: 50px;
+  flex: 0 0 76px;
+  border-radius: 0;
+  background: transparent !important;
+}
+
+.login-shell .auth-shell__brand-logo--image img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+}
+
 .login-shell .auth-shell__brand-logo path {
-  stroke: var(--login-ink);
+  stroke: #f8f6f1;
 }
 
 .login-shell .auth-shell__brand span {
-  color: var(--login-paper-light) !important;
+  color: #f8f6f1 !important;
   font-size: 25px !important;
   font-weight: 760 !important;
   letter-spacing: -0.025em;
+}
+
+.login-shell .auth-shell__brand .auth-shell__brand-accent {
+  display: inline-block;
+  margin-left: 3px;
+  color: var(--login-signal) !important;
+  font: inherit;
+  letter-spacing: inherit;
+  vertical-align: baseline;
 }
 
 .login-shell .auth-shell__intro {
@@ -1205,7 +1944,7 @@
 
 .login-shell .auth-shell__intro h1 {
   margin: 0 0 12px !important;
-  color: var(--login-paper-light) !important;
+  color: #f8f6f1 !important;
   font-size: 38px !important;
   font-weight: 740 !important;
   line-height: 1.08 !important;
@@ -1231,14 +1970,14 @@
 }
 
 .login-shell .auth-shell__field label {
-  color: #ece8df !important;
+  color: #f8f6f1 !important;
   font-size: 13px !important;
   font-weight: 680 !important;
 }
 
 .login-shell .auth-shell__label-row a,
 .login-shell .auth-shell__footer a {
-  color: var(--login-signal-soft) !important;
+  color: #f8f6f1 !important;
   font-size: 13px;
   font-weight: 680;
   text-decoration: none;
@@ -1248,7 +1987,7 @@
 
 .login-shell .auth-shell__label-row a:hover,
 .login-shell .auth-shell__footer a:hover {
-  color: #ffd0c5 !important;
+  color: #f8f6f1 !important;
   text-decoration: underline;
 }
 
@@ -1271,14 +2010,36 @@
   opacity: 1;
 }
 
+.login-shell .auth-shell__input:-webkit-autofill,
+.login-shell .auth-shell__input:-webkit-autofill:hover,
+.login-shell .auth-shell__input:-webkit-autofill:focus,
+.login-shell .auth-shell__input:-webkit-autofill:active {
+  border-color: transparent !important;
+  -webkit-text-fill-color: var(--login-ink) !important;
+  caret-color: var(--login-ink);
+  box-shadow: 0 0 0 1000px var(--login-paper-light) inset !important;
+  -webkit-box-shadow: 0 0 0 1000px var(--login-paper-light) inset !important;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.login-shell .auth-shell__input:-webkit-autofill:focus {
+  border-color: var(--login-signal) !important;
+  box-shadow:
+    0 0 0 1000px var(--login-paper-light) inset,
+    0 0 0 4px rgba(146, 32, 68, 0.2) !important;
+  -webkit-box-shadow:
+    0 0 0 1000px var(--login-paper-light) inset,
+    0 0 0 4px rgba(146, 32, 68, 0.2) !important;
+}
+
 .login-shell .auth-shell__input:hover {
   border-color: #b9b7af !important;
 }
 
 .login-shell .auth-shell__input:focus {
   border-color: var(--login-signal) !important;
-  background: #ffffff !important;
-  box-shadow: 0 0 0 4px rgba(244, 106, 78, 0.18) !important;
+  background: #f8f6f1 !important;
+  box-shadow: 0 0 0 4px rgba(146, 32, 68, 0.2) !important;
 }
 
 .login-shell .auth-shell__input--error {
@@ -1297,7 +2058,7 @@
   border: 0 !important;
   border-radius: 12px !important;
   background: var(--login-signal) !important;
-  color: var(--login-ink) !important;
+  color: #f8f6f1 !important;
   font-size: 14px !important;
   font-weight: 760 !important;
   box-shadow: 0 12px 28px rgba(0, 0, 0, 0.22);
@@ -1305,18 +2066,18 @@
 }
 
 .login-shell .auth-shell__primary:hover {
-  background: #ff8067 !important;
+  background: var(--login-signal) !important;
   box-shadow: 0 14px 32px rgba(0, 0, 0, 0.28);
 }
 
 .login-shell .auth-shell__primary:active {
-  background: #df5941 !important;
+  background: var(--login-signal) !important;
   box-shadow: 0 7px 18px rgba(0, 0, 0, 0.2);
 }
 
 .login-shell .auth-shell__primary:disabled {
-  background: #775a53 !important;
-  color: #d8d4cc !important;
+  background: #62434e !important;
+  color: #f8f6f1 !important;
   box-shadow: none;
 }
 
@@ -1421,6 +2182,37 @@
   .login-shell .auth-shell__brand-logo {
     width: 46px;
     height: 46px;
+  }
+
+  .login-shell .auth-shell__brand-logo--image {
+    width: 70px;
+    height: 46px;
+    flex-basis: 70px;
+  }
+
+  .login-shell .login-brand-lockup {
+    gap: 6px;
+  }
+
+  .login-shell .login-brand-lockup__mark {
+    width: 82px;
+    height: 50px;
+  }
+
+  .login-shell .login-brand-lockup__copy strong {
+    font-size: 24px;
+  }
+
+  .login-shell .login-brand-lockup__copy small {
+    font-size: 10px;
+  }
+
+  .login-shell .login-brand-lockup__copy small span {
+    letter-spacing: 0.12em;
+  }
+
+  .login-shell .login-brand-lockup__copy small span:last-child {
+    margin-right: 0;
   }
 
   .login-shell .auth-shell__brand span {

@@ -3,6 +3,8 @@ import { useState, useEffect, useCallback } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import Notification from '../../components/common/Notification'
 import { useAuthSession } from '../../hooks/useAuth'
+import digiTransxLogo from '../../assets/brand/digi-transx-logo.png'
+import digiTransxLogoLight from '../../assets/brand/digi-transx-logo-light.png'
 import '../../styles/pages/auth.css'
 
 export default function Login() {
@@ -86,7 +88,17 @@ export default function Login() {
     <main className="auth-shell login-shell">
       <section className="auth-shell__hero" aria-label="Digi_TransX freight platform">
         <div className="auth-shell__story">
-          <BrandMark className="auth-shell__hero-logo" />
+          <div className="login-brand-lockup" aria-label="Digi TransX, AD-HAG Project">
+            <img src={digiTransxLogo} alt="" className="login-brand-lockup__mark" />
+            <span className="login-brand-lockup__copy">
+              <strong>DIGI_TRANS<span>X</span></strong>
+              <small>
+                <span>A</span>
+                <span>D-HAG</span>
+                <span>PROJECT</span>
+              </small>
+            </span>
+          </div>
           <h2>Move freight, fearlessly.</h2>
           <p>Pakistan's freight network &mdash; dispatched, tracked, and settled from one screen.</p>
 
@@ -116,8 +128,10 @@ export default function Login() {
 
         <div className="auth-shell__card">
           <div className="auth-shell__brand">
-            <BrandMark className="auth-shell__brand-logo" />
-            <span>Digi_TransX</span>
+            <span className="auth-shell__brand-logo auth-shell__brand-logo--image" aria-hidden="true">
+              <img src={digiTransxLogoLight} alt="" />
+            </span>
+            <span>Digi_Trans<b className="auth-shell__brand-accent">X</b></span>
           </div>
 
           <div className="auth-shell__intro">
@@ -175,16 +189,5 @@ export default function Login() {
         </div>
       </section>
     </main>
-  )
-}
-
-function BrandMark({ className }) {
-  return (
-    <div className={className} aria-hidden="true">
-      <svg viewBox="0 0 32 32" fill="none">
-        <path d="M5 9 L13 9 L19 23 L27 23" />
-        <path d="M27 9 L19 9 L13 23 L5 23" />
-      </svg>
-    </div>
   )
 }

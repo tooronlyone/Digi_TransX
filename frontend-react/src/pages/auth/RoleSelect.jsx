@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import '../../styles/pages/auth.css'
+import brandLogo from '../../assets/brand/digi-transx-logo.png'
 import { hasCompleteSignupBasic } from '../../auth/signupDraft.js'
 import { useSignupWizard } from '../../auth/signupWizardContext'
 
@@ -66,16 +67,9 @@ export default function RoleSelect() {
       <section className="auth-role-card">
         <div className="auth-role-header">
           <Link to="/login" className="auth-card-brand">
-            <span className="auth-card-logo">
-              <svg viewBox="0 0 32 32" fill="none" width="28" height="28" aria-hidden="true">
-                <g stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 9 L13 9 L19 23 L27 23"/>
-                  <path d="M27 9 L19 9 L13 23 L5 23"/>
-                </g>
-              </svg>
-            </span>
+            <img className="auth-card-real-logo" src={brandLogo} alt="" aria-hidden="true" />
             <span className="auth-card-brand-text">
-              Digi_Trans<span>X</span>
+              Digi_Trans<span className="auth-card-brand-accent">X</span>
             </span>
           </Link>
           <h1>What best describes you?</h1>

@@ -55,7 +55,13 @@ export default function ServiceSeekerDetails() {
   const set = f => e => setForm(p => ({ ...p, [f]: e.target.value }))
 
   return (
-    <StepShell title="Service Seeker" subtitle="Tell us a bit more about your shipping needs" icon="📦">
+    <StepShell
+      title="Service Seeker"
+      subtitle="Tell us a bit more about your shipping needs"
+      icon="📦"
+      pageClassName="service-seeker-details-page"
+      useBrandLogo
+    >
       <Notification type={notification.type} message={notification.message}
         onClose={() => setNotification({ type: '', message: '' })} />
 

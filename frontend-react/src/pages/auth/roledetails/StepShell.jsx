@@ -1,5 +1,6 @@
 import { Link, useNavigate } from 'react-router-dom'
 import '../../../styles/pages/auth.css'
+import brandLogo from '../../../assets/brand/digi-transx-logo.png'
 
 const ICONS = {
   'Service Seeker': 'fa-box',
@@ -7,25 +8,40 @@ const ICONS = {
   'Everyday User': 'fa-user',
   'Fuel Station Manager': 'fa-gas-pump',
   'Shop Owner / Vendor': 'fa-store',
+  'Truck Driver': 'fa-id-card',
 }
 
-export default function StepShell({ title, subtitle, icon, children }) {
+const ROLE_CLASSES = {
+  'Service Seeker': 'service-seeker',
+  'Logistics Provider': 'logistics-provider',
+  'Everyday User': 'everyday-user',
+  'Fuel Station Manager': 'fuel-station-manager',
+  'Shop Owner / Vendor': 'shopkeeper',
+  'Truck Driver': 'driver',
+}
+
+export default function StepShell({ title, subtitle, icon, children, pageClassName = '', useBrandLogo = true }) {
   const navigate = useNavigate()
   const iconClass = ICONS[title] || icon || 'fa-user'
+  const roleClassName = ROLE_CLASSES[title] ? `auth-details-page--${ROLE_CLASSES[title]}` : ''
 
   return (
-    <main className="auth-details-page">
+    <main className={`auth-details-page ${roleClassName} ${pageClassName}`.trim()}>
       <section className="auth-details-card">
         <div className="auth-details-logo">
           <Link to="/login" className="auth-card-brand">
-            <span className="auth-card-logo">
-              <svg viewBox="0 0 32 32" fill="none" width="28" height="28" aria-hidden="true">
-                <g stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M5 9 L13 9 L19 23 L27 23"/>
-                  <path d="M27 9 L19 9 L13 23 L5 23"/>
-                </g>
-              </svg>
-            </span>
+            {useBrandLogo ? (
+              <img className="auth-card-real-logo" src={brandLogo} alt="" aria-hidden="true" />
+            ) : (
+              <span className="auth-card-logo">
+                <svg viewBox="0 0 32 32" fill="none" width="28" height="28" aria-hidden="true">
+                  <g stroke="white" strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round">
+                    <path d="M5 9 L13 9 L19 23 L27 23"/>
+                    <path d="M27 9 L19 9 L13 23 L5 23"/>
+                  </g>
+                </svg>
+              </span>
+            )}
             <span className="auth-card-brand-text">
               Digi_Trans<span>X</span>
             </span>

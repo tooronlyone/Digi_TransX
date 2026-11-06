@@ -71,7 +71,7 @@ export default function Signup() {
   const setField = (field) => (event) => setForm(current => ({ ...current, [field]: event.target.value }))
 
   return (
-    <AuthCard title="Create Account" subtitle="Join DigiTransX - Pakistan's transport platform">
+    <AuthCard pageClassName="signup-page" useBrandLogo title="Create Account" subtitle="Join DigiTransX - Pakistan's transport platform">
       <Notification
         type={notification.type}
         message={notification.message}

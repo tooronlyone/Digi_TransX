@@ -62,9 +62,9 @@ export default function DriverDetails() {
   }
 
   return (
-    <StepShell roleKey="driver" title="Driver Professional Details" subtitle="Enter your driving license and experience details">
+    <StepShell title="Truck Driver" subtitle="Enter your driving licence and experience details">
       {notification.message && <Notification type={notification.type} message={notification.message} onClose={() => setNotification({ type: '', message: '' })} />}
-      <form onSubmit={handleSubmit} className="auth-form" noValidate>
+      <form onSubmit={handleSubmit} className="auth-details-form" noValidate>
         <InputField
           id="driverCity"
           label="Current Base City"
@@ -103,13 +103,13 @@ export default function DriverDetails() {
             onChange={(e) => setForm({ ...form, experience_years: e.target.value })}
           />
         </div>
-        <div style={{ marginTop: '12px', marginBottom: '16px', padding: '10px 14px', background: '#f1f5f9', borderRadius: '8px', border: '1px solid #e2e8f0' }}>
-          <span style={{ fontSize: '0.8rem', color: '#475569', fontWeight: 600 }}>
-            <i className="fas fa-info-circle" style={{ marginRight: '6px', color: '#3b82f6' }}></i>
+        <div className="auth-detail-note">
+          <span>
+            <i className="fas fa-info-circle" aria-hidden="true"></i>
             All newly registered drivers begin as <strong>Per-Trip Freelance Drivers</strong>. As you complete trips with high ratings, fleet transporters can send you monthly permanent hire contracts.
           </span>
         </div>
-        <button type="submit" className="auth-submit-btn" disabled={loading}>
+        <button type="submit" className="auth-submit" disabled={loading}>
           {loading ? 'Registering Driver...' : 'Complete Driver Registration'}
         </button>
       </form>

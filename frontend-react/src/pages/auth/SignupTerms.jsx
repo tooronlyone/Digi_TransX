@@ -33,8 +33,18 @@ export default function SignupTerms() {
     if (store.acceptTerms(document.version, document.role)) navigate(ROLE_NEXT[draft.role])
   }
 
-  return <AuthCard title="Terms & Conditions" subtitle={`Review your agreement before completing your ${document?.role_label || 'selected role'} account.`}>
-    {error ? <p role="alert">{error} <Link to="/signup/role">Return to role selection</Link></p> : !document ? <p role="status">Loading your agreement...</p> : <form onSubmit={continueSignup} className="auth-details-form">
+  return <AuthCard pageClassName="signup-terms-page" useBrandLogo title="Terms & Conditions" subtitle={`Review your agreement before completing your ${document?.role_label || 'selected role'} account.`}>
+    {error ? <div className="signup-terms-error" role="alert">
+      <span className="signup-terms-error__icon" aria-hidden="true"><i className="fas fa-file-circle-exclamation" /></span>
+      <div>
+        <strong>Unable to load the agreement</strong>
+        <p>Please return to role selection and try again.</p>
+      </div>
+      <Link className="signup-terms-return" to="/signup/role">
+        <i className="fas fa-arrow-left" aria-hidden="true" />
+        Return to role selection
+      </Link>
+    </div> : !document ? <p className="signup-terms-status" role="status">Loading your agreement...</p> : <form onSubmit={continueSignup} className="auth-details-form">
       <div className="signup-terms-sections">
         {document.sections.map(section => <section key={section.title}>
           <h2>{section.title}</h2>
@@ -47,7 +57,7 @@ export default function SignupTerms() {
         <span>I have read and agree to these Terms & Conditions for my {document.role_label} account, including the goods insurance notice.</span>
       </label>
       <button className="auth-submit" type="submit" disabled={!accepted}>Agree and continue</button>
-      <Link to="/signup/role">Change role</Link>
+      <Link className="signup-terms-change-role" to="/signup/role"><i className="fas fa-arrow-left" aria-hidden="true" /> Change role</Link>
     </form>}
   </AuthCard>
 }
