@@ -311,9 +311,20 @@ def create_order():
         is_hazardous = bool(flags.get("hazardous"))
         is_food_grade = bool(flags.get("food_grade"))
 
+        if goods_category == "liquid":
+            if volume_liters <= 0 and goods_weight_tons > 0:
+                volume_liters = round(goods_weight_tons * 1000.0, 2)
+            elif goods_weight_tons <= 0 and volume_liters > 0:
+                goods_weight_tons = round(volume_liters / 1000.0, 3)
+        elif goods_category == "livestock" and goods_weight_tons <= 0 and animal_count > 0:
+            goods_weight_tons = round(max(0.3, animal_count * 0.35), 2)
+
+        if goods_weight_tons > 100:
+            return json_response({"success": False, "message": "Goods weight cannot exceed 100 tons per truck order."}, 400)
+        if volume_liters > 100000:
+            return json_response({"success": False, "message": "Liquid volume cannot exceed 100,000 liters (100 tons) per truck order."}, 400)
+
         reqs = goods_required_fields(commodity_key)
-        if FIELD_DIMENSIONS in reqs and not (length_cm > 0 and width_cm > 0 and height_cm > 0):
-            return json_response({"success": False, "message": "Length, width and height are required for packaged solid goods."}, 400)
         if FIELD_VOLUME_LITERS in reqs and not volume_liters > 0:
             return json_response({"success": False, "message": "Volume (liters) is required for liquid goods."}, 400)
         if FIELD_WEIGHT in reqs and not goods_weight_tons > 0:
@@ -418,10 +429,7 @@ def available_orders():
         my_trucks = [
             dict(r)
             for r in db.execute(
-                "SELECT catalog_type_key, truck_type, capacity_tons, payload_max_tons, volume_max_cbm, "
-                "bed_length_ft, bed_width_ft, bed_height_ft, "
-                "current_city, current_lat, current_lng, service_radius_km "
-                "FROM vehicles WHERE owner_user_id = %s AND status = 'active'",
+                "SELECT * FROM vehicles WHERE owner_user_id = %s AND status = 'active' ORDER BY id DESC",
                 (request.current_user["id"],),
             ).fetchall()
         ]
@@ -471,6 +479,7 @@ def available_orders():
                 if d is not None
             ]
             serialized["distance_to_pickup_km"] = min(distances) if distances else None
+            serialized["eligible_truck_ids"] = [t["id"] for t in eligible if t.get("id") is not None]
             orders.append(serialized)
 
     return json_response({

@@ -34,9 +34,13 @@ export default function PostAgreement() {
   }
 
   function updateTruck(index, field, value) {
+    let nextValue = value
+    if (field === 'capacity_tons' && value !== '' && Number(value) > 100) {
+      nextValue = '100'
+    }
     setForm((current) => ({
       ...current,
-      trucks: current.trucks.map((truck, truckIndex) => truckIndex === index ? { ...truck, [field]: value } : truck),
+      trucks: current.trucks.map((truck, truckIndex) => truckIndex === index ? { ...truck, [field]: nextValue } : truck),
     }))
   }
 
@@ -118,8 +122,8 @@ export default function PostAgreement() {
                   </select>
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
-                  Capacity tons
-                  <input className="rounded-lg border border-slate-300 px-3 py-2.5" type="number" min="0.1" step="0.1" value={truck.capacity_tons} onChange={(event) => updateTruck(index, 'capacity_tons', event.target.value)} required />
+                  Capacity tons (Max 100)
+                  <input className="rounded-lg border border-slate-300 px-3 py-2.5" type="number" min="0.3" max="100" step="0.1" value={truck.capacity_tons} onChange={(event) => updateTruck(index, 'capacity_tons', event.target.value)} required />
                 </label>
                 <label className="grid gap-2 text-sm font-medium text-slate-700">
                   Quantity

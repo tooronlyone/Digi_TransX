@@ -38,7 +38,7 @@ _BASE_FIELDS = {
 
 # Fields that are strictly required (others are optional inputs).
 _REQUIRED_FIELDS = {
-    ("solid", "packaged"): [FIELD_DIMENSIONS, FIELD_WEIGHT],
+    ("solid", "packaged"): [FIELD_WEIGHT],
     ("solid", "bulk"): [FIELD_WEIGHT],
     ("liquid", None): [FIELD_VOLUME_LITERS],
     ("gas", None): [FIELD_WEIGHT],
@@ -84,6 +84,27 @@ GOODS_TAXONOMY = {
         "trucks": [
             "flatbed_trailer_open_semi_trailer", "low_bed_low_loader_trailer",
             "heavy_rigid_truck_15_25_ton", "container_carrier_skeletal_trailer",
+        ],
+        "flags": {},
+    },
+    "construction_steel": {
+        "label": "Steel / sariya / pipes / girders",
+        "category": CATEGORY_SOLID, "form": "packaged",
+        "trucks": [
+            "light_truck_3_5_5_ton", "medium_rigid_truck_5_9_ton",
+            "heavy_rigid_truck_9_15_ton", "heavy_rigid_truck_15_25_ton",
+            "flatbed_trailer_open_semi_trailer", "low_bed_low_loader_trailer",
+        ],
+        "flags": {},
+    },
+    "cement_bags": {
+        "label": "Cement / fertilizer / grain bags (boriyan)",
+        "category": CATEGORY_SOLID, "form": "packaged",
+        "trucks": [
+            "mini_pickup", "light_truck_2_3_5_ton", "light_truck_3_5_5_ton",
+            "medium_rigid_truck_5_9_ton", "heavy_rigid_truck_9_15_ton",
+            "heavy_rigid_truck_15_25_ton", "flatbed_trailer_open_semi_trailer",
+            "container_carrier_skeletal_trailer", "insulated_or_dry_box_truck",
         ],
         "flags": {},
     },

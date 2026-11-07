@@ -173,7 +173,8 @@ def test_8b_milk_tanker_capacity_type_status_location_and_volume_boundaries():
         "pickup_lng": GUJRANWALA[1],
     }
 
-    assert truck_order_eligibility_mismatch(_milk_truck(10), MILK_REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(_milk_truck(9), MILK_REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(_milk_truck(10), MILK_REQUIRED, order) is None
     assert truck_order_eligibility_mismatch(_milk_truck(11), MILK_REQUIRED, order) is None
     assert truck_order_eligibility_mismatch(_milk_truck(12), MILK_REQUIRED, order) is None
     assert truck_order_eligibility_mismatch(_milk_truck(15), MILK_REQUIRED, order) is None
@@ -198,7 +199,8 @@ def test_8b_milk_tanker_capacity_type_status_location_and_volume_boundaries():
         order,
     ) is not None
 
-    assert truck_order_eligibility_mismatch(_milk_truck(12, volume_max_cbm=11.999), MILK_REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(_milk_truck(12, volume_max_cbm=10.9), MILK_REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(_milk_truck(12, volume_max_cbm=11), MILK_REQUIRED, order) is None
     assert truck_order_eligibility_mismatch(_milk_truck(12, volume_max_cbm=12), MILK_REQUIRED, order) is None
     assert truck_order_eligibility_mismatch(_milk_truck(12, volume_max_cbm=13), MILK_REQUIRED, order) is None
 
@@ -206,10 +208,10 @@ def test_8b_milk_tanker_capacity_type_status_location_and_volume_boundaries():
 @pytest.mark.parametrize(
     ("goods_volume_cbm", "truck_volume_cbm", "eligible"),
     (
-        (1, 11.999, False),
-        (1, 12, True),
-        (13, 12, False),
-        (13, 13, True),
+        (1, 10.9, False),
+        (1, 11, True),
+        (15, 12, False),
+        (15, 14, True),
     ),
 )
 def test_8c_conflicting_liquid_and_cbm_requirements_use_the_larger_value(
@@ -266,7 +268,8 @@ def test_8f_dimension_boundaries_still_use_the_same_matching_helper():
         width_cm=213.36,
         height_cm=243.84,
     )
-    assert truck_order_eligibility_mismatch(_truck(*GUJRANWALA, bed_length_ft=19.99), REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(_truck(*GUJRANWALA, bed_length_ft=18), REQUIRED, order) is not None
+    assert truck_order_eligibility_mismatch(_truck(*GUJRANWALA, bed_length_ft=18.5), REQUIRED, order) is None
     assert truck_order_eligibility_mismatch(_truck(*GUJRANWALA, bed_length_ft=20), REQUIRED, order) is None
     assert truck_order_eligibility_mismatch(_truck(*GUJRANWALA, bed_length_ft=21), REQUIRED, order) is None
 
@@ -755,4 +758,66 @@ def test_operating_provinces_requires_both_pickup_and_dropoff_in_permitted_provi
     sindh_only_truck = _truck(*GUJRANWALA, operating_provinces="Sindh")
     pickup_reason = truck_order_eligibility_mismatch(sindh_only_truck, REQUIRED, punjab_to_sindh_order)
     assert pickup_reason is not None and "pickup province (Punjab)" in pickup_reason
+
+
+def test_client_cement_bags_and_sariya_match_hybrid_open_body_and_trailer():
+    """Cement bags (cement_bags) match Open Body / Trailer trucks registered for
+    general_cargo, and 20 ft Sariya (construction_steel) matches a 22 ft truck
+    registered for machinery while rejecting a 16 ft Mazda."""
+    import json as _json
+    cement_bags_req = required_truck_types("cement_bags")
+    steel_req = required_truck_types("construction_steel")
+
+    open_hino = _truck(
+        *GUJRANWALA,
+        catalog_type_key="heavy_rigid_truck_9_15_ton",
+        truck_type="Heavy Rigid Truck (9-15 Ton)",
+        body_style="Open Body",
+        capacity_tons=15,
+        payload_max_tons=15,
+        bed_length_ft=22,
+        bed_width_ft=8,
+        bed_height_ft=8.5,
+        catalog_specs_json=_json.dumps({
+            "hybrid_version": 2,
+            "body_type": "Open Body",
+            "allowed_commodities": ["general_cargo", "machinery"],
+        }),
+    )
+    short_mazda = _truck(
+        *GUJRANWALA,
+        catalog_type_key="light_truck_3_5_5_ton",
+        truck_type="Light Truck (3.5-5 Ton)",
+        body_style="Open Body",
+        capacity_tons=15,
+        payload_max_tons=15,
+        bed_length_ft=16,
+        bed_width_ft=7,
+        bed_height_ft=7,
+        catalog_specs_json=_json.dumps({
+            "hybrid_version": 2,
+            "body_type": "Open Body",
+            "allowed_commodities": ["general_cargo", "machinery"],
+        }),
+    )
+
+    cement_bags_order = _order(
+        GUJRANWALA,
+        required=cement_bags_req,
+        weight=12,
+        goods_commodity="cement_bags",
+    )
+    assert truck_order_eligibility_mismatch(open_hino, cement_bags_req, cement_bags_order) is None
+
+    sariya_20ft_order = _order(
+        GUJRANWALA,
+        required=steel_req,
+        weight=12,
+        goods_commodity="construction_steel",
+        length_cm=609.6,  # 20 ft converted to cm
+    )
+    assert truck_order_eligibility_mismatch(open_hino, steel_req, sariya_20ft_order) is None
+    short_reason = truck_order_eligibility_mismatch(short_mazda, steel_req, sariya_20ft_order)
+    assert short_reason is not None and "cargo bed length is only 16 ft" in short_reason
+
 

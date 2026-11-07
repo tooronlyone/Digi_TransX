@@ -339,7 +339,7 @@ export const REEFER_TEMPERATURE_OPTIONS = [
 
 export const CARGO_USE_OPTIONS_BY_BODY = {
   'Open Body': [
-    { key: 'general_cargo', label: 'General / Mixed Cargo & Cartons' },
+    { key: 'general_cargo', label: 'General Cargo, Cartons & Cement / Grain Bags (Boriyan)' },
     { key: 'furniture', label: 'Furniture & Household Shifting' },
     { key: 'cotton_textiles', label: 'Cotton / Textiles / Bales' },
     { key: 'machinery', label: 'Machinery, Steel (Sariya) & Pipes' },
@@ -347,7 +347,7 @@ export const CARGO_USE_OPTIONS_BY_BODY = {
     { key: 'fruits_vegetables', label: 'Fresh Fruits & Vegetables (Mandis)' },
   ],
   'Box Body': [
-    { key: 'general_cargo', label: 'General / Mixed Cargo & FMCG' },
+    { key: 'general_cargo', label: 'General Cargo, FMCG & Packaged Bags' },
     { key: 'electronics', label: 'Electronics & Home Appliances' },
     { key: 'furniture', label: 'Furniture & Household Goods' },
     { key: 'cotton_textiles', label: 'Textiles / Garments / Bales' },
@@ -355,7 +355,7 @@ export const CARGO_USE_OPTIONS_BY_BODY = {
     { key: 'pharmaceuticals', label: 'Insulated Pharmaceuticals & Medical Supplies' },
   ],
   Trailer: [
-    { key: 'general_cargo', label: 'Shipping Containers & Heavy General Cargo' },
+    { key: 'general_cargo', label: 'Shipping Containers, Cement Bags & Heavy General Cargo' },
     { key: 'machinery', label: 'Heavy Machinery, Steel (Sariya), Girders & Pipes' },
     { key: 'cotton_textiles', label: 'Cotton / Textile Bales (Export)' },
     { key: 'furniture', label: 'Containerized Furniture & Commercial Goods' },

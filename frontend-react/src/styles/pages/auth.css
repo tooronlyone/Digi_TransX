@@ -179,11 +179,9 @@
 }
 
 .auth-card-brand-accent {
-  background: linear-gradient(135deg, #2563eb, #3b82f6);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  background: none;
+  color: #2563eb;
+  -webkit-text-fill-color: #2563eb;
 }
 
 .auth-card-real-logo {
@@ -331,6 +329,7 @@
 /* Create Account uses the Digi TransX maroon palette without affecting other auth pages. */
 .auth-card-page.signup-page {
   background: #f8f6f1 !important;
+  padding: 28px !important;
 }
 
 .auth-card-page.signup-page,
@@ -359,8 +358,9 @@
 
 .auth-card-page.signup-page::before {
   background-image: url("../../assets/backgrounds/signup-freight-mono.png");
-  background-size: 100% auto;
-  opacity: 0.15;
+  background-size: cover;
+  background-position: center 58%;
+  opacity: 0.28;
 }
 
 .auth-card-page.reset-password-page::before {
@@ -412,6 +412,24 @@
   box-shadow: 0 16px 34px rgba(125, 22, 58, 0.26);
 }
 
+.signup-page > .auth-card {
+  width: min(100%, 1040px) !important;
+  max-width: 1040px !important;
+  border-color: rgba(222, 218, 210, 0.9) !important;
+  border-radius: 24px !important;
+  background: rgba(255, 255, 255, 0.94) !important;
+  padding: 26px 30px !important;
+  box-shadow: 0 26px 70px rgba(24, 27, 26, 0.14) !important;
+}
+
+.signup-page .auth-card-header {
+  margin-bottom: 0 !important;
+}
+
+.signup-page .auth-card-title {
+  margin-top: 8px !important;
+}
+
 .signup-page .auth-card-brand {
   gap: 4px !important;
 }
@@ -423,11 +441,9 @@
 }
 
 .signup-page .auth-card-brand-accent {
-  background: linear-gradient(135deg, #7d163a, #a51e4d);
-  background-clip: text;
-  -webkit-background-clip: text;
-  color: transparent;
-  -webkit-text-fill-color: transparent;
+  background: none;
+  color: #922044;
+  -webkit-text-fill-color: #922044;
 }
 
 .signup-page .auth-form-input:focus {
@@ -497,6 +513,183 @@
 .signup-page .auth-card-footer a,
 .signup-page .auth-card-footer a:hover {
   color: #7d163a !important;
+}
+
+.signup-page .signup-steps {
+  margin: 20px 0 22px;
+}
+
+.signup-page .auth-step--active span {
+  background: #922044;
+  color: #f8f6f1;
+}
+
+.signup-page .auth-step--active strong {
+  color: #922044;
+}
+
+.signup-page .auth-step-line {
+  background: #d8ceca;
+}
+
+.signup-form {
+  gap: 16px !important;
+}
+
+.signup-form-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 16px;
+}
+
+.signup-form-section {
+  min-width: 0;
+  border: 1px solid #dedad2;
+  border-radius: 16px;
+  background: #fbfaf8;
+  padding: 18px;
+}
+
+.signup-form-section__heading {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid #ebe6df;
+  padding-bottom: 14px;
+}
+
+.signup-form-section__icon {
+  width: 42px;
+  height: 42px;
+  flex: 0 0 42px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  background: rgba(146, 32, 68, 0.1);
+  color: #922044;
+  font-size: 16px;
+}
+
+.signup-form-section__heading h2 {
+  margin: 0;
+  color: #181b1a;
+  font-size: 15px;
+  font-weight: 760;
+  line-height: 1.25;
+}
+
+.signup-form-section__heading p {
+  margin: 3px 0 0;
+  color: #6f6865;
+  font-size: 12px;
+  line-height: 1.4;
+}
+
+.signup-form-section__fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: start;
+  gap: 14px;
+}
+
+.signup-form-section__fields--access {
+  grid-template-columns: 1fr;
+}
+
+.signup-cnic-field,
+.signup-password-field {
+  grid-column: 1 / -1;
+}
+
+.signup-page .auth-strength {
+  display: grid;
+  grid-template-columns: minmax(120px, 180px) auto;
+  align-items: center;
+  gap: 9px;
+}
+
+.signup-page .auth-strength__bars {
+  height: 5px;
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 4px;
+}
+
+.signup-page .auth-strength__bar {
+  border-radius: 999px;
+}
+
+.signup-page .auth-card-footer {
+  margin: 0 !important;
+  border-top: 1px solid #ebe6df !important;
+  padding-top: 14px !important;
+  text-align: center;
+}
+
+.signup-page .auth-card-footer p {
+  margin: 0;
+  color: #6f6865;
+  font-size: 13px;
+}
+
+.signup-page .auth-submit {
+  min-height: 48px !important;
+}
+
+.signup-page ::selection {
+  background: rgba(146, 32, 68, 0.18);
+  color: #181b1a;
+}
+
+@media (max-width: 900px) {
+  .signup-page .signup-form-grid,
+  .signup-page .signup-form-section__fields,
+  .signup-page .signup-form-section__fields--access {
+    grid-template-columns: 1fr;
+  }
+
+  .signup-page .signup-cnic-field,
+  .signup-page .signup-password-field {
+    grid-column: auto;
+  }
+}
+
+@media (max-width: 560px) {
+  .auth-card-page.signup-page {
+    align-items: flex-start !important;
+    padding: 10px !important;
+  }
+
+  .signup-page > .auth-card {
+    border-radius: 18px !important;
+    padding: 22px 16px !important;
+  }
+
+  .signup-page .signup-steps {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: start;
+    gap: 4px;
+    margin: 18px 0 20px;
+  }
+
+  .signup-page .auth-step {
+    min-width: 0;
+    display: grid;
+    justify-items: center;
+    gap: 6px;
+    text-align: center;
+  }
+
+  .signup-page .auth-step strong {
+    font-size: 10px;
+    line-height: 1.25;
+  }
+
+  .signup-page .signup-form-section {
+    padding: 16px;
+  }
 }
 
 /* Password recovery follows the approved paper, ink and solid-maroon treatment. */

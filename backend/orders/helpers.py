@@ -194,6 +194,11 @@ def _to_float(value):
 # Small tolerance so exact-boundary loads (e.g. 25.0 t on a 25 t truck) pass.
 _CAP_EPS = 1e-6
 
+# 10% per-truck flexibility on weight, volume, and cargo-bed dimensions so
+# real-world trucks are not rejected over minor measurement or preset margins.
+TRUCK_CAPACITY_FLEXIBILITY = 0.10
+_FLEX_FACTOR = 1.0 + TRUCK_CAPACITY_FLEXIBILITY
+
 # Cargo-bed dimensions are entered by transporters in feet; goods dimensions are
 # captured from clients in centimetres. Convert feet -> cm for comparison.
 _FT_TO_CM = 30.48
@@ -209,15 +214,13 @@ def required_order_volume_cbm(order):
 
 
 def _fits_on_bed(order, truck):
-    """Return None if the goods fit the truck bed, else a human message.
+    """Return None if the goods fit the truck bed (with 10% flexibility), else a human message.
 
     Axis-aligned comparison: the load's length/width/height (cm, from the client)
-    must each be <= the truck bed's matching length/width/height (feet -> cm). This
-    matches how the fields are labelled, so a 20 ft steel bar (sariya) is compared
-    against the bed's LENGTH, not stood upright. A truck-bed axis left blank/zero
+    must each be <= the truck bed's matching length/width/height (feet -> cm) plus
+    the 10% per-truck flexibility margin. A truck-bed axis left blank/zero
     (e.g. the open top of a flatbed) is treated as unbounded and skipped, and a
-    goods axis that wasn't provided is skipped too. This is what stops a long
-    sariya/girder load from being matched to a short truck.
+    goods axis that wasn't provided is skipped too.
     """
     for axis, goods_key, bed_key in (
         ("length", "length_cm", "bed_length_ft"),
@@ -229,10 +232,11 @@ def _fits_on_bed(order, truck):
         if not g or g <= 0 or not b_ft or b_ft <= 0:
             continue
         b_cm = b_ft * _FT_TO_CM
-        if g > b_cm + _CAP_EPS:
+        if g > (b_cm * _FLEX_FACTOR) + _CAP_EPS:
             return (
                 f"The load's {axis} is {g / _FT_TO_CM:.1f} ft, but this truck's cargo bed "
-                f"{axis} is only {b_ft:g} ft. Please use a bigger truck."
+                f"{axis} is only {b_ft:g} ft (max {b_ft * _FLEX_FACTOR:.1f} ft with 10% flexibility). "
+                "Please use a bigger truck."
             )
     return None
 
@@ -252,12 +256,28 @@ _DRY_CARGO_RIGID_AND_TRAILER_KEYS = {
 
 _DRY_PACKAGED_COMMODITIES = {
     "general_cargo",
+    "cement_bags",
     "cotton_textiles",
     "machinery",
+    "construction_steel",
     "electronics",
     "furniture",
     "fruits_vegetables",
 }
+
+_COMMODITY_EQUIVALENTS = {
+    "cement_bags": "general_cargo",
+    "construction_steel": "machinery",
+}
+
+
+def _commodity_permitted_by_list(order_commodity, allowed_commodities):
+    if not order_commodity or not isinstance(allowed_commodities, list):
+        return False
+    if order_commodity in allowed_commodities:
+        return True
+    equiv = _COMMODITY_EQUIVALENTS.get(order_commodity)
+    return bool(equiv and equiv in allowed_commodities)
 
 
 def _parse_truck_specs_json(truck):
@@ -316,7 +336,7 @@ def truck_order_mismatch(truck, required_types, order):
     if specs is not None:
         allowed_commodities = specs.get("allowed_commodities")
         if isinstance(allowed_commodities, list) and len(allowed_commodities) > 0 and order_commodity:
-            if order_commodity not in allowed_commodities:
+            if not _commodity_permitted_by_list(order_commodity, allowed_commodities):
                 return "This truck type cannot carry these goods. Please use a suitable truck."
 
         temp_range = str(specs.get("temperature_range") or "").strip()
@@ -326,7 +346,7 @@ def truck_order_mismatch(truck, required_types, order):
                 return "This truck type cannot carry these goods. Please use a suitable truck."
         elif temp_range == "Frozen (-18C)":
             if order_commodity in ("fruits_vegetables", "pharmaceuticals") and (
-                not isinstance(allowed_commodities, list) or order_commodity not in allowed_commodities
+                not _commodity_permitted_by_list(order_commodity, allowed_commodities)
             ):
                 return "This truck type cannot carry these goods. Please use a suitable truck."
 
@@ -335,7 +355,7 @@ def truck_order_mismatch(truck, required_types, order):
         allowed_by_hybrid_dry_use = (
             specs is not None
             and isinstance(specs.get("allowed_commodities"), list)
-            and order_commodity in specs.get("allowed_commodities", [])
+            and _commodity_permitted_by_list(order_commodity, specs.get("allowed_commodities", []))
             and order_commodity in _DRY_PACKAGED_COMMODITIES
             and key in _DRY_CARGO_RIGID_AND_TRAILER_KEYS
             and not (order_commodity == "fruits_vegetables" and _to_float(order.get("temperature_c")) is not None)
@@ -352,10 +372,10 @@ def truck_order_mismatch(truck, required_types, order):
         capacity = _to_float(effective_truck.get("payload_max_tons"))
     if weight > 0 and (capacity is None or not math.isfinite(capacity) or capacity <= 0):
         return "This truck does not have a valid weight capacity for this load."
-    if weight > 0 and weight > capacity + _CAP_EPS:
+    if weight > 0 and weight > (capacity * _FLEX_FACTOR) + _CAP_EPS:
         return (
-            f"This truck can carry up to {capacity:g} tons, but the load is {weight:g} tons. "
-            "Please use a higher-capacity truck."
+            f"This truck can carry up to {capacity:g} tons (max {capacity * _FLEX_FACTOR:g} tons with 10% flexibility), "
+            f"but the load is {weight:g} tons. Please use a higher-capacity truck."
         )
 
     # 3) Physical volume is an independently confirmed vehicle property. Payload
@@ -368,10 +388,10 @@ def truck_order_mismatch(truck, required_types, order):
                 "This truck does not have a valid volume capacity for this load. "
                 "Please use a truck with a confirmed volume capacity."
             )
-        if volume > volume_max + _CAP_EPS:
+        if volume > (volume_max * _FLEX_FACTOR) + _CAP_EPS:
             return (
-                f"This truck holds up to {volume_max:g} cbm, but the load needs {volume:g} cbm. "
-                "Please use a larger truck."
+                f"This truck holds up to {volume_max:g} cbm (max {volume_max * _FLEX_FACTOR:g} cbm with 10% flexibility), "
+                f"but the load needs {volume:g} cbm. Please use a larger truck."
             )
 
     # 4) Physical dimensions (length/width/height) fit on the cargo bed.
