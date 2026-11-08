@@ -68,3 +68,12 @@ def test_signup_rejects_missing_agreement_before_provider_creation(monkeypatch):
     response = app.test_client().post("/auth/signup", json=payload(signup_terms_accepted=False))
     assert response.status_code == 400
     assert response.json["field"] == "signup_terms"
+
+
+@pytest.mark.parametrize("role", ["fuel_station_manager", "shopkeeper"])
+def test_v2_roles_are_unavailable_in_v1_signup(role):
+    from auth.routes import auth_blueprint
+    app = Flask(__name__)
+    app.register_blueprint(auth_blueprint)
+    assert "role" in validate_signup_payload(payload(role=role, signup_terms_role=role))
+    assert app.test_client().get(f"/auth/signup-terms?role={role}").status_code == 400

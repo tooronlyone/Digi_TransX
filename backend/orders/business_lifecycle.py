@@ -71,13 +71,15 @@ def issue_delivery_otp(db,user,order_id,trip_id,now=None):
     _secret() # Validate channel before any state mutation.
     current = _exact(db,'SELECT * FROM delivery_otp_challenges WHERE trip_id=%s FOR UPDATE',(trip_id,)).fetchone()
     if current and current.get('consumed_at') is None and _datetime(current['expires_at']) > now:
-        return {'already':True,'otp_required':True,'trip':trip,'confirmation_deadline_at':current['expires_at']}
+        exp_val = current['expires_at']
+        return {'already':True,'otp_required':True,'trip':trip,'confirmation_deadline_at':exp_val.isoformat() if hasattr(exp_val,'isoformat') else str(exp_val)}
     nonce = secrets.token_urlsafe(32)
     expires = now+OTP_LIFETIME
     code = _code(nonce)
     _exact(db,"INSERT INTO delivery_otp_challenges(trip_id,client_user_id,transporter_user_id,nonce,code_digest,expires_at) VALUES(%s,%s,%s,%s,%s,%s) ON CONFLICT(trip_id) DO UPDATE SET nonce=excluded.nonce,code_digest=excluded.code_digest,expires_at=excluded.expires_at,attempts=0,revealed_at=null,consumed_at=null,created_at=now()",(trip_id,order['client_user_id'],user['id'],nonce,_digest(code,nonce),expires))
-    from .lifecycle import _set_trip_and_shipment
+    from .lifecycle import _set_trip_and_shipment,_ensure_thread
     _set_trip_and_shipment(db,trip_id,order_id,'awaiting_client_confirmation',{'delivery_completion_requested_at':now,'confirmation_deadline_at':expires})
+    _ensure_thread(db,order,trip)
     notif.notify(db,order_id,trip_id,order['client_user_id'],notif.DELIVERY_CONFIRMATION_REQUESTED,'Inspect your cargo, then reveal and share the delivery OTP only when you accept delivery.')
     trip = db.execute('SELECT * FROM shipment_trips WHERE id=%s',(trip_id,)).fetchone()
     return {'already':False,'otp_required':True,'trip':trip,'confirmation_deadline_at':expires.isoformat()}
@@ -92,7 +94,8 @@ def delivery_otp_for_client(db,user,order_id,trip_id,reveal=False,now=None):
         raise CheckoutError('No active delivery OTP. Ask the transporter to request a new code.',409,'delivery_otp_unavailable')
     if trip['status'] != 'awaiting_client_confirmation':
         raise CheckoutError('Delivery is not awaiting an OTP.',409,'delivery_otp_unavailable')
-    result = {'available':True,'expires_at':challenge['expires_at'],'inspection_notice':'Inspect your cargo. Share this OTP only when delivery is accepted.'}
+    exp_val = challenge['expires_at']
+    result = {'available':True,'expires_at':exp_val.isoformat() if hasattr(exp_val,'isoformat') else str(exp_val),'inspection_notice':'Inspect your cargo. Share this OTP only when delivery is accepted.'}
     if reveal:
         _exact(db,'UPDATE delivery_otp_challenges SET revealed_at=COALESCE(revealed_at,%s) WHERE trip_id=%s',(now,trip_id))
         result['otp'] = _code(challenge['nonce'])
@@ -112,6 +115,7 @@ def serialize_settlement(row):
     result = dict(row)
     for key,value in result.items():
         if isinstance(value,Decimal): result[key] = format(value,'.2f')
+        elif isinstance(value,datetime): result[key] = value.isoformat()
     if isinstance(result.get('fee_breakdown'),str):
         result['fee_breakdown'] = json.loads(result['fee_breakdown'])
     return result

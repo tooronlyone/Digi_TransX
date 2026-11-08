@@ -16,15 +16,6 @@ const MOBILE_NAV_ITEMS = [
   { path: '/transporter/messages', icon: 'fa-comments', label: 'Messages' },
 ]
 
-const PARTS_STORE_NAV_ITEMS = [
-  { path: '/transporter/parts-store/dashboard', icon: 'fa-gauge-high', label: 'Dashboard' },
-  { path: '/transporter/parts-store', icon: 'fa-store', label: 'Buy Parts', exact: true },
-  { path: '/transporter/parts-store/cart', icon: 'fa-cart-shopping', label: 'Cart' },
-  { path: '/transporter/parts-store/orders', icon: 'fa-box-open', label: 'My Orders' },
-  { path: '/transporter/parts-store/requests', icon: 'fa-bullhorn', label: 'Part Requests' },
-  { path: '/transporter/settings', icon: 'fa-gear', label: 'Settings' },
-]
-
 function getTransporterDisplayName(u = {}) {
   const full = [u.first_name, u.last_name].filter(Boolean).join(' ').trim()
   return (u.company_name || u.full_name || full || u.username || u.email || 'Transporter').trim()
@@ -125,9 +116,7 @@ export default function TransporterLayout({ children }) {
   }
 
   const initials = getTransporterInitials(user.name)
-  const isPartsStorePage = location.pathname === '/transporter/parts-store' || location.pathname.startsWith('/transporter/parts-store/')
-  const sourceNavItems = isPartsStorePage ? PARTS_STORE_NAV_ITEMS : NAV_ITEMS
-  const visibleNavItems = sourceNavItems
+  const visibleNavItems = NAV_ITEMS
     .filter((item) => item.path !== '/transporter/trucks/add')
     .map((item) => (
       item.path === '/transporter/messages'
@@ -217,12 +206,6 @@ export default function TransporterLayout({ children }) {
           })}
 
         </ul>
-        {isPartsStorePage && (
-          <Link to="/transporter/dashboard" className="parts-store-home-link" title="Back to Home">
-            <i className="fas fa-house"></i>
-            <span className="nav-text">Back to Home</span>
-          </Link>
-        )}
       </nav>
       <MobileBottomNavigation items={mobileNavItems} isActive={isMobileItemActive} label="Logistics provider navigation" />
 

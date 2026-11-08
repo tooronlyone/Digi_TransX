@@ -12,8 +12,6 @@ from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user
 
 driver_blueprint = Blueprint("driver", __name__)
 
-from fuelstation.vouchers import register_owner_routes
-register_owner_routes(driver_blueprint)
 from driver.business_rules import register_driver_business_routes
 register_driver_business_routes(driver_blueprint)
 

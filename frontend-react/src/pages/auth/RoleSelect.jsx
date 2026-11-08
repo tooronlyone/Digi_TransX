@@ -27,20 +27,6 @@ const ROLES = [
     desc: 'Simple booking for personal transport needs with a lighter workflow.',
   },
   {
-    value: 'fuel_station_manager',
-    icon: 'fa-gas-pump',
-    title: 'Fuel Station Manager',
-    subtitle: 'I run a fuel pump or station',
-    desc: 'Manage fuel stock, truck refuelling logs, payments and daily sales.',
-  },
-  {
-    value: 'shopkeeper',
-    icon: 'fa-store',
-    title: 'Shop Owner / Vendor',
-    subtitle: 'I run a shop or sell products',
-    desc: 'Build product tables, track stock, analyse sales and export reports.',
-  },
-  {
     value: 'driver',
     icon: 'fa-id-card',
     title: 'Truck Driver',

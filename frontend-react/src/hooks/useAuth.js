@@ -32,8 +32,6 @@ export function useAuthSession() {
       logistics_provider:   '/transporter/dashboard',
       transporter:          '/transporter/dashboard',
       everyday_user:        '/everyday/dashboard',
-      fuel_station_manager: '/fuelstation/dashboard',
-      shopkeeper:           '/shopkeeper/dashboard',
     }
     return map[role] || '/transporter/dashboard'
   }

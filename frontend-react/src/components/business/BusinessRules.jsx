@@ -52,14 +52,13 @@ export function FeeBreakdown({ kind = 'freight', snapshot = null }) {
   }, [kind, snapshot])
   const data = snapshot || schedule
   if (!data) return <p role="status" className="my-3 text-sm text-slate-600">{unavailable ? 'Itemized fee schedule unavailable. Reload before confirming fees.' : 'Loading itemized fees...'}</p>
-  const heading = kind === 'marketplace' ? 'Total Marketplace Fee' : kind === 'freight' ? 'Total Platform Deductions' : 'Platform commission'
+  const heading = kind === 'freight' ? 'Total Platform Deductions' : 'Platform commission'
   return <section aria-label={`${kind} fee breakdown`} className="my-4 rounded-lg border border-slate-200 bg-white p-4 text-sm">
-    <h3 className="font-semibold">{kind === 'freight' ? 'Transporter settlement fees' : kind === 'marketplace' ? 'Shopkeeper settlement fees' : `${kind === 'fuel' ? 'Fuel Station' : 'Client'} fees`}</h3>
+    <h3 className="font-semibold">{kind === 'freight' ? 'Transporter settlement fees' : 'Client fees'}</h3>
     {data.components?.length > 0 && <dl className="mt-2 space-y-2">{data.components.map(item => <div key={item.code || item.label} className="flex justify-between gap-4"><dt>{item.label} ({item.percentage}%)</dt><dd>{item.amount != null ? moneyText(item.amount) : `${item.percentage}%`}</dd></div>)}</dl>}
     <p className="mt-3 font-semibold">{heading}: {data.total_fee != null ? moneyText(data.total_fee) : `${data.percentage}%`}</p>
     {data.net_amount != null && <p>Net proceeds before other authorized adjustments: {moneyText(data.net_amount)}</p>}
     {kind === 'freight' && <p className="mt-2 text-xs text-slate-600">Client platform commission: 0%. Deductions apply once upon successful delivery settlement.</p>}
-    {kind === 'fuel' && <p>Fuel stations receive the full verified dispense value.</p>}
   </section>
 }
 

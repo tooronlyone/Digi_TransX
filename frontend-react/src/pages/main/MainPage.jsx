@@ -33,15 +33,6 @@ export default function MainPage() {
     fontStylesheet.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap';
     document.head.append(fontPreconnect, fontStylesheet);
 
-    try {
-      const key = 'ai_assistant_preferences_v2';
-      if (!localStorage.getItem(key)) {
-        localStorage.setItem(key, JSON.stringify({ mode: 'minimized', backgroundListening: false }));
-      }
-    } catch {
-      // The intro page should render even if browser storage is blocked.
-    }
-
     window.switchTab = (type) => {
       document.querySelectorAll('.how-tab').forEach((tab, index) => {
         tab.classList.toggle('active', (index === 0 && type === 'client') || (index === 1 && type === 'transporter'));
@@ -109,5 +100,9 @@ export default function MainPage() {
     };
   }, []);
 
-  return <div dangerouslySetInnerHTML={{ __html: mainPageHtml }} />;
+  const v1Html = mainPageHtml.replace(
+    /\s*<div class="feature-card reveal">\s*<div class="feature-icon"><i class="fas fa-robot"><\/i><\/div>[\s\S]*?<\/div>\s*<\/div>(?=\s*<\/div>\s*<\/section>)/,
+    '',
+  );
+  return <div dangerouslySetInnerHTML={{ __html: v1Html }} />;
 }

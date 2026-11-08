@@ -77,12 +77,14 @@ orders_blueprint = Blueprint("orders", __name__)
 @orders_blueprint.route('/api/orders/<int:order_id>/trips/<int:trip_id>/delivery-otp',methods=['GET','POST'])
 @login_required
 def delivery_otp_channel(order_id,trip_id):
-    """Client's authenticated in-app channel; POST reveal retains MPIN step-up."""
+    """Client's authenticated in-app channel; POST reveal retains MPIN step-up when MPIN is configured."""
     from .business_lifecycle import delivery_otp_for_client,payment_for_trip
     reveal=request.method=='POST'
     if reveal:
         error=csrf_error()
         if error:return error
+    gate=None
+    descriptor=None
     with open_db() as db:
         try:
             order=fetch_order(db,order_id)
@@ -90,14 +92,17 @@ def delivery_otp_channel(order_id,trip_id):
             if not order or order['client_user_id']!=request.current_user['id'] or not payment or payment['shipment_id']!=order_id:
                 raise CheckoutError('Access denied.',403)
             if reveal:
-                descriptor=step_up_service.normalize_descriptor({'action_key':'client.delivery.confirm_release','resource_type':'trip','resource_id':trip_id,'amount_minor':step_up_service.money_to_minor(payment['bid_price']),'currency':'PKR'})
-                gate=step_up_service.consume_current_request(db,request,descriptor)
-                error=step_up_service.gate_error_response(gate,descriptor)
-                if error:
-                    db.rollback()
-                    return error
+                user_mpin=db.execute("SELECT mpin_hash FROM users WHERE id=%s",(request.current_user['id'],)).fetchone()
+                has_mpin=bool(user_mpin and user_mpin.get('mpin_hash'))
+                if has_mpin and normalize_client_kind(request.current_user.get('role'))=='business':
+                    descriptor=step_up_service.normalize_descriptor({'action_key':'client.delivery.confirm_release','resource_type':'trip','resource_id':trip_id,'amount_minor':step_up_service.money_to_minor(payment['bid_price']),'currency':'PKR'})
+                    gate=step_up_service.consume_current_request(db,request,descriptor)
+                    error=step_up_service.gate_error_response(gate,descriptor)
+                    if error:
+                        db.rollback()
+                        return error
             result=delivery_otp_for_client(db,request.current_user,order_id,trip_id,reveal)
-            if reveal:
+            if reveal and gate and descriptor:
                 step_up_service.write_consumed_event(db,request_id=f'delivery.otp.reveal.{uuid.uuid4().hex}',gate=gate,descriptor=descriptor)
             db.commit()
         except CheckoutError as exc:
@@ -169,7 +174,7 @@ def resolve_delivery_settlement_route(settlement_id):
 @login_required
 def approved_business_fees():
     return json_response({"success": True, **{kind: fee_schedule(kind)
-                         for kind in ("freight", "marketplace", "fuel", "client")}})
+                         for kind in ("freight", "client")}})
 
 
 @orders_blueprint.get("/api/orders/<int:order_id>/market-reference")

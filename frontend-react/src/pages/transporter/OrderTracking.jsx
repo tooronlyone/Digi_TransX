@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { useParams, Link, useNavigate } from 'react-router-dom'
 import { getCsrfToken } from '../client/clientUtils'
 import { FeeBreakdown, SettlementSummary } from '../../components/business/BusinessRules'
-import FuelVoucherPanel from '../../components/business/FuelVoucherPanel'
 import DriverAssignmentPanel from '../../components/transporter/DriverAssignmentPanel'
 import { AUTH_STATUSES, ShellPageSkeleton, useAuthVerification } from '../../auth/AuthVerificationContext'
 import '../../styles/pages/order-tracking.css'
@@ -36,7 +35,7 @@ function Countdown({ deadline }) {
   const s = Math.floor((remaining % 60000) / 1000)
   return (
     <span className="order-tracking-countdown">
-      {remaining > 0 ? `${h}h ${m}m ${s}s remaining` : 'Deadline passed — pending admin review'}
+      {remaining > 0 ? `${h}h ${m}m ${s}s remaining` : 'Expired — request a new OTP if needed'}
     </span>
   )
 }
@@ -93,7 +92,7 @@ function OwnedOrderTracking() {
   }, [orderId])
 
   async function postAction(url, body, confirmMessage, key, successMessage) {
-    if (confirmMessage && !window.confirm(confirmMessage)) return
+    if (confirmMessage && !window.confirm(confirmMessage)) return false
     setActionLoading(key)
     setError('')
     setNotice('')
@@ -109,8 +108,10 @@ function OwnedOrderTracking() {
       if (!response.ok || json.success === false) throw new Error(json.message || 'Action failed.')
       setNotice(successMessage || json.message || 'Done.')
       await loadOrder()
+      return true
     } catch (actionError) {
       setError(actionError.message || 'Action failed.')
+      return false
     } finally {
       setActionLoading('')
     }
@@ -127,7 +128,7 @@ function OwnedOrderTracking() {
     postAction(
       `/api/orders/${orderId}/trips/${trip.id}/complete-delivery`, null,
       deliveryPolicy ? 'Request a delivery OTP for the Client to inspect and accept the cargo?' : 'Mark delivery complete? The client then has 6 hours to confirm before it goes to admin review.',
-      'complete', deliveryPolicy ? 'Secure delivery OTP requested. Ask the Client to inspect the cargo before sharing it.' : 'Delivery marked complete. Waiting for the client to confirm.',
+      'complete', deliveryPolicy ? 'Secure delivery OTP requested. Ask the Client to inspect the cargo and share their 8-digit OTP from Order Details.' : 'Delivery marked complete. Waiting for the client to confirm.',
     )
 
   async function submitStatement() {
@@ -187,7 +188,6 @@ function OwnedOrderTracking() {
       {error && <div className="order-tracking-error-box">{error}</div>}
 
       <DriverAssignmentPanel tripId={trip.id} />
-      {['ready_to_start', 'in_progress', 'awaiting_client_confirmation'].includes(trip.status) && <FuelVoucherPanel key={`${trip.id}:${order.truck_id || trip.truck_id}`} tripId={trip.id} truckId={order.truck_id || trip.truck_id} />}
       {deliveryPolicy && <FeeBreakdown kind="freight" snapshot={payment?.commission_breakdown} />}
       <SettlementSummary settlement={settlement} />
 
@@ -217,7 +217,7 @@ function OwnedOrderTracking() {
             </div>
             {payment?.transporter_amount && (
               <div className="detail-row">
-                  <span className="detail-label">Net entitlement before authorized adjustments</span>
+                <span className="detail-label">Net entitlement before authorized adjustments</span>
                 <span className="detail-value amount" style={{ color: '#16a34a' }}>
                   {formatMoney(payment.transporter_amount)}
                 </span>
@@ -301,16 +301,51 @@ function OwnedOrderTracking() {
           {trip.status === 'awaiting_client_confirmation' && (
             <div className="order-tracking-waiting">
               <i className="fas fa-hourglass-half" aria-hidden="true"></i>
-              <p>{deliveryPolicy ? 'Client must inspect the cargo and authorize the single-use OTP before sharing it.' : 'Waiting for the client to confirm delivery.'}</p>
-              {deliveryPolicy ? <form onSubmit={event => {
-                event.preventDefault()
-                void postAction(`/api/orders/${orderId}/trips/${trip.id}/verify-delivery-otp`, { otp: deliveryOtp }, null, 'verify', 'Delivery verified. Settlement tranches created.')
-                setDeliveryOtp('')
-              }} className="mt-3 grid gap-2">
-                <label>Delivery OTP<input aria-label="Delivery OTP" required autoComplete="off" inputMode="numeric" pattern="[0-9]{8}" maxLength={8} value={deliveryOtp} onChange={event => setDeliveryOtp(event.target.value.replace(/\D/g, '').slice(0, 8))} className="ml-2 rounded border p-2" /></label>
-                <button type="submit" disabled={!!actionLoading} className="order-tracking-btn order-tracking-btn--primary">Verify Client OTP &amp; complete delivery</button>
-                <button type="button" disabled={!!actionLoading} onClick={completeDelivery} className="order-tracking-btn order-tracking-btn--ghost">Request a new OTP if expired</button>
-              </form> : <Countdown deadline={trip.confirmation_deadline_at} />}
+              <p>
+                {deliveryPolicy
+                  ? 'Ask the Client to open this order, click "Inspect cargo & reveal delivery OTP", and share the 8-digit code with you.'
+                  : 'Waiting for the client to confirm delivery.'}
+              </p>
+              <Countdown deadline={trip.confirmation_deadline_at} />
+              {deliveryPolicy && (
+                <form
+                  onSubmit={async (event) => {
+                    event.preventDefault()
+                    const ok = await postAction(
+                      `/api/orders/${orderId}/trips/${trip.id}/verify-delivery-otp`,
+                      { otp: deliveryOtp },
+                      null,
+                      'verify',
+                      'Delivery verified. Settlement tranches created.',
+                    )
+                    if (ok) setDeliveryOtp('')
+                  }}
+                  className="mt-3 grid gap-2"
+                >
+                  <label className="grid gap-1 text-sm font-semibold text-slate-800">
+                    Enter 8-Digit Client Delivery OTP
+                    <input
+                      aria-label="Delivery OTP"
+                      required
+                      autoComplete="off"
+                      inputMode="numeric"
+                      pattern="[0-9]{8}"
+                      maxLength={8}
+                      placeholder="e.g. 12345678"
+                      value={deliveryOtp}
+                      onChange={(event) => setDeliveryOtp(event.target.value.replace(/\D/g, '').slice(0, 8))}
+                      className="rounded-lg border border-slate-300 px-3 py-2 font-mono text-lg tracking-widest"
+                    />
+                  </label>
+                  <button type="submit" disabled={!!actionLoading || deliveryOtp.length !== 8} className="order-tracking-btn order-tracking-btn--primary">
+                    <i className={`fas ${actionLoading === 'verify' ? 'fa-spinner fa-spin' : 'fa-check-double'} mr-2`} aria-hidden="true"></i>
+                    Verify Client OTP &amp; complete delivery
+                  </button>
+                  <button type="button" disabled={!!actionLoading} onClick={completeDelivery} className="order-tracking-btn order-tracking-btn--ghost">
+                    Request a new OTP if expired
+                  </button>
+                </form>
+              )}
             </div>
           )}
 

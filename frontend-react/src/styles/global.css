@@ -408,42 +408,6 @@ a:hover {
   border-radius: 6px;
 }
 
-.transporter-page .parts-store-home-link {
-  width: calc(100% - 20px);
-  min-height: 49px;
-  margin: auto 10px 20px;
-  padding: 0 15px;
-  border-radius: 13px;
-  display: flex;
-  align-items: center;
-  flex: 0 0 auto;
-  gap: 14px;
-  overflow: hidden;
-  color: #52677e;
-  background: #f6f8fb;
-  border: 1px solid #e1e8f0;
-  text-decoration: none;
-  box-sizing: border-box;
-  transition: all var(--transition-fast);
-}
-
-.transporter-page .sidebar:hover .parts-store-home-link {
-  width: calc(100% - 20px);
-}
-
-.transporter-page .parts-store-home-link:hover {
-  color: #2459d3;
-  background: #edf4ff;
-  border-color: #cbdcff;
-}
-
-.transporter-page .parts-store-home-link i {
-  flex: 0 0 auto;
-  width: 24px;
-  text-align: center;
-  font-size: 19px;
-}
-
 .transporter-page .sidebar:hover {
   width: 238px;
   box-shadow: var(--shadow-medium);

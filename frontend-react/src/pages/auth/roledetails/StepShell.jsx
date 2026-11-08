@@ -6,8 +6,6 @@ const ICONS = {
   'Service Seeker': 'fa-box',
   'Logistics Provider': 'fa-truck-fast',
   'Everyday User': 'fa-user',
-  'Fuel Station Manager': 'fa-gas-pump',
-  'Shop Owner / Vendor': 'fa-store',
   'Truck Driver': 'fa-id-card',
 }
 
@@ -15,8 +13,6 @@ const ROLE_CLASSES = {
   'Service Seeker': 'service-seeker',
   'Logistics Provider': 'logistics-provider',
   'Everyday User': 'everyday-user',
-  'Fuel Station Manager': 'fuel-station-manager',
-  'Shop Owner / Vendor': 'shopkeeper',
   'Truck Driver': 'driver',
 }
 

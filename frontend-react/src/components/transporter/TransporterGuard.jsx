@@ -15,9 +15,7 @@ export default function TransporterGuard({ children }) {
       const fallbackRedirect = user.organization_default_route
         || (role === 'client' || role === 'service_seeker' ? '/client/dashboard'
           : role === 'everyday_user' ? '/everyday/dashboard'
-            : role === 'shopkeeper' ? '/shopkeeper/dashboard'
-              : role === 'fuel_station_manager' ? '/fuelstation/dashboard'
-                : '/login')
+            : '/login')
       navigate(fallbackRedirect, { replace: true })
       return
     }

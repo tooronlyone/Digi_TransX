@@ -4,7 +4,6 @@ import AgreementTripMap from '../../components/AgreementTripMap'
 import { hasTruckPhoto, truckPhotoBackgroundStyle } from '../../lib/truckPhotos'
 import { PrimaryButton, SecondaryButton, StateMessage, StatusBadge, apiGet, apiSend, formatMoney, formatNumber } from '../client/clientUtils'
 import '../../styles/pages/my-agreements.css'
-import FuelVoucherPanel from '../../components/business/FuelVoucherPanel'
 import DriverAssignmentPanel from '../../components/transporter/DriverAssignmentPanel'
 import { AUTH_STATUSES, ShellPageSkeleton, useAuthVerification } from '../../auth/AuthVerificationContext'
 
@@ -211,7 +210,6 @@ function OwnedAgreements() {
                         </select>
                       </label>
                       <DriverAssignmentPanel agreementTripId={driverTrip.id} />
-                      {['pending', 'in_progress'].includes(driverTrip.status) && <FuelVoucherPanel key={`fuel:${driverTrip.id}`} agreementTripId={driverTrip.id} truckId={truck.truck_id} />}
                     </div>}
                   </div>
                 )

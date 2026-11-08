@@ -6,7 +6,7 @@ const ABOUT_FALLBACK = {
     name: 'Digi_TransX',
     tagline: "Pakistan's smart transport platform for jobs, fleet control, payments, analytics, and guided support.",
     description:
-      'Digi_TransX brings transport operations into one practical workspace. The current software connects transporter dashboards, client ordering flows, admin oversight, payments, analytics, and assistant guidance so teams can work from one system instead of juggling disconnected tools.',
+      'Digi_TransX brings transport operations into one practical workspace. The current software connects transporter dashboards, client ordering flows, admin oversight, payments, and analytics so teams can work from one system instead of juggling disconnected tools.',
     mission:
       'Digitize transport operations, fleet workflows, and service coordination with practical daily-use tools.',
     vision:
@@ -49,12 +49,6 @@ const ABOUT_FALLBACK = {
       description: 'Support safe login, unlock flows, password recovery, and guarded access across the platform.',
       icon: 'fa-shield-alt',
     },
-    {
-      key: 'assistant',
-      title: 'AI Assistant',
-      description: 'Guide users through pages, explain workflows, and reduce confusion during real operational tasks.',
-      icon: 'fa-robot',
-    },
   ],
   team: [
     {
@@ -68,12 +62,6 @@ const ABOUT_FALLBACK = {
       role: 'Access and Reliability',
       bio: 'Keeps authentication, recovery, security settings, and operational reliability aligned with production needs.',
       initials: 'SEC',
-    },
-    {
-      name: 'AI Enablement',
-      role: 'Guided Workflows',
-      bio: 'Builds assistant experiences that explain product flows clearly and help users take the next practical step.',
-      initials: 'AI',
     },
   ],
   timeline: [
@@ -231,8 +219,10 @@ export default function About() {
 
       setAboutData({
         company: normalizeCompany(companyResult.status === 'fulfilled' ? companyResult.value?.company : null),
-        team: normalizeTeam(teamResult.status === 'fulfilled' ? teamResult.value?.team : null),
-        services: normalizeServices(servicesResult.status === 'fulfilled' ? servicesResult.value?.services : null),
+        team: normalizeTeam(teamResult.status === 'fulfilled' ? teamResult.value?.team : null)
+          .filter((member) => member.name !== 'AI Enablement'),
+        services: normalizeServices(servicesResult.status === 'fulfilled' ? servicesResult.value?.services : null)
+          .filter((service) => service.key !== 'assistant'),
         statistics: normalizeStatistics(statisticsResult.status === 'fulfilled' ? statisticsResult.value?.statistics : null),
         timeline: normalizeTimeline(timelineResult.status === 'fulfilled' ? timelineResult.value?.timeline : null),
       })

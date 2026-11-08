@@ -15,14 +15,11 @@ from auth import helpers as auth_helpers, routes as auth_routes, credential_chan
 from auth.session_service import create_session
 from auth.trusted_device_service import create_trusted_device
 from profile import routes as profile_routes
-from fuelstation import routes as fuel_routes
-from shopkeeper import routes as shop_routes
 from orders import routes as order_routes
 from contact import routes as contact_routes
 from wallet import routes as wallet_routes
 from driver import routes as driver_routes
 from trucks import routes as truck_routes
-from fuelstation import vouchers as fuel_voucher_routes
 from driver import business_rules as driver_business_routes
 
 
@@ -52,14 +49,14 @@ def remediation_env(remediation_database_url,monkeypatch):
             raise
         finally:
             conn.close()
-    for module in (auth_helpers,auth_routes,credential_changes,profile_routes,fuel_routes,shop_routes,order_routes,contact_routes,wallet_routes,driver_routes,truck_routes,fuel_voucher_routes,driver_business_routes):
+    for module in (auth_helpers,auth_routes,credential_changes,profile_routes,order_routes,contact_routes,wallet_routes,driver_routes,truck_routes,driver_business_routes):
         monkeypatch.setattr(module,"open_db",database)
     monkeypatch.setattr(contact_routes,"send_email",lambda *args,**kwargs:None)
     monkeypatch.setenv("DIGITRANSX_ENVIRONMENT","test")
     app=Flask(__name__)
     app.config.update(TESTING=True,SECRET_KEY="isolated-audit-remediation",SESSION_COOKIE_SECURE=False)
     for blueprint in (auth_routes.auth_blueprint,profile_routes.profile_blueprint,
-                      fuel_routes.fuelstation_blueprint,shop_routes.shopkeeper_blueprint,order_routes.orders_blueprint,
+                      order_routes.orders_blueprint,
                       contact_routes.contact_blueprint,wallet_routes.wallet_blueprint,driver_routes.driver_blueprint,truck_routes.trucks_blueprint):
         app.register_blueprint(blueprint)
 

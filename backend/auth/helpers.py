@@ -107,13 +107,11 @@ def role_redirect(role):
         "transporter": "/transporter/dashboard",
         "service_seeker": "/client/dashboard",
         "client": "/client/dashboard",
-        "shopkeeper": "/shopkeeper/dashboard",
         "everyday_user": "/everyday/dashboard",
-        "fuel_station_manager": "/fuelstation/dashboard",
         "driver": "/driver/dashboard",
         "platform_admin": "/admin/dashboard",
     }
-    return mapping.get((role or "").strip().lower(), "/transporter/dashboard")
+    return mapping.get((role or "").strip().lower(), "/main")
 
 
 def json_response(payload, status=200):
@@ -801,24 +799,18 @@ def validate_signup_payload(data):
         errors["cnic"] = "CNIC is required."
     elif not CNIC_REGEX.fullmatch(cnic):
         errors["cnic"] = "CNIC must be exactly 13 digits."
-    if role not in {"service_seeker", "logistics_provider", "everyday_user", "fuel_station_manager", "shopkeeper", "driver"}:
+    if role not in {"service_seeker", "logistics_provider", "everyday_user", "driver"}:
         errors["role"] = "Please select a valid role."
     role_required = {
         "service_seeker": ("city", "City is required."),
         "logistics_provider": ("city", "City is required."),
         "everyday_user": ("city", "Please tell us your city."),
-        "fuel_station_manager": ("station_name", "Station name is required."),
-        "shopkeeper": ("shop_name", "Shop or business name is required."),
         "driver": ("city", "City is required."),
     }
     if role in role_required:
         field_name, message = role_required[role]
         if not (data.get(field_name) or "").strip():
             errors[field_name] = message
-    if role == "fuel_station_manager" and not (data.get("city") or "").strip():
-        errors["city"] = "City is required."
-    if role == "shopkeeper" and not (data.get("city") or "").strip():
-        errors["city"] = "City is required."
     if role == "driver" and not (data.get("license_number") or "").strip():
         errors["license_number"] = "Driver license number is required."
         errors["city"] = "City is required."

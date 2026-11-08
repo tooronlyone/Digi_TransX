@@ -597,9 +597,115 @@
   grid-template-columns: 1fr;
 }
 
+.signup-name-field,
+.signup-phone-field,
 .signup-cnic-field,
 .signup-password-field {
   grid-column: 1 / -1;
+}
+
+.signup-field-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.signup-field-header label {
+  margin: 0 !important;
+  color: #334155 !important;
+  font-size: 13px !important;
+  font-weight: 650 !important;
+}
+
+.auth-digit-limit-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: 9999px;
+  background: #f1f5f9;
+  border: 1px solid #cbd5e1;
+  color: #475569;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.02em;
+}
+
+.auth-digit-limit-badge.is-pk {
+  background: #ecfdf5;
+  border-color: #a7f3d0;
+  color: #047857;
+}
+
+.signup-phone-input-row {
+  display: flex;
+  gap: 10px;
+  align-items: stretch;
+}
+
+.signup-country-select-wrapper {
+  flex: 0 0 150px;
+  min-width: 130px;
+}
+
+.signup-country-select {
+  width: 100% !important;
+  height: 46px !important;
+  border: 1px solid #dbe3ef !important;
+  border-radius: 12px !important;
+  background: #ffffff !important;
+  padding: 0 10px !important;
+  color: #181b1a !important;
+  font-size: 13px !important;
+  font-weight: 500 !important;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.signup-country-select:focus {
+  border-color: #922044 !important;
+  box-shadow: 0 0 0 3px rgba(146, 32, 68, 0.12) !important;
+}
+
+.signup-phone-input-wrapper {
+  flex: 1 1 auto;
+  min-width: 0;
+}
+
+.signup-phone-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.signup-phone-footer .auth-help {
+  margin: 0 !important;
+}
+
+.signup-phone-counter {
+  font-size: 11px;
+  font-weight: 600;
+  color: #64748b;
+  white-space: nowrap;
+}
+
+.signup-phone-counter.is-limit {
+  color: #047857;
+  font-weight: 700;
+}
+
+@media (max-width: 480px) {
+  .signup-phone-input-row {
+    flex-direction: column;
+    gap: 8px;
+  }
+  .signup-country-select-wrapper {
+    flex: 1 1 100%;
+    width: 100%;
+  }
 }
 
 .signup-page .auth-strength {
@@ -1119,16 +1225,6 @@
   color: #7c3aed;
 }
 
-.auth-role-option--fuel_station_manager .auth-role-option__icon {
-  background: rgba(245, 158, 11, 0.14);
-  color: #d97706;
-}
-
-.auth-role-option--shopkeeper .auth-role-option__icon {
-  background: rgba(249, 115, 22, 0.14);
-  color: #ea580c;
-}
-
 .auth-role-option--driver .auth-role-option__icon {
   background: rgba(37, 99, 235, 0.12);
   color: #2563eb;
@@ -1446,14 +1542,6 @@
   background-image: url('../../assets/backgrounds/everyday-user-city-mono.png');
 }
 
-.auth-details-page--fuel-station-manager::before {
-  background-image: url('../../assets/backgrounds/fuel-station-highway-mono.png');
-}
-
-.auth-details-page--shopkeeper::before {
-  background-image: url('../../assets/backgrounds/shop-vendor-delivery-mono.png');
-}
-
 .auth-details-page--driver::before {
   background-image: url('../../assets/backgrounds/truck-driver-highway-mono.png');
 }
@@ -1461,8 +1549,6 @@
 /* Generated role artwork is naturally paler than the Service Seeker asset. */
 .auth-details-page--logistics-provider::before,
 .auth-details-page--everyday-user::before,
-.auth-details-page--fuel-station-manager::before,
-.auth-details-page--shopkeeper::before,
 .auth-details-page--driver::before {
   opacity: 0.26;
 }
@@ -1521,18 +1607,6 @@
 .auth-details-page--everyday-user .auth-details-icon {
   background: rgba(124, 58, 237, 0.12);
   color: #7c3aed;
-  box-shadow: none;
-}
-
-.auth-details-page--fuel-station-manager .auth-details-icon {
-  background: rgba(245, 158, 11, 0.14);
-  color: #d97706;
-  box-shadow: none;
-}
-
-.auth-details-page--shopkeeper .auth-details-icon {
-  background: rgba(249, 115, 22, 0.12);
-  color: #ea580c;
   box-shadow: none;
 }
 

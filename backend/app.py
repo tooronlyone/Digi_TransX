@@ -39,10 +39,7 @@ from terms import terms_blueprint
 from tracking import tracking_blueprint
 from trucks import trucks_blueprint
 from wallet import wallet_blueprint
-from marketplace import marketplace_blueprint
-from shopkeeper import shopkeeper_blueprint
 from contact import contact_blueprint
-from fuelstation import fuelstation_blueprint
 from driver.routes import driver_blueprint
 
 
@@ -64,10 +61,7 @@ app.register_blueprint(terms_blueprint)
 app.register_blueprint(tracking_blueprint)
 app.register_blueprint(trucks_blueprint)
 app.register_blueprint(wallet_blueprint)
-app.register_blueprint(marketplace_blueprint)
-app.register_blueprint(shopkeeper_blueprint)
 app.register_blueprint(contact_blueprint)
-app.register_blueprint(fuelstation_blueprint)
 app.register_blueprint(driver_blueprint)
 
 # Schema lives in Supabase (supabase/schema.sql) — just verify connectivity.

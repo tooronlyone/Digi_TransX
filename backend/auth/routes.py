@@ -260,20 +260,6 @@ def _write_signup_profile(db, user_id, role, clean):
                company_name = excluded.company_name, fleet_size = excluded.fleet_size""",
             (user_id, clean("company_name"), clean("fleet_size")),
         )
-    elif role == "fuel_station_manager":
-        db.execute(
-            """INSERT INTO fuel_station_profiles (user_id, station_name, pumps_count, license_no)
-               VALUES (%s, %s, %s, %s) ON CONFLICT (user_id) DO UPDATE SET
-               station_name = excluded.station_name, pumps_count = excluded.pumps_count,
-               license_no = excluded.license_no""",
-            (user_id, clean("station_name"), clean("pumps_count"), clean("license_no")),
-        )
-    elif role == "shopkeeper":
-        db.execute(
-            """INSERT INTO shopkeeper_profiles (user_id, shop_name)
-               VALUES (%s, %s) ON CONFLICT (user_id) DO UPDATE SET shop_name = excluded.shop_name""",
-            (user_id, clean("shop_name")),
-        )
     elif role == "driver":
         import random
         unique_code = f"DRV-{random.randint(10000, 99999)}"

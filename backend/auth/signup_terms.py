@@ -8,8 +8,6 @@ ROLE_TERMS = {
     "everyday_user": ("Everyday User", "Provide accurate pickup, delivery and goods details. Review the selected transporter, agreed price and booking terms before confirming personal transport."),
     "logistics_provider": ("Logistics Provider", "Keep fleet, driver and vehicle information accurate. Accept only work you can fulfil and follow the agreed transport, safety and delivery requirements."),
     "driver": ("Truck Driver", "Keep your identity and driving licence information accurate. Follow assigned trip, road safety and delivery requirements, and provide truthful trip updates."),
-    "fuel_station_manager": ("Fuel Station Manager", "Keep station information accurate and record fuel dispensing and payment confirmations truthfully. Follow applicable fuel handling and safety requirements."),
-    "shopkeeper": ("Shop Owner / Vendor", "Keep shop, product, stock and pricing information accurate. Honour confirmed orders and provide truthful sales and delivery records."),
 }
 
 

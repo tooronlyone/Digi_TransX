@@ -1,14 +1,7 @@
-import PartsMarketplace from './pages/transporter/PartsMarketplace'
-import PartsCartPage from './pages/transporter/PartsCartPage'
-import PartsOrdersPage from './pages/transporter/PartsOrdersPage'
-import PartsRequestsPage from './pages/transporter/PartsRequestsPage'
-import PartsStoreDashboard from './pages/transporter/PartsStoreDashboard'
-import ShopkeeperPartsOrders from './pages/shopkeeper/ShopkeeperPartsOrders'
 import React from 'react'
 import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import ActivityTracker from './components/ActivityTracker'
 import GenuineActivity from './components/GenuineActivity'
-import GlobalAiAssistant from './components/ai/GlobalAiAssistant'
 import AccessLockProvider from './components/security/AccessLockProvider'
 import { StepUpProvider } from './components/security/StepUpProvider'
 import SignupWizardProvider, { RequireSignupBasic, RequireSignupDraft } from './components/auth/SignupWizardProvider'
@@ -24,8 +17,6 @@ import MainPage from './pages/main/MainPage'
 import ServiceSeekerDetails from './pages/auth/roledetails/ServiceSeekerDetails'
 import LogisticsProviderDetails from './pages/auth/roledetails/LogisticsProviderDetails'
 import EverydayUserDetails from './pages/auth/roledetails/EverydayUserDetails'
-import FuelStationDetails from './pages/auth/roledetails/FuelStationDetails'
-import ShopkeeperDetails from './pages/auth/roledetails/ShopkeeperDetails'
 import DriverDetails from './pages/auth/roledetails/DriverDetails'
 import DriverGuard from './components/driver/DriverGuard'
 import DriverLayout from './components/driver/DriverLayout'
@@ -39,8 +30,6 @@ import DriverFuelLogs from './pages/driver/DriverFuelLogs'
 
 import TransporterGuard from './components/transporter/TransporterGuard'
 import TransporterLayout from './components/transporter/TransporterLayout'
-import ShopkeeperGuard from './components/shopkeeper/ShopkeeperGuard'
-import ShopkeeperLayout from './components/shopkeeper/ShopkeeperLayout'
 import TransporterPlaceholderPage from './components/transporter/TransporterPlaceholderPage'
 import ClientLayout from './components/client/ClientLayout'
 import useClientAuth from './hooks/useClientAuth'
@@ -72,21 +61,6 @@ import About from './pages/transporter/about'
 import Contact from './pages/transporter/contact'
 import Terms from './pages/transporter/terms'
 import Privacy from './pages/transporter/privacy'
-import AiChat from './pages/shared/AiChat'
-import ShopkeeperDashboard from './pages/shopkeeper/ShopkeeperDashboard'
-import CreateTable from './pages/shopkeeper/CreateTable'
-import TableView from './pages/shopkeeper/TableView'
-import AnalysisView from './pages/shopkeeper/AnalysisView'
-import InventoryPage from './pages/shopkeeper/InventoryPage'
-import POSPage from './pages/shopkeeper/POSPage'
-import SalesAnalyticsPage from './pages/shopkeeper/SalesAnalyticsPage'
-import ShopkeeperProfile from './pages/shopkeeper/ShopkeeperProfile'
-import FuelStationGuard from './components/fuelstation/FuelStationGuard'
-import FuelStationDashboard from './pages/fuelstation/FuelStationDashboard'
-import FuelDispensePOS from './pages/fuelstation/FuelDispensePOS'
-import FuelPumpsPage from './pages/fuelstation/FuelPumpsPage'
-import FuelHistoryPage from './pages/fuelstation/FuelHistoryPage'
-import FuelStationProfile from './pages/fuelstation/FuelStationProfile'
 import OrgUnavailablePage from './components/org/OrgUnavailablePage'
 import ClientDashboard from './pages/client/ClientDashboard'
 import PostOrder from './pages/client/PostOrder'
@@ -159,11 +133,7 @@ function UnlockRoute() {
       ? '/everyday/dashboard'
       : role === 'client' || role === 'service_seeker'
         ? '/client/dashboard'
-        : role === 'shopkeeper'
-          ? '/shopkeeper/dashboard'
-          : role === 'fuel_station_manager'
-            ? '/fuelstation/dashboard'
-            : role === 'driver'
+        : role === 'driver'
               ? '/driver/dashboard'
               : role === 'transporter' || role === 'logistics_provider'
             ? '/transporter/dashboard'
@@ -296,11 +266,6 @@ function TransporterPortal() {
           <Route path="contact" element={<Contact />} />
           <Route path="terms" element={<Terms />} />
           <Route path="privacy" element={<Privacy />} />
-          <Route path="parts-store" element={<PartsMarketplace />} />
-          <Route path="parts-store/dashboard" element={<PartsStoreDashboard />} />
-          <Route path="parts-store/cart" element={<PartsCartPage />} />
-          <Route path="parts-store/orders" element={<PartsOrdersPage />} />
-          <Route path="parts-store/requests" element={<PartsRequestsPage />} />
           <Route
             path="*"
             element={
@@ -314,44 +279,6 @@ function TransporterPortal() {
         </Routes>
       </TransporterLayout>
     </TransporterGuard>
-  )
-}
-
-function ShopkeeperPortal() {
-  return (
-    <ShopkeeperGuard>
-      <ShopkeeperLayout>
-        <Routes>
-          <Route path="dashboard" element={<ShopkeeperDashboard />} />
-          <Route path="create-table" element={<CreateTable />} />
-          <Route path="table/:tableId" element={<TableView />} />
-          <Route path="table/:tableId/analysis" element={<AnalysisView />} />
-          <Route path="inventory" element={<InventoryPage />} />
-          <Route path="pos" element={<POSPage />} />
-          <Route path="sales-analytics" element={<SalesAnalyticsPage />} />
-          <Route path="sales-analytics/charts" element={<SalesAnalyticsPage view="charts" />} />
-          <Route path="sales-analytics/history" element={<SalesAnalyticsPage view="history" />} />
-          <Route path="parts-hub" element={<ShopkeeperPartsOrders />} />
-          <Route path="profile" element={<ShopkeeperProfile />} />
-          <Route path="*" element={<ShopkeeperDashboard />} />
-        </Routes>
-      </ShopkeeperLayout>
-    </ShopkeeperGuard>
-  )
-}
-
-function FuelStationPortal() {
-  return (
-    <FuelStationGuard>
-      <Routes>
-        <Route path="dashboard" element={<FuelStationDashboard />} />
-        <Route path="dispense" element={<FuelDispensePOS />} />
-        <Route path="pumps" element={<FuelPumpsPage />} />
-        <Route path="history" element={<FuelHistoryPage />} />
-        <Route path="profile" element={<FuelStationProfile />} />
-        <Route path="*" element={<FuelStationDashboard />} />
-      </Routes>
-    </FuelStationGuard>
   )
 }
 
@@ -397,14 +324,11 @@ export default function App() {
               <Route path="details/service-seeker" element={<RequireSignupDraft role="service_seeker"><ServiceSeekerDetails /></RequireSignupDraft>} />
               <Route path="details/logistics-provider" element={<RequireSignupDraft role="logistics_provider"><LogisticsProviderDetails /></RequireSignupDraft>} />
               <Route path="details/everyday-user" element={<RequireSignupDraft role="everyday_user"><EverydayUserDetails /></RequireSignupDraft>} />
-              <Route path="details/fuel-station" element={<RequireSignupDraft role="fuel_station_manager"><FuelStationDetails /></RequireSignupDraft>} />
-              <Route path="details/shopkeeper" element={<RequireSignupDraft role="shopkeeper"><ShopkeeperDetails /></RequireSignupDraft>} />
               <Route path="details/driver" element={<RequireSignupDraft role="driver"><DriverDetails /></RequireSignupDraft>} />
               <Route path="*" element={<Navigate to="/signup" replace />} />
             </Route>
             <Route path="/reset-password" element={<ResetPassword />} />
             <Route path="/unlock" element={<UnlockRoute />} />
-            <Route path="/ai-chat" element={<AiChat />} />
             <Route path="/admin/login" element={<AdminLogin />} />
             <Route path="/admin/*" element={<AdminPortal />} />
 
@@ -413,14 +337,11 @@ export default function App() {
             <Route path="/client/*" element={<ClientPortal />} />
             <Route path="/everyday/*" element={<EverydayPortal />} />
             <Route path="/org/*" element={<OrgPortal />} />
-            <Route path="/shopkeeper/*" element={<ShopkeeperPortal />} />
-            <Route path="/fuelstation/*" element={<FuelStationPortal />} />
             <Route path="/driver/*" element={<DriverPortal />} />
 
             <Route path="*" element={<Login />} />
           </Routes>
           <InsuranceReminder />
-          <GlobalAiAssistant />
           </>
         </ActivityTracker>
         </StepUpProvider>

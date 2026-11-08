@@ -69,7 +69,6 @@ export default function AdminUsers() {
           <option value="platform_admin">Platform admin</option>
           <option value="service_seeker">Service seeker</option>
           <option value="logistics_provider">Logistics provider</option>
-          <option value="shopkeeper">Shopkeeper</option>
         </select>
         <button onClick={() => setQuery({ ...filters })} style={S.btnOutline}><i className="fas fa-magnifying-glass" style={{ marginRight: 8 }} />Apply</button>
       </div>

@@ -81,6 +81,7 @@ function OwnedClientOrderDetail() {
   const [payment, setPayment] = useState(null)
   const [deliveryPolicy, setDeliveryPolicy] = useState(null)
   const [settlement, setSettlement] = useState(null)
+  const [review, setReview] = useState(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [error, setError] = useState('')
@@ -115,6 +116,7 @@ function OwnedClientOrderDetail() {
       setPayment(json.payment || null)
       setDeliveryPolicy(json.delivery_policy || null)
       setSettlement(json.settlement || null)
+      setReview(json.review || null)
       setChatThreadId(json.chat_thread_id || null)
     } catch (loadError) {
       if (!alive.current || controller.signal.aborted || generation !== readGeneration.current) return
@@ -132,7 +134,37 @@ function OwnedClientOrderDetail() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [orderId])
 
-  async function confirmDelivery(decision, review = null) {
+  async function submitCompletedReview(reviewData) {
+    setActionLoading('yes')
+    setError('')
+    setActionMsg('')
+    try {
+      const csrf = await getCsrfToken()
+      if (!alive.current) return
+      const response = await fetch(`/api/orders/${orderId}/trips/${trip.id}/review`, {
+        method: 'POST',
+        credentials: 'same-origin',
+        headers: { 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ rating: reviewData?.rating, comment: reviewData?.comment }),
+      })
+      const json = await response.json().catch(() => ({}))
+      if (!alive.current) return
+      if (!response.ok || json.success === false) throw new Error(json.message || 'Unable to submit your review.')
+      setActionMsg(json.message || 'Review submitted successfully.')
+      setReviewModalOpen(false)
+      await loadOrder({ silent: true })
+    } catch (reviewError) {
+      if (!alive.current) return
+      setError(reviewError.message || 'Unable to submit your review.')
+    } finally {
+      if (alive.current) setActionLoading('')
+    }
+  }
+
+  async function confirmDelivery(decision, reviewData = null) {
+    if (decision === 'yes' && trip?.status === 'completed') {
+      return submitCompletedReview(reviewData)
+    }
     const prompt = decision === 'yes'
       ? 'Submit this review and confirm delivery? This releases the held payment to the transporter and cannot be undone.'
       : 'Report a problem with this delivery? The payment stays held and an admin will review the case.'
@@ -155,7 +187,7 @@ function OwnedClientOrderDetail() {
         method: 'POST',
         credentials: 'same-origin',
         headers: { 'X-CSRF-Token': csrf, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ decision, reason, rating: review?.rating, comment: review?.comment }),
+        body: JSON.stringify({ decision, reason, rating: reviewData?.rating, comment: reviewData?.comment }),
       })
       const json = await response.json().catch(() => ({}))
       if (!alive.current) return
@@ -212,7 +244,7 @@ function OwnedClientOrderDetail() {
     )
   }
 
-  if (error) {
+  if (error && !order) {
     return (
       <div className="order-detail-page">
         <StateMessage type="error">{error}</StateMessage>
@@ -311,7 +343,6 @@ function OwnedClientOrderDetail() {
 
       {deliveryPolicy && <FeeBreakdown kind="client" />}
       <SettlementSummary settlement={settlement} />
-      {deliveryPolicy && trip && <DeliveryClientHandshake orderId={order.id} trip={trip} settlement={settlement} onChanged={() => loadOrder({ silent: true })} />}
 
       {/* Post-payment status: accepted transporter, held payment, trip state. */}
       {!orderOpen && payment && (
@@ -346,6 +377,15 @@ function OwnedClientOrderDetail() {
           </div>
 
           {actionMsg && <div className="odp-confirm__msg">{actionMsg}</div>}
+
+          {deliveryPolicy && trip && (
+            <DeliveryClientHandshake
+              orderId={order.id}
+              trip={trip}
+              settlement={settlement}
+              onChanged={() => loadOrder({ silent: true })}
+            />
+          )}
 
           {!deliveryPolicy && trip && trip.status === 'awaiting_client_confirmation' && (
             <div className="odp-confirm">
@@ -387,6 +427,21 @@ function OwnedClientOrderDetail() {
             <div className="odp-confirm odp-confirm--ok">
               <i className="fas fa-circle-check" aria-hidden="true"></i>
               <span>{settlement ? 'Delivery verified by your OTP. The settlement schedule is shown above.' : 'You confirmed delivery. The payment has been released to the transporter.'}</span>
+              {!review ? (
+                <button
+                  type="button"
+                  onClick={() => setReviewModalOpen(true)}
+                  className="ml-auto inline-flex items-center gap-2 rounded-lg bg-blue-600 px-4 py-2 text-xs font-semibold text-white hover:bg-blue-700"
+                >
+                  <i className="fas fa-star" aria-hidden="true"></i>
+                  Rate &amp; Review Transporter
+                </button>
+              ) : (
+                <span className="ml-auto text-xs font-semibold text-emerald-700">
+                  <i className="fas fa-star mr-1 text-amber-500" aria-hidden="true"></i>
+                  Reviewed ({review.rating}/5)
+                </span>
+              )}
             </div>
           )}
 
@@ -567,7 +622,7 @@ function OwnedClientOrderDetail() {
         key={reviewTarget ? `${reviewTarget.shipment_id}-${reviewTarget.trip_id}-${reviewModalOpen ? 'open' : 'closed'}` : 'delivery-review'}
         open={reviewModalOpen}
         reviewTarget={reviewTarget}
-        submitLabel="Confirm Delivery & Submit Review"
+        submitLabel={trip?.status === 'completed' ? 'Submit Review' : 'Confirm Delivery & Submit Review'}
         submitting={actionLoading === 'yes'}
         error={error}
         onClose={() => {
@@ -575,7 +630,7 @@ function OwnedClientOrderDetail() {
           setReviewModalOpen(false)
           setError('')
         }}
-        onSubmit={(review) => confirmDelivery('yes', review)}
+        onSubmit={(reviewData) => confirmDelivery('yes', reviewData)}
       />
     </>
   )

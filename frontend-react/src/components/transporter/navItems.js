@@ -6,7 +6,6 @@ export const NAV_ITEMS = [
   { path: '/transporter/messages',     icon: 'fa-comments',       label: 'Messages' },
   { path: '/transporter/earnings',     icon: 'fa-wallet',         label: 'Earnings' },
   { path: '/transporter/wallet',       icon: 'fa-credit-card',    label: 'Wallet' },
-  { path: '/transporter/parts-store',  icon: 'fa-store',          label: 'Truck Parts Store' },
   { path: '/transporter/settings',     icon: 'fa-cog',            label: 'Settings' },
 ]
 
