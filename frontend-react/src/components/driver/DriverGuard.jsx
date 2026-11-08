@@ -15,9 +15,12 @@ export default function DriverGuard({ children }) {
 
   if (!user?.id && status === AUTH_STATUSES.CHECKING) {
     return (
-      <div className="min-h-screen bg-gray-50 flex items-center justify-center flex-col gap-3">
-        <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
-        <p className="text-gray-500 text-sm">Checking driver session...</p>
+      <div className="driver-auth-loading" role="status" aria-live="polite">
+        <span className="driver-auth-loading__mark"><i className="fas fa-truck-moving" aria-hidden="true" /></span>
+        <div>
+          <strong>Opening your driver workspace</strong>
+          <p>Verifying secure access…</p>
+        </div>
       </div>
     )
   }
