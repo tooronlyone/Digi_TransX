@@ -1,23 +1,26 @@
-/* eslint-disable no-unused-vars, no-empty, react-hooks/exhaustive-deps */
+/* eslint-disable no-empty */
 import { useState, useEffect, useCallback } from 'react'
 import { Link, useLocation } from 'react-router-dom'
 import Notification from '../../components/common/Notification'
 import { useAuthSession } from '../../hooks/useAuth'
 import digiTransxLogo from '../../assets/brand/digi-transx-logo.png'
-import digiTransxLogoLight from '../../assets/brand/digi-transx-logo-light.png'
-import '../../styles/pages/auth.css'
+import heroBackground from '../../assets/backgrounds/digi-transx-login-background.PNG'
+import '../../styles/pages/portal-auth-v2.css'
 
 export default function Login() {
-  const { cacheUser, clearCache, resolveRedirect, navigate } = useAuthSession()
+  const { cacheUser, clearCache, resolveRedirect } = useAuthSession()
   const location = useLocation()
-  const [form, setForm] = useState({ loginId: '', password: '' })
+  const [form, setForm] = useState({ 
+    loginId: localStorage.getItem('dtx_remember_loginId') || '', 
+    password: '' 
+  })
   const [errors, setErrors] = useState({})
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [notification, setNotification] = useState({ type: '', message: '' })
   const [dismissedAuthNotice, setDismissedAuthNotice] = useState(null)
+  
   const authNotice = location.state?.authNotice
-  // Shared authority reset may navigate before the password-change notice is
-  // attached to this same route. Derive it on every render, including that update.
   const visibleNotification = notification.message ? notification
     : authNotice !== dismissedAuthNotice && typeof authNotice?.message === 'string'
       ? { type: authNotice.type === 'success' ? 'success' : 'error', message: authNotice.message }
@@ -37,16 +40,31 @@ export default function Login() {
         clearCache()
       }
     } catch (_) {}
-  }, [])
+  }, [cacheUser, clearCache, resolveRedirect])
 
-  useEffect(() => { checkLoggedIn() }, [checkLoggedIn])
+  useEffect(() => {
+    checkLoggedIn()
+  }, [checkLoggedIn])
+
+  useEffect(() => {
+    document.documentElement.style.overflow = 'hidden'
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.documentElement.style.overflow = ''
+      document.body.style.overflow = ''
+    }
+  }, [])
 
   function validate() {
     const e = {}
-    if (!form.loginId) e.loginId = 'Email or CNIC is required'
-    else if (!isValidEmail(form.loginId) && !isValidCnic(form.loginId))
+    if (!form.loginId) {
+      e.loginId = 'Email or CNIC is required'
+    } else if (!isValidEmail(form.loginId) && !isValidCnic(form.loginId)) {
       e.loginId = 'Please enter a valid email or 13 digit CNIC'
-    if (!form.password) e.password = 'Password is required'
+    }
+    if (!form.password) {
+      e.password = 'Password is required'
+    }
     return e
   }
 
@@ -56,9 +74,14 @@ export default function Login() {
     const password = form.password
 
     const errs = validate()
-    if (Object.keys(errs).length) { setErrors(errs); return }
+    if (Object.keys(errs).length) {
+      setErrors(errs)
+      return
+    }
     setErrors({})
     setLoading(true)
+
+
     try {
       const res = await fetch('/auth/login', {
         method: 'POST',
@@ -70,7 +93,9 @@ export default function Login() {
       if (res.ok && data.success) {
         cacheUser(data)
         setNotification({ type: 'success', message: 'Login successful! Redirecting...' })
-        setTimeout(() => { window.location.href = resolveRedirect(data) }, 1000)
+        setTimeout(() => {
+          window.location.href = resolveRedirect(data)
+        }, 900)
         return
       }
       const field = data.field || 'password'
@@ -85,106 +110,151 @@ export default function Login() {
   }
 
   return (
-    <main className="auth-shell login-shell">
-      <section className="auth-shell__hero" aria-label="Digi_TransX freight platform">
-        <div className="auth-shell__story">
-          <div className="login-brand-lockup" aria-label="Digi TransX, AD-HAG Project">
-            <img src={digiTransxLogo} alt="" className="login-brand-lockup__mark" />
-            <span className="login-brand-lockup__copy">
-              <strong>DIGI_TRANS<span>X</span></strong>
-              <small>
-                <span>A</span>
-                <span>D-HAG</span>
-                <span>PROJECT</span>
-              </small>
+    <main className="dtx-auth-page dtx-auth-page--login" style={{ backgroundImage: `url(${heroBackground})` }}>
+      <section className="dtx-login-story" aria-label="Digi_TransX logistics platform">
+        <Link to="/" className="dtx-login-brand dtx-login-brand--story" aria-label="Digi_TransX home">
+          <img
+            src={digiTransxLogo}
+            alt=""
+            className="dtx-login-brand__mark"
+          />
+          <span className="dtx-login-brand__copy">
+            <span className="dtx-login-brand__name">
+              Digi_Trans<span>X</span>
             </span>
-          </div>
-          <h2>Move freight, fearlessly.</h2>
-          <p>Pakistan's freight network &mdash; dispatched, tracked, and settled from one screen.</p>
+            <span className="dtx-login-brand__tagline">A D-HAG Project</span>
+          </span>
+        </Link>
 
-          <div className="auth-shell__stats" aria-label="Platform stats">
-            <div>
-              <b>2,400+</b>
-              <span>Verified trucks</span>
-            </div>
-            <div>
-              <b>180k</b>
-              <span>Jobs completed</span>
-            </div>
-            <div>
-              <b>4.8&#9733;</b>
-              <span>Avg. shipper rating</span>
-            </div>
-          </div>
-        </div>
+        <span className="dtx-login-story__accent" aria-hidden="true" />
+        <h2 className="dtx-login-story__title">
+          Pakistan&rsquo;s Intelligent
+          <span><strong>Logistics</strong> Operating System</span>
+        </h2>
+        <p className="dtx-login-story__copy">
+          Book, dispatch, track, and manage your freight &mdash; all in one platform.
+        </p>
       </section>
 
-      <section className="auth-shell__panel" aria-label="Sign in">
+      <section className="dtx-auth-panel" aria-label="Sign in">
         <Notification
           type={visibleNotification.type}
           message={visibleNotification.message}
-          onClose={() => { setNotification({ type: '', message: '' }); setDismissedAuthNotice(authNotice) }}
+          onClose={() => {
+            setNotification({ type: '', message: '' })
+            setDismissedAuthNotice(authNotice)
+          }}
         />
 
-        <div className="auth-shell__card">
-          <div className="auth-shell__brand">
-            <span className="auth-shell__brand-logo auth-shell__brand-logo--image" aria-hidden="true">
-              <img src={digiTransxLogoLight} alt="" />
-            </span>
-            <span>Digi_Trans<b className="auth-shell__brand-accent">X</b></span>
-          </div>
-
-          <div className="auth-shell__intro">
-            <h1>Welcome back</h1>
-            <p>Sign in to continue to your Digi_TransX workspace.</p>
-          </div>
-
-          <form className="auth-shell__form" onSubmit={handleSubmit}>
-            <div className="auth-shell__field">
-                <label htmlFor="loginId">Email or CNIC</label>
-              <input
-                id="loginId"
-                type="text"
-                placeholder="Enter your email or 13 digit CNIC"
-                value={form.loginId}
-                onChange={e => setForm(f => ({ ...f, loginId: e.target.value }))}
-                className={errors.loginId ? 'auth-shell__input auth-shell__input--error' : 'auth-shell__input'}
-                aria-invalid={!!errors.loginId}
-                aria-describedby={errors.loginId ? 'loginId-error' : undefined}
+        <div className="dtx-auth-card dtx-login-card">
+          <header className="dtx-card-header dtx-login-card__header">
+            <Link to="/" className="dtx-login-brand" aria-label="Digi_TransX home">
+              <img
+                src={digiTransxLogo}
+                alt=""
+                className="dtx-login-brand__mark"
               />
-              {errors.loginId && <p id="loginId-error" className="auth-shell__err-msg">{errors.loginId}</p>}
-            </div>
+              <span className="dtx-login-brand__copy">
+                <span className="dtx-login-brand__name">
+                  Digi_Trans<span>X</span>
+                </span>
+                <span className="dtx-login-brand__tagline">A D-HAG Project</span>
+              </span>
+            </Link>
+            <h1 className="dtx-card-title">Welcome Back</h1>
+            <p className="dtx-card-subtitle">Sign in to your Digi_TransX account.</p>
+          </header>
 
-            <div className="auth-shell__field">
-              <div className="auth-shell__label-row">
-                <label htmlFor="password">Password</label>
-                <Link to={`/reset-password${form.loginId ? '?loginId=' + encodeURIComponent(form.loginId) : ''}`}>
-                  Forgot password?
-                </Link>
+          <form className="dtx-form" onSubmit={handleSubmit} noValidate>
+            <div className="dtx-field">
+              <label htmlFor="loginId" className="dtx-sr-only">Email or CNIC</label>
+              <div className={`dtx-input-wrap ${errors.loginId ? 'dtx-input-wrap--error' : ''}`}>
+                <i className="far fa-envelope dtx-input-icon" aria-hidden="true" />
+                <input
+                  id="loginId"
+                  name="loginId"
+                  type="text"
+                  placeholder="Email or CNIC"
+                  value={form.loginId}
+                  onChange={(e) => setForm((f) => ({ ...f, loginId: e.target.value }))}
+                  className="dtx-input"
+                  autoComplete="username"
+                  autoFocus
+                  aria-invalid={!!errors.loginId}
+                  aria-describedby={errors.loginId ? 'loginId-error' : undefined}
+                />
               </div>
-              <input
-                id="password"
-                type="password"
-                placeholder="Enter your password"
-                value={form.password}
-                onChange={e => setForm(f => ({ ...f, password: e.target.value }))}
-                className={errors.password ? 'auth-shell__input auth-shell__input--error' : 'auth-shell__input'}
-                aria-invalid={!!errors.password}
-                aria-describedby={errors.password ? 'password-error' : undefined}
-              />
-              {errors.password && <p id="password-error" className="auth-shell__err-msg">{errors.password}</p>}
+              {errors.loginId && (
+                <p id="loginId-error" className="dtx-error-msg">
+                  <i className="fas fa-circle-exclamation" aria-hidden="true" /> {errors.loginId}
+                </p>
+              )}
             </div>
 
-            <button type="submit" disabled={loading} className="auth-shell__primary">
-              {loading && <span className="auth-shell__spinner" aria-hidden="true" />}
-              {!loading && <i className="fas fa-arrow-right-to-bracket" aria-hidden="true"></i>}
-              {loading ? 'Signing in...' : 'Sign In'}
+            <div className="dtx-field">
+              <label htmlFor="password" className="dtx-sr-only">Password</label>
+              <div className={`dtx-input-wrap ${errors.password ? 'dtx-input-wrap--error' : ''}`}>
+                <i className="fas fa-lock dtx-input-icon" aria-hidden="true" />
+                <input
+                  id="password"
+                  name="password"
+                  type={showPassword ? 'text' : 'password'}
+                  placeholder="Password"
+                  value={form.password}
+                  onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))}
+                  className="dtx-input"
+                  autoComplete="current-password"
+                  aria-invalid={!!errors.password}
+                  aria-describedby={errors.password ? 'password-error' : undefined}
+                />
+                <button
+                  type="button"
+                  className="dtx-toggle-pass-btn"
+                  onClick={() => setShowPassword((v) => !v)}
+                  aria-label={showPassword ? 'Hide password' : 'Show password'}
+                >
+                  <i className={`far ${showPassword ? 'fa-eye-slash' : 'fa-eye'}`} aria-hidden="true" />
+                </button>
+              </div>
+              {errors.password && (
+                <p id="password-error" className="dtx-error-msg">
+                  <i className="fas fa-circle-exclamation" aria-hidden="true" /> {errors.password}
+                </p>
+              )}
+              <Link
+                className="dtx-forgot-link dtx-login-forgot"
+                to={`/reset-password${form.loginId ? '?loginId=' + encodeURIComponent(form.loginId) : ''}`}
+              >
+                Forgot password?
+              </Link>
+            </div>
+
+            <button
+              type="submit"
+              disabled={loading}
+              className="dtx-btn-primary"
+              aria-label={loading ? 'Logging in' : 'Login'}
+            >
+              {loading ? (
+                <span className="dtx-btn-spinner" aria-hidden="true" />
+              ) : (
+                <>
+                  <i className="fas fa-arrow-right" aria-hidden="true" />
+                  <span>Login</span>
+                </>
+              )}
             </button>
 
-            <p className="auth-shell__footer">
-              Don't have an account?{' '}
-              <Link to="/signup">Create an account</Link>
-            </p>
+            <div className="dtx-divider" aria-hidden="true">
+              <span>or</span>
+            </div>
+
+            <div className="dtx-card-footer">
+              <p>
+                Don&rsquo;t have an account?{' '}
+                <Link to="/signup">Create Account</Link>
+              </p>
+            </div>
           </form>
         </div>
       </section>

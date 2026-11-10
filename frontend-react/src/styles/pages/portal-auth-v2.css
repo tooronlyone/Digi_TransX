@@ -1,0 +1,1485 @@
+/* ==========================================================================
+   DIGI_TRANSX ENTERPRISE BENTO-GLASS-NEUMORPHISM DESIGN SUITE
+   A hybrid of Glassmorphism (translucency, blur, specular borders),
+   Neumorphism (tactile extruded/inset dual-shadow surfaces), and
+   Bento Grid (modular, high-density structured operational tiles).
+   ========================================================================== */
+
+:root {
+  /* Chromatic Theme */
+  --bento-bg: #070c16;
+  --bento-bg-subtle: #0d1527;
+  --bento-primary: #2563eb;
+  --bento-primary-glow: rgba(37, 99, 235, 0.45);
+  --bento-cyan: #06b6d4;
+  --bento-cyan-glow: rgba(6, 182, 212, 0.35);
+  --bento-emerald: #10b981;
+  --bento-amber: #f59e0b;
+  --bento-rose: #f43f5e;
+  
+  /* Neumorphic Dark Palette (Hero Side) */
+  --neu-dark-surf: rgba(14, 22, 38, 0.72);
+  --neu-dark-border: rgba(255, 255, 255, 0.12);
+  --neu-dark-highlight: rgba(255, 255, 255, 0.08);
+  --neu-dark-shadow: rgba(0, 0, 0, 0.55);
+  
+  /* Glassmorphism Refraction & Specular Highlighting */
+  --glass-card-bg: rgba(255, 255, 255, 0.82);
+  --glass-card-border: rgba(255, 255, 255, 0.88);
+  --glass-blur: blur(28px) saturate(190%);
+  --glass-shadow: 
+    0 24px 50px -12px rgba(8, 18, 38, 0.14),
+    0 4px 16px -2px rgba(8, 18, 38, 0.06),
+    inset 0 1px 1px rgba(255, 255, 255, 0.95);
+  
+  /* Neumorphic Light Surfaces (Auth Console Side) */
+  --neu-light-bg: #edf2f8;
+  --neu-light-surf: #f4f7fb;
+  --neu-inset-shadow: 
+    inset 2.5px 2.5px 6px rgba(166, 179, 199, 0.42),
+    inset -2.5px -2.5px 6px rgba(255, 255, 255, 0.92);
+  --neu-convex-shadow:
+    4px 4px 10px rgba(166, 179, 199, 0.35),
+    -3px -3px 8px rgba(255, 255, 255, 0.9);
+  --neu-convex-hover:
+    6px 6px 14px rgba(166, 179, 199, 0.45),
+    -4px -4px 10px rgba(255, 255, 255, 0.95);
+  --neu-pressed:
+    inset 2px 2px 4px rgba(166, 179, 199, 0.45),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.9);
+}
+
+/* Global scrollbar lock */
+html:has(.dtx-auth-page),
+body:has(.dtx-auth-page) {
+  overflow: hidden !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+html:has(.dtx-auth-page)::-webkit-scrollbar,
+body:has(.dtx-auth-page)::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+.dtx-auth-page,
+.dtx-auth-page * {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.dtx-auth-page::-webkit-scrollbar,
+.dtx-auth-page *::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
+}
+
+/* ==========================================================================
+   MASTER CONTAINER
+   ========================================================================== */
+.dtx-auth-page {
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  width: 100vw;
+  max-width: 100%;
+  display: flex;
+  background-color: #eee6df;
+  background-position: center;
+  background-repeat: no-repeat;
+  background-size: cover;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  color: #0f172a;
+  position: relative;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+/* ==========================================================================
+   LEFT HERO SIDE: BENTO GRID + GLASSMORPHISM
+   ========================================================================== */
+.dtx-auth-hero {
+  position: relative;
+  flex: 1 1 56%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: clamp(20px, 2.5vh, 36px) clamp(24px, 3vw, 44px);
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  color: #ffffff;
+  overflow: hidden;
+  isolation: isolate;
+  box-sizing: border-box;
+}
+
+/* Cinematic Darkening & Vignette Overlay */
+.dtx-auth-hero__overlay {
+  position: absolute;
+  inset: 0;
+  background: 
+    radial-gradient(circle at 15% 15%, rgba(37, 99, 235, 0.4) 0%, transparent 48%),
+    radial-gradient(circle at 85% 85%, rgba(6, 182, 212, 0.3) 0%, transparent 52%),
+    linear-gradient(135deg, rgba(6, 11, 20, 0.94) 0%, rgba(10, 18, 33, 0.84) 45%, rgba(6, 11, 20, 0.96) 100%);
+  z-index: 1;
+}
+
+/* Fine Telemetry Grid */
+.dtx-auth-hero__grid {
+  position: absolute;
+  inset: 0;
+  background-image: 
+    linear-gradient(to right, rgba(255, 255, 255, 0.035) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(255, 255, 255, 0.035) 1px, transparent 1px);
+  background-size: 36px 36px;
+  z-index: 2;
+  pointer-events: none;
+}
+
+.dtx-auth-hero__content-top,
+.dtx-auth-hero__bento-matrix,
+.dtx-auth-hero__content-bottom {
+  position: relative;
+  z-index: 3;
+}
+
+/* Header Brand Lockup */
+.dtx-brand-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+}
+
+.dtx-brand-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+  text-decoration: none;
+  color: #ffffff;
+}
+
+.dtx-brand-logo-img {
+  height: 40px;
+  width: auto;
+  object-fit: contain;
+  filter: drop-shadow(0 4px 14px rgba(37, 99, 235, 0.4));
+}
+
+.dtx-brand-titles {
+  display: flex;
+  flex-direction: column;
+}
+
+.dtx-brand-title {
+  font-size: 21px;
+  font-weight: 850;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  line-height: 1.1;
+}
+
+.dtx-brand-title span {
+  color: var(--bento-cyan);
+  text-shadow: 0 0 16px var(--bento-cyan-glow);
+}
+
+.dtx-brand-sub {
+  font-size: 9px;
+  font-weight: 750;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: #94a3b8;
+}
+
+/* Glowing Live Network Status Pill */
+.dtx-status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 5px 12px;
+  border-radius: 9999px;
+  background: rgba(16, 185, 129, 0.14);
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  box-shadow: 0 0 16px rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  font-size: 10.5px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-transform: uppercase;
+  backdrop-filter: blur(8px);
+}
+
+.dtx-pulse-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background-color: var(--bento-emerald);
+  box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7);
+  animation: dtxPulse 2s infinite cubic-bezier(0.45, 0, 0.2, 1);
+}
+
+@keyframes dtxPulse {
+  0% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.7); }
+  70% { transform: scale(1); box-shadow: 0 0 0 6px rgba(16, 185, 129, 0); }
+  100% { transform: scale(0.95); box-shadow: 0 0 0 0 rgba(16, 185, 129, 0); }
+}
+
+/* --------------------------------------------------------------------------
+   THE BENTO MATRIX (HERO TILES SYSTEM)
+   -------------------------------------------------------------------------- */
+.dtx-auth-hero__bento-matrix {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  grid-template-rows: auto auto;
+  gap: 12px;
+  margin: clamp(12px, 1.8vh, 20px) 0;
+  max-width: 650px;
+}
+
+/* Glassmorphic Bento Tile (Shared Architecture) */
+.dtx-bento-tile {
+  position: relative;
+  border-radius: 16px;
+  background: var(--neu-dark-surf);
+  border: 1px solid var(--neu-dark-border);
+  backdrop-filter: blur(20px) saturate(180%);
+  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  box-shadow: 
+    0 12px 30px -8px rgba(0, 0, 0, 0.4),
+    inset 0 1px 0 var(--neu-dark-highlight);
+  padding: 14px 16px;
+  transition: all 0.22s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+}
+
+.dtx-bento-tile::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.25), transparent);
+}
+
+.dtx-bento-tile:hover {
+  transform: translateY(-2px);
+  border-color: rgba(56, 189, 248, 0.4);
+  box-shadow: 
+    0 16px 36px -8px rgba(37, 99, 235, 0.25),
+    inset 0 1px 0 rgba(255, 255, 255, 0.2);
+}
+
+/* Main Hero Bento Tile (Spans all 3 columns) */
+.dtx-bento-tile--main {
+  grid-column: 1 / -1;
+  padding: clamp(16px, 2.2vh, 22px) clamp(18px, 2vw, 24px);
+  background: linear-gradient(135deg, rgba(17, 28, 51, 0.78) 0%, rgba(11, 18, 33, 0.85) 100%);
+  border-color: rgba(59, 130, 246, 0.25);
+}
+
+.dtx-bento-badge-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+
+.dtx-bento-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 10.5px;
+  font-weight: 750;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: var(--bento-cyan);
+  padding: 3px 8px;
+  border-radius: 6px;
+  background: rgba(6, 182, 212, 0.12);
+  border: 1px solid rgba(6, 182, 212, 0.25);
+}
+
+.dtx-bento-title {
+  font-size: clamp(22px, 2.4vw, 32px);
+  font-weight: 850;
+  line-height: 1.18;
+  letter-spacing: -0.03em;
+  color: #ffffff;
+  margin: 0 0 8px;
+}
+
+.dtx-bento-desc {
+  font-size: clamp(12.5px, 0.95vw, 13.5px);
+  line-height: 1.5;
+  color: #cbd5e1;
+  margin: 0;
+  max-width: 540px;
+}
+
+/* Sub Bento Tiles (3 Columns below) */
+.dtx-bento-tile--stat {
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+}
+
+.dtx-bento-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 4px;
+}
+
+.dtx-bento-icon {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 12px;
+  /* Neumorphic Inset Micro-Well */
+  background: rgba(7, 12, 22, 0.6);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: inset 1.5px 1.5px 3px rgba(0, 0, 0, 0.5), inset -1.5px -1.5px 3px rgba(255, 255, 255, 0.05);
+  color: #60a5fa;
+}
+
+.dtx-bento-val {
+  font-size: 18px;
+  font-weight: 800;
+  letter-spacing: -0.02em;
+  color: #ffffff;
+  margin: 0;
+}
+
+.dtx-bento-lbl {
+  font-size: 10.5px;
+  font-weight: 600;
+  color: #94a3b8;
+  margin: 2px 0 0;
+}
+
+/* Hero Footer Trust Strip */
+.dtx-hero-trust {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding-top: 12px;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  flex-wrap: wrap;
+}
+
+.dtx-trust-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11px;
+  color: #94a3b8;
+  font-weight: 550;
+}
+
+.dtx-trust-item i {
+  color: var(--bento-cyan);
+}
+
+/* ==========================================================================
+   RIGHT AUTH PANEL: GLASSMORPHISM & NEUMORPHIC INSET WELLS
+   ========================================================================== */
+.dtx-auth-panel {
+  flex: 1 1 44%;
+  height: 100vh;
+  height: 100dvh;
+  max-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  padding: clamp(14px, 2vh, 32px) clamp(18px, 2.5vw, 36px);
+  background: transparent;
+  position: relative;
+  z-index: 5;
+  overflow-y: auto;
+  overflow-x: hidden;
+  box-sizing: border-box;
+}
+
+/* Login uses the supplied artwork across the entire viewport. */
+.dtx-auth-page--login {
+  background-size: 100% 100%;
+}
+
+.dtx-auth-page--login .dtx-auth-panel {
+  flex: 1 1 100%;
+  width: 100%;
+  min-height: 100vh;
+  min-height: 100dvh;
+  align-items: flex-end;
+  padding-right: clamp(28px, 6vw, 96px);
+}
+
+.signup-page .dtx-auth-panel {
+  flex: 1 1 100%;
+  width: 100%;
+}
+
+/* The Glassmorphic Bento Console Card */
+.dtx-auth-card {
+  width: 100%;
+  max-width: 410px;
+  background: var(--glass-card-bg);
+  border-radius: 20px;
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: 1.5px solid var(--glass-card-border);
+  box-shadow: var(--glass-shadow);
+  padding: clamp(20px, 2.2vh, 28px) clamp(20px, 2.2vw, 28px);
+  box-sizing: border-box;
+  animation: dtxFadeUp 0.35s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+@keyframes dtxFadeUp {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.dtx-auth-card--wide {
+  max-width: 660px;
+  padding: clamp(16px, 1.8vh, 24px) clamp(20px, 2vw, 28px);
+}
+
+/* Card Header */
+.dtx-card-header {
+  margin-bottom: 14px;
+}
+
+.dtx-gateway-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: 7px;
+  background: rgba(37, 99, 235, 0.09);
+  border: 1px solid rgba(37, 99, 235, 0.2);
+  color: #1d4ed8;
+  font-size: 10px;
+  font-weight: 750;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  margin-bottom: 6px;
+}
+
+.dtx-gateway-badge i {
+  font-size: 9px;
+}
+
+.dtx-card-title {
+  font-size: clamp(21px, 1.8vw, 24px);
+  font-weight: 850;
+  letter-spacing: -0.025em;
+  color: #0f172a;
+  margin: 0 0 3px;
+}
+
+.dtx-card-subtitle {
+  font-size: 12.5px;
+  line-height: 1.45;
+  color: #64748b;
+  margin: 0;
+}
+
+/* --------------------------------------------------------------------------
+   NEUMORPHIC TACTILE ROLE SWITCHER TABS
+   -------------------------------------------------------------------------- */
+.dtx-role-strip {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-top: 10px;
+  padding: 5px 8px;
+  /* Neumorphic Inset Base */
+  background: var(--neu-light-bg);
+  border-radius: 12px;
+  box-shadow: var(--neu-inset-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+  overflow-x: auto;
+}
+
+.dtx-role-strip__label {
+  font-size: 9.5px;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+  color: #94a3b8;
+  white-space: nowrap;
+  margin-right: 2px;
+}
+
+/* Neumorphic Convex Pill */
+.dtx-role-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 10.5px;
+  font-weight: 650;
+  padding: 3px 8px;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #334155;
+  white-space: nowrap;
+  box-shadow: 2px 2px 5px rgba(166, 179, 199, 0.3), -1px -1px 3px rgba(255, 255, 255, 0.9);
+  border: 1px solid rgba(255, 255, 255, 0.8);
+  transition: all 0.15s ease;
+}
+
+.dtx-role-chip:hover {
+  transform: translateY(-1px);
+  color: #1d4ed8;
+}
+
+.dtx-role-chip i {
+  font-size: 9px;
+  color: var(--bento-primary);
+}
+
+/* --------------------------------------------------------------------------
+   NEUMORPHIC FORM INPUTS & WELLS
+   -------------------------------------------------------------------------- */
+.dtx-form {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dtx-field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.dtx-label-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+
+.dtx-label {
+  font-size: 11.5px;
+  font-weight: 700;
+  color: #1e293b;
+  letter-spacing: -0.01em;
+}
+
+.dtx-forgot-link {
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--bento-primary);
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.dtx-forgot-link:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+/* Neumorphic Inset Input Well */
+.dtx-input-wrap {
+  position: relative;
+  display: flex;
+  align-items: center;
+  background: var(--neu-light-surf);
+  border-radius: 12px;
+  border: 1.5px solid #dce4ef;
+  /* Dual light-and-shadow inset concave depth */
+  box-shadow: 
+    inset 2px 2px 5px rgba(166, 179, 199, 0.35),
+    inset -2px -2px 5px rgba(255, 255, 255, 0.95);
+  transition: all 0.18s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.dtx-input-wrap:hover {
+  border-color: #cbd5e1;
+}
+
+.dtx-input-wrap:focus-within {
+  background: #ffffff;
+  border-color: var(--bento-primary);
+  box-shadow: 
+    0 0 0 3px rgba(37, 99, 235, 0.15),
+    inset 1px 1px 3px rgba(166, 179, 199, 0.15);
+}
+
+.dtx-input-wrap--error {
+  border-color: var(--bento-rose) !important;
+  background-color: #fff9fa;
+  box-shadow: 
+    0 0 0 3px rgba(244, 63, 94, 0.15),
+    inset 2px 2px 4px rgba(244, 63, 94, 0.1) !important;
+}
+
+.dtx-input-icon {
+  position: absolute;
+  left: 12px;
+  color: #94a3b8;
+  font-size: 12.5px;
+  pointer-events: none;
+  transition: color 0.18s ease;
+}
+
+.dtx-input-wrap:focus-within .dtx-input-icon {
+  color: var(--bento-primary);
+}
+
+.dtx-input {
+  width: 100%;
+  height: 38px;
+  padding: 0 12px 0 36px;
+  border: none;
+  background: transparent;
+  color: #0f172a;
+  font-size: 12.5px;
+  font-weight: 550;
+  outline: none;
+  box-sizing: border-box;
+}
+
+.dtx-input::placeholder {
+  color: #94a3b8;
+  font-weight: 400;
+}
+
+/* Password Toggle Icon Button */
+.dtx-toggle-pass-btn {
+  background: transparent;
+  border: none;
+  padding: 0 11px;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: #94a3b8;
+  cursor: pointer;
+  font-size: 12px;
+  transition: color 0.15s ease;
+}
+
+.dtx-toggle-pass-btn:hover {
+  color: #334155;
+}
+
+/* Error Message */
+.dtx-error-msg {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 11px;
+  font-weight: 650;
+  color: var(--bento-rose);
+  margin: 1px 0 0;
+}
+
+.dtx-helper-text {
+  font-size: 10.5px;
+  color: #64748b;
+  margin: 1px 0 0;
+}
+
+/* Checkbox Row */
+.dtx-checkbox-row {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 1px 0;
+  cursor: pointer;
+}
+
+.dtx-checkbox {
+  width: 15px;
+  height: 15px;
+  border-radius: 4px;
+  accent-color: var(--bento-primary);
+  cursor: pointer;
+}
+
+.dtx-checkbox-label {
+  font-size: 11.5px;
+  color: #475569;
+  font-weight: 550;
+  cursor: pointer;
+}
+
+/* --------------------------------------------------------------------------
+   NEUMORPHIC FLOATING PRIMARY BUTTON
+   -------------------------------------------------------------------------- */
+.dtx-btn-primary {
+  width: 100%;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: none;
+  border-radius: 12px;
+  background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%);
+  color: #ffffff;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  box-shadow: 
+    0 8px 20px -4px rgba(37, 99, 235, 0.45),
+    inset 0 1px 0 rgba(255, 255, 255, 0.35);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-decoration: none;
+  box-sizing: border-box;
+}
+
+.dtx-btn-primary:hover:not(:disabled) {
+  background: linear-gradient(135deg, #1d4ed8 0%, #1e40af 100%);
+  transform: translateY(-1px);
+  box-shadow: 
+    0 12px 24px -4px rgba(37, 99, 235, 0.5),
+    inset 0 1px 0 rgba(255, 255, 255, 0.4);
+}
+
+.dtx-btn-primary:active:not(:disabled) {
+  transform: translateY(0);
+  box-shadow: 
+    0 4px 12px -2px rgba(37, 99, 235, 0.4),
+    inset 0 2px 4px rgba(0, 0, 0, 0.2);
+}
+
+.dtx-btn-primary:disabled {
+  opacity: 0.65;
+  cursor: not-allowed;
+  transform: none;
+  box-shadow: none;
+}
+
+.dtx-btn-primary i {
+  font-size: 11px;
+  transition: transform 0.2s ease;
+}
+
+.dtx-btn-primary:hover:not(:disabled) i {
+  transform: translateX(3px);
+}
+
+/* Spinner */
+.dtx-btn-spinner {
+  width: 15px;
+  height: 15px;
+  border: 2px solid rgba(255, 255, 255, 0.3);
+  border-top-color: #ffffff;
+  border-radius: 50%;
+  animation: dtxSpin 0.7s linear infinite;
+}
+
+@keyframes dtxSpin {
+  to { transform: rotate(360deg); }
+}
+
+/* Divider */
+.dtx-divider {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin: 4px 0;
+}
+
+.dtx-divider::before,
+.dtx-divider::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: #e2e8f0;
+}
+
+.dtx-divider span {
+  font-size: 10.5px;
+  font-weight: 700;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+/* Footer Link */
+.dtx-card-footer {
+  text-align: center;
+  font-size: 12px;
+  color: #475569;
+  margin: 1px 0 0;
+}
+
+.dtx-card-footer a {
+  color: var(--bento-primary);
+  font-weight: 750;
+  text-decoration: none;
+  transition: color 0.15s ease;
+}
+
+.dtx-card-footer a:hover {
+  color: #1d4ed8;
+  text-decoration: underline;
+}
+
+.dtx-security-notice {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+  margin-top: 8px;
+  padding-top: 8px;
+  border-top: 1px dashed #e2e8f0;
+  font-size: 10px;
+  color: #64748b;
+  font-weight: 600;
+}
+
+.dtx-security-notice i {
+  color: var(--bento-emerald);
+  font-size: 11px;
+}
+
+/* ==========================================================================
+   SIGNUP WIZARD SPECIFIC STYLES
+   ========================================================================== */
+.dtx-wizard-tracker {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 12px;
+  padding: 6px 12px;
+  background: var(--neu-light-bg);
+  border-radius: 12px;
+  box-shadow: var(--neu-inset-shadow);
+  border: 1px solid rgba(255, 255, 255, 0.7);
+}
+
+.dtx-wizard-step {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+.dtx-wizard-step__num {
+  width: 20px;
+  height: 20px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 10.5px;
+  font-weight: 800;
+  background: #ffffff;
+  color: #64748b;
+  box-shadow: 1px 1px 3px rgba(166, 179, 199, 0.3);
+  transition: all 0.2s ease;
+}
+
+.dtx-wizard-step--active .dtx-wizard-step__num {
+  background: var(--bento-primary);
+  color: #ffffff;
+  box-shadow: 0 0 0 2.5px rgba(37, 99, 235, 0.25);
+}
+
+.dtx-wizard-step--done .dtx-wizard-step__num {
+  background: var(--bento-emerald);
+  color: #ffffff;
+}
+
+.dtx-wizard-step__label {
+  font-size: 11px;
+  font-weight: 700;
+  color: #64748b;
+}
+
+.dtx-wizard-step--active .dtx-wizard-step__label {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.dtx-wizard-step-line {
+  flex: 1;
+  height: 2px;
+  background: #cbd5e1;
+  margin: 0 6px;
+}
+
+/* Dual Column Bento Partition for Signup */
+.dtx-signup-grid {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 16px;
+}
+
+@media (max-width: 640px) {
+  .dtx-signup-grid {
+    grid-template-columns: 1fr;
+    gap: 10px;
+  }
+}
+
+.dtx-form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 9px;
+  padding: 10px 12px;
+  background: rgba(255, 255, 255, 0.55);
+  border-radius: 14px;
+  border: 1px solid rgba(226, 232, 240, 0.8);
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.02);
+}
+
+.dtx-group-title {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 11.5px;
+  font-weight: 800;
+  color: #1e293b;
+  padding-bottom: 5px;
+  border-bottom: 1px solid #e2e8f0;
+}
+
+.dtx-group-title i {
+  color: var(--bento-primary);
+  font-size: 11px;
+}
+
+/* Phone Row with Neumorphic Dropdown */
+.dtx-phone-row {
+  display: flex;
+  gap: 6px;
+}
+
+.dtx-country-select-wrap {
+  flex: 0 0 100px;
+}
+
+.dtx-country-select {
+  width: 100%;
+  height: 38px;
+  background: var(--neu-light-surf);
+  border: 1.5px solid #dce4ef;
+  border-radius: 12px;
+  box-shadow: 
+    inset 2px 2px 4px rgba(166, 179, 199, 0.3),
+    inset -2px -2px 4px rgba(255, 255, 255, 0.95);
+  padding: 0 6px;
+  font-size: 11.5px;
+  font-weight: 650;
+  color: #1e293b;
+  outline: none;
+  cursor: pointer;
+  transition: border-color 0.18s ease;
+}
+
+.dtx-country-select:focus {
+  border-color: var(--bento-primary);
+}
+
+.dtx-phone-input-wrap {
+  flex: 1;
+}
+
+/* Password Strength Indicator */
+.dtx-strength-meter {
+  display: flex;
+  flex-direction: column;
+  gap: 2.5px;
+  margin-top: 3px;
+}
+
+.dtx-strength-bars {
+  display: grid;
+  grid-template-columns: repeat(4, 1fr);
+  gap: 3.5px;
+}
+
+.dtx-strength-bar {
+  height: 3.5px;
+  border-radius: 999px;
+  background: #e2e8f0;
+  transition: background-color 0.25s ease;
+}
+
+.dtx-strength-bar--weak { background-color: var(--bento-rose); }
+.dtx-strength-bar--fair { background-color: var(--bento-amber); }
+.dtx-strength-bar--good { background-color: var(--bento-primary); }
+.dtx-strength-bar--strong { background-color: var(--bento-emerald); }
+
+.dtx-strength-label-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  font-size: 10px;
+}
+
+.dtx-strength-text {
+  font-weight: 700;
+}
+.dtx-strength-text--weak { color: var(--bento-rose); }
+.dtx-strength-text--fair { color: var(--bento-amber); }
+.dtx-strength-text--good { color: var(--bento-primary); }
+.dtx-strength-text--strong { color: var(--bento-emerald); }
+
+/* --------------------------------------------------------------------------
+   RESPONSIVE BREAKPOINTS
+   -------------------------------------------------------------------------- */
+@media (max-width: 1024px) {
+  .dtx-auth-page {
+    flex-direction: column;
+    height: auto;
+    min-height: 100dvh;
+    max-height: none;
+    overflow-y: auto;
+  }
+
+  .dtx-auth-hero {
+    flex: 0 0 auto;
+    height: auto;
+    min-height: auto;
+    max-height: none;
+    padding: 24px 20px;
+  }
+
+  .dtx-auth-hero__bento-matrix {
+    max-width: 100%;
+  }
+
+  .dtx-auth-panel {
+    flex: 1 1 auto;
+    height: auto;
+    min-height: auto;
+    max-height: none;
+    padding: 24px 18px 32px;
+  }
+}
+
+@media (max-width: 768px) {
+  .dtx-bento-tile--stat {
+    display: none;
+  }
+
+  .dtx-auth-hero {
+    padding: 16px 18px 12px;
+  }
+
+  .dtx-auth-card {
+    padding: 18px 16px;
+  }
+
+  .dtx-wizard-tracker {
+    overflow-x: auto;
+    padding: 6px 10px;
+  }
+  
+  .dtx-wizard-step__label {
+    display: none;
+  }
+
+  .dtx-auth-page--login .dtx-auth-panel {
+    align-items: center;
+    padding: 24px 18px;
+  }
+}
+
+/* ==========================================================================
+   LOGIN CARD — WARM FREIGHT IDENTITY
+   ========================================================================== */
+.dtx-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip: rect(0, 0, 0, 0);
+  white-space: nowrap;
+  border: 0;
+}
+
+.dtx-auth-page--login {
+  --login-brown: #8a4817;
+  --login-brown-dark: #71380f;
+  --login-ink: #111111;
+  --login-copy: #333333;
+  --login-card: rgba(255, 250, 246, 0.4);
+}
+
+.dtx-auth-page--login .dtx-auth-panel {
+  padding-block: clamp(22px, 3vh, 36px);
+}
+
+.dtx-login-story {
+  position: absolute;
+  top: clamp(38px, 5.2vh, 58px);
+  left: clamp(48px, 5.2vw, 96px);
+  z-index: 4;
+  width: min(720px, calc(100vw - 700px));
+  color: var(--login-ink);
+}
+
+.dtx-login-brand--story {
+  justify-content: flex-start;
+  gap: 14px;
+}
+
+.dtx-login-brand--story .dtx-login-brand__mark {
+  width: clamp(94px, 7vw, 116px);
+  height: clamp(70px, 5.2vw, 86px);
+}
+
+.dtx-login-brand--story .dtx-login-brand__name {
+  font-size: clamp(38px, 3.3vw, 50px);
+}
+
+.dtx-login-brand--story .dtx-login-brand__tagline {
+  gap: 10px;
+  margin-top: 7px;
+  font-size: clamp(11px, 1vw, 14px);
+}
+
+.dtx-login-story__accent {
+  display: block;
+  width: 78px;
+  height: 6px;
+  margin-top: clamp(42px, 6vh, 68px);
+  border-radius: 6px;
+  background: var(--login-brown);
+}
+
+.dtx-login-story__title {
+  max-width: 720px;
+  margin: 26px 0 16px;
+  color: var(--login-ink);
+  font-size: clamp(38px, 3.5vw, 56px);
+  font-weight: 840;
+  line-height: 1.1;
+  letter-spacing: -0.035em;
+}
+
+.dtx-login-story__title span {
+  display: block;
+  white-space: nowrap;
+}
+
+.dtx-login-story__title strong {
+  color: var(--login-brown);
+  font-weight: inherit;
+}
+
+.dtx-login-story__copy {
+  max-width: 680px;
+  margin: 0;
+  color: var(--login-ink);
+  font-size: clamp(17px, 1.5vw, 22px);
+  font-weight: 500;
+  line-height: 1.5;
+}
+
+.dtx-auth-page--login .dtx-login-card {
+  max-width: 480px;
+  padding: 24px 30px 28px;
+  border: 1px solid rgba(255, 255, 255, 0.9);
+  border-radius: 30px;
+  background: var(--login-card);
+  backdrop-filter: blur(5px) saturate(139%);
+  -webkit-backdrop-filter: blur(5px) saturate(139%);
+  box-shadow: 0 26px 58px rgba(83, 47, 23, 0.18);
+}
+
+.dtx-auth-page--login .dtx-login-card__header {
+  margin-bottom: 17px;
+  text-align: center;
+}
+
+.dtx-login-brand {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  max-width: 100%;
+  color: inherit;
+  text-decoration: none;
+}
+
+.dtx-login-brand__mark {
+  display: block;
+  width: 78px;
+  height: 58px;
+  object-fit: contain;
+}
+
+.dtx-login-brand__copy {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-width: 0;
+}
+
+.dtx-login-brand__name {
+  color: var(--login-ink);
+  font-size: 32px;
+  font-weight: 850;
+  line-height: 1;
+  letter-spacing: -0.035em;
+  white-space: nowrap;
+}
+
+.dtx-login-brand__name span {
+  color: var(--login-brown);
+}
+
+.dtx-login-brand__tagline {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 5px;
+  color: var(--login-ink);
+  font-size: 11px;
+  font-weight: 750;
+  line-height: 1;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+
+.dtx-login-brand__tagline::before,
+.dtx-login-brand__tagline::after {
+  content: "";
+  flex: 1;
+  height: 1px;
+  background: currentColor;
+}
+
+.dtx-auth-page--login .dtx-card-title {
+  margin: 7px 0 2px;
+  color: var(--login-ink);
+  font-size: clamp(31px, 2.6vw, 38px);
+  font-weight: 820;
+  line-height: 1.08;
+  letter-spacing: -0.03em;
+}
+
+.dtx-auth-page--login .dtx-card-subtitle {
+  margin: 0;
+  color: var(--login-copy);
+  font-size: 16px;
+  line-height: 1.45;
+}
+
+.dtx-auth-page--login .dtx-form {
+  gap: 12px;
+}
+
+.dtx-auth-page--login .dtx-field {
+  gap: 6px;
+}
+
+.dtx-auth-page--login .dtx-input-wrap {
+  min-height: 50px;
+  border: 1px solid #ddd5cf;
+  border-radius: 18px;
+  background: rgba(255, 255, 255, 0.84);
+  box-shadow: 0 3px 10px rgba(83, 47, 23, 0.06);
+}
+
+.dtx-auth-page--login .dtx-input-wrap:hover {
+  border-color: #c9bbb0;
+}
+
+.dtx-auth-page--login .dtx-input-wrap:focus-within {
+  border-color: var(--login-brown);
+  background: #ffffff;
+  box-shadow: 0 0 0 3px rgba(138, 72, 23, 0.16);
+}
+
+.dtx-auth-page--login .dtx-input-icon {
+  left: 18px;
+  color: var(--login-ink);
+  font-size: 18px;
+}
+
+.dtx-auth-page--login .dtx-input-wrap:focus-within .dtx-input-icon {
+  color: var(--login-brown);
+}
+
+.dtx-auth-page--login .dtx-input {
+  height: 50px;
+  padding: 0 52px;
+  color: var(--login-ink);
+  caret-color: var(--login-brown);
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.dtx-auth-page--login .dtx-input:focus,
+.dtx-auth-page--login .dtx-input:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.dtx-auth-page--login .dtx-input:-webkit-autofill,
+.dtx-auth-page--login .dtx-input:-webkit-autofill:hover,
+.dtx-auth-page--login .dtx-input:-webkit-autofill:focus,
+.dtx-auth-page--login .dtx-input:-webkit-autofill:active {
+  -webkit-text-fill-color: var(--login-ink);
+  box-shadow: 0 0 0 1000px #ffffff inset;
+  transition: background-color 9999s ease-out 0s;
+}
+
+.dtx-auth-page--login .dtx-input::placeholder {
+  color: #444444;
+  opacity: 1;
+}
+
+.dtx-auth-page--login .dtx-toggle-pass-btn {
+  width: 50px;
+  padding: 0;
+  color: var(--login-ink);
+  font-size: 18px;
+}
+
+.dtx-auth-page--login .dtx-toggle-pass-btn:hover {
+  color: var(--login-brown);
+}
+
+.dtx-auth-page--login .dtx-login-forgot {
+  align-self: flex-end;
+  margin-top: 2px;
+  color: var(--login-brown);
+  font-size: 15px;
+  font-weight: 750;
+  text-underline-offset: 3px;
+}
+
+.dtx-auth-page--login .dtx-login-forgot:hover {
+  color: var(--login-brown-dark);
+}
+
+.dtx-auth-page--login .dtx-btn-primary {
+  height: 52px;
+  margin-top: 4px;
+  border-radius: 18px;
+  background: var(--login-brown);
+  color: #ffffff;
+  font-size: 20px;
+  font-weight: 750;
+  box-shadow: 0 10px 22px rgba(113, 56, 15, 0.22);
+}
+
+.dtx-auth-page--login .dtx-btn-primary:hover:not(:disabled) {
+  background: var(--login-brown-dark);
+  box-shadow: 0 13px 26px rgba(113, 56, 15, 0.28);
+}
+
+.dtx-auth-page--login .dtx-btn-primary i {
+  font-size: 18px;
+}
+
+.dtx-auth-page--login .dtx-divider {
+  margin: 3px 0;
+}
+
+.dtx-auth-page--login .dtx-divider::before,
+.dtx-auth-page--login .dtx-divider::after {
+  background: #ddd5cf;
+}
+
+.dtx-auth-page--login .dtx-divider span {
+  color: var(--login-ink);
+  font-size: 16px;
+  font-weight: 500;
+  letter-spacing: 0;
+  text-transform: lowercase;
+}
+
+.dtx-auth-page--login .dtx-card-footer {
+  color: var(--login-ink);
+  font-size: 16px;
+}
+
+.dtx-auth-page--login .dtx-card-footer p {
+  margin: 0;
+  color: #050505;
+  font-weight: 600;
+}
+
+.dtx-auth-page--login .dtx-card-footer a {
+  color: var(--login-brown);
+  font-weight: 800;
+}
+
+.dtx-auth-page--login .dtx-card-footer a:hover {
+  color: var(--login-brown-dark);
+}
+
+@media (max-width: 1180px) {
+  .dtx-login-story {
+    display: none;
+  }
+}
+
+@media (max-width: 768px) {
+  .dtx-auth-page--login .dtx-login-card {
+    max-width: 460px;
+    padding: 22px 20px 24px;
+    border-radius: 26px;
+  }
+
+  .dtx-login-brand {
+    gap: 7px;
+  }
+
+  .dtx-login-brand__mark {
+    width: 66px;
+    height: 50px;
+  }
+
+  .dtx-login-brand__name {
+    font-size: 27px;
+  }
+
+  .dtx-login-brand__tagline {
+    gap: 6px;
+    margin-top: 5px;
+    font-size: 10px;
+  }
+
+  .dtx-auth-page--login .dtx-card-title {
+    font-size: 30px;
+  }
+
+  .dtx-auth-page--login .dtx-card-subtitle,
+  .dtx-auth-page--login .dtx-card-footer {
+    font-size: 15px;
+  }
+
+  .dtx-auth-page--login .dtx-input,
+  .dtx-auth-page--login .dtx-input-wrap {
+    min-height: 50px;
+    height: 50px;
+  }
+
+  .dtx-auth-page--login .dtx-btn-primary {
+    height: 52px;
+    font-size: 19px;
+  }
+}

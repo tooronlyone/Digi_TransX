@@ -4,6 +4,7 @@ import AuthCard from '../../components/common/AuthCard'
 import InputField from '../../components/common/InputField'
 import Notification from '../../components/common/Notification'
 import '../../styles/pages/auth.css'
+import '../../styles/pages/signup-glass.css'
 import { useSignupWizard } from '../../auth/signupWizardContext'
 import { COUNTRIES, DEFAULT_COUNTRY_CODE, getCountryByCode } from '../../constants/countries'
 
@@ -17,7 +18,7 @@ function getPasswordStrength(password) {
 }
 
 const strengthLabels = ['', 'Weak', 'Fair', 'Good', 'Strong']
-const strengthColors = ['', 'bg-red-400', 'bg-yellow-400', 'bg-blue-400', 'bg-green-500']
+const strengthColors = ['', 'signup-strength--weak', 'signup-strength--fair', 'signup-strength--good', 'signup-strength--strong']
 
 export default function Signup() {
   const navigate = useNavigate()
@@ -131,7 +132,16 @@ export default function Signup() {
     navigate('/signup/role')
   }
 
-  const setField = (field) => (event) => setForm(current => ({ ...current, [field]: event.target.value }))
+  const setField = (field) => (event) => {
+    setForm(current => ({ ...current, [field]: event.target.value }))
+    if (errors[field]) {
+      setErrors(current => {
+        const next = { ...current }
+        delete next[field]
+        return next
+      })
+    }
+  }
 
   return (
     <AuthCard pageClassName="signup-page" useBrandLogo title="Create Account" subtitle="Join DigiTransX - Pakistan's transport platform">
@@ -321,10 +331,7 @@ export default function Signup() {
           </section>
         </div>
 
-        <button
-          type="submit"
-          className="auth-submit"
-        >
+        <button type="submit" className="auth-submit">
           Continue to select your role
           <i className="fas fa-arrow-right" aria-hidden="true" />
         </button>
