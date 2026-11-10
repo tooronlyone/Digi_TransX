@@ -602,6 +602,7 @@ body:has(.dtx-auth-page)::-webkit-scrollbar {
   position: relative;
   display: flex;
   align-items: center;
+  overflow: hidden;
   background: var(--neu-light-surf);
   border-radius: 12px;
   border: 1.5px solid #dce4ef;
@@ -650,6 +651,7 @@ body:has(.dtx-auth-page)::-webkit-scrollbar {
   height: 38px;
   padding: 0 12px 0 36px;
   border: none;
+  border-radius: inherit;
   background: transparent;
   color: #0f172a;
   font-size: 12.5px;
@@ -1341,6 +1343,7 @@ body:has(.dtx-auth-page)::-webkit-scrollbar {
 .dtx-auth-page--login .dtx-input:-webkit-autofill:focus,
 .dtx-auth-page--login .dtx-input:-webkit-autofill:active {
   -webkit-text-fill-color: var(--login-ink);
+  border-radius: inherit;
   box-shadow: 0 0 0 1000px #ffffff inset;
   transition: background-color 9999s ease-out 0s;
 }
