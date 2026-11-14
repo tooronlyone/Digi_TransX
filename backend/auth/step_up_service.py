@@ -50,7 +50,6 @@ ACTION_POLICIES = {
     "wallet.payout_destination.replace": ActionPolicy(
         "wallet", destination_required=True
     ),
-    "agreement.finalize": ActionPolicy("agreement", amount_required=True),
     "client.delivery.confirm_release": ActionPolicy("trip", amount_required=True),
     "security.logout_all": ActionPolicy("account_security"),
 }

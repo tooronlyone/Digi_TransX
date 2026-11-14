@@ -54,12 +54,11 @@ def _credential(env,owner,*,client=None,expiry=None):
     return client.post(f'/api/admin/owner-operator-credentials/{owner["id"]}',headers=env.headers,json={'license_number':'VERIFIED-LTV-123','license_expiry':(expiry or date.today()+timedelta(days=365)).isoformat(),'verification_evidence':'Independent licensing authority verification receipt 12345'})
 
 def _self_payload(graph):
-    return {'truck_id':graph.truck_id,'agreement_trip_id' if graph.kind=='agreement' else 'trip_id':graph.trip_id}
+    return {'truck_id':graph.truck_id,'trip_id':graph.trip_id}
 
-@pytest.mark.parametrize('kind',['one_time','agreement'])
-def test_verified_owner_operator_assignment_is_idempotent_and_role_scoped(remediation_env,kind):
+def test_verified_owner_operator_assignment_is_idempotent_and_role_scoped(remediation_env):
     env=remediation_env
-    graph=_graph(env,kind=kind)
+    graph=_graph(env)
     assert _credential(env,graph.owner).status_code==200
     result=graph.owner_client.post('/api/transporter/drive-myself',headers=env.headers,json=_self_payload(graph))
     assert result.status_code==200,result.json

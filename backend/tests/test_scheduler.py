@@ -1,7 +1,7 @@
 """Scheduler startup-safety tests (FIX 8 + FIX A).
 
-No real timers are awaited: jobs are registered with far-future first-run times
-(10 min / 30 min / daily), so start_scheduler() returns immediately and any
+No real timers are awaited: jobs are registered with future first-run times,
+so start_scheduler() returns immediately and any
 started scheduler is shut down before a job fires.
 """
 
@@ -13,8 +13,6 @@ import pytest
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REQUIRED_JOB_IDS = {
     "process_overdue_confirmations_interval",
-    "process_payments_daily",
-    "apply_penalties_interval",
     "expire_fuel_vouchers_interval",
 }
 

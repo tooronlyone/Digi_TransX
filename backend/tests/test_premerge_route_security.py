@@ -8,7 +8,6 @@ import pytest
 from werkzeug.datastructures import FileStorage
 
 import admin.routes as admin_routes
-import agreements.routes as agreements_routes
 import chat.routes as chat_routes
 import auth.helpers as auth_helpers
 import profile.routes as profile_routes
@@ -484,46 +483,6 @@ def test_latest_position_provider_exception_is_sanitized(client, monkeypatch, ca
     assert sentinel not in caplog.text
 
 
-def test_financial_aliases_and_canonical_routes_share_csrf_contract(
-    client, monkeypatch
-):
-    if "admin" not in client.application.blueprints:
-        client.application.register_blueprint(admin_routes.admin_blueprint)
-    client.login(_user(1, "platform_admin"))
-    calls = []
-
-    def process(_db):
-        calls.append("process")
-        return {"processed": 0, "failed": 0}
-
-    def penalties(_db):
-        calls.append("penalties")
-        return {"penalties_applied": 0}
-
-    monkeypatch.setattr(agreements_routes, "run_process_payments", process)
-    monkeypatch.setattr(agreements_routes, "run_apply_penalties", penalties)
-    monkeypatch.setattr(admin_routes, "run_process_payments", process)
-    monkeypatch.setattr(admin_routes, "run_apply_penalties", penalties)
-    paths = (
-        "/api/agreements/process-payments",
-        "/api/agreements/apply-penalties",
-        "/api/admin/payments/process",
-        "/api/admin/payments/apply-penalties",
-    )
-    before = client.db.execute(
-        "select (select count(*) from payments) p,"
-        "(select count(*) from wallet_transactions) w,"
-        "(select count(*) from shipment_notifications) n"
-    ).fetchone()
-    for path in paths:
-        assert client.post(path).status_code == 403
-        assert client.post(path, headers={"X-CSRF-Token": "invalid"}).status_code == 403
-    after = client.db.execute(
-        "select (select count(*) from payments) p,"
-        "(select count(*) from wallet_transactions) w,"
-        "(select count(*) from shipment_notifications) n"
-    ).fetchone()
-    assert before == after and calls == []
     for path in paths:
         assert client.post(path, headers=CSRF).status_code == 200
     assert calls == ["process", "penalties", "process", "penalties"]

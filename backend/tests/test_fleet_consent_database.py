@@ -8,14 +8,15 @@ from psycopg2.extras import Json
 
 from tests.remediation_harness import remediation_database_url, remediation_env
 from tests.test_driver_workflow_hardening import _graph, _driver, _invite, _accept, _set_status
-from tests._life_helpers import STUBS, SCHEMA_SQL, make_disposable, require_test_db_url
+from tests._life_helpers import STUBS, make_disposable, require_test_db_url
 
 MIGRATION=Path(__file__).resolve().parents[2]/"supabase/migrations/20261025010000_driver_workflow_integrity.sql"
+LEGACY_SCHEMA=Path(__file__).resolve().parents[2]/"Future/supabase/schema-with-agreements-v1.sql"
 
 
 @pytest.fixture
 def legacy_connection():
-    baseline=SCHEMA_SQL.read_text(encoding="utf-8").split("-- BEGIN 25 OCTOBER 2026 DRIVER WORKFLOW HARDENING",1)[0]
+    baseline=LEGACY_SCHEMA.read_text(encoding="utf-8").split("-- BEGIN 25 OCTOBER 2026 DRIVER WORKFLOW HARDENING",1)[0]
     url,cleanup=make_disposable(require_test_db_url(),STUBS,baseline)
     conn=psycopg2.connect(url)
     try:
@@ -197,8 +198,8 @@ def test_completed_allocation_cannot_forge_foreign_source_trip_provenance(remedi
     foreign=_graph(env)
     _set_status(env,foreign,"completed")
     with env.db() as db:
-        forged=db.execute("INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_type,trip_id,status,accepted_at) "
-                          "VALUES(%s,%s,%s,'one_time',%s,'completed',now()) RETURNING id",
+        forged=db.execute("INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_id,status,accepted_at) "
+                          "VALUES(%s,%s,%s,%s,'completed',now()) RETURNING id",
                           (graph.driver["id"],graph.owner["id"],graph.truck_id,foreign.trip_id)).fetchone()["id"]
     with pytest.raises(psycopg2.IntegrityError) as error:
         with env.db() as db:
@@ -207,10 +208,9 @@ def test_completed_allocation_cannot_forge_foreign_source_trip_provenance(remedi
     assert error.value.pgcode=="23514"
 
 
-@pytest.mark.parametrize("kind",["one_time","agreement"])
-def test_terminal_trip_cancels_unaccepted_invitation_instead_of_inventing_completed_consent(remediation_env,kind):
+def test_terminal_trip_cancels_unaccepted_invitation_instead_of_inventing_completed_consent(remediation_env):
     env=remediation_env
-    graph=_graph(env,kind=kind)
+    graph=_graph(env)
     allocation=_invite(env,graph)
     _set_status(env,graph,"completed")
     with env.db() as db:

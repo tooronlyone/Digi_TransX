@@ -177,7 +177,7 @@ export default function Earning() {
     <div className="earnings-dashboard">
       <div className="payout-page-title">
         <h1>Earnings</h1>
-        <p>Track agreement income, wallet balances, withdrawal limits, and payout readiness.</p>
+        <p>Track shipment income, wallet balances, withdrawal limits, and payout readiness.</p>
           {summary?.total_fuel_credit_recovered != null && <p>Authorized platform fuel credit recovered from payable earnings: {fmtPKR(summary.total_fuel_credit_recovered)}. Wallet earnings shown here exclude these recovered amounts.</p>}
       </div>
 
@@ -438,13 +438,13 @@ export default function Earning() {
         <div className="earnings-section-heading">
           <div>
             <h2>Recent Earnings</h2>
-            <p>Agreement trip income will appear here after completion.</p>
+            <p>Completed shipment income appears here after payout release.</p>
           </div>
         </div>
         {loading ? (
           <div className="earnings-table-empty"><i className="fas fa-spinner fa-spin"></i><p>Loading earnings...</p></div>
         ) : transactions.length === 0 ? (
-          <div className="earnings-table-empty"><i className="fas fa-wallet"></i><p>No earnings yet. Complete agreement trips to see income here.</p></div>
+          <div className="earnings-table-empty"><i className="fas fa-wallet"></i><p>No earnings yet. Complete shipment trips to see income here.</p></div>
         ) : (
           <div className="earnings-table">
             <div className="earnings-table-row earnings-table-row--head">

@@ -50,20 +50,18 @@ test('MPIN enrollment-required response opens setup UI and routes by role withou
   assert.match(enrollmentBranch, /return first/)
 })
 
-test('exactly six approved UI actions use protectedFetch', async () => {
+test('exactly five approved UI actions use protectedFetch', async () => {
   const earning = await source('../src/pages/transporter/earning.jsx')
   const checkout = await source('../src/pages/client/BidCheckout.jsx')
-  const agreement = await source('../src/pages/client/AgreementBids.jsx')
   const order = await source('../src/pages/client/ClientOrderDetail.jsx')
 
   assert.match(earning, /withdraw-locked'[\s\S]*protectedFetch/)
   assert.match(earning, /upgrade-limit'[\s\S]*protectedFetch/)
   assert.match(earning, /payout-card'[\s\S]*protectedFetch/)
   assert.match(checkout, /protectedFetch\(\`\/api\/orders\//)
-  assert.match(agreement, /agreements\/finalize'[\s\S]*protectedFetch/)
   assert.match(order, /decision === 'yes' \? protectedFetch : fetch/)
   for (const forbidden of ['/api/wallet/topup', 'saved-payment', 'refund', 'dispute']) {
-    assert.equal(providerUse(earning, checkout, agreement, order).includes(forbidden), false)
+    assert.equal(providerUse(earning, checkout, order).includes(forbidden), false)
   }
 })
 

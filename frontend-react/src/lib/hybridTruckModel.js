@@ -7,8 +7,8 @@
  *   3. Safety-Locked Cargo Use + Single Dynamic Capacity (Tons or Liters, capped at 100 Tons)
  *
  * Directly maps to the 18 canonical catalog_type_key values in trucks/helpers.py
- * and the 19 commodity keys in orders/goods_taxonomy.py so both One-Time Orders
- * and Long-Term Agreements match 100% deterministically.
+ * and the 19 commodity keys in orders/goods_taxonomy.py so One-Time Orders
+ * match 100% deterministically.
  */
 
 export const MIN_CAPACITY_TONS = 0.3

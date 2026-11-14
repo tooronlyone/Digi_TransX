@@ -26,7 +26,6 @@ def test_approved_financial_actions_and_security_extension():
         "wallet.withdrawal.request",
         "wallet.withdrawal_limit.purchase",
         "wallet.payout_destination.replace",
-        "agreement.finalize",
         "client.delivery.confirm_release",
         "fuel.voucher.authorize",
     }

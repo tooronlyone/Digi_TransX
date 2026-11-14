@@ -70,20 +70,15 @@ test('profile/account pages own Security Settings and one canonical Logout actio
   assert.match(logout, /clearAuthPresentation\(\)/)
 })
 
-test('Post Order exposes canonical order modes and contextual records without duplicate forms', async () => {
-  const [navigation, postOrder, postAgreement] = await Promise.all([
+test('Post Order exposes the one-time order workspace and contextual records', async () => {
+  const [navigation, postOrder] = await Promise.all([
     source('../src/components/client/OrderWorkspaceNavigation.jsx'),
     source('../src/pages/client/PostOrder.jsx'),
-    source('../src/pages/client/PostAgreement.jsx'),
   ])
   assert.match(navigation, />One-Time Order</)
-  assert.match(navigation, />Agreemental Order</)
   assert.match(navigation, /to="\/client\/post-order"/)
-  assert.match(navigation, /to="\/client\/post-agreement"/)
   assert.match(navigation, /to="\/client\/orders"/)
-  assert.match(navigation, /to="\/client\/my-agreements"/)
   assert.match(postOrder, /OrderWorkspaceNavigation mode="one-time"/)
-  assert.match(postAgreement, /OrderWorkspaceNavigation mode="agreemental"/)
 })
 
 test('all secondary destinations moved out of mobile navigation remain reachable contextually', async () => {
@@ -95,9 +90,9 @@ test('all secondary destinations moved out of mobile navigation remain reachable
     source('../src/components/everyday/EverydayLayout.jsx'),
     source('../src/App.jsx'),
   ])
-  for (const path of ['/client/orders', '/client/my-agreements', '/client/post-agreement']) assert.ok(orderNav.includes(path))
+  assert.ok(orderNav.includes('/client/orders'))
   assert.match(account, /\$\{base\}\/security/)
-  for (const path of ['/transporter/available-bids', '/transporter/agreement-bids', '/transporter/my-agreements']) assert.ok(bids.includes(path))
+  assert.ok(bids.includes('/transporter/available-bids'))
   for (const path of ['/transporter/wallet', '/transporter/earnings', '/transporter/settings', '/transporter/security']) assert.ok(profile.includes(path))
   assert.match(everyday, /to="\/everyday\/account"/)
   assert.match(app, /path="security" element=\{<SecuritySettings \/>\}/)
@@ -147,8 +142,7 @@ test('transporter mobile navigation remains permission-filtered and contextual r
   const labels = [...mobile.matchAll(/label: '([^']+)'/g)].map((match) => match[1])
   assert.deepEqual(labels, ['Dashboard', 'Trucks', 'Bids', 'Messages'])
   assert.match(layout, /filter\(\(item\) => isTransporterPathAllowed\(user, item\.path\)\)/)
-  assert.match(bids, /isTransporterPathAllowed\(presentedUser, '\/transporter\/agreement-bids'\)/)
-  assert.match(bids, /isTransporterPathAllowed\(presentedUser, '\/transporter\/my-agreements'\)/)
+  assert.match(bids, /isTransporterPathAllowed\(presentedUser, '\/transporter\/available-bids'\)/)
 })
 
 test('shared shell keeps responsive width containment without concealing document overflow', async () => {

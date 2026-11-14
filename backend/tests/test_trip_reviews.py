@@ -680,7 +680,7 @@ def test_pending_gate_blocks_then_allows_new_one_time_order(client, client_kind)
     assert allowed.status_code == 200
 
 
-def test_business_pending_review_does_not_gate_agreement_or_notification_routes(client,monkeypatch):
+def test_business_pending_review_does_not_gate_notifications_or_logout(client,monkeypatch):
     """Review gating stays separate from auth's canonical event persistence.
 
     This domain-only schema has no public canonical-event tables. The full
@@ -704,9 +704,6 @@ def test_business_pending_review_does_not_gate_agreement_or_notification_routes(
     client.db.commit()
     client.login(seed["client"])
 
-    agreement = _post(client, "/api/agreements/posts", {})
-    assert agreement.status_code == 400
-    assert agreement.get_json().get("code") != "review_required"
     assert client.get("/api/notifications").status_code == 200
     assert client.post("/auth/logout", headers=CSRF_JSON).status_code == 200
     assert events==['security.session.revoked','security.logout.completed']

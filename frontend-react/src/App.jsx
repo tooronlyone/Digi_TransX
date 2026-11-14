@@ -48,8 +48,6 @@ import TrackTruck from './pages/transporter/track_truck'
 import AvailableBids from './pages/transporter/AvailableBids'
 import MyBids from './pages/transporter/MyBids'
 import OrderTracking from './pages/transporter/OrderTracking'
-import TransporterAgreementBids from './pages/transporter/AgreementBids'
-import TransporterMyAgreements from './pages/transporter/MyAgreements'
 import Earnings from './pages/transporter/earning'
 import TransporterWallet from './pages/transporter/wallet'
 import AccountHistory from './pages/transporter/ac_history'
@@ -67,11 +65,6 @@ import PostOrder from './pages/client/PostOrder'
 import MyOrders from './pages/client/MyOrders'
 import ClientOrderDetail from './pages/client/ClientOrderDetail'
 import BidCheckout from './pages/client/BidCheckout'
-import Agreements from './pages/client/Agreements'
-import PostAgreement from './pages/client/PostAgreement'
-import ClientAgreementBids from './pages/client/AgreementBids'
-import ClientMyAgreements from './pages/client/MyAgreements'
-import AgreementDetail from './pages/client/AgreementDetail'
 import Wallet from './pages/client/Wallet'
 import ClientAccount from './pages/client/ClientAccount'
 import ClientMessages from './pages/client/Messages'
@@ -83,10 +76,8 @@ import AdminUsers from './pages/admin/AdminUsers'
 import AdminUserDetail from './pages/admin/AdminUserDetail'
 import AdminTrucks from './pages/admin/AdminTrucks'
 import AdminWithdrawals from './pages/admin/AdminWithdrawals'
-import AdminAgreements from './pages/admin/AdminAgreements'
 import AdminDisputes from './pages/admin/AdminDisputes'
 import AdminDisputeChat from './pages/admin/AdminDisputeChat'
-import AdminPayments from './pages/admin/AdminPayments'
 import AdminPlatformSettings from './pages/admin/AdminPlatformSettings'
 import ClientTerms from './pages/client/Terms'
 import SecuritySettings from './pages/shared/SecuritySettings'
@@ -153,10 +144,8 @@ function AdminPortal() {
           <Route path="users/:id" element={<AdminUserDetail />} />
           <Route path="trucks" element={<AdminTrucks />} />
           <Route path="withdrawals" element={<AdminWithdrawals />} />
-          <Route path="agreements" element={<AdminAgreements />} />
           <Route path="disputes" element={<AdminDisputes />} />
           <Route path="dispute-chat/:threadId" element={<AdminDisputeChat />} />
-          <Route path="payments" element={<AdminPayments />} />
           <Route path="platform-settings" element={<AdminPlatformSettings />} />
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
@@ -177,11 +166,6 @@ function ClientPortal() {
           <Route path="orders" element={<MyOrders />} />
           <Route path="order/:orderId" element={<ClientOrderDetail />} />
           <Route path="order/:orderId/bid/:bidId/checkout" element={<BidCheckout />} />
-          <Route path="agreements" element={<Navigate to="/client/my-agreements" replace />} />
-          <Route path="post-agreement" element={<PostAgreement />} />
-          <Route path="agreement-bids/:postId" element={<ClientAgreementBids />} />
-          <Route path="my-agreements" element={<ClientMyAgreements />} />
-          <Route path="agreement/:id" element={<AgreementDetail />} />
           <Route path="wallet" element={<Wallet />} />
           <Route path="balance" element={<Wallet />} />
           <Route path="account" element={<ClientAccount />} />
@@ -198,8 +182,8 @@ function ClientPortal() {
 function EverydayPortal() {
   // Everyday users reuse the SAME order pages as business clients (PostOrder,
   // MyOrders, ClientOrderDetail, BidCheckout, ClientTerms) — they build correct
-  // /everyday/* links via useClientBasePath. No wallet/agreement routes exist
-  // here, and an everyday user hitting an unknown path returns to their surface.
+  // /everyday/* links via useClientBasePath. No wallet routes exist here, and
+  // an everyday user hitting an unknown path returns to their surface.
   return (
     <EverydayGuard>
       <EverydayLayout>
@@ -210,8 +194,7 @@ function EverydayPortal() {
           <Route path="orders" element={<MyOrders />} />
           <Route path="order/:orderId" element={<ClientOrderDetail />} />
           <Route path="order/:orderId/bid/:bidId/checkout" element={<BidCheckout />} />
-          {/* One-time chat is relevant to everyday users; Messages is exposed
-              (agreements/wallet pages remain hidden for this surface). */}
+          {/* One-time chat is relevant to everyday users; Messages is exposed. */}
           <Route path="messages" element={<ClientMessages />} />
           <Route path="terms" element={<ClientTerms />} />
           <Route path="account" element={<ClientAccount />} />
@@ -245,9 +228,6 @@ function TransporterPortal() {
           <Route path="my-bids" element={<MyBids />} />
           <Route path="order/:orderId" element={<OrderTracking />} />
           <Route path="bids" element={<MyBids />} />
-          <Route path="agreement-bids" element={<TransporterAgreementBids />} />
-          <Route path="agreement-jobs" element={<Navigate to="/transporter/agreement-bids" replace />} />
-          <Route path="my-agreements" element={<TransporterMyAgreements />} />
           <Route path="messages" element={<TransporterMessages />} />
 
           <Route path="account-history" element={<AccountHistory />} />

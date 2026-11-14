@@ -1,21 +1,17 @@
 import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { adminRequest, dateText, money } from './adminApi'
+import { adminRequest, dateText } from './adminApi'
 
 const STAT_CARDS = [
   { key: 'total_users',         label: 'Total Users',          icon: 'fa-users',                  color: '#2563eb', bg: '#eff6ff' },
-  { key: 'active_agreements',   label: 'Active Agreements',    icon: 'fa-file-contract',           color: '#16a34a', bg: '#f0fdf4' },
-  { key: 'pending_disputes',    label: 'Pending Disputes',     icon: 'fa-triangle-exclamation',    color: '#dc2626', bg: '#fef2f2' },
+  { key: 'pending_disputes',    label: 'Open Delivery Disputes', icon: 'fa-triangle-exclamation',   color: '#dc2626', bg: '#fef2f2' },
   { key: 'pending_withdrawals', label: 'Pending Withdrawals',  icon: 'fa-money-bill-transfer',     color: '#d97706', bg: '#fffbeb' },
-  { key: 'failed_payments',     label: 'Failed Payments',      icon: 'fa-credit-card',             color: '#7c3aed', bg: '#f5f3ff' },
 ]
 
 const LINKS = [
   ['/admin/users', 'total_users'],
-  ['/admin/agreements', 'active_agreements'],
   ['/admin/disputes', 'pending_disputes'],
   ['/admin/withdrawals', 'pending_withdrawals'],
-  ['/admin/payments', 'failed_payments'],
 ]
 
 const card = {
@@ -37,7 +33,7 @@ export default function AdminDashboard() {
     <div>
       <div style={{ marginBottom: 28 }}>
         <h1 style={{ fontSize: 26, fontWeight: 800, color: '#0f172a', margin: 0 }}>Dashboard</h1>
-        <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>Platform overview — users, agreements, disputes, and payments.</p>
+        <p style={{ color: '#64748b', fontSize: 14, marginTop: 4 }}>Platform overview — users, delivery disputes, and withdrawals.</p>
       </div>
 
       {error && (
@@ -47,7 +43,7 @@ export default function AdminDashboard() {
       )}
 
       {/* Stat cards */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(5,1fr)', gap: 16, marginBottom: 28 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3,minmax(0,1fr))', gap: 16, marginBottom: 28 }}>
         {STAT_CARDS.map((s, i) => (
           <button key={s.key} onClick={() => navigate(LINKS[i][0])} style={{
             ...card, textAlign: 'left', cursor: 'pointer', border: '1px solid #e2e8f0',
@@ -70,7 +66,7 @@ export default function AdminDashboard() {
       </div>
 
       {/* Recent sections */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 20 }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr', gap: 20 }}>
         <section style={card}>
           <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
             <div style={{ width: 36, height: 36, borderRadius: 10, background: '#fef2f2', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
@@ -81,7 +77,7 @@ export default function AdminDashboard() {
           <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
             {(data?.recent_disputes || []).map(item => (
               <div key={item.id} style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#475569', border: '1px solid #f1f5f9' }}>
-                <strong style={{ color: '#1e293b' }}>Trip #{item.id}</strong> · {item.truck_number || 'Truck'} · {item.distance_km} km · {dateText(item.created_at)}
+                <strong style={{ color: '#1e293b' }}>Order #{item.shipment_id}</strong> · {item.pickup_city} → {item.dropoff_city} · {dateText(item.created_at)}
               </div>
             ))}
             {data && data.recent_disputes.length === 0 && (
@@ -93,27 +89,6 @@ export default function AdminDashboard() {
           </div>
         </section>
 
-        <section style={card}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 20 }}>
-            <div style={{ width: 36, height: 36, borderRadius: 10, background: '#f5f3ff', display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <i className="fas fa-credit-card" style={{ color: '#7c3aed' }} />
-            </div>
-            <h2 style={{ fontSize: 16, fontWeight: 700, color: '#0f172a', margin: 0 }}>Failed Payments</h2>
-          </div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
-            {(data?.recent_failed_payments || []).map(item => (
-              <div key={item.id} style={{ background: '#f8fafc', borderRadius: 10, padding: '12px 14px', fontSize: 13, color: '#475569', border: '1px solid #f1f5f9' }}>
-                <strong style={{ color: '#1e293b' }}>Agreement #{item.agreement_id}</strong> · {item.month_year} · {money(item.final_amount)} · {item.client_name}
-              </div>
-            ))}
-            {data && data.recent_failed_payments.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '24px 0', color: '#94a3b8', fontSize: 13 }}>
-                <i className="fas fa-circle-check" style={{ fontSize: 24, color: '#86efac', marginBottom: 8, display: 'block' }} />
-                No failed payments.
-              </div>
-            )}
-          </div>
-        </section>
       </div>
     </div>
   )

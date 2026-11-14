@@ -102,7 +102,6 @@ export default function AdminUserDetail() {
           ['Locked', money(data.wallet?.locked_balance), '#d97706', '#fffbeb', 'fa-lock'],
           ['Trucks', data.truck_count, '#7c3aed', '#f5f3ff', 'fa-truck'],
           ['Orders', data.order_count, '#16a34a', '#f0fdf4', 'fa-box'],
-          ['Agreements', data.agreement_count, '#dc2626', '#fef2f2', 'fa-file-contract'],
         ].map(([label, val, color, bg, icon]) => (
           <div key={label} style={S.statCard}>
             <div style={{ display: 'flex', alignItems: 'center', gap: 10, marginBottom: 12 }}>

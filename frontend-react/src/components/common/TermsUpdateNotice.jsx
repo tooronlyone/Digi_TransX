@@ -15,7 +15,6 @@ function percentText(value) {
 
 const CHANGE_LABELS = {
   one_time_order: 'One-time order fee',
-  agreement: 'Agreement fee',
 }
 
 export default function TermsUpdateNotice({ termsPath }) {
@@ -44,8 +43,8 @@ export default function TermsUpdateNotice({ termsPath }) {
 
   const changes = (terms.changed_policy_types || [])
     .map((type) => {
-      const current = type === 'agreement' ? terms.agreement : terms.one_time
-      const previous = type === 'agreement' ? terms.previous?.agreement : terms.previous?.one_time
+      const current = terms.one_time
+      const previous = terms.previous?.one_time
       if (!current) return null
       return {
         type,

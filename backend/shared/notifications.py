@@ -1,4 +1,4 @@
-"""In-app notifications for delivery, agreement and account events.
+"""In-app notifications for delivery and account events.
 
 Single writer for public.shipment_notifications (which had no producer before).
 Notifications are idempotent per (trip, recipient, event type): the unique index

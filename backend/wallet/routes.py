@@ -97,10 +97,9 @@ def get_wallet():
 @login_required
 def earnings_summary():
     """Transporter earnings summary for the Earnings page."""
-    from agreements.helpers import TRANSPORTER_AGREEMENT_ROLES
     user = request.current_user
     role = (user.get("role") or "").strip().lower()
-    if role not in TRANSPORTER_AGREEMENT_ROLES:
+    if role not in {"transporter", "logistics_provider"}:
         return json_response({"success": False, "message": "Transporter account required."}, 403)
 
     wallet, error = get_or_create_wallet(user)
@@ -108,16 +107,6 @@ def earnings_summary():
         return error
 
     with open_db() as db:
-        # Lifetime earnings from agreement payments + one-time order payments
-        agr_lifetime_row = db.execute_exact(
-            """
-            SELECT COALESCE(SUM(transporter_amount), 0) AS total
-            FROM agreement_monthly_payments
-            WHERE transporter_user_id = %s AND status = 'paid'
-            """,
-            (user["id"],),
-        ).fetchone()
-
         order_lifetime_row = db.execute_exact(
             """
             SELECT COALESCE(SUM(transporter_amount), 0) AS total
@@ -129,15 +118,6 @@ def earnings_summary():
 
         # This month earnings
         current_month = datetime.now(timezone.utc).strftime("%Y-%m")
-        agr_month_row = db.execute_exact(
-            """
-            SELECT COALESCE(SUM(transporter_amount), 0) AS total
-            FROM agreement_monthly_payments
-            WHERE transporter_user_id = %s AND status = 'paid' AND month_year = %s
-            """,
-            (user["id"], current_month),
-        ).fetchone()
-
         order_month_row = db.execute_exact(
             """
             SELECT COALESCE(SUM(transporter_amount), 0) AS total
@@ -148,15 +128,6 @@ def earnings_summary():
         ).fetchone()
 
         # Pending (payment held/due but not yet released)
-        agr_pending_row = db.execute_exact(
-            """
-            SELECT COALESCE(SUM(final_amount), 0) AS total
-            FROM agreement_monthly_payments
-            WHERE transporter_user_id = %s AND status = 'pending'
-            """,
-            (user["id"],),
-        ).fetchone()
-
         order_pending_row = db.execute_exact(
             """
             SELECT COALESCE(SUM(transporter_amount), 0) AS total
@@ -170,16 +141,7 @@ def earnings_summary():
         freight=versioned_freight_earnings(db,user['id'],current_month)
         legacy_recovery=legacy_fuel_recovery_totals(db,user['id'],current_month)
 
-        # Completed trips count (agreement trips + one-time shipment trips)
-        agr_trips_row = db.execute(
-            """
-            SELECT COUNT(*) AS total
-            FROM agreement_trips
-            WHERE transporter_user_id = %s AND status = 'completed'
-            """,
-            (user["id"],),
-        ).fetchone()
-
+        # Completed one-time shipment trips.
         order_trips_row = db.execute(
             """
             SELECT COUNT(*) AS total
@@ -189,21 +151,21 @@ def earnings_summary():
             (user["id"],),
         ).fetchone()
 
-        # Recent payment transactions (agreement_income & order_payout)
+        # Recent shipment payment transactions.
         tx_rows = db.execute(
             """
             SELECT * FROM wallet_transactions
-            WHERE user_id = %s AND type IN ('agreement_income', 'order_payout','freight_tranche1','freight_tranche2','reserve_contribution')
+            WHERE user_id = %s AND type IN ('order_payout','freight_tranche1','freight_tranche2','reserve_contribution')
             ORDER BY id DESC
             LIMIT 10
             """,
             (user["id"],),
         ).fetchall()
 
-    lifetime_total = round_money((agr_lifetime_row["total"] if agr_lifetime_row else Decimal('0')) + (order_lifetime_row["total"] if order_lifetime_row else Decimal('0'))+freight['lifetime_credited']-legacy_recovery['total'])
-    month_total = round_money((agr_month_row["total"] if agr_month_row else Decimal('0')) + (order_month_row["total"] if order_month_row else Decimal('0'))+freight['month_credited']-legacy_recovery['month'])
-    pending_total = round_money((agr_pending_row["total"] if agr_pending_row else Decimal('0')) + (order_pending_row["total"] if order_pending_row else Decimal('0'))+freight['pending'])
-    completed_trips = int(agr_trips_row["total"] if agr_trips_row else 0) + int(order_trips_row["total"] if order_trips_row else 0)
+    lifetime_total = round_money((order_lifetime_row["total"] if order_lifetime_row else Decimal('0'))+freight['lifetime_credited']-legacy_recovery['total'])
+    month_total = round_money((order_month_row["total"] if order_month_row else Decimal('0'))+freight['month_credited']-legacy_recovery['month'])
+    pending_total = round_money((order_pending_row["total"] if order_pending_row else Decimal('0'))+freight['pending'])
+    completed_trips = int(order_trips_row["total"] if order_trips_row else 0)
 
     transactions = [
         {

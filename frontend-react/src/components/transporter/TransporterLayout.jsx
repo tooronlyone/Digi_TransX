@@ -12,7 +12,7 @@ import { AUTH_STATUSES, ShellPageSkeleton, useAuthVerification } from '../../aut
 const MOBILE_NAV_ITEMS = [
   { path: '/transporter/dashboard', icon: 'fa-tachometer-alt', label: 'Dashboard' },
   { path: '/transporter/trucks', icon: 'fa-truck', label: 'Trucks' },
-  { path: '/transporter/bids', icon: 'fa-gavel', label: 'Bids', match: ['/transporter/available-bids', '/transporter/agreement-bids', '/transporter/my-agreements'] },
+  { path: '/transporter/bids', icon: 'fa-gavel', label: 'Bids', match: ['/transporter/available-bids'] },
   { path: '/transporter/messages', icon: 'fa-comments', label: 'Messages' },
 ]
 

@@ -63,8 +63,6 @@ export default function PlatformFeesSection({ audience = 'client' }) {
   const [error, setError] = useState('')
   const [acknowledging, setAcknowledging] = useState(false)
 
-  const isEveryday = audience === 'everyday'
-
   useEffect(() => {
     let active = true
     Promise.all([
@@ -146,24 +144,17 @@ export default function PlatformFeesSection({ audience = 'client' }) {
           policy={terms.one_time}
           highlight
         />
-        {!isEveryday && (
-          <FeeCard
-            title="Monthly Agreements"
-            icon="fa-file-contract"
-            policy={terms.agreement}
-          />
-        )}
       </div>
 
-      {isEveryday && (
+      {audience === 'everyday' && (
         <p style={{ ...S.sub, marginTop: 10 }}>
           As an Everyday User you book one-time deliveries, so the one-time order fee is what applies to you.
         </p>
       )}
 
       <p style={{ fontSize: 13, color: '#475569', marginTop: 14 }}>
-        The commission that applies to an order is locked in when a bid is accepted, and for an agreement when it is
-        finalized. Later fee changes never alter accepted orders, existing agreements, completed payments or payouts.
+        The commission that applies to an order is locked in when a bid is accepted. Later fee changes never alter
+        accepted orders, completed payments or payouts.
       </p>
 
       {terms.change_summary && (
@@ -198,7 +189,7 @@ export default function PlatformFeesSection({ audience = 'client' }) {
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: 13 }}>
               <thead>
                 <tr>
-                  {['Version', 'Effective', 'One-time (company / transporter)', ...(!isEveryday ? ['Agreement (company / transporter)'] : []), 'Change summary'].map((h) => (
+                  {['Version', 'Effective', 'One-time (company / transporter)', 'Change summary'].map((h) => (
                     <th key={h} style={{ textAlign: 'left', padding: '8px 10px', color: '#64748b', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.5, borderBottom: '1px solid #e2e8f0' }}>{h}</th>
                   ))}
                 </tr>
@@ -211,11 +202,6 @@ export default function PlatformFeesSection({ audience = 'client' }) {
                     <td style={{ padding: '8px 10px', color: '#374151', borderBottom: '1px solid #f1f5f9' }}>
                       {percentText(version.one_time?.company_share_percent)} / {percentText(version.one_time?.transporter_share_percent)}
                     </td>
-                    {!isEveryday && (
-                      <td style={{ padding: '8px 10px', color: '#374151', borderBottom: '1px solid #f1f5f9' }}>
-                        {percentText(version.agreement?.company_share_percent)} / {percentText(version.agreement?.transporter_share_percent)}
-                      </td>
-                    )}
                     <td style={{ padding: '8px 10px', color: '#475569', borderBottom: '1px solid #f1f5f9' }}>{version.change_summary}</td>
                   </tr>
                 ))}

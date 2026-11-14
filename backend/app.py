@@ -27,7 +27,6 @@ from auth.session_service import (
 )
 from auth.trusted_device_service import digest_token
 from admin import admin_blueprint
-from agreements import agreements_blueprint
 from chat import chat_blueprint
 from orders import orders_blueprint
 from payments import payments_blueprint
@@ -51,7 +50,6 @@ app.register_blueprint(auth_blueprint)
 # namespace used by the secure MPIN backend contract.
 app.register_blueprint(auth_blueprint, url_prefix="/api/auth", name="api_auth")
 app.register_blueprint(admin_blueprint)
-app.register_blueprint(agreements_blueprint)
 app.register_blueprint(chat_blueprint)
 app.register_blueprint(orders_blueprint)
 app.register_blueprint(payments_blueprint)
@@ -68,7 +66,7 @@ app.register_blueprint(driver_blueprint)
 check_connection()
 # Background jobs do NOT auto-start on a web worker by default: start_scheduler()
 # is gated by DIGITRANSX_ENABLE_SCHEDULER (default OFF). Production runs the
-# financial jobs in exactly one dedicated worker: `python -m scripts.run_scheduler`
+# lifecycle jobs in exactly one dedicated worker: `python -m scripts.run_scheduler`
 # (see scheduler.py's deployment contract). This call is a no-op unless the flag
 # is explicitly enabled.
 from scheduler import start_scheduler

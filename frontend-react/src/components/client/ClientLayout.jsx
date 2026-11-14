@@ -13,8 +13,6 @@ const NAV_ITEMS = [
   { label: 'Dashboard', icon: 'fa-home', path: '/client/dashboard' },
   { label: 'Post Order', icon: 'fa-shipping-fast', path: '/client/post-order' },
   { label: 'My Orders', icon: 'fa-clipboard-list', path: '/client/orders' },
-  { label: 'Post Agreement', icon: 'fa-file-circle-plus', path: '/client/post-agreement' },
-  { label: 'My Agreements', icon: 'fa-file-contract', path: '/client/my-agreements' },
   { label: 'Messages', icon: 'fa-comments', path: '/client/messages' },
   { label: 'Your Wallet', icon: 'fa-wallet', path: '/client/wallet', match: ['/client/balance'] },
   { label: 'Your Account', icon: 'fa-user-circle', path: '/client/account' },
@@ -23,7 +21,7 @@ const NAV_ITEMS = [
 
 const MOBILE_NAV_ITEMS = [
   { label: 'Dashboard', icon: 'fa-home', path: '/client/dashboard' },
-  { label: 'Post Order', icon: 'fa-shipping-fast', path: '/client/post-order', match: ['/client/post-agreement'] },
+  { label: 'Post Order', icon: 'fa-shipping-fast', path: '/client/post-order' },
   { label: 'Wallet', icon: 'fa-wallet', path: '/client/wallet', match: ['/client/balance'] },
   { label: 'Messages', icon: 'fa-comments', path: '/client/messages' },
 ]

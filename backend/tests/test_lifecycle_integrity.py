@@ -649,9 +649,8 @@ def test_dispute_with_null_payment_and_thread_accepted(db):
     assert did
 
 
-def test_agreement_style_thread_without_trip_accepted(db):
-    """An agreement chat thread carries neither shipment_id nor one_time_trip_id;
-    fk_chat_trip_shipment is skipped (both columns NULL)."""
+def test_general_chat_thread_without_trip_accepted(db):
+    """A general chat thread may carry neither shipment_id nor one_time_trip_id."""
     client_id = _user(db, "service_seeker", "customer")
     transporter_id = _user(db, "transporter", "transporter")
     tid = db.execute(

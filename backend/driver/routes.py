@@ -43,24 +43,20 @@ def _text(data, key, *, default="", maximum=2000):
     return value.strip()
 
 
-def _lock_source_trip(db, trip_id, agreement_trip_id, transporter_user_id, truck_id):
-    if trip_id is not None and agreement_trip_id is None:
-        return db.execute("SELECT * FROM shipment_trips WHERE id=%s AND transporter_user_id=%s AND truck_id=%s FOR UPDATE", (trip_id,transporter_user_id,truck_id)).fetchone()
-    if agreement_trip_id is not None and trip_id is None:
-        return db.execute("SELECT * FROM agreement_trips WHERE id=%s AND transporter_user_id=%s AND truck_id=%s FOR UPDATE", (agreement_trip_id,transporter_user_id,truck_id)).fetchone()
-    return None
+def _lock_source_trip(db, trip_id, transporter_user_id, truck_id):
+    if trip_id is None:
+        return None
+    return db.execute("SELECT * FROM shipment_trips WHERE id=%s AND transporter_user_id=%s AND truck_id=%s FOR UPDATE", (trip_id,transporter_user_id,truck_id)).fetchone()
 
 
 def _source_matches(assignment, source, truck):
-    expected_type = "agreement" if assignment.get("agreement_trip_id") is not None else "one_time"
-    return bool(source and truck and assignment.get("trip_type") == expected_type
+    return bool(source and truck
                 and source["truck_id"] == assignment["truck_id"] == truck["id"]
                 and source["transporter_user_id"] == assignment["transporter_user_id"] == truck["owner_user_id"])
 
 
 def _source_is_active(assignment, source):
-    states = {"pending", "in_progress"} if assignment.get("agreement_trip_id") is not None else {"ready_to_start", "in_progress"}
-    return bool(source and source["status"] in states)
+    return bool(source and source["status"] in {"ready_to_start", "in_progress"})
 
 
 def _lock_assignment_context(db, snapshot):
@@ -69,11 +65,11 @@ def _lock_assignment_context(db, snapshot):
     Source lifecycle triggers acquire driver/profile rows after the source trip.
     Never reverse that order when accepting, tracking or reviewing an assignment.
     """
-    source = _lock_source_trip(db, snapshot.get("trip_id"), snapshot.get("agreement_trip_id"),snapshot["transporter_user_id"],snapshot["truck_id"])
+    source = _lock_source_trip(db, snapshot.get("trip_id"), snapshot["transporter_user_id"],snapshot["truck_id"])
     truck = db.execute("SELECT id,owner_user_id FROM vehicles WHERE id=%s FOR UPDATE", (snapshot["truck_id"],)).fetchone()
     profile = db.execute("SELECT * FROM driver_profiles WHERE user_id=%s FOR UPDATE", (snapshot["driver_user_id"],)).fetchone()
     assignment = db.execute("SELECT * FROM driver_trip_assignments WHERE id=%s FOR UPDATE", (snapshot["id"],)).fetchone()
-    keys = ("driver_user_id", "transporter_user_id", "truck_id", "trip_type", "trip_id", "agreement_trip_id")
+    keys = ("driver_user_id", "transporter_user_id", "truck_id", "trip_id")
     if not assignment or any(assignment.get(key) != snapshot.get(key) for key in keys):
         return None, None, None, None
     return source, truck, profile, assignment
@@ -166,7 +162,7 @@ def post_gps_ping():
         altitude = (None if data.get("altitude") is None else
                     finite_float(data["altitude"],"Altitude",minimum=Decimal("-1000"),maximum=Decimal("100000")))
         battery = None if data.get("battery_level") is None else bounded_count(data["battery_level"],"Battery level",maximum=100)
-        supplied_ids = {key: _optional_id(data,key) for key in ("trip_id", "agreement_trip_id", "truck_id", "assignment_id")}
+        supplied_ids = {key: _optional_id(data,key) for key in ("trip_id", "truck_id", "assignment_id")}
     except (ValueError, TypeError) as exc:
         return json_response({"success": False, "message": str(exc)}, 400)
 
@@ -187,21 +183,20 @@ def post_gps_ping():
                 or not _source_matches(assignment,source,truck) or not _source_is_active(assignment,source)
                 or not profile or profile["current_truck_id"] != truck["id"] or profile["is_available"] is not False):
             return json_response({"success": False,"message": "The assignment is no longer active for tracking."},409)
-        expected = {"trip_id":assignment["trip_id"],"agreement_trip_id":assignment["agreement_trip_id"],
-                    "truck_id":truck["id"],"assignment_id":assignment["id"]}
+        expected = {"trip_id":assignment["trip_id"],"truck_id":truck["id"],"assignment_id":assignment["id"]}
         if any(value is not None and value != expected[key] for key,value in supplied_ids.items()):
             return json_response({"success": False,"message": "Tracking identifiers do not match your active assignment."},404)
-        truck_id,trip_id,agreement_trip_id = truck["id"],assignment["trip_id"],assignment["agreement_trip_id"]
+        truck_id,trip_id = truck["id"],assignment["trip_id"]
 
         # Insert live GPS ping
         db.execute(
             """
             INSERT INTO driver_gps_pings (
-                driver_user_id, truck_id, trip_id, agreement_trip_id,
+                driver_user_id, truck_id, trip_id,
                 lat, lng, speed_kmh, heading, altitude, battery_level
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
             """,
-            (user_id, truck_id, trip_id, agreement_trip_id, lat, lng, speed_kmh, heading, altitude, battery),
+            (user_id, truck_id, trip_id, lat, lng, speed_kmh, heading, altitude, battery),
         )
 
         # Only the truck bound to this accepted assignment may move.
@@ -216,7 +211,7 @@ def post_gps_ping():
         db.commit()
 
     return json_response({"success": True, "message": "GPS ping recorded.", "lat": lat, "lng": lng,
-                          "assignment_id":assignment["id"],"truck_id":truck_id,"trip_id":trip_id,"agreement_trip_id":agreement_trip_id})
+                          "assignment_id":assignment["id"],"truck_id":truck_id,"trip_id":trip_id})
 
 
 @driver_blueprint.post("/api/driver/trips/<int:assignment_id>/respond")
@@ -258,8 +253,8 @@ def respond_trip_assignment(assignment_id):
                 return json_response({"success":False,"message":"You already have an active assignment."},409)
             busy = db.execute(
                 "SELECT 1 AS busy FROM driver_trip_assignments WHERE status IN ('accepted','in_progress') "
-                "AND (driver_user_id=%s OR truck_id=%s OR trip_id=%s OR agreement_trip_id=%s) LIMIT 1",
-                (user_id,truck["id"],assignment["trip_id"],assignment["agreement_trip_id"]),
+                "AND (driver_user_id=%s OR truck_id=%s OR trip_id=%s) LIMIT 1",
+                (user_id,truck["id"],assignment["trip_id"]),
             ).fetchone()
             if busy:
                 return json_response({"success":False,"message":"Driver, truck or trip already has an active assignment."},409)
@@ -358,24 +353,16 @@ def list_transporter_driver_assignments():
         return json_response({"success":False,"message":"Transporter account required."},403)
     try:
         trip_id = _optional_id(request.args,"trip_id")
-        agreement_trip_id = _optional_id(request.args,"agreement_trip_id")
-        if (trip_id is None) == (agreement_trip_id is None):
-            raise ValueError("Select exactly one shipment trip or agreement trip.")
+        if trip_id is None:
+            raise ValueError("Select a shipment trip.")
     except ValueError as exc:
         return json_response({"success":False,"message":str(exc)},400)
     with open_db() as db:
-        if trip_id is not None:
-            source = db.execute(
-                "SELECT t.id,t.truck_id,t.status FROM shipment_trips t JOIN vehicles v ON v.id=t.truck_id "
-                "WHERE t.id=%s AND t.transporter_user_id=%s AND v.owner_user_id=%s",
-                (trip_id,user_id,user_id),
-            ).fetchone()
-        else:
-            source = db.execute(
-                "SELECT t.id,t.truck_id,t.status FROM agreement_trips t JOIN vehicles v ON v.id=t.truck_id "
-                "WHERE t.id=%s AND t.transporter_user_id=%s AND v.owner_user_id=%s",
-                (agreement_trip_id,user_id,user_id),
-            ).fetchone()
+        source = db.execute(
+            "SELECT t.id,t.truck_id,t.status FROM shipment_trips t JOIN vehicles v ON v.id=t.truck_id "
+            "WHERE t.id=%s AND t.transporter_user_id=%s AND v.owner_user_id=%s",
+            (trip_id,user_id,user_id),
+        ).fetchone()
         if not source:
             return json_response({"success":False,"message":"Trip not found in your fleet."},404)
         rows = db.execute(
@@ -384,15 +371,14 @@ def list_transporter_driver_assignments():
             "FROM driver_trip_assignments a JOIN users u ON u.id=a.driver_user_id "
             "JOIN driver_profiles p ON p.user_id=a.driver_user_id "
             "WHERE a.transporter_user_id=%s AND a.truck_id=%s "
-            "AND a.trip_id IS NOT DISTINCT FROM %s AND a.agreement_trip_id IS NOT DISTINCT FROM %s "
+            "AND a.trip_id IS NOT DISTINCT FROM %s "
             "ORDER BY CASE WHEN a.status IN ('accepted','in_progress') THEN 0 WHEN a.status='completed' THEN 1 "
             "WHEN a.status='requested' THEN 2 ELSE 3 END,a.id DESC LIMIT 100",
-            (user_id,source["truck_id"],trip_id,agreement_trip_id),
+            (user_id,source["truck_id"],trip_id),
         ).fetchall()
     assignments = [dict(row,can_review=(row["status"]=="completed" and source["status"]=="completed" and not row["reviewed"])) for row in rows]
-    shape = {"agreement_trip_id":agreement_trip_id}
-    can_dispatch = _source_is_active(shape,source) and not any(row["status"] in {"accepted","in_progress"} for row in rows)
-    return json_response({"success":True,"assignments":assignments,"trip_id":trip_id,"agreement_trip_id":agreement_trip_id,
+    can_dispatch = _source_is_active({"trip_id":trip_id},source) and not any(row["status"] in {"accepted","in_progress"} for row in rows)
+    return json_response({"success":True,"assignments":assignments,"trip_id":trip_id,
                           "truck_id":source["truck_id"],"trip_status":source["status"],"can_dispatch":can_dispatch})
 
 
@@ -413,9 +399,8 @@ def dispatch_trip_to_driver():
         offer_amount = finite_decimal(data.get("offer_amount",0),"Offer amount",scale=2)
         notes = _text(data,"notes",maximum=4000)
         trip_id = _optional_id(data,"trip_id")
-        agreement_trip_id = _optional_id(data,"agreement_trip_id")
-        if (trip_id is None) == (agreement_trip_id is None):
-            raise ValueError("Select exactly one shipment trip or agreement trip.")
+        if trip_id is None:
+            raise ValueError("Select a shipment trip.")
     except ValueError as exc:
         return json_response({"success": False, "message": str(exc)}, 400)
 
@@ -424,12 +409,10 @@ def dispatch_trip_to_driver():
 
     user_id = request.current_user["id"]
     with open_db() as db:
-        source = _lock_source_trip(db,trip_id,agreement_trip_id,user_id,truck_id)
+        source = _lock_source_trip(db,trip_id,user_id,truck_id)
         if not source:
             return json_response({"success":False,"message":"Trip not found in your fleet."},404)
-        candidate = {"trip_id":trip_id,"agreement_trip_id":agreement_trip_id,
-                     "trip_type":"agreement" if agreement_trip_id is not None else "one_time",
-                     "transporter_user_id":user_id,"truck_id":truck_id}
+        candidate = {"trip_id":trip_id,"transporter_user_id":user_id,"truck_id":truck_id}
         if not _source_is_active(candidate,source):
             return json_response({"success":False,"message":"Only an active trip can receive a driver invitation."},409)
         # Verify truck belongs to transporter
@@ -451,16 +434,15 @@ def dispatch_trip_to_driver():
             return json_response({"success":False,"message":"This driver is not available for another assignment."},409)
         busy = db.execute(
             "SELECT 1 AS busy FROM driver_trip_assignments WHERE status IN ('accepted','in_progress') "
-            "AND (driver_user_id=%s OR truck_id=%s OR trip_id=%s OR agreement_trip_id=%s) LIMIT 1",
-            (driver["user_id"],truck_id,trip_id,agreement_trip_id),
+            "AND (driver_user_id=%s OR truck_id=%s OR trip_id=%s) LIMIT 1",
+            (driver["user_id"],truck_id,trip_id),
         ).fetchone()
         if busy:
             return json_response({"success":False,"message":"Driver, truck or trip already has an active assignment."},409)
         existing = db.execute(
             "SELECT id FROM driver_trip_assignments WHERE driver_user_id=%s AND transporter_user_id=%s "
-            "AND truck_id=%s AND status='requested' AND trip_id IS NOT DISTINCT FROM %s "
-            "AND agreement_trip_id IS NOT DISTINCT FROM %s ORDER BY id LIMIT 1",
-            (driver["user_id"],user_id,truck_id,trip_id,agreement_trip_id),
+            "AND truck_id=%s AND status='requested' AND trip_id IS NOT DISTINCT FROM %s ORDER BY id LIMIT 1",
+            (driver["user_id"],user_id,truck_id,trip_id),
         ).fetchone()
         if existing:
             return json_response({"success":True,"message":"This driver invitation is already pending.",
@@ -470,17 +452,15 @@ def dispatch_trip_to_driver():
             """
             INSERT INTO driver_trip_assignments (
                 driver_user_id, transporter_user_id, truck_id,
-                trip_type, trip_id, agreement_trip_id, offer_amount, notes, status
-            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 'requested')
+                trip_id, offer_amount, notes, status
+            ) VALUES (%s, %s, %s, %s, %s, %s, 'requested')
             RETURNING id
             """,
             (
                 driver["user_id"],
                 user_id,
                 truck_id,
-                "agreement" if agreement_trip_id else "one_time",
                 trip_id,
-                agreement_trip_id,
                 offer_amount,
                 notes,
             ),
@@ -539,10 +519,10 @@ def rate_driver():
         # Record review
         db.execute(
             """
-            INSERT INTO driver_reviews (driver_user_id, reviewer_user_id, assignment_id,trip_id,agreement_trip_id,rating, comment)
-            VALUES (%s, %s, %s, %s, %s, %s, %s)
+            INSERT INTO driver_reviews (driver_user_id, reviewer_user_id, assignment_id,trip_id,rating, comment)
+            VALUES (%s, %s, %s, %s, %s, %s)
             """,
-            (driver_user_id,user_id,assignment_id,assignment["trip_id"],assignment["agreement_trip_id"],rating,comment),
+            (driver_user_id,user_id,assignment_id,assignment["trip_id"],rating,comment),
         )
 
         # If incident reported
@@ -551,10 +531,10 @@ def rate_driver():
             db.execute(
                 """
                 INSERT INTO driver_incidents (
-                    driver_user_id,reporter_user_id,assignment_id,trip_id,agreement_trip_id,incident_type,severity,description,status
-                ) VALUES (%s,%s,%s,%s,%s,%s,%s,%s,'investigating')
+                    driver_user_id,reporter_user_id,assignment_id,trip_id,incident_type,severity,description,status
+                ) VALUES (%s,%s,%s,%s,%s,%s,%s,'investigating')
                 """,
-                (driver_user_id,user_id,assignment_id,assignment["trip_id"],assignment["agreement_trip_id"],incident_type,severity,description),
+                (driver_user_id,user_id,assignment_id,assignment["trip_id"],incident_type,severity,description),
             )
 
         # Recalculate average rating & incidents penalty
@@ -749,11 +729,10 @@ def get_driver_trips_for_fuel():
             FROM driver_trip_assignments dta
             JOIN vehicles v ON v.id = dta.truck_id AND v.owner_user_id = dta.transporter_user_id
             LEFT JOIN shipment_trips st ON st.id = dta.trip_id AND st.truck_id=dta.truck_id AND st.transporter_user_id=dta.transporter_user_id
-            LEFT JOIN agreement_trips atr ON atr.id=dta.agreement_trip_id AND atr.truck_id=dta.truck_id AND atr.transporter_user_id=dta.transporter_user_id
             LEFT JOIN shipments s ON s.id = st.order_id
             WHERE dta.driver_user_id = %s AND dta.accepted_at IS NOT NULL
               AND dta.status IN ('accepted','in_progress','completed','cancelled')
-              AND ((dta.trip_type='one_time' AND st.id IS NOT NULL) OR (dta.trip_type='agreement' AND atr.id IS NOT NULL))
+              AND st.id IS NOT NULL
             ORDER BY dta.id DESC
             LIMIT 25
             """,
@@ -883,18 +862,16 @@ def create_driver_fuel_log():
         # Resolve truck and trip if assignment selected
         truck_id = None
         trip_id = None
-        agreement_trip_id = None
         if assignment_id:
             asgn = db.execute(
                 """
-                SELECT dta.truck_id, dta.trip_id, dta.agreement_trip_id, st.actual_distance_km
+                SELECT dta.truck_id, dta.trip_id, st.actual_distance_km
                 FROM driver_trip_assignments dta
                 JOIN vehicles v ON v.id=dta.truck_id AND v.owner_user_id=dta.transporter_user_id
                 LEFT JOIN shipment_trips st ON st.id = dta.trip_id AND st.truck_id=dta.truck_id AND st.transporter_user_id=dta.transporter_user_id
-                LEFT JOIN agreement_trips atr ON atr.id=dta.agreement_trip_id AND atr.truck_id=dta.truck_id AND atr.transporter_user_id=dta.transporter_user_id
                 WHERE dta.id = %s AND dta.driver_user_id = %s AND dta.accepted_at IS NOT NULL
                   AND dta.status IN ('accepted','in_progress','completed','cancelled')
-                  AND ((dta.trip_type='one_time' AND st.id IS NOT NULL) OR (dta.trip_type='agreement' AND atr.id IS NOT NULL))
+                  AND st.id IS NOT NULL
                 """,
                 (assignment_id, user_id),
             ).fetchone()
@@ -902,7 +879,6 @@ def create_driver_fuel_log():
                 return json_response({"success": False,"message": "Assignment not found for this driver."},404)
             truck_id = asgn["truck_id"]
             trip_id = asgn["trip_id"]
-            agreement_trip_id = asgn["agreement_trip_id"]
             if trip_distance_km is None and asgn["actual_distance_km"] is not None:
                 try:
                     trip_distance_km = finite_decimal(asgn["actual_distance_km"],"Trip distance",maximum=Decimal("99999999.99"),scale=2)
@@ -925,14 +901,14 @@ def create_driver_fuel_log():
         log_id = db.execute(
             """
             INSERT INTO driver_fuel_logs (
-                driver_user_id, truck_id, assignment_id, trip_id, agreement_trip_id,
+                driver_user_id, truck_id, assignment_id, trip_id,
                 pump_name, pump_brand, city, area_landmark,
                 pump_location_lat, pump_location_lng,
                 fuel_type, liters, price_per_liter, total_amount, payment_mode,
                 odometer_km, trip_distance_km, fuel_average_km_per_liter,
                 notes, fuel_date
             ) VALUES (
-                %s, %s, %s, %s, %s,
+                %s, %s, %s, %s,
                 %s, %s, %s, %s,
                 %s, %s,
                 %s, %s, %s, %s, %s,
@@ -941,7 +917,7 @@ def create_driver_fuel_log():
             ) RETURNING id
             """,
             (
-                user_id, truck_id, assignment_id, trip_id, agreement_trip_id,
+                user_id, truck_id, assignment_id, trip_id,
                 pump_name, pump_brand, city, area_landmark,
                 pump_lat, pump_lng,
                 fuel_type, liters, price_per_liter, total_amount, payment_mode,

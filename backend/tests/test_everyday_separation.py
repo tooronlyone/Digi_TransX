@@ -1,7 +1,7 @@
 """Business vs everyday client separation.
 
-Covers: the single role-normalization helper, business-only backend guards
-(agreements / wallet / saved cards) returning 403 for everyday users, the
+Covers: the single role-normalization helper, business-only wallet and saved
+card guards returning 403 for everyday users, the
 server-set seeker_kind_snapshot (un-overridable by the browser), both kinds
 flowing through the ONE shared availability/matching path, unchanged checkout
 wallet-escrow requirements, mutual-exclusivity of the two profile tables, and signup writing to
@@ -49,20 +49,15 @@ def test_normalize_client_kind_single_source():
     assert pay_nck is normalize_client_kind
 
 
-def test_role_guards_split_orders_vs_agreements():
+def test_role_guard_allows_both_client_kinds_and_rejects_transporter():
     from flask import Flask
-    from agreements.helpers import require_client_role, require_business_client_role
+    from shared.roles import require_client_role
 
     # The reject path builds a json_response, which needs an app context.
     with Flask(__name__).app_context():
-        # Orders: any client, including everyday.
         assert require_client_role(EVERYDAY) is None
         assert require_client_role(BUSINESS) is None
         assert require_client_role(TRANSPORTER) is not None
-        # Agreements / business-only: everyday rejected, business allowed.
-        assert require_business_client_role(BUSINESS) is None
-        assert require_business_client_role(EVERYDAY) is not None
-        assert require_business_client_role(TRANSPORTER) is not None
 
 
 # ---------------------------------------------------------------------------
@@ -290,54 +285,8 @@ def test_order_response_has_no_area_fields(client):
 
 
 # ---------------------------------------------------------------------------
-# Everyday users are blocked from business-only backends (403) (#7,#8,#9,#10)
+# Everyday users are blocked from business-only financial backends
 # ---------------------------------------------------------------------------
-
-# Every agreement endpoint an everyday user could reach — each must 403 BEFORE
-# any lookup, so a legacy agreement referencing their id is never exposed and
-# the response never reveals whether the agreement exists.
-_CSRF = {"X-CSRF-Token": "test-csrf-token"}
-_AGREEMENT_ENDPOINTS = [
-    ("post", "/api/agreements/posts", {"title": "x"}),
-    ("get", "/api/agreements/posts/1/bids", None),
-    ("post", "/api/agreements/posts/1/bids/1/invite", {}),
-    ("post", "/api/agreements/finalize", {}),
-    ("get", "/api/agreements/my", None),
-    ("get", "/api/agreements/1", None),
-    ("get", "/api/agreements/1/trips", None),
-    ("get", "/api/agreements/1/payments", None),
-    ("get", "/api/agreements/trips/1/live-location", None),
-    ("post", "/api/agreements/trips/1/dispute", {}),
-]
-
-
-@pytest.mark.parametrize("method,path,body", _AGREEMENT_ENDPOINTS)
-def test_everyday_denied_from_every_agreement_endpoint(client, method, path, body):
-    client.login(EVERYDAY)
-    if method == "get":
-        resp = client.get(path)
-    else:
-        resp = client.post(path, data=json.dumps(body or {}), content_type="application/json", headers=_CSRF)
-    assert resp.status_code == 403, f"{path} -> {resp.status_code}: {resp.get_data(as_text=True)}"
-    # Consistent message; no leak of whether a protected agreement exists.
-    body_json = resp.get_json() or {}
-    assert body_json.get("success") is False
-    assert "not found" not in (body_json.get("message") or "").lower()
-
-
-def test_everyday_agreement_403_identical_for_existing_and_missing(client):
-    """The 403 for an everyday user is identical whether or not id 1 exists —
-    proving no existence leak (the guard runs before any DB lookup)."""
-    client.login(EVERYDAY)
-    a = client.get("/api/agreements/1")
-    b = client.get("/api/agreements/999999")
-    assert a.status_code == b.status_code == 403
-    assert a.get_json() == b.get_json()
-
-
-def test_everyday_my_agreements_forbidden(client):
-    client.login(EVERYDAY)
-    assert client.get("/api/agreements/my").status_code == 403
 
 
 def test_everyday_wallet_forbidden(client):
@@ -358,11 +307,6 @@ def test_business_retains_access(client):
     # Business can read saved methods (empty) and wallet.
     assert client.get("/api/payment-methods").status_code == 200
     assert client.get("/api/wallet").status_code == 200
-    # Business is NOT blocked from agreements (passes the role guard; the empty
-    # body then fails validation with 400 — the point is it is not a 403).
-    resp = client.post("/api/agreements/posts", data=json.dumps({"title": "x"}),
-                       content_type="application/json", headers={"X-CSRF-Token": "test-csrf-token"})
-    assert resp.status_code != 403
 
 
 # ---------------------------------------------------------------------------

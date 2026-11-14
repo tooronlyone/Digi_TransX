@@ -84,7 +84,7 @@ function OwnedOperationalInvestigations({ ownerId }) {
     {matches && <article aria-label={`Incident ${detail.id} evidence`} className="mt-4 rounded border border-blue-200 bg-blue-50 p-4 text-sm">
       <h3 className="font-semibold">Incident #{detail.id} evidence</h3>
       <p className="mt-2 whitespace-pre-wrap">{detail.description}</p>
-      <p className="mt-2">Assignment #{detail.assignment_id} · Truck #{detail.truck_id || 'Unavailable'} · Trip #{detail.trip_id || detail.agreement_trip_id || 'Unavailable'} · Status: {detail.status}</p>
+      <p className="mt-2">Assignment #{detail.assignment_id} · Truck #{detail.truck_id || 'Unavailable'} · Trip #{detail.trip_id || 'Unavailable'} · Status: {detail.status}</p>
       <h4 className="mt-3 font-semibold">Submitted evidence references</h4>
       <pre className="mt-1 whitespace-pre-wrap break-words rounded bg-white p-3">{evidenceText(detail.evidence)}</pre>
       <p className="mt-1 text-xs">Evidence references are displayed for authorized review; external content is not opened automatically.</p>

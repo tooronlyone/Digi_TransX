@@ -102,27 +102,16 @@ def ensure_one_time_thread(db, shipment_id, trip_id, client_user_id, transporter
 
 
 def build_thread_order_summary(row):
-    # One-time order threads carry a shipment_id; agreement threads carry an
-    # agreement_post_id. Present whichever this thread is bound to.
-    if row.get("shipment_id"):
-        return {
-            "id": row.get("shipment_id"),
-            "pickup_city": row.get("order_pickup_city") or "Pickup",
-            "dropoff_city": row.get("order_dropoff_city") or "Drop-off",
-            "status": row.get("order_status") or "open",
-            "route_label": (
-                f"{row.get('order_pickup_city') or 'Pickup'} → "
-                f"{row.get('order_dropoff_city') or 'Drop-off'}"
-            ),
-            "kind": "one_time",
-        }
     return {
-        "id": row.get("agreement_post_id"),
-        "pickup_city": row.get("agreement_title") or "Agreement",
-        "dropoff_city": row.get("agreement_service_area") or "",
-        "status": row.get("agreement_status") or "open",
-        "route_label": row.get("agreement_title") or "Agreement shipment",
-        "kind": "agreement",
+        "id": row.get("shipment_id"),
+        "pickup_city": row.get("order_pickup_city") or "Pickup",
+        "dropoff_city": row.get("order_dropoff_city") or "Drop-off",
+        "status": row.get("order_status") or "open",
+        "route_label": (
+            f"{row.get('order_pickup_city') or 'Pickup'} → "
+            f"{row.get('order_dropoff_city') or 'Drop-off'}"
+        ),
+        "kind": "one_time",
     }
 
 
@@ -132,8 +121,6 @@ def serialize_thread(row, current_user_id):
     other_party_name = row["transporter_name"] if row["client_user_id"] == current_user_id else row["client_name"]
     return {
         "id": row["id"],
-        "agreement_post_id": row.get("agreement_post_id"),
-        "agreement_bid_id": row.get("agreement_bid_id"),
         "client_user_id": row["client_user_id"],
         "transporter_user_id": row["transporter_user_id"],
         "other_user_id": other_user_id,

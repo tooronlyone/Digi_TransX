@@ -38,11 +38,9 @@ def legacy_fuel_recovery_totals(db,user_id,current_month):
         return {'total':Decimal('0.00'),'month':Decimal('0.00')}
     return db.execute_exact(
         "SELECT COALESCE(SUM(e.amount),0) AS total,COALESCE(SUM(e.amount) FILTER(WHERE "
-        "(p.id IS NOT NULL AND TO_CHAR(p.released_at AT TIME ZONE 'UTC','YYYY-MM')=%s) "
-        "OR (a.id IS NOT NULL AND a.month_year=%s)),0) AS month "
+        "p.id IS NOT NULL AND TO_CHAR(p.released_at AT TIME ZONE 'UTC','YYYY-MM')=%s),0) AS month "
         "FROM fuel_credit_events e "
         "LEFT JOIN payments p ON e.reference='recover:legacy_freight:'||p.id::text AND p.transporter_user_id=e.transporter_user_id AND p.status='released' "
-        "LEFT JOIN agreement_monthly_payments a ON e.reference='recover:agreement_monthly:'||a.id::text AND a.transporter_user_id=e.transporter_user_id AND a.status='paid' "
-        "WHERE e.transporter_user_id=%s AND e.event_type='recover' AND (p.id IS NOT NULL OR a.id IS NOT NULL)",
-        (current_month,current_month,user_id),
+        "WHERE e.transporter_user_id=%s AND e.event_type='recover' AND p.id IS NOT NULL",
+        (current_month,user_id),
     ).fetchone()

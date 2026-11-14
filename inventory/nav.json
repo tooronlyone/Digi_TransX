@@ -5,7 +5,7 @@
       "portal": "AdminPortal",
       "element": "AdminDashboard",
       "redirect_to": null,
-      "line": 179,
+      "line": 142,
       "kind": "relative"
     },
     {
@@ -13,7 +13,7 @@
       "portal": "AdminPortal",
       "element": "AdminUsers",
       "redirect_to": null,
-      "line": 180,
+      "line": 143,
       "kind": "relative"
     },
     {
@@ -21,7 +21,7 @@
       "portal": "AdminPortal",
       "element": "AdminUserDetail",
       "redirect_to": null,
-      "line": 181,
+      "line": 144,
       "kind": "relative"
     },
     {
@@ -29,7 +29,7 @@
       "portal": "AdminPortal",
       "element": "AdminTrucks",
       "redirect_to": null,
-      "line": 182,
+      "line": 145,
       "kind": "relative"
     },
     {
@@ -37,15 +37,7 @@
       "portal": "AdminPortal",
       "element": "AdminWithdrawals",
       "redirect_to": null,
-      "line": 183,
-      "kind": "relative"
-    },
-    {
-      "path": "/admin/agreements",
-      "portal": "AdminPortal",
-      "element": "AdminAgreements",
-      "redirect_to": null,
-      "line": 184,
+      "line": 146,
       "kind": "relative"
     },
     {
@@ -53,7 +45,7 @@
       "portal": "AdminPortal",
       "element": "AdminDisputes",
       "redirect_to": null,
-      "line": 185,
+      "line": 147,
       "kind": "relative"
     },
     {
@@ -61,15 +53,7 @@
       "portal": "AdminPortal",
       "element": "AdminDisputeChat",
       "redirect_to": null,
-      "line": 186,
-      "kind": "relative"
-    },
-    {
-      "path": "/admin/payments",
-      "portal": "AdminPortal",
-      "element": "AdminPayments",
-      "redirect_to": null,
-      "line": 187,
+      "line": 148,
       "kind": "relative"
     },
     {
@@ -77,7 +61,7 @@
       "portal": "AdminPortal",
       "element": "AdminPlatformSettings",
       "redirect_to": null,
-      "line": 188,
+      "line": 149,
       "kind": "relative"
     },
     {
@@ -85,7 +69,7 @@
       "portal": "AdminPortal",
       "element": "Navigate",
       "redirect_to": "dashboard",
-      "line": 189,
+      "line": 150,
       "kind": "index"
     },
     {
@@ -93,7 +77,7 @@
       "portal": "AdminPortal",
       "element": "Navigate",
       "redirect_to": "dashboard",
-      "line": 190,
+      "line": 151,
       "kind": "relative"
     },
     {
@@ -101,7 +85,7 @@
       "portal": "ClientPortal",
       "element": "Navigate",
       "redirect_to": "dashboard",
-      "line": 202,
+      "line": 163,
       "kind": "index"
     },
     {
@@ -109,7 +93,7 @@
       "portal": "ClientPortal",
       "element": "ClientDashboard",
       "redirect_to": null,
-      "line": 203,
+      "line": 164,
       "kind": "relative"
     },
     {
@@ -117,7 +101,7 @@
       "portal": "ClientPortal",
       "element": "PostOrder",
       "redirect_to": null,
-      "line": 204,
+      "line": 165,
       "kind": "relative"
     },
     {
@@ -125,7 +109,7 @@
       "portal": "ClientPortal",
       "element": "MyOrders",
       "redirect_to": null,
-      "line": 205,
+      "line": 166,
       "kind": "relative"
     },
     {
@@ -133,7 +117,7 @@
       "portal": "ClientPortal",
       "element": "ClientOrderDetail",
       "redirect_to": null,
-      "line": 206,
+      "line": 167,
       "kind": "relative"
     },
     {
@@ -141,47 +125,7 @@
       "portal": "ClientPortal",
       "element": "BidCheckout",
       "redirect_to": null,
-      "line": 207,
-      "kind": "relative"
-    },
-    {
-      "path": "/client/agreements",
-      "portal": "ClientPortal",
-      "element": "Navigate",
-      "redirect_to": "/client/my-agreements",
-      "line": 208,
-      "kind": "relative"
-    },
-    {
-      "path": "/client/post-agreement",
-      "portal": "ClientPortal",
-      "element": "PostAgreement",
-      "redirect_to": null,
-      "line": 209,
-      "kind": "relative"
-    },
-    {
-      "path": "/client/agreement-bids/:postId",
-      "portal": "ClientPortal",
-      "element": "ClientAgreementBids",
-      "redirect_to": null,
-      "line": 210,
-      "kind": "relative"
-    },
-    {
-      "path": "/client/my-agreements",
-      "portal": "ClientPortal",
-      "element": "ClientMyAgreements",
-      "redirect_to": null,
-      "line": 211,
-      "kind": "relative"
-    },
-    {
-      "path": "/client/agreement/:id",
-      "portal": "ClientPortal",
-      "element": "AgreementDetail",
-      "redirect_to": null,
-      "line": 212,
+      "line": 168,
       "kind": "relative"
     },
     {
@@ -189,7 +133,7 @@
       "portal": "ClientPortal",
       "element": "Wallet",
       "redirect_to": null,
-      "line": 213,
+      "line": 169,
       "kind": "relative"
     },
     {
@@ -197,7 +141,7 @@
       "portal": "ClientPortal",
       "element": "Wallet",
       "redirect_to": null,
-      "line": 214,
+      "line": 170,
       "kind": "relative"
     },
     {
@@ -205,7 +149,7 @@
       "portal": "ClientPortal",
       "element": "ClientAccount",
       "redirect_to": null,
-      "line": 215,
+      "line": 171,
       "kind": "relative"
     },
     {
@@ -213,7 +157,7 @@
       "portal": "ClientPortal",
       "element": "SecuritySettings",
       "redirect_to": null,
-      "line": 216,
+      "line": 172,
       "kind": "relative"
     },
     {
@@ -221,7 +165,7 @@
       "portal": "ClientPortal",
       "element": "ClientMessages",
       "redirect_to": null,
-      "line": 217,
+      "line": 173,
       "kind": "relative"
     },
     {
@@ -229,7 +173,7 @@
       "portal": "ClientPortal",
       "element": "ClientTerms",
       "redirect_to": null,
-      "line": 218,
+      "line": 174,
       "kind": "relative"
     },
     {
@@ -237,7 +181,7 @@
       "portal": "ClientPortal",
       "element": "Navigate",
       "redirect_to": "/client/dashboard",
-      "line": 219,
+      "line": 175,
       "kind": "relative"
     },
     {
@@ -245,7 +189,7 @@
       "portal": "EverydayPortal",
       "element": "Navigate",
       "redirect_to": "dashboard",
-      "line": 235,
+      "line": 191,
       "kind": "index"
     },
     {
@@ -253,7 +197,7 @@
       "portal": "EverydayPortal",
       "element": "EverydayDashboard",
       "redirect_to": null,
-      "line": 236,
+      "line": 192,
       "kind": "relative"
     },
     {
@@ -261,7 +205,7 @@
       "portal": "EverydayPortal",
       "element": "PostOrder",
       "redirect_to": null,
-      "line": 237,
+      "line": 193,
       "kind": "relative"
     },
     {
@@ -269,7 +213,7 @@
       "portal": "EverydayPortal",
       "element": "MyOrders",
       "redirect_to": null,
-      "line": 238,
+      "line": 194,
       "kind": "relative"
     },
     {
@@ -277,7 +221,7 @@
       "portal": "EverydayPortal",
       "element": "ClientOrderDetail",
       "redirect_to": null,
-      "line": 239,
+      "line": 195,
       "kind": "relative"
     },
     {
@@ -285,7 +229,7 @@
       "portal": "EverydayPortal",
       "element": "BidCheckout",
       "redirect_to": null,
-      "line": 240,
+      "line": 196,
       "kind": "relative"
     },
     {
@@ -293,7 +237,7 @@
       "portal": "EverydayPortal",
       "element": "ClientMessages",
       "redirect_to": null,
-      "line": 243,
+      "line": 198,
       "kind": "relative"
     },
     {
@@ -301,7 +245,7 @@
       "portal": "EverydayPortal",
       "element": "ClientTerms",
       "redirect_to": null,
-      "line": 244,
+      "line": 199,
       "kind": "relative"
     },
     {
@@ -309,7 +253,7 @@
       "portal": "EverydayPortal",
       "element": "ClientAccount",
       "redirect_to": null,
-      "line": 245,
+      "line": 200,
       "kind": "relative"
     },
     {
@@ -317,7 +261,7 @@
       "portal": "EverydayPortal",
       "element": "SecuritySettings",
       "redirect_to": null,
-      "line": 246,
+      "line": 201,
       "kind": "relative"
     },
     {
@@ -325,7 +269,7 @@
       "portal": "EverydayPortal",
       "element": "Navigate",
       "redirect_to": "/everyday/dashboard",
-      "line": 247,
+      "line": 202,
       "kind": "relative"
     },
     {
@@ -333,7 +277,7 @@
       "portal": "TransporterPortal",
       "element": "Dashboard",
       "redirect_to": null,
-      "line": 259,
+      "line": 214,
       "kind": "relative"
     },
     {
@@ -341,7 +285,7 @@
       "portal": "TransporterPortal",
       "element": "MyTrucks",
       "redirect_to": null,
-      "line": 261,
+      "line": 216,
       "kind": "relative"
     },
     {
@@ -349,7 +293,7 @@
       "portal": "TransporterPortal",
       "element": "AddTruck",
       "redirect_to": null,
-      "line": 262,
+      "line": 217,
       "kind": "relative"
     },
     {
@@ -357,7 +301,7 @@
       "portal": "TransporterPortal",
       "element": "EditTruck",
       "redirect_to": null,
-      "line": 263,
+      "line": 218,
       "kind": "relative"
     },
     {
@@ -365,7 +309,7 @@
       "portal": "TransporterPortal",
       "element": "TruckConfiguration",
       "redirect_to": null,
-      "line": 264,
+      "line": 219,
       "kind": "relative"
     },
     {
@@ -373,7 +317,7 @@
       "portal": "TransporterPortal",
       "element": "TruckDetails",
       "redirect_to": null,
-      "line": 265,
+      "line": 220,
       "kind": "relative"
     },
     {
@@ -381,7 +325,7 @@
       "portal": "TransporterPortal",
       "element": "TrackTruck",
       "redirect_to": null,
-      "line": 266,
+      "line": 221,
       "kind": "relative"
     },
     {
@@ -389,7 +333,7 @@
       "portal": "TransporterPortal",
       "element": "TrackTruck",
       "redirect_to": null,
-      "line": 267,
+      "line": 222,
       "kind": "relative"
     },
     {
@@ -397,7 +341,7 @@
       "portal": "TransporterPortal",
       "element": "AvailableBids",
       "redirect_to": null,
-      "line": 271,
+      "line": 226,
       "kind": "relative"
     },
     {
@@ -405,7 +349,7 @@
       "portal": "TransporterPortal",
       "element": "Navigate",
       "redirect_to": "/transporter/available-bids",
-      "line": 272,
+      "line": 227,
       "kind": "relative"
     },
     {
@@ -413,7 +357,7 @@
       "portal": "TransporterPortal",
       "element": "MyBids",
       "redirect_to": null,
-      "line": 273,
+      "line": 228,
       "kind": "relative"
     },
     {
@@ -421,7 +365,7 @@
       "portal": "TransporterPortal",
       "element": "OrderTracking",
       "redirect_to": null,
-      "line": 274,
+      "line": 229,
       "kind": "relative"
     },
     {
@@ -429,31 +373,7 @@
       "portal": "TransporterPortal",
       "element": "MyBids",
       "redirect_to": null,
-      "line": 275,
-      "kind": "relative"
-    },
-    {
-      "path": "/transporter/agreement-bids",
-      "portal": "TransporterPortal",
-      "element": "TransporterAgreementBids",
-      "redirect_to": null,
-      "line": 276,
-      "kind": "relative"
-    },
-    {
-      "path": "/transporter/agreement-jobs",
-      "portal": "TransporterPortal",
-      "element": "Navigate",
-      "redirect_to": "/transporter/agreement-bids",
-      "line": 277,
-      "kind": "relative"
-    },
-    {
-      "path": "/transporter/my-agreements",
-      "portal": "TransporterPortal",
-      "element": "TransporterMyAgreements",
-      "redirect_to": null,
-      "line": 278,
+      "line": 230,
       "kind": "relative"
     },
     {
@@ -461,7 +381,7 @@
       "portal": "TransporterPortal",
       "element": "TransporterMessages",
       "redirect_to": null,
-      "line": 279,
+      "line": 231,
       "kind": "relative"
     },
     {
@@ -469,7 +389,7 @@
       "portal": "TransporterPortal",
       "element": "AccountHistory",
       "redirect_to": null,
-      "line": 281,
+      "line": 233,
       "kind": "relative"
     },
     {
@@ -477,7 +397,7 @@
       "portal": "TransporterPortal",
       "element": "Earnings",
       "redirect_to": null,
-      "line": 283,
+      "line": 235,
       "kind": "relative"
     },
     {
@@ -485,7 +405,7 @@
       "portal": "TransporterPortal",
       "element": "TransporterWallet",
       "redirect_to": null,
-      "line": 284,
+      "line": 236,
       "kind": "relative"
     },
     {
@@ -493,7 +413,7 @@
       "portal": "TransporterPortal",
       "element": "Profile",
       "redirect_to": null,
-      "line": 286,
+      "line": 238,
       "kind": "relative"
     },
     {
@@ -501,7 +421,7 @@
       "portal": "TransporterPortal",
       "element": "Settings",
       "redirect_to": null,
-      "line": 287,
+      "line": 239,
       "kind": "relative"
     },
     {
@@ -509,7 +429,7 @@
       "portal": "TransporterPortal",
       "element": "SecuritySettings",
       "redirect_to": null,
-      "line": 288,
+      "line": 240,
       "kind": "relative"
     },
     {
@@ -517,7 +437,7 @@
       "portal": "TransporterPortal",
       "element": "Leaderboard",
       "redirect_to": null,
-      "line": 290,
+      "line": 242,
       "kind": "relative"
     },
     {
@@ -525,7 +445,7 @@
       "portal": "TransporterPortal",
       "element": "Help",
       "redirect_to": null,
-      "line": 292,
+      "line": 244,
       "kind": "relative"
     },
     {
@@ -533,7 +453,7 @@
       "portal": "TransporterPortal",
       "element": "About",
       "redirect_to": null,
-      "line": 293,
+      "line": 245,
       "kind": "relative"
     },
     {
@@ -541,7 +461,7 @@
       "portal": "TransporterPortal",
       "element": "Contact",
       "redirect_to": null,
-      "line": 294,
+      "line": 246,
       "kind": "relative"
     },
     {
@@ -549,7 +469,7 @@
       "portal": "TransporterPortal",
       "element": "Terms",
       "redirect_to": null,
-      "line": 295,
+      "line": 247,
       "kind": "relative"
     },
     {
@@ -557,47 +477,7 @@
       "portal": "TransporterPortal",
       "element": "Privacy",
       "redirect_to": null,
-      "line": 296,
-      "kind": "relative"
-    },
-    {
-      "path": "/transporter/parts-store",
-      "portal": "TransporterPortal",
-      "element": "PartsMarketplace",
-      "redirect_to": null,
-      "line": 297,
-      "kind": "relative"
-    },
-    {
-      "path": "/transporter/parts-store/dashboard",
-      "portal": "TransporterPortal",
-      "element": "PartsStoreDashboard",
-      "redirect_to": null,
-      "line": 298,
-      "kind": "relative"
-    },
-    {
-      "path": "/transporter/parts-store/cart",
-      "portal": "TransporterPortal",
-      "element": "PartsCartPage",
-      "redirect_to": null,
-      "line": 299,
-      "kind": "relative"
-    },
-    {
-      "path": "/transporter/parts-store/orders",
-      "portal": "TransporterPortal",
-      "element": "PartsOrdersPage",
-      "redirect_to": null,
-      "line": 300,
-      "kind": "relative"
-    },
-    {
-      "path": "/transporter/parts-store/requests",
-      "portal": "TransporterPortal",
-      "element": "PartsRequestsPage",
-      "redirect_to": null,
-      "line": 301,
+      "line": 248,
       "kind": "relative"
     },
     {
@@ -605,151 +485,7 @@
       "portal": "TransporterPortal",
       "element": "TransporterPlaceholderPage",
       "redirect_to": null,
-      "line": 302,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/dashboard",
-      "portal": "ShopkeeperPortal",
-      "element": "ShopkeeperDashboard",
-      "redirect_to": null,
-      "line": 323,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/create-table",
-      "portal": "ShopkeeperPortal",
-      "element": "CreateTable",
-      "redirect_to": null,
-      "line": 324,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/table/:tableId",
-      "portal": "ShopkeeperPortal",
-      "element": "TableView",
-      "redirect_to": null,
-      "line": 325,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/table/:tableId/analysis",
-      "portal": "ShopkeeperPortal",
-      "element": "AnalysisView",
-      "redirect_to": null,
-      "line": 326,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/inventory",
-      "portal": "ShopkeeperPortal",
-      "element": "InventoryPage",
-      "redirect_to": null,
-      "line": 327,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/pos",
-      "portal": "ShopkeeperPortal",
-      "element": "POSPage",
-      "redirect_to": null,
-      "line": 328,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/sales-analytics",
-      "portal": "ShopkeeperPortal",
-      "element": "SalesAnalyticsPage",
-      "redirect_to": null,
-      "line": 329,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/sales-analytics/charts",
-      "portal": "ShopkeeperPortal",
-      "element": "SalesAnalyticsPage",
-      "redirect_to": null,
-      "line": 330,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/sales-analytics/history",
-      "portal": "ShopkeeperPortal",
-      "element": "SalesAnalyticsPage",
-      "redirect_to": null,
-      "line": 331,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/parts-hub",
-      "portal": "ShopkeeperPortal",
-      "element": "ShopkeeperPartsOrders",
-      "redirect_to": null,
-      "line": 332,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/profile",
-      "portal": "ShopkeeperPortal",
-      "element": "ShopkeeperProfile",
-      "redirect_to": null,
-      "line": 333,
-      "kind": "relative"
-    },
-    {
-      "path": "/shopkeeper/*",
-      "portal": "ShopkeeperPortal",
-      "element": "ShopkeeperDashboard",
-      "redirect_to": null,
-      "line": 334,
-      "kind": "relative"
-    },
-    {
-      "path": "/fuelstation/dashboard",
-      "portal": "FuelStationPortal",
-      "element": "FuelStationDashboard",
-      "redirect_to": null,
-      "line": 345,
-      "kind": "relative"
-    },
-    {
-      "path": "/fuelstation/dispense",
-      "portal": "FuelStationPortal",
-      "element": "FuelDispensePOS",
-      "redirect_to": null,
-      "line": 346,
-      "kind": "relative"
-    },
-    {
-      "path": "/fuelstation/pumps",
-      "portal": "FuelStationPortal",
-      "element": "FuelPumpsPage",
-      "redirect_to": null,
-      "line": 347,
-      "kind": "relative"
-    },
-    {
-      "path": "/fuelstation/history",
-      "portal": "FuelStationPortal",
-      "element": "FuelHistoryPage",
-      "redirect_to": null,
-      "line": 348,
-      "kind": "relative"
-    },
-    {
-      "path": "/fuelstation/profile",
-      "portal": "FuelStationPortal",
-      "element": "FuelStationProfile",
-      "redirect_to": null,
-      "line": 349,
-      "kind": "relative"
-    },
-    {
-      "path": "/fuelstation/*",
-      "portal": "FuelStationPortal",
-      "element": "FuelStationDashboard",
-      "redirect_to": null,
-      "line": 350,
+      "line": 249,
       "kind": "relative"
     },
     {
@@ -757,7 +493,7 @@
       "portal": "DriverPortal",
       "element": "DriverDashboard",
       "redirect_to": null,
-      "line": 361,
+      "line": 270,
       "kind": "relative"
     },
     {
@@ -765,7 +501,7 @@
       "portal": "DriverPortal",
       "element": "DriverActiveTrip",
       "redirect_to": null,
-      "line": 362,
+      "line": 271,
       "kind": "relative"
     },
     {
@@ -773,7 +509,7 @@
       "portal": "DriverPortal",
       "element": "DriverTrips",
       "redirect_to": null,
-      "line": 363,
+      "line": 272,
       "kind": "relative"
     },
     {
@@ -781,7 +517,7 @@
       "portal": "DriverPortal",
       "element": "DriverFuelLogs",
       "redirect_to": null,
-      "line": 364,
+      "line": 273,
       "kind": "relative"
     },
     {
@@ -789,7 +525,7 @@
       "portal": "DriverPortal",
       "element": "DriverWallet",
       "redirect_to": null,
-      "line": 365,
+      "line": 274,
       "kind": "relative"
     },
     {
@@ -797,7 +533,7 @@
       "portal": "DriverPortal",
       "element": "DriverReputation",
       "redirect_to": null,
-      "line": 366,
+      "line": 275,
       "kind": "relative"
     },
     {
@@ -805,7 +541,7 @@
       "portal": "DriverPortal",
       "element": "DriverProfile",
       "redirect_to": null,
-      "line": 367,
+      "line": 276,
       "kind": "relative"
     },
     {
@@ -813,7 +549,7 @@
       "portal": "DriverPortal",
       "element": "DriverDashboard",
       "redirect_to": null,
-      "line": 368,
+      "line": 277,
       "kind": "relative"
     },
     {
@@ -821,7 +557,7 @@
       "portal": "App",
       "element": "Login",
       "redirect_to": null,
-      "line": 388,
+      "line": 297,
       "kind": "absolute"
     },
     {
@@ -829,7 +565,7 @@
       "portal": "App",
       "element": "Login",
       "redirect_to": null,
-      "line": 389,
+      "line": 298,
       "kind": "absolute"
     },
     {
@@ -837,7 +573,7 @@
       "portal": "App",
       "element": "MainPage",
       "redirect_to": null,
-      "line": 390,
+      "line": 299,
       "kind": "absolute"
     },
     {
@@ -845,7 +581,7 @@
       "portal": "App",
       "element": "SignupWizardProvider",
       "redirect_to": null,
-      "line": 391,
+      "line": 300,
       "kind": "absolute"
     },
     {
@@ -853,7 +589,7 @@
       "portal": "App",
       "element": "Signup",
       "redirect_to": null,
-      "line": 392,
+      "line": 301,
       "kind": "index"
     },
     {
@@ -861,7 +597,15 @@
       "portal": "App",
       "element": "RequireSignupBasic",
       "redirect_to": null,
-      "line": 393,
+      "line": 302,
+      "kind": "relative"
+    },
+    {
+      "path": "/signup/terms",
+      "portal": "App",
+      "element": "RequireSignupBasic",
+      "redirect_to": null,
+      "line": 303,
       "kind": "relative"
     },
     {
@@ -869,7 +613,7 @@
       "portal": "App",
       "element": "RequireSignupDraft",
       "redirect_to": null,
-      "line": 394,
+      "line": 304,
       "kind": "relative"
     },
     {
@@ -877,7 +621,7 @@
       "portal": "App",
       "element": "RequireSignupDraft",
       "redirect_to": null,
-      "line": 395,
+      "line": 305,
       "kind": "relative"
     },
     {
@@ -885,23 +629,7 @@
       "portal": "App",
       "element": "RequireSignupDraft",
       "redirect_to": null,
-      "line": 396,
-      "kind": "relative"
-    },
-    {
-      "path": "/signup/details/fuel-station",
-      "portal": "App",
-      "element": "RequireSignupDraft",
-      "redirect_to": null,
-      "line": 397,
-      "kind": "relative"
-    },
-    {
-      "path": "/signup/details/shopkeeper",
-      "portal": "App",
-      "element": "RequireSignupDraft",
-      "redirect_to": null,
-      "line": 398,
+      "line": 306,
       "kind": "relative"
     },
     {
@@ -909,7 +637,7 @@
       "portal": "App",
       "element": "RequireSignupDraft",
       "redirect_to": null,
-      "line": 399,
+      "line": 307,
       "kind": "relative"
     },
     {
@@ -917,7 +645,7 @@
       "portal": "App",
       "element": "Navigate",
       "redirect_to": "/signup",
-      "line": 400,
+      "line": 308,
       "kind": "relative"
     },
     {
@@ -925,7 +653,7 @@
       "portal": "App",
       "element": "ResetPassword",
       "redirect_to": null,
-      "line": 402,
+      "line": 310,
       "kind": "absolute"
     },
     {
@@ -933,15 +661,7 @@
       "portal": "App",
       "element": "UnlockRoute",
       "redirect_to": null,
-      "line": 403,
-      "kind": "absolute"
-    },
-    {
-      "path": "/ai-chat",
-      "portal": "App",
-      "element": "AiChat",
-      "redirect_to": null,
-      "line": 404,
+      "line": 311,
       "kind": "absolute"
     },
     {
@@ -949,7 +669,7 @@
       "portal": "App",
       "element": "AdminLogin",
       "redirect_to": null,
-      "line": 405,
+      "line": 312,
       "kind": "absolute"
     },
     {
@@ -957,7 +677,7 @@
       "portal": "App",
       "element": "AdminPortal",
       "redirect_to": null,
-      "line": 406,
+      "line": 313,
       "kind": "absolute"
     },
     {
@@ -965,7 +685,7 @@
       "portal": "App",
       "element": "Navigate",
       "redirect_to": "/transporter/dashboard",
-      "line": 408,
+      "line": 315,
       "kind": "absolute"
     },
     {
@@ -973,7 +693,7 @@
       "portal": "App",
       "element": "TransporterPortal",
       "redirect_to": null,
-      "line": 409,
+      "line": 316,
       "kind": "absolute"
     },
     {
@@ -981,7 +701,7 @@
       "portal": "App",
       "element": "ClientPortal",
       "redirect_to": null,
-      "line": 410,
+      "line": 317,
       "kind": "absolute"
     },
     {
@@ -989,7 +709,7 @@
       "portal": "App",
       "element": "EverydayPortal",
       "redirect_to": null,
-      "line": 411,
+      "line": 318,
       "kind": "absolute"
     },
     {
@@ -997,23 +717,7 @@
       "portal": "App",
       "element": "OrgPortal",
       "redirect_to": null,
-      "line": 412,
-      "kind": "absolute"
-    },
-    {
-      "path": "/shopkeeper/*",
-      "portal": "App",
-      "element": "ShopkeeperPortal",
-      "redirect_to": null,
-      "line": 413,
-      "kind": "absolute"
-    },
-    {
-      "path": "/fuelstation/*",
-      "portal": "App",
-      "element": "FuelStationPortal",
-      "redirect_to": null,
-      "line": 414,
+      "line": 319,
       "kind": "absolute"
     },
     {
@@ -1021,7 +725,7 @@
       "portal": "App",
       "element": "DriverPortal",
       "redirect_to": null,
-      "line": 415,
+      "line": 320,
       "kind": "absolute"
     },
     {
@@ -1029,21 +733,21 @@
       "portal": "App",
       "element": "Login",
       "redirect_to": null,
-      "line": 417,
+      "line": 322,
       "kind": "relative"
     }
   ],
   "commented_out": [
     {
-      "line": 56,
+      "line": 47,
       "text": "// import ServiceHistory from './pages/future/service_history'"
     },
     {
-      "line": 268,
+      "line": 223,
       "text": "{/* <Route path=\"trucks/:id/service\" element={<ServiceHistory />} /> */}"
     },
     {
-      "line": 269,
+      "line": 224,
       "text": "{/* <Route path=\"service-history\" element={<ServiceHistory />} /> */}"
     }
   ],
@@ -1054,7 +758,7 @@
       "path": "/admin/dashboard",
       "label": "Dashboard",
       "match": [],
-      "line": 8
+      "line": 9
     },
     {
       "file": "frontend-react/src/components/admin/AdminLayout.jsx",
@@ -1062,7 +766,7 @@
       "path": "/admin/users",
       "label": "Users",
       "match": [],
-      "line": 9
+      "line": 10
     },
     {
       "file": "frontend-react/src/components/admin/AdminLayout.jsx",
@@ -1070,21 +774,13 @@
       "path": "/admin/trucks",
       "label": "Trucks",
       "match": [],
-      "line": 10
+      "line": 11
     },
     {
       "file": "frontend-react/src/components/admin/AdminLayout.jsx",
       "array": "NAV_ITEMS",
       "path": "/admin/withdrawals",
       "label": "Withdrawals",
-      "match": [],
-      "line": 11
-    },
-    {
-      "file": "frontend-react/src/components/admin/AdminLayout.jsx",
-      "array": "NAV_ITEMS",
-      "path": "/admin/agreements",
-      "label": "Agreements",
       "match": [],
       "line": 12
     },
@@ -1099,18 +795,10 @@
     {
       "file": "frontend-react/src/components/admin/AdminLayout.jsx",
       "array": "NAV_ITEMS",
-      "path": "/admin/payments",
-      "label": "Payments",
-      "match": [],
-      "line": 14
-    },
-    {
-      "file": "frontend-react/src/components/admin/AdminLayout.jsx",
-      "array": "NAV_ITEMS",
       "path": "/admin/platform-settings",
       "label": "Platform Settings",
       "match": [],
-      "line": 15
+      "line": 14
     },
     {
       "file": "frontend-react/src/components/admin/AdminLayout.jsx",
@@ -1118,7 +806,7 @@
       "path": "/admin/dashboard",
       "label": null,
       "match": [],
-      "line": 48
+      "line": 47
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1147,26 +835,10 @@
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
       "array": "NAV_ITEMS",
-      "path": "/client/post-agreement",
-      "label": "Post Agreement",
-      "match": [],
-      "line": 16
-    },
-    {
-      "file": "frontend-react/src/components/client/ClientLayout.jsx",
-      "array": "NAV_ITEMS",
-      "path": "/client/my-agreements",
-      "label": "My Agreements",
-      "match": [],
-      "line": 17
-    },
-    {
-      "file": "frontend-react/src/components/client/ClientLayout.jsx",
-      "array": "NAV_ITEMS",
       "path": "/client/messages",
       "label": "Messages",
       "match": [],
-      "line": 18
+      "line": 16
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1176,7 +848,7 @@
       "match": [
         "/client/balance"
       ],
-      "line": 19
+      "line": 17
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1184,7 +856,7 @@
       "path": "/client/account",
       "label": "Your Account",
       "match": [],
-      "line": 20
+      "line": 18
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1192,7 +864,7 @@
       "path": "/client/security",
       "label": "Security",
       "match": [],
-      "line": 21
+      "line": 19
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1200,17 +872,15 @@
       "path": "/client/dashboard",
       "label": "Dashboard",
       "match": [],
-      "line": 25
+      "line": 23
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
       "array": "MOBILE_NAV_ITEMS",
       "path": "/client/post-order",
       "label": "Post Order",
-      "match": [
-        "/client/post-agreement"
-      ],
-      "line": 26
+      "match": [],
+      "line": 24
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1220,7 +890,7 @@
       "match": [
         "/client/balance"
       ],
-      "line": 27
+      "line": 25
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1228,7 +898,7 @@
       "path": "/client/messages",
       "label": "Messages",
       "match": [],
-      "line": 28
+      "line": 26
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1236,7 +906,7 @@
       "path": "/client/dashboard",
       "label": null,
       "match": [],
-      "line": 143
+      "line": 141
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1244,7 +914,7 @@
       "path": "/client/account",
       "label": null,
       "match": [],
-      "line": 153
+      "line": 151
     },
     {
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
@@ -1252,55 +922,55 @@
       "path": "/client/terms",
       "label": null,
       "match": [],
-      "line": 177
+      "line": 175
     },
     {
       "file": "frontend-react/src/components/driver/DriverLayout.jsx",
       "array": "DRIVER_NAV",
       "path": "/driver/dashboard",
-      "label": "Dashboard",
-      "match": [],
-      "line": 7
-    },
-    {
-      "file": "frontend-react/src/components/driver/DriverLayout.jsx",
-      "array": "DRIVER_NAV",
-      "path": "/driver/active-trip",
-      "label": "Active Trip & GPS",
-      "match": [],
-      "line": 8
-    },
-    {
-      "file": "frontend-react/src/components/driver/DriverLayout.jsx",
-      "array": "DRIVER_NAV",
-      "path": "/driver/trips",
-      "label": "Trip Requests",
-      "match": [],
-      "line": 9
-    },
-    {
-      "file": "frontend-react/src/components/driver/DriverLayout.jsx",
-      "array": "DRIVER_NAV",
-      "path": "/driver/fuel-logs",
-      "label": "Fuel & Diesel Log",
+      "label": "Overview",
       "match": [],
       "line": 10
     },
     {
       "file": "frontend-react/src/components/driver/DriverLayout.jsx",
       "array": "DRIVER_NAV",
-      "path": "/driver/wallet",
-      "label": "Driver Wallet",
+      "path": "/driver/active-trip",
+      "label": "Active trip",
       "match": [],
       "line": 11
     },
     {
       "file": "frontend-react/src/components/driver/DriverLayout.jsx",
       "array": "DRIVER_NAV",
-      "path": "/driver/reputation",
-      "label": "Reputation & Score",
+      "path": "/driver/trips",
+      "label": "Trip requests",
       "match": [],
       "line": 12
+    },
+    {
+      "file": "frontend-react/src/components/driver/DriverLayout.jsx",
+      "array": "DRIVER_NAV",
+      "path": "/driver/fuel-logs",
+      "label": "Fuel log",
+      "match": [],
+      "line": 13
+    },
+    {
+      "file": "frontend-react/src/components/driver/DriverLayout.jsx",
+      "array": "DRIVER_NAV",
+      "path": "/driver/wallet",
+      "label": "Wallet",
+      "match": [],
+      "line": 14
+    },
+    {
+      "file": "frontend-react/src/components/driver/DriverLayout.jsx",
+      "array": "DRIVER_NAV",
+      "path": "/driver/reputation",
+      "label": "Reputation",
+      "match": [],
+      "line": 15
     },
     {
       "file": "frontend-react/src/components/driver/DriverLayout.jsx",
@@ -1308,7 +978,7 @@
       "path": "/driver/profile",
       "label": "Profile",
       "match": [],
-      "line": 13
+      "line": 16
     },
     {
       "file": "frontend-react/src/components/everyday/EverydayLayout.jsx",
@@ -1423,86 +1093,6 @@
       "line": 138
     },
     {
-      "file": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
-      "array": "navigation",
-      "path": "/fuelstation/dashboard",
-      "label": "Dashboard",
-      "match": [],
-      "line": 7
-    },
-    {
-      "file": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
-      "array": "navigation",
-      "path": "/fuelstation/dispense",
-      "label": "Dispense Fuel (POS)",
-      "match": [],
-      "line": 8
-    },
-    {
-      "file": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
-      "array": "navigation",
-      "path": "/fuelstation/pumps",
-      "label": "Pumps & Pricing",
-      "match": [],
-      "line": 9
-    },
-    {
-      "file": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
-      "array": "navigation",
-      "path": "/fuelstation/history",
-      "label": "Dispense History",
-      "match": [],
-      "line": 10
-    },
-    {
-      "file": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
-      "array": "navigation",
-      "path": "/fuelstation/profile",
-      "label": "Station Profile",
-      "match": [],
-      "line": 11
-    },
-    {
-      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
-      "array": "navigation",
-      "path": "/shopkeeper/dashboard",
-      "label": "Dashboard",
-      "match": [],
-      "line": 7
-    },
-    {
-      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
-      "array": "navigation",
-      "path": "/shopkeeper/pos",
-      "label": "New Sale",
-      "match": [],
-      "line": 8
-    },
-    {
-      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
-      "array": "navigation",
-      "path": "/shopkeeper/inventory",
-      "label": "Inventory",
-      "match": [],
-      "line": 9
-    },
-    {
-      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
-      "array": "navigation",
-      "path": "/shopkeeper/sales-analytics",
-      "label": "Sales & Reports",
-      "match": [],
-      "line": 10
-    },
-    {
-      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
-      "array": "navigation",
-      "path": "/shopkeeper/parts-hub",
-      "label": "Truck Parts Hub",
-      "match": [],
-      "line": 11
-    },
-    {
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
       "array": "MOBILE_NAV_ITEMS",
       "path": "/transporter/dashboard",
@@ -1524,9 +1114,7 @@
       "path": "/transporter/bids",
       "label": "Bids",
       "match": [
-        "/transporter/available-bids",
-        "/transporter/agreement-bids",
-        "/transporter/my-agreements"
+        "/transporter/available-bids"
       ],
       "line": 15
     },
@@ -1540,67 +1128,11 @@
     },
     {
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "array": "PARTS_STORE_NAV_ITEMS",
-      "path": "/transporter/parts-store/dashboard",
-      "label": "Dashboard",
-      "match": [],
-      "line": 20
-    },
-    {
-      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "array": "PARTS_STORE_NAV_ITEMS",
-      "path": "/transporter/parts-store",
-      "label": "Buy Parts",
-      "match": [],
-      "line": 21
-    },
-    {
-      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "array": "PARTS_STORE_NAV_ITEMS",
-      "path": "/transporter/parts-store/cart",
-      "label": "Cart",
-      "match": [],
-      "line": 22
-    },
-    {
-      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "array": "PARTS_STORE_NAV_ITEMS",
-      "path": "/transporter/parts-store/orders",
-      "label": "My Orders",
-      "match": [],
-      "line": 23
-    },
-    {
-      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "array": "PARTS_STORE_NAV_ITEMS",
-      "path": "/transporter/parts-store/requests",
-      "label": "Part Requests",
-      "match": [],
-      "line": 24
-    },
-    {
-      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "array": "PARTS_STORE_NAV_ITEMS",
-      "path": "/transporter/settings",
-      "label": "Settings",
-      "match": [],
-      "line": 25
-    },
-    {
-      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
       "array": "<Link>",
       "path": "/transporter/profile",
       "label": null,
       "match": [],
-      "line": 188
-    },
-    {
-      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "array": "<Link>",
-      "path": "/transporter/dashboard",
-      "label": null,
-      "match": [],
-      "line": 221
+      "line": 177
     },
     {
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
@@ -1608,7 +1140,7 @@
       "path": "/transporter/about",
       "label": null,
       "match": [],
-      "line": 238
+      "line": 221
     },
     {
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
@@ -1616,7 +1148,7 @@
       "path": "/transporter/contact",
       "label": null,
       "match": [],
-      "line": 239
+      "line": 222
     },
     {
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
@@ -1624,7 +1156,7 @@
       "path": "/transporter/terms",
       "label": null,
       "match": [],
-      "line": 240
+      "line": 223
     },
     {
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
@@ -1632,7 +1164,7 @@
       "path": "/transporter/privacy",
       "label": null,
       "match": [],
-      "line": 241
+      "line": 224
     },
     {
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
@@ -1640,7 +1172,7 @@
       "path": "/transporter/help",
       "label": null,
       "match": [],
-      "line": 242
+      "line": 225
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1661,18 +1193,10 @@
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
       "array": "NAV_ITEMS",
-      "path": "/transporter/my-agreements",
-      "label": "My Agreements",
-      "match": [],
-      "line": 4
-    },
-    {
-      "file": "frontend-react/src/components/transporter/navItems.js",
-      "array": "NAV_ITEMS",
       "path": "/transporter/bids",
       "label": "My Bids",
       "match": [],
-      "line": 5
+      "line": 4
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1680,7 +1204,7 @@
       "path": "/transporter/messages",
       "label": "Messages",
       "match": [],
-      "line": 6
+      "line": 5
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1688,7 +1212,7 @@
       "path": "/transporter/earnings",
       "label": "Earnings",
       "match": [],
-      "line": 7
+      "line": 6
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1696,15 +1220,7 @@
       "path": "/transporter/wallet",
       "label": "Wallet",
       "match": [],
-      "line": 8
-    },
-    {
-      "file": "frontend-react/src/components/transporter/navItems.js",
-      "array": "NAV_ITEMS",
-      "path": "/transporter/parts-store",
-      "label": "Truck Parts Store",
-      "match": [],
-      "line": 9
+      "line": 7
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1712,7 +1228,7 @@
       "path": "/transporter/settings",
       "label": "Settings",
       "match": [],
-      "line": 10
+      "line": 8
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1720,7 +1236,7 @@
       "path": "/transporter/about",
       "label": "About Us",
       "match": [],
-      "line": 14
+      "line": 12
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1728,7 +1244,7 @@
       "path": "/transporter/contact",
       "label": "Contact",
       "match": [],
-      "line": 15
+      "line": 13
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1736,7 +1252,7 @@
       "path": "/transporter/terms",
       "label": "Terms & Conditions",
       "match": [],
-      "line": 16
+      "line": 14
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1744,7 +1260,7 @@
       "path": "/transporter/privacy",
       "label": "Privacy Policy",
       "match": [],
-      "line": 17
+      "line": 15
     },
     {
       "file": "frontend-react/src/components/transporter/navItems.js",
@@ -1752,7 +1268,7 @@
       "path": "/transporter/help",
       "label": "Help Center",
       "match": [],
-      "line": 18
+      "line": 16
     },
     {
       "file": "frontend-react/src/components/client/OrderWorkspaceNavigation.jsx",
@@ -1765,26 +1281,10 @@
     {
       "file": "frontend-react/src/components/client/OrderWorkspaceNavigation.jsx",
       "array": "<Link>",
-      "path": "/client/post-agreement",
-      "label": null,
-      "match": [],
-      "line": 15
-    },
-    {
-      "file": "frontend-react/src/components/client/OrderWorkspaceNavigation.jsx",
-      "array": "<Link>",
       "path": "/client/orders",
       "label": null,
       "match": [],
-      "line": 25
-    },
-    {
-      "file": "frontend-react/src/components/client/OrderWorkspaceNavigation.jsx",
-      "array": "<Link>",
-      "path": "/client/my-agreements",
-      "label": null,
-      "match": [],
-      "line": 26
+      "line": 17
     }
   ],
   "links": [
@@ -1792,109 +1292,85 @@
       "target": "/admin/login",
       "normalized": "/admin/login",
       "file": "frontend-react/src/App.jsx",
-      "line": 145
+      "line": 112
     },
     {
       "target": "/login",
       "normalized": "/login",
       "file": "frontend-react/src/App.jsx",
-      "line": 153
-    },
-    {
-      "target": "/client/my-agreements",
-      "normalized": "/client/my-agreements",
-      "file": "frontend-react/src/App.jsx",
-      "line": 208
+      "line": 120
     },
     {
       "target": "/client/dashboard",
       "normalized": "/client/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 219
+      "line": 175
     },
     {
       "target": "/everyday/dashboard",
       "normalized": "/everyday/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 247
+      "line": 202
     },
     {
       "target": "/transporter/available-bids",
       "normalized": "/transporter/available-bids",
       "file": "frontend-react/src/App.jsx",
-      "line": 272
-    },
-    {
-      "target": "/transporter/agreement-bids",
-      "normalized": "/transporter/agreement-bids",
-      "file": "frontend-react/src/App.jsx",
-      "line": 277
+      "line": 227
     },
     {
       "target": "/signup",
       "normalized": "/signup",
       "file": "frontend-react/src/App.jsx",
-      "line": 400
+      "line": 308
     },
     {
       "target": "/transporter/dashboard",
       "normalized": "/transporter/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 408
+      "line": 315
     },
     {
       "target": "/admin/login",
       "normalized": "/admin/login",
       "file": "frontend-react/src/App.jsx",
-      "line": 145
+      "line": 112
     },
     {
       "target": "/login",
       "normalized": "/login",
       "file": "frontend-react/src/App.jsx",
-      "line": 153
-    },
-    {
-      "target": "/client/my-agreements",
-      "normalized": "/client/my-agreements",
-      "file": "frontend-react/src/App.jsx",
-      "line": 208
+      "line": 120
     },
     {
       "target": "/client/dashboard",
       "normalized": "/client/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 219
+      "line": 175
     },
     {
       "target": "/everyday/dashboard",
       "normalized": "/everyday/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 247
+      "line": 202
     },
     {
       "target": "/transporter/available-bids",
       "normalized": "/transporter/available-bids",
       "file": "frontend-react/src/App.jsx",
-      "line": 272
-    },
-    {
-      "target": "/transporter/agreement-bids",
-      "normalized": "/transporter/agreement-bids",
-      "file": "frontend-react/src/App.jsx",
-      "line": 277
+      "line": 227
     },
     {
       "target": "/signup",
       "normalized": "/signup",
       "file": "frontend-react/src/App.jsx",
-      "line": 400
+      "line": 308
     },
     {
       "target": "/transporter/dashboard",
       "normalized": "/transporter/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 408
+      "line": 315
     },
     {
       "target": "/login",
@@ -1912,13 +1388,13 @@
       "target": "/admin/dashboard",
       "normalized": "/admin/dashboard",
       "file": "frontend-react/src/components/admin/AdminLayout.jsx",
-      "line": 48
+      "line": 47
     },
     {
       "target": "/admin/login",
       "normalized": "/admin/login",
       "file": "frontend-react/src/components/admin/AdminLayout.jsx",
-      "line": 29
+      "line": 28
     },
     {
       "target": "/signup",
@@ -1927,10 +1403,16 @@
       "line": 14
     },
     {
+      "target": "/signup/terms",
+      "normalized": "/signup/terms",
+      "file": "frontend-react/src/components/auth/SignupWizardProvider.jsx",
+      "line": 16
+    },
+    {
       "target": "/signup",
       "normalized": "/signup",
       "file": "frontend-react/src/components/auth/SignupWizardProvider.jsx",
-      "line": 22
+      "line": 23
     },
     {
       "target": "/signup",
@@ -1939,28 +1421,34 @@
       "line": 14
     },
     {
+      "target": "/signup/terms",
+      "normalized": "/signup/terms",
+      "file": "frontend-react/src/components/auth/SignupWizardProvider.jsx",
+      "line": 16
+    },
+    {
       "target": "/signup",
       "normalized": "/signup",
       "file": "frontend-react/src/components/auth/SignupWizardProvider.jsx",
-      "line": 22
+      "line": 23
     },
     {
       "target": "/client/dashboard",
       "normalized": "/client/dashboard",
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
-      "line": 143
+      "line": 141
     },
     {
       "target": "/client/account",
       "normalized": "/client/account",
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
-      "line": 153
+      "line": 151
     },
     {
       "target": "/client/terms",
       "normalized": "/client/terms",
       "file": "frontend-react/src/components/client/ClientLayout.jsx",
-      "line": 177
+      "line": 175
     },
     {
       "target": "/client/post-order",
@@ -1969,28 +1457,16 @@
       "line": 8
     },
     {
-      "target": "/client/post-agreement",
-      "normalized": "/client/post-agreement",
-      "file": "frontend-react/src/components/client/OrderWorkspaceNavigation.jsx",
-      "line": 16
-    },
-    {
       "target": "/client/orders",
       "normalized": "/client/orders",
       "file": "frontend-react/src/components/client/OrderWorkspaceNavigation.jsx",
-      "line": 25
-    },
-    {
-      "target": "/client/my-agreements",
-      "normalized": "/client/my-agreements",
-      "file": "frontend-react/src/components/client/OrderWorkspaceNavigation.jsx",
-      "line": 26
+      "line": 17
     },
     {
       "target": "/login",
       "normalized": "/login",
       "file": "frontend-react/src/components/common/AuthCard.jsx",
-      "line": 8
+      "line": 9
     },
     {
       "target": "${basePath}/order/${pendingReviews[0].shipment_id}",
@@ -2015,24 +1491,6 @@
       "normalized": "/everyday/terms",
       "file": "frontend-react/src/components/everyday/EverydayLayout.jsx",
       "line": 138
-    },
-    {
-      "target": "/fuelstation/dashboard",
-      "normalized": "/fuelstation/dashboard",
-      "file": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
-      "line": 61
-    },
-    {
-      "target": "/fuelstation/profile",
-      "normalized": "/fuelstation/profile",
-      "file": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
-      "line": 106
-    },
-    {
-      "target": "/login",
-      "normalized": "/login",
-      "file": "frontend-react/src/components/fuelstation/FuelStationLayout.jsx",
-      "line": 38
     },
     {
       "target": "/login",
@@ -2065,70 +1523,40 @@
       "line": 384
     },
     {
-      "target": "/shopkeeper/dashboard",
-      "normalized": "/shopkeeper/dashboard",
-      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
-      "line": 66
-    },
-    {
-      "target": "/shopkeeper/profile",
-      "normalized": "/shopkeeper/profile",
-      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
-      "line": 93
-    },
-    {
-      "target": "/shopkeeper/profile",
-      "normalized": "/shopkeeper/profile",
-      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
-      "line": 95
-    },
-    {
-      "target": "/login",
-      "normalized": "/login",
-      "file": "frontend-react/src/components/shopkeeper/ShopkeeperLayout.jsx",
-      "line": 41
-    },
-    {
       "target": "/transporter/profile",
       "normalized": "/transporter/profile",
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "line": 188
-    },
-    {
-      "target": "/transporter/dashboard",
-      "normalized": "/transporter/dashboard",
-      "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "line": 221
+      "line": 177
     },
     {
       "target": "/transporter/about",
       "normalized": "/transporter/about",
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "line": 238
+      "line": 221
     },
     {
       "target": "/transporter/contact",
       "normalized": "/transporter/contact",
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "line": 239
+      "line": 222
     },
     {
       "target": "/transporter/terms",
       "normalized": "/transporter/terms",
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "line": 240
+      "line": 223
     },
     {
       "target": "/transporter/privacy",
       "normalized": "/transporter/privacy",
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "line": 241
+      "line": 224
     },
     {
       "target": "/transporter/help",
       "normalized": "/transporter/help",
       "file": "frontend-react/src/components/transporter/TransporterLayout.jsx",
-      "line": 242
+      "line": 225
     },
     {
       "target": "/everyday/dashboard",
@@ -2143,12 +1571,6 @@
       "line": 23
     },
     {
-      "target": "/admin/dispute-chat/${json.thread_id}",
-      "normalized": "/admin/dispute-chat/:param",
-      "file": "frontend-react/src/pages/admin/AdminDisputes.jsx",
-      "line": 180
-    },
-    {
       "target": "/admin/dashboard",
       "normalized": "/admin/dashboard",
       "file": "frontend-react/src/pages/admin/AdminLogin.jsx",
@@ -2158,19 +1580,31 @@
       "target": "/admin/users/${u.id}",
       "normalized": "/admin/users/:param",
       "file": "frontend-react/src/pages/admin/AdminUsers.jsx",
-      "line": 96
+      "line": 95
+    },
+    {
+      "target": "/",
+      "normalized": "/",
+      "file": "frontend-react/src/pages/auth/Login.jsx",
+      "line": 115
+    },
+    {
+      "target": "/",
+      "normalized": "/",
+      "file": "frontend-react/src/pages/auth/Login.jsx",
+      "line": 151
     },
     {
       "target": "/reset-password${form.loginId ? ",
       "normalized": "/reset-password${form.loginId ",
       "file": "frontend-react/src/pages/auth/Login.jsx",
-      "line": 150
+      "line": 226
     },
     {
       "target": "/signup",
       "normalized": "/signup",
       "file": "frontend-react/src/pages/auth/Login.jsx",
-      "line": 175
+      "line": 255
     },
     {
       "target": "/login",
@@ -2188,49 +1622,79 @@
       "target": "/login",
       "normalized": "/login",
       "file": "frontend-react/src/pages/auth/roledetails/StepShell.jsx",
-      "line": 20
+      "line": 28
     },
     {
       "target": "/signup/role",
       "normalized": "/signup/role",
       "file": "frontend-react/src/pages/auth/roledetails/StepShell.jsx",
-      "line": 64
+      "line": 81
     },
     {
       "target": "/login",
       "normalized": "/login",
       "file": "frontend-react/src/pages/auth/RoleSelect.jsx",
-      "line": 77
+      "line": 55
     },
     {
       "target": "/login",
       "normalized": "/login",
       "file": "frontend-react/src/pages/auth/RoleSelect.jsx",
-      "line": 144
+      "line": 120
     },
     {
       "target": "/signup",
       "normalized": "/signup",
       "file": "frontend-react/src/pages/auth/RoleSelect.jsx",
-      "line": 66
+      "line": 44
+    },
+    {
+      "target": "/signup/terms",
+      "normalized": "/signup/terms",
+      "file": "frontend-react/src/pages/auth/RoleSelect.jsx",
+      "line": 48
     },
     {
       "target": "/signup",
       "normalized": "/signup",
       "file": "frontend-react/src/pages/auth/RoleSelect.jsx",
-      "line": 137
+      "line": 113
     },
     {
       "target": "/login",
       "normalized": "/login",
       "file": "frontend-react/src/pages/auth/Signup.jsx",
-      "line": 168
+      "line": 342
     },
     {
       "target": "/signup/role",
       "normalized": "/signup/role",
       "file": "frontend-react/src/pages/auth/Signup.jsx",
-      "line": 68
+      "line": 132
+    },
+    {
+      "target": "/signup/role",
+      "normalized": "/signup/role",
+      "file": "frontend-react/src/pages/auth/SignupTerms.jsx",
+      "line": 28
+    },
+    {
+      "target": "/signup/role",
+      "normalized": "/signup/role",
+      "file": "frontend-react/src/pages/auth/SignupTerms.jsx",
+      "line": 43
+    },
+    {
+      "target": "/signup/role",
+      "normalized": "/signup/role",
+      "file": "frontend-react/src/pages/auth/SignupTerms.jsx",
+      "line": 60
+    },
+    {
+      "target": "/signup/role",
+      "normalized": "/signup/role",
+      "file": "frontend-react/src/pages/auth/SignupTerms.jsx",
+      "line": 28
     },
     {
       "target": "/login",
@@ -2243,24 +1707,6 @@
       "normalized": "/login",
       "file": "frontend-react/src/pages/auth/Unlock.jsx",
       "line": 4
-    },
-    {
-      "target": "/client/messages",
-      "normalized": "/client/messages",
-      "file": "frontend-react/src/pages/client/AgreementBids.jsx",
-      "line": 91
-    },
-    {
-      "target": "/client/agreement/${json.agreement.id}",
-      "normalized": "/client/agreement/:param",
-      "file": "frontend-react/src/pages/client/AgreementBids.jsx",
-      "line": 122
-    },
-    {
-      "target": "/client/post-order",
-      "normalized": "/client/post-order",
-      "file": "frontend-react/src/pages/client/Agreements.jsx",
-      "line": 62
     },
     {
       "target": "${base}/order/${orderId}",
@@ -2278,7 +1724,7 @@
       "target": "${base}/order/${orderId}",
       "normalized": ":param/order/:param",
       "file": "frontend-react/src/pages/client/BidCheckout.jsx",
-      "line": 490
+      "line": 489
     },
     {
       "target": "${base}/order/${orderId}",
@@ -2296,43 +1742,37 @@
       "target": "/client/post-order",
       "normalized": "/client/post-order",
       "file": "frontend-react/src/pages/client/ClientDashboard.jsx",
-      "line": 156
+      "line": 155
     },
     {
       "target": "/client/order/${order.id}",
       "normalized": "/client/order/:param",
       "file": "frontend-react/src/pages/client/ClientDashboard.jsx",
-      "line": 183
+      "line": 182
     },
     {
       "target": "${base}/orders",
       "normalized": ":param/orders",
       "file": "frontend-react/src/pages/client/ClientOrderDetail.jsx",
-      "line": 219
+      "line": 251
     },
     {
       "target": "${base}/orders",
       "normalized": ":param/orders",
       "file": "frontend-react/src/pages/client/ClientOrderDetail.jsx",
-      "line": 231
+      "line": 263
     },
     {
       "target": "${base}/orders",
       "normalized": ":param/orders",
       "file": "frontend-react/src/pages/client/ClientOrderDetail.jsx",
-      "line": 561
+      "line": 615
     },
     {
       "target": "${base}/order/${order.id}/bid/${bid.id}/checkout",
       "normalized": ":param/order/:param/bid/:param/checkout",
       "file": "frontend-react/src/pages/client/ClientOrderDetail.jsx",
-      "line": 545
-    },
-    {
-      "target": "/client/agreement/${agreement.id}",
-      "normalized": "/client/agreement/:param",
-      "file": "frontend-react/src/pages/client/MyAgreements.jsx",
-      "line": 33
+      "line": 599
     },
     {
       "target": "${base}/post-order",
@@ -2359,34 +1799,22 @@
       "line": 219
     },
     {
-      "target": "/client/my-agreements",
-      "normalized": "/client/my-agreements",
-      "file": "frontend-react/src/pages/client/PostAgreement.jsx",
-      "line": 149
-    },
-    {
-      "target": "/client/agreement-bids/${json.post.id}",
-      "normalized": "/client/agreement-bids/:param",
-      "file": "frontend-react/src/pages/client/PostAgreement.jsx",
-      "line": 51
+      "target": "${base}/orders",
+      "normalized": ":param/orders",
+      "file": "frontend-react/src/pages/client/PostOrder.jsx",
+      "line": 444
     },
     {
       "target": "${base}/orders",
       "normalized": ":param/orders",
       "file": "frontend-react/src/pages/client/PostOrder.jsx",
-      "line": 232
+      "line": 1064
     },
     {
       "target": "${base}/orders",
       "normalized": ":param/orders",
       "file": "frontend-react/src/pages/client/PostOrder.jsx",
-      "line": 421
-    },
-    {
-      "target": "${base}/orders",
-      "normalized": ":param/orders",
-      "file": "frontend-react/src/pages/client/PostOrder.jsx",
-      "line": 215
+      "line": 426
     },
     {
       "target": "/driver/trips",
@@ -2398,7 +1826,37 @@
       "target": "/driver/active-trip",
       "normalized": "/driver/active-trip",
       "file": "frontend-react/src/pages/driver/DriverDashboard.jsx",
-      "line": 51
+      "line": 52
+    },
+    {
+      "target": "/driver/trips",
+      "normalized": "/driver/trips",
+      "file": "frontend-react/src/pages/driver/DriverDashboard.jsx",
+      "line": 53
+    },
+    {
+      "target": "/driver/trips",
+      "normalized": "/driver/trips",
+      "file": "frontend-react/src/pages/driver/DriverDashboard.jsx",
+      "line": 72
+    },
+    {
+      "target": "/driver/fuel-logs",
+      "normalized": "/driver/fuel-logs",
+      "file": "frontend-react/src/pages/driver/DriverDashboard.jsx",
+      "line": 90
+    },
+    {
+      "target": "/driver/wallet",
+      "normalized": "/driver/wallet",
+      "file": "frontend-react/src/pages/driver/DriverDashboard.jsx",
+      "line": 91
+    },
+    {
+      "target": "/driver/profile",
+      "normalized": "/driver/profile",
+      "file": "frontend-react/src/pages/driver/DriverDashboard.jsx",
+      "line": 92
     },
     {
       "target": "/everyday/post-order",
@@ -2455,18 +1913,6 @@
       "line": 277
     },
     {
-      "target": "/fuelstation/history",
-      "normalized": "/fuelstation/history",
-      "file": "frontend-react/src/pages/fuelstation/FuelStationDashboard.jsx",
-      "line": 124
-    },
-    {
-      "target": "/fuelstation/dispense",
-      "normalized": "/fuelstation/dispense",
-      "file": "frontend-react/src/pages/fuelstation/FuelStationDashboard.jsx",
-      "line": 114
-    },
-    {
       "target": "/transporter/trucks",
       "normalized": "/transporter/trucks",
       "file": "frontend-react/src/pages/future/service_history.jsx",
@@ -2485,142 +1931,10 @@
       "line": 113
     },
     {
-      "target": "/shopkeeper/dashboard",
-      "normalized": "/shopkeeper/dashboard",
-      "file": "frontend-react/src/pages/shopkeeper/AnalysisView.jsx",
-      "line": 138
-    },
-    {
-      "target": "/shopkeeper/table/${tableId}",
-      "normalized": "/shopkeeper/table/:param",
-      "file": "frontend-react/src/pages/shopkeeper/AnalysisView.jsx",
-      "line": 151
-    },
-    {
-      "target": "/shopkeeper/table/${data.data.table_id}",
-      "normalized": "/shopkeeper/table/:param",
-      "file": "frontend-react/src/pages/shopkeeper/CreateTable.jsx",
-      "line": 80
-    },
-    {
-      "target": "/shopkeeper/dashboard",
-      "normalized": "/shopkeeper/dashboard",
-      "file": "frontend-react/src/pages/shopkeeper/CreateTable.jsx",
-      "line": 95
-    },
-    {
-      "target": "/shopkeeper/dashboard",
-      "normalized": "/shopkeeper/dashboard",
-      "file": "frontend-react/src/pages/shopkeeper/CreateTable.jsx",
-      "line": 211
-    },
-    {
-      "target": "/shopkeeper/dashboard",
-      "normalized": "/shopkeeper/dashboard",
-      "file": "frontend-react/src/pages/shopkeeper/InventoryPage.jsx",
-      "line": 137
-    },
-    {
-      "target": "/shopkeeper/dashboard",
-      "normalized": "/shopkeeper/dashboard",
-      "file": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
-      "line": 133
-    },
-    {
-      "target": "/shopkeeper/inventory",
-      "normalized": "/shopkeeper/inventory",
-      "file": "frontend-react/src/pages/shopkeeper/POSPage.jsx",
-      "line": 165
-    },
-    {
-      "target": "/shopkeeper/pos",
-      "normalized": "/shopkeeper/pos",
-      "file": "frontend-react/src/pages/shopkeeper/SalesAnalyticsPage.jsx",
-      "line": 109
-    },
-    {
-      "target": "/shopkeeper/dashboard",
-      "normalized": "/shopkeeper/dashboard",
-      "file": "frontend-react/src/pages/shopkeeper/SalesAnalyticsPage.jsx",
-      "line": 113
-    },
-    {
-      "target": "/shopkeeper/sales-analytics/charts",
-      "normalized": "/shopkeeper/sales-analytics/charts",
-      "file": "frontend-react/src/pages/shopkeeper/SalesAnalyticsPage.jsx",
-      "line": 123
-    },
-    {
-      "target": "/shopkeeper/sales-analytics/history",
-      "normalized": "/shopkeeper/sales-analytics/history",
-      "file": "frontend-react/src/pages/shopkeeper/SalesAnalyticsPage.jsx",
-      "line": 128
-    },
-    {
-      "target": "/shopkeeper/pos",
-      "normalized": "/shopkeeper/pos",
-      "file": "frontend-react/src/pages/shopkeeper/SalesAnalyticsPage.jsx",
-      "line": 179
-    },
-    {
-      "target": "/shopkeeper/pos",
-      "normalized": "/shopkeeper/pos",
-      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperDashboard.jsx",
-      "line": 41
-    },
-    {
-      "target": "/shopkeeper/create-table",
-      "normalized": "/shopkeeper/create-table",
-      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperDashboard.jsx",
-      "line": 77
-    },
-    {
-      "target": "/shopkeeper/create-table",
-      "normalized": "/shopkeeper/create-table",
-      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperDashboard.jsx",
-      "line": 107
-    },
-    {
-      "target": "/shopkeeper/table/${table.id}",
-      "normalized": "/shopkeeper/table/:param",
-      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperDashboard.jsx",
-      "line": 119
-    },
-    {
-      "target": "/shopkeeper/create-table",
-      "normalized": "/shopkeeper/create-table",
-      "file": "frontend-react/src/pages/shopkeeper/ShopkeeperDashboard.jsx",
-      "line": 144
-    },
-    {
-      "target": "/shopkeeper/dashboard",
-      "normalized": "/shopkeeper/dashboard",
-      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
-      "line": 208
-    },
-    {
-      "target": "/shopkeeper/dashboard",
-      "normalized": "/shopkeeper/dashboard",
-      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
-      "line": 221
-    },
-    {
-      "target": "/shopkeeper/table/${tableId}/analysis",
-      "normalized": "/shopkeeper/table/:param/analysis",
-      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
-      "line": 231
-    },
-    {
-      "target": "/shopkeeper/table/${tableId}/analysis",
-      "normalized": "/shopkeeper/table/:param/analysis",
-      "file": "frontend-react/src/pages/shopkeeper/TableView.jsx",
-      "line": 364
-    },
-    {
       "target": "/transporter/trucks",
       "normalized": "/transporter/trucks",
       "file": "frontend-react/src/pages/transporter/add_truck.jsx",
-      "line": 125
+      "line": 258
     },
     {
       "target": "/transporter/trucks/config/${id}",
@@ -2950,43 +2264,31 @@
       "target": "/transporter/trucks/add",
       "normalized": "/transporter/trucks/add",
       "file": "frontend-react/src/pages/transporter/My Truck.jsx",
-      "line": 82
+      "line": 83
     },
     {
       "target": "/transporter/trucks/add",
       "normalized": "/transporter/trucks/add",
       "file": "frontend-react/src/pages/transporter/My Truck.jsx",
-      "line": 98
+      "line": 99
     },
     {
       "target": "/transporter/trucks/edit/${truck.id}",
       "normalized": "/transporter/trucks/edit/:param",
       "file": "frontend-react/src/pages/transporter/My Truck.jsx",
-      "line": 127
+      "line": 134
     },
     {
       "target": "/transporter/trucks/${truck.id}/track",
       "normalized": "/transporter/trucks/:param/track",
       "file": "frontend-react/src/pages/transporter/My Truck.jsx",
-      "line": 129
+      "line": 142
     },
     {
       "target": "/transporter/trucks/config/${truck.id}",
       "normalized": "/transporter/trucks/config/:param",
       "file": "frontend-react/src/pages/transporter/My Truck.jsx",
-      "line": 133
-    },
-    {
-      "target": "/transporter/agreement-bids",
-      "normalized": "/transporter/agreement-bids",
-      "file": "frontend-react/src/pages/transporter/MyAgreements.jsx",
-      "line": 133
-    },
-    {
-      "target": "/transporter/agreement-bids",
-      "normalized": "/transporter/agreement-bids",
-      "file": "frontend-react/src/pages/transporter/MyAgreements.jsx",
-      "line": 146
+      "line": 150
     },
     {
       "target": "/transporter/available-bids",
@@ -2995,118 +2297,34 @@
       "line": 83
     },
     {
-      "target": "/transporter/agreement-bids",
-      "normalized": "/transporter/agreement-bids",
-      "file": "frontend-react/src/pages/transporter/MyBids.jsx",
-      "line": 89
-    },
-    {
-      "target": "/transporter/my-agreements",
-      "normalized": "/transporter/my-agreements",
-      "file": "frontend-react/src/pages/transporter/MyBids.jsx",
-      "line": 95
-    },
-    {
       "target": "/transporter/available-bids",
       "normalized": "/transporter/available-bids",
       "file": "frontend-react/src/pages/transporter/MyBids.jsx",
-      "line": 110
+      "line": 98
     },
     {
       "target": "/transporter/order/${bid.order_id}",
       "normalized": "/transporter/order/:param",
       "file": "frontend-react/src/pages/transporter/MyBids.jsx",
-      "line": 156
+      "line": 144
     },
     {
       "target": "/transporter/my-bids",
       "normalized": "/transporter/my-bids",
       "file": "frontend-react/src/pages/transporter/OrderTracking.jsx",
-      "line": 157
+      "line": 158
     },
     {
       "target": "/transporter/my-bids",
       "normalized": "/transporter/my-bids",
       "file": "frontend-react/src/pages/transporter/OrderTracking.jsx",
-      "line": 166
+      "line": 167
     },
     {
       "target": "/transporter/my-bids",
       "normalized": "/transporter/my-bids",
       "file": "frontend-react/src/pages/transporter/OrderTracking.jsx",
-      "line": 180
-    },
-    {
-      "target": "/transporter/parts-store",
-      "normalized": "/transporter/parts-store",
-      "file": "frontend-react/src/pages/transporter/PartsCartPage.jsx",
-      "line": 62
-    },
-    {
-      "target": "/transporter/parts-store",
-      "normalized": "/transporter/parts-store",
-      "file": "frontend-react/src/pages/transporter/PartsCartPage.jsx",
-      "line": 68
-    },
-    {
-      "target": "/transporter/parts-store/orders",
-      "normalized": "/transporter/parts-store/orders",
-      "file": "frontend-react/src/pages/transporter/PartsCartPage.jsx",
-      "line": 50
-    },
-    {
-      "target": "/transporter/parts-store/cart",
-      "normalized": "/transporter/parts-store/cart",
-      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
-      "line": 100
-    },
-    {
-      "target": "/transporter/parts-store/cart",
-      "normalized": "/transporter/parts-store/cart",
-      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
-      "line": 233
-    },
-    {
-      "target": "/transporter/parts-store/orders",
-      "normalized": "/transporter/parts-store/orders",
-      "file": "frontend-react/src/pages/transporter/PartsMarketplace.jsx",
-      "line": 293
-    },
-    {
-      "target": "/transporter/parts-store",
-      "normalized": "/transporter/parts-store",
-      "file": "frontend-react/src/pages/transporter/PartsOrdersPage.jsx",
-      "line": 31
-    },
-    {
-      "target": "/transporter/parts-store",
-      "normalized": "/transporter/parts-store",
-      "file": "frontend-react/src/pages/transporter/PartsOrdersPage.jsx",
-      "line": 33
-    },
-    {
-      "target": "/transporter/parts-store",
-      "normalized": "/transporter/parts-store",
-      "file": "frontend-react/src/pages/transporter/PartsRequestsPage.jsx",
-      "line": 8
-    },
-    {
-      "target": "/transporter/parts-store",
-      "normalized": "/transporter/parts-store",
-      "file": "frontend-react/src/pages/transporter/PartsRequestsPage.jsx",
-      "line": 8
-    },
-    {
-      "target": "/transporter/parts-store",
-      "normalized": "/transporter/parts-store",
-      "file": "frontend-react/src/pages/transporter/PartsStoreDashboard.jsx",
-      "line": 26
-    },
-    {
-      "target": "/transporter/parts-store/orders",
-      "normalized": "/transporter/parts-store/orders",
-      "file": "frontend-react/src/pages/transporter/PartsStoreDashboard.jsx",
-      "line": 26
+      "line": 181
     },
     {
       "target": "/transporter/terms",
@@ -3157,34 +2375,28 @@
       "line": 164
     },
     {
-      "target": "/transporter/my-agreements",
-      "normalized": "/transporter/my-agreements",
-      "file": "frontend-react/src/pages/transporter/profile.jsx",
-      "line": 165
-    },
-    {
       "target": "/transporter/wallet",
       "normalized": "/transporter/wallet",
       "file": "frontend-react/src/pages/transporter/profile.jsx",
-      "line": 166
+      "line": 165
     },
     {
       "target": "/transporter/earnings",
       "normalized": "/transporter/earnings",
       "file": "frontend-react/src/pages/transporter/profile.jsx",
-      "line": 167
+      "line": 166
     },
     {
       "target": "/transporter/settings",
       "normalized": "/transporter/settings",
       "file": "frontend-react/src/pages/transporter/profile.jsx",
-      "line": 168
+      "line": 167
     },
     {
       "target": "/transporter/security",
       "normalized": "/transporter/security",
       "file": "frontend-react/src/pages/transporter/profile.jsx",
-      "line": 182
+      "line": 181
     },
     {
       "target": "/transporter/security",
@@ -3292,7 +2504,7 @@
       "target": "/transporter/trucks",
       "normalized": "/transporter/trucks",
       "file": "frontend-react/src/pages/transporter/truck_configuration.jsx",
-      "line": 331
+      "line": 544
     },
     {
       "target": "/transporter/trucks",
@@ -3327,13 +2539,6 @@
       ]
     },
     {
-      "file": "components/AgreementTripMap.jsx",
-      "imported_by": [
-        "pages/client/AgreementDetail.jsx",
-        "pages/transporter/MyAgreements.jsx"
-      ]
-    },
-    {
       "file": "components/GenuineActivity.jsx",
       "imported_by": [
         "App.jsx"
@@ -3341,12 +2546,6 @@
     },
     {
       "file": "components/admin/AdminLayout.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "components/ai/GlobalAiAssistant.jsx",
       "imported_by": [
         "App.jsx"
       ]
@@ -3363,31 +2562,14 @@
         "pages/admin/AdminDisputes.jsx",
         "pages/client/BidCheckout.jsx",
         "pages/client/ClientOrderDetail.jsx",
-        "pages/client/PostOrder.jsx",
-        "pages/shopkeeper/ShopkeeperPartsOrders.jsx",
         "pages/transporter/AvailableBids.jsx",
-        "pages/transporter/OrderTracking.jsx",
-        "components/business/FuelVoucherPanel.jsx",
-        "components/business/FuelVoucherRedemption.jsx"
+        "pages/transporter/OrderTracking.jsx"
       ]
     },
     {
       "file": "components/business/DeliveryClientHandshake.jsx",
       "imported_by": [
         "pages/client/ClientOrderDetail.jsx"
-      ]
-    },
-    {
-      "file": "components/business/FuelVoucherPanel.jsx",
-      "imported_by": [
-        "pages/transporter/MyAgreements.jsx",
-        "pages/transporter/OrderTracking.jsx"
-      ]
-    },
-    {
-      "file": "components/business/FuelVoucherRedemption.jsx",
-      "imported_by": [
-        "pages/fuelstation/FuelDispensePOS.jsx"
       ]
     },
     {
@@ -3420,7 +2602,6 @@
     {
       "file": "components/client/OrderWorkspaceNavigation.jsx",
       "imported_by": [
-        "pages/client/PostAgreement.jsx",
         "pages/client/PostOrder.jsx"
       ]
     },
@@ -3428,7 +2609,8 @@
       "file": "components/common/AuthCard.jsx",
       "imported_by": [
         "pages/auth/ResetPassword.jsx",
-        "pages/auth/Signup.jsx"
+        "pages/auth/Signup.jsx",
+        "pages/auth/SignupTerms.jsx"
       ]
     },
     {
@@ -3438,10 +2620,14 @@
         "pages/auth/Signup.jsx",
         "pages/auth/roledetails/DriverDetails.jsx",
         "pages/auth/roledetails/EverydayUserDetails.jsx",
-        "pages/auth/roledetails/FuelStationDetails.jsx",
         "pages/auth/roledetails/LogisticsProviderDetails.jsx",
-        "pages/auth/roledetails/ServiceSeekerDetails.jsx",
-        "pages/auth/roledetails/ShopkeeperDetails.jsx"
+        "pages/auth/roledetails/ServiceSeekerDetails.jsx"
+      ]
+    },
+    {
+      "file": "components/common/InsuranceReminder.jsx",
+      "imported_by": [
+        "App.jsx"
       ]
     },
     {
@@ -3466,18 +2652,21 @@
         "pages/auth/Login.jsx",
         "pages/auth/ResetPassword.jsx",
         "pages/auth/Signup.jsx",
+        "pages/transporter/ac_history.jsx",
+        "pages/transporter/settings.jsx",
+        "pages/transporter/truck_configuration.jsx",
         "pages/auth/roledetails/DriverDetails.jsx",
         "pages/auth/roledetails/EverydayUserDetails.jsx",
-        "pages/auth/roledetails/FuelStationDetails.jsx",
         "pages/auth/roledetails/LogisticsProviderDetails.jsx",
-        "pages/auth/roledetails/ServiceSeekerDetails.jsx",
-        "pages/auth/roledetails/ShopkeeperDetails.jsx"
+        "pages/auth/roledetails/ServiceSeekerDetails.jsx"
       ]
     },
     {
       "file": "components/common/NotificationBell.jsx",
       "imported_by": [
+        "components/admin/AdminLayout.jsx",
         "components/client/ClientLayout.jsx",
+        "components/driver/DriverLayout.jsx",
         "components/everyday/EverydayLayout.jsx",
         "components/transporter/TransporterLayout.jsx"
       ]
@@ -3543,22 +2732,6 @@
       ]
     },
     {
-      "file": "components/fuelstation/FuelStationGuard.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "components/fuelstation/FuelStationLayout.jsx",
-      "imported_by": [
-        "pages/fuelstation/FuelDispensePOS.jsx",
-        "pages/fuelstation/FuelHistoryPage.jsx",
-        "pages/fuelstation/FuelPumpsPage.jsx",
-        "pages/fuelstation/FuelStationDashboard.jsx",
-        "pages/fuelstation/FuelStationProfile.jsx"
-      ]
-    },
-    {
       "file": "components/org/OrgShell.jsx",
       "imported_by": [
         "components/org/OrgUnavailablePage.jsx"
@@ -3606,31 +2779,16 @@
       "file": "components/security/StepUpProvider.jsx",
       "imported_by": [
         "App.jsx",
-        "pages/client/AgreementBids.jsx",
         "pages/client/BidCheckout.jsx",
         "pages/client/ClientOrderDetail.jsx",
         "pages/transporter/earning.jsx",
         "components/business/DeliveryClientHandshake.jsx",
-        "components/business/FuelVoucherPanel.jsx",
         "components/security/LogoutAllAction.jsx"
-      ]
-    },
-    {
-      "file": "components/shopkeeper/ShopkeeperGuard.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "components/shopkeeper/ShopkeeperLayout.jsx",
-      "imported_by": [
-        "App.jsx"
       ]
     },
     {
       "file": "components/transporter/DriverAssignmentPanel.jsx",
       "imported_by": [
-        "pages/transporter/MyAgreements.jsx",
         "pages/transporter/OrderTracking.jsx"
       ]
     },
@@ -3690,12 +2848,6 @@
       ]
     },
     {
-      "file": "pages/admin/AdminAgreements.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
       "file": "pages/admin/AdminDashboard.jsx",
       "imported_by": [
         "App.jsx"
@@ -3715,12 +2867,6 @@
     },
     {
       "file": "pages/admin/AdminLogin.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/admin/AdminPayments.jsx",
       "imported_by": [
         "App.jsx"
       ]
@@ -3758,10 +2904,8 @@
     {
       "file": "pages/admin/adminApi.js",
       "imported_by": [
-        "pages/admin/AdminAgreements.jsx",
         "pages/admin/AdminDashboard.jsx",
         "pages/admin/AdminDisputes.jsx",
-        "pages/admin/AdminPayments.jsx",
         "pages/admin/AdminPlatformSettings.jsx",
         "pages/admin/AdminTrucks.jsx",
         "pages/admin/AdminUserDetail.jsx",
@@ -3801,6 +2945,12 @@
       ]
     },
     {
+      "file": "pages/auth/SignupTerms.jsx",
+      "imported_by": [
+        "App.jsx"
+      ]
+    },
+    {
       "file": "pages/auth/Unlock.jsx",
       "imported_by": []
     },
@@ -3812,12 +2962,6 @@
     },
     {
       "file": "pages/auth/roledetails/EverydayUserDetails.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/auth/roledetails/FuelStationDetails.jsx",
       "imported_by": [
         "App.jsx"
       ]
@@ -3835,20 +2979,12 @@
       ]
     },
     {
-      "file": "pages/auth/roledetails/ShopkeeperDetails.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
       "file": "pages/auth/roledetails/StepShell.jsx",
       "imported_by": [
         "pages/auth/roledetails/DriverDetails.jsx",
         "pages/auth/roledetails/EverydayUserDetails.jsx",
-        "pages/auth/roledetails/FuelStationDetails.jsx",
         "pages/auth/roledetails/LogisticsProviderDetails.jsx",
-        "pages/auth/roledetails/ServiceSeekerDetails.jsx",
-        "pages/auth/roledetails/ShopkeeperDetails.jsx"
+        "pages/auth/roledetails/ServiceSeekerDetails.jsx"
       ]
     },
     {
@@ -3856,28 +2992,8 @@
       "imported_by": [
         "pages/auth/roledetails/DriverDetails.jsx",
         "pages/auth/roledetails/EverydayUserDetails.jsx",
-        "pages/auth/roledetails/FuelStationDetails.jsx",
         "pages/auth/roledetails/LogisticsProviderDetails.jsx",
-        "pages/auth/roledetails/ServiceSeekerDetails.jsx",
-        "pages/auth/roledetails/ShopkeeperDetails.jsx"
-      ]
-    },
-    {
-      "file": "pages/client/AgreementBids.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/client/AgreementDetail.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/client/Agreements.jsx",
-      "imported_by": [
-        "App.jsx"
+        "pages/auth/roledetails/ServiceSeekerDetails.jsx"
       ]
     },
     {
@@ -3915,19 +3031,7 @@
       ]
     },
     {
-      "file": "pages/client/MyAgreements.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
       "file": "pages/client/MyOrders.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/client/PostAgreement.jsx",
       "imported_by": [
         "App.jsx"
       ]
@@ -3951,27 +3055,16 @@
       ]
     },
     {
-      "file": "pages/client/agreementDates.mjs",
-      "imported_by": [
-        "pages/client/AgreementBids.jsx"
-      ]
-    },
-    {
       "file": "pages/client/clientUtils.jsx",
       "imported_by": [
         "auth/logout.js",
-        "pages/client/AgreementBids.jsx",
-        "pages/client/AgreementDetail.jsx",
-        "pages/client/Agreements.jsx",
         "pages/client/Balance.jsx",
         "pages/client/BidCheckout.jsx",
         "pages/client/ClientAccount.jsx",
         "pages/client/ClientDashboard.jsx",
         "pages/client/ClientOrderDetail.jsx",
         "pages/client/Messages.jsx",
-        "pages/client/MyAgreements.jsx",
         "pages/client/MyOrders.jsx",
-        "pages/client/PostAgreement.jsx",
         "pages/client/PostOrder.jsx",
         "pages/driver/DriverActiveTrip.jsx",
         "pages/driver/DriverDashboard.jsx",
@@ -3981,21 +3074,13 @@
         "pages/driver/DriverTrips.jsx",
         "pages/driver/DriverWallet.jsx",
         "pages/everyday/EverydayDashboard.jsx",
-        "pages/fuelstation/FuelDispensePOS.jsx",
-        "pages/shopkeeper/ShopkeeperPartsOrders.jsx",
         "pages/transporter/add_truck.jsx",
-        "pages/transporter/AgreementBids.jsx",
         "pages/transporter/AvailableBids.jsx",
-        "pages/transporter/marketplaceApi.js",
-        "pages/transporter/MyAgreements.jsx",
         "pages/transporter/MyBids.jsx",
         "pages/transporter/OrderTracking.jsx",
-        "pages/transporter/PartsMarketplace.jsx",
         "pages/transporter/track_truck.jsx",
         "components/business/BusinessRules.jsx",
         "components/business/DeliveryClientHandshake.jsx",
-        "components/business/FuelVoucherPanel.jsx",
-        "components/business/FuelVoucherRedemption.jsx",
         "components/business/OperationalInvestigations.jsx",
         "components/business/TripOperationalActions.jsx",
         "components/chat/ChatWindow.jsx",
@@ -4064,36 +3149,6 @@
       ]
     },
     {
-      "file": "pages/fuelstation/FuelDispensePOS.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/fuelstation/FuelHistoryPage.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/fuelstation/FuelPumpsPage.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/fuelstation/FuelStationDashboard.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/fuelstation/FuelStationProfile.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
       "file": "pages/future/service_history.jsx",
       "imported_by": [
         "App.jsx"
@@ -4106,95 +3161,7 @@
       ]
     },
     {
-      "file": "pages/shared/AiChat.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
       "file": "pages/shared/SecuritySettings.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/AnalysisView.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/CreateTable.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/InventoryPage.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/POSPage.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/SalesAnalyticsPage.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/ShopkeeperDashboard.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/ShopkeeperPartsOrders.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/ShopkeeperProfile.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/TableView.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/posAmounts.js",
-      "imported_by": [
-        "pages/shopkeeper/POSPage.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/posUtils.js",
-      "imported_by": [
-        "pages/shopkeeper/InventoryPage.jsx",
-        "pages/shopkeeper/POSPage.jsx",
-        "pages/shopkeeper/receiptPrinting.js",
-        "pages/shopkeeper/SalesAnalyticsPage.jsx",
-        "pages/shopkeeper/ShopkeeperProfile.jsx"
-      ]
-    },
-    {
-      "file": "pages/shopkeeper/receiptPrinting.js",
-      "imported_by": [
-        "pages/shopkeeper/POSPage.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/AgreementBids.jsx",
       "imported_by": [
         "App.jsx"
       ]
@@ -4203,12 +3170,6 @@
       "file": "pages/transporter/AvailableBids.jsx",
       "imported_by": [
         "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/DeliveryHandoffCode.jsx",
-      "imported_by": [
-        "pages/transporter/PartsOrdersPage.jsx"
       ]
     },
     {
@@ -4224,12 +3185,6 @@
       ]
     },
     {
-      "file": "pages/transporter/MyAgreements.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
       "file": "pages/transporter/MyBids.jsx",
       "imported_by": [
         "App.jsx"
@@ -4237,36 +3192,6 @@
     },
     {
       "file": "pages/transporter/OrderTracking.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/PartsCartPage.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/PartsMarketplace.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/PartsOrdersPage.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/PartsRequestsPage.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/PartsStoreDashboard.jsx",
       "imported_by": [
         "App.jsx"
       ]
@@ -4349,27 +3274,6 @@
       "file": "pages/transporter/leaderboard.jsx",
       "imported_by": [
         "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/marketplaceApi.js",
-      "imported_by": [
-        "pages/transporter/PartsCartPage.jsx",
-        "pages/transporter/PartsMarketplace.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/partsCart.js",
-      "imported_by": [
-        "pages/transporter/PartsCartPage.jsx",
-        "pages/transporter/PartsMarketplace.jsx",
-        "pages/transporter/PartsStoreDashboard.jsx"
-      ]
-    },
-    {
-      "file": "pages/transporter/partsCartStorage.mjs",
-      "imported_by": [
-        "pages/transporter/partsCart.js"
       ]
     },
     {

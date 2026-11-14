@@ -34,12 +34,11 @@ def register_driver_business_routes(blueprint):
             from driver.routes import _lock_source_trip, _source_is_active
             owner = request.current_user["id"]
             trip_id = None if data.get("trip_id") is None else parse_positive_id(data["trip_id"], "Trip ID")
-            agreement_id = None if data.get("agreement_trip_id") is None else parse_positive_id(data["agreement_trip_id"], "Agreement trip ID")
             truck_id = parse_positive_id(data.get("truck_id"), "Truck ID")
-            if (trip_id is None) == (agreement_id is None):
-                raise ValueError("Select exactly one trip.")
-            source = _lock_source_trip(db, trip_id, agreement_id, owner, truck_id)
-            if not source or not _source_is_active({"agreement_trip_id": agreement_id}, source):
+            if trip_id is None:
+                raise ValueError("Select a shipment trip.")
+            source = _lock_source_trip(db, trip_id, owner, truck_id)
+            if not source or not _source_is_active({"trip_id": trip_id}, source):
                 raise CheckoutError("An eligible owned trip and truck are required.", 409, "owner_operator_trip_invalid")
             truck = db.execute_exact("SELECT * FROM vehicles WHERE id=%s AND owner_user_id=%s FOR UPDATE", (truck_id, owner)).fetchone()
             if not truck or truck["status"] not in {"active", "on_job"}:
@@ -57,19 +56,19 @@ def register_driver_business_routes(blueprint):
             )
             profile = db.execute_exact("SELECT * FROM driver_profiles WHERE user_id=%s FOR UPDATE", (owner,)).fetchone()
             existing = db.execute_exact("SELECT * FROM driver_trip_assignments WHERE driver_user_id=%s AND status IN('accepted','in_progress')", (owner,)).fetchone()
-            if existing and existing["assignment_mode"] == "owner_operator" and existing["truck_id"] == truck_id and existing["trip_id"] == trip_id and existing["agreement_trip_id"] == agreement_id:
+            if existing and existing["assignment_mode"] == "owner_operator" and existing["truck_id"] == truck_id and existing["trip_id"] == trip_id:
                 return {"assignment_id": existing["id"], "replayed": True}
             busy = db.execute_exact(
                 "SELECT 1 FROM driver_trip_assignments WHERE status IN('accepted','in_progress') "
-                "AND (driver_user_id=%s OR truck_id=%s OR trip_id=%s OR agreement_trip_id=%s) LIMIT 1",
-                (owner, truck_id, trip_id, agreement_id),
+                "AND (driver_user_id=%s OR truck_id=%s OR trip_id=%s) LIMIT 1",
+                (owner, truck_id, trip_id),
             ).fetchone()
             if busy or not profile["is_available"]:
                 raise CheckoutError("Driver, truck or trip already has an active assignment.", 409, "assignment_conflict")
             result = db.execute_exact(
-                "INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_type,trip_id,agreement_trip_id,offer_amount,status,accepted_at,assignment_mode) "
-                "VALUES(%s,%s,%s,%s,%s,%s,0,'accepted',now(),'owner_operator') RETURNING id",
-                (owner, owner, truck_id, "agreement" if agreement_id else "one_time", trip_id, agreement_id),
+                "INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_id,offer_amount,status,accepted_at,assignment_mode) "
+                "VALUES(%s,%s,%s,%s,0,'accepted',now(),'owner_operator') RETURNING id",
+                (owner, owner, truck_id, trip_id),
             ).fetchone()
             db.execute_exact("UPDATE driver_profiles SET current_truck_id=%s,is_available=false,license_number=%s,license_expiry=%s,updated_at=now() WHERE user_id=%s",
                              (truck_id, credential["license_number"], credential["license_expiry"], owner))
@@ -114,8 +113,8 @@ def register_driver_business_routes(blueprint):
             if kind not in {"abandonment", "accident", "theft", "negligence", "emergency", "other"} or not 10 <= len(description) <= 10000 or not isinstance(evidence, list) or len(evidence) > 50 or len(json.dumps(evidence)) > 50000:
                 raise ValueError("Provide the incident type, detailed report and bounded evidence list.")
             # Persist immutable assignment and latest authoritative GPS evidence.
-            gps = db.execute_exact("SELECT id,lat,lng,recorded_at FROM driver_gps_pings WHERE driver_user_id=%s AND truck_id=%s AND trip_id IS NOT DISTINCT FROM %s AND agreement_trip_id IS NOT DISTINCT FROM %s ORDER BY recorded_at DESC LIMIT 1", (assignment["driver_user_id"], assignment["truck_id"],assignment['trip_id'],assignment['agreement_trip_id'])).fetchone()
-            snapshot = {"submitted": evidence, "assignment": {k: assignment[k] for k in ("id", "driver_user_id", "transporter_user_id", "trip_id", "agreement_trip_id", "truck_id", "accepted_at")}, "latest_gps": {k: str(v) for k, v in gps.items()} if gps else None}
+            gps = db.execute_exact("SELECT id,lat,lng,recorded_at FROM driver_gps_pings WHERE driver_user_id=%s AND truck_id=%s AND trip_id IS NOT DISTINCT FROM %s ORDER BY recorded_at DESC LIMIT 1", (assignment["driver_user_id"], assignment["truck_id"],assignment['trip_id'])).fetchone()
+            snapshot = {"submitted": evidence, "assignment": {k: assignment[k] for k in ("id", "driver_user_id", "transporter_user_id", "trip_id", "truck_id", "accepted_at")}, "latest_gps": {k: str(v) for k, v in gps.items()} if gps else None}
             row = db.execute_exact("INSERT INTO operational_incidents(assignment_id,reporter_user_id,incident_type,description,evidence) VALUES(%s,%s,%s,%s,%s::jsonb) RETURNING id", (assignment_id, actor, kind, description, json.dumps(snapshot))).fetchone()
             if assignment["trip_id"]:
                 source = db.execute_exact("SELECT order_id FROM shipment_trips WHERE id=%s", (assignment["trip_id"],)).fetchone()
@@ -158,7 +157,7 @@ def register_driver_business_routes(blueprint):
             return json_response({'success':False,'message':str(exc)},400)
         with open_db() as db:
             rows=db.execute_exact(
-                "SELECT i.*,a.driver_user_id,a.transporter_user_id,a.trip_id,a.agreement_trip_id,a.truck_id,"
+                "SELECT i.*,a.driver_user_id,a.transporter_user_id,a.trip_id,a.truck_id,"
                 "d.full_name AS driver_name,t.full_name AS transporter_name "
                 "FROM operational_incidents i JOIN driver_trip_assignments a ON a.id=i.assignment_id "
                 "JOIN users d ON d.id=a.driver_user_id JOIN users t ON t.id=a.transporter_user_id "
@@ -173,7 +172,7 @@ def register_driver_business_routes(blueprint):
     def read_operational_investigation(incident_id):
         with open_db() as db:
             row=db.execute_exact(
-                "SELECT i.*,a.driver_user_id,a.transporter_user_id,a.trip_id,a.agreement_trip_id,a.truck_id "
+                "SELECT i.*,a.driver_user_id,a.transporter_user_id,a.trip_id,a.truck_id "
                 "FROM operational_incidents i JOIN driver_trip_assignments a ON a.id=i.assignment_id "
                 "WHERE i.id=%s AND (%s OR a.driver_user_id=%s OR a.transporter_user_id=%s)",
                 (incident_id,request.current_user.get('role')=='platform_admin',request.current_user['id'],request.current_user['id']),

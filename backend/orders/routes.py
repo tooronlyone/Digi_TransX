@@ -53,7 +53,7 @@ from .reviews import (
     validate_review_payload,
 )
 from wallet.helpers import round_money
-from agreements.helpers import require_client_role, require_transporter_role
+from shared.roles import require_client_role, require_transporter_role
 from .helpers import (
     serialize_order,
     serialize_bid,

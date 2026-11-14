@@ -316,7 +316,7 @@ export default function Settings() {
                   <p>Control how and when you receive notifications</p>
                 </div>
                 {[
-                  { key: 'email', label: 'Optional Operational Email', desc: 'Receive optional email copies for order, bid, trip, and agreement activity' },
+                  { key: 'email', label: 'Optional Operational Email', desc: 'Receive optional email copies for order, bid, and trip activity' },
                   { key: 'whatsapp', label: 'WhatsApp Notifications', desc: 'Receive time-critical dispatch alerts on WhatsApp' },
                   { key: 'push',  label: 'Push Notifications',  desc: 'Receive real-time browser updates' },
                 ].map(item => (

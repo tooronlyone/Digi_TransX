@@ -11,7 +11,6 @@ from flask import Flask
 import psycopg2
 import pytest
 
-import agreements.routes as agreements_routes
 import auth.helpers as auth_helpers
 from auth import mpin_service
 import auth.routes as auth_routes
@@ -61,7 +60,6 @@ def high_risk_route_env(high_risk_route_database_url, monkeypatch):
             conn.close()
 
     for module in (
-        agreements_routes,
         auth_helpers,
         auth_routes,
         orders_routes,
@@ -82,7 +80,6 @@ def high_risk_route_env(high_risk_route_database_url, monkeypatch):
     app.register_blueprint(auth_routes.auth_blueprint)
     app.register_blueprint(orders_routes.orders_blueprint)
     app.register_blueprint(wallet_routes.wallet_blueprint)
-    app.register_blueprint(agreements_routes.agreements_blueprint)
 
     seed_connection = psycopg2.connect(high_risk_route_database_url)
     db = Db(seed_connection)
@@ -447,62 +444,6 @@ def test_payout_destination_consumes_real_claim_and_writes_event(high_risk_route
     assert destination["payout_card_token"].startswith("dummytok_")
     assert destination["payout_card_last_four"] == "1111"
     _assert_consumed(db, action["action_key"])
-
-
-def test_unapproved_variable_fare_agreement_cannot_consume_authorization_or_create_contract(
-    high_risk_route_env,
-):
-    client, db = high_risk_route_env
-    user_id = _new_user(
-        db, legacy_role="service_seeker", app_role="customer", suffix="agreement"
-    )
-    transporter_id = _new_user(
-        db, legacy_role="logistics_provider", app_role="transporter",
-        suffix="agreement-carrier",
-    )
-    truck_id = _seed_vehicle(db, transporter_id, "agreement")
-    post_id = db.execute(
-        """
-        INSERT INTO agreement_posts(client_user_id,title,cargo_type,service_area)
-        VALUES(%s,'Annual steel','Steel','Punjab')
-        RETURNING id
-        """,
-        (user_id,),
-    ).fetchone()["id"]
-    bid_id = db.execute(
-        """
-        INSERT INTO agreement_bids(post_id,transporter_user_id,status)
-        VALUES(%s,%s,'pending')
-        RETURNING id
-        """,
-        (post_id, transporter_id),
-    ).fetchone()["id"]
-    db.execute(
-        """
-        INSERT INTO agreement_bid_trucks(
-            bid_id,truck_id,per_km_rate,minimum_monthly_guarantee
-        )
-        VALUES(%s,%s,100,50000)
-        """,
-        (bid_id, truck_id),
-    )
-    _attach_authentication(client, db, user_id)
-    payload = {
-        "post_id": post_id,
-        "duration_months": 3,
-        "start_date": "2026-09-01",
-        "cargo_type": "Steel",
-        "service_area": "Punjab",
-        "selected_trucks": [{"bid_id": bid_id, "truck_id": truck_id}],
-        "contract_text": "Canonical route integration agreement.",
-    }
-
-    response=client.post('/api/agreements/finalize',json=payload,headers=CSRF)
-    assert response.status_code==409,response.get_data(as_text=True)
-    assert response.json['code']=='agreement_escrow_policy_required'
-    assert db.execute('SELECT count(*) AS count FROM agreements').fetchone()['count']==0
-    assert db.execute("SELECT count(*) AS count FROM mpin_step_up_authorizations WHERE state='consumed'").fetchone()['count']==0
-    assert db.execute('SELECT status FROM agreement_posts WHERE id=%s',(post_id,)).fetchone()['status']=='open'
 
 
 def test_delivery_release_consumes_real_authorization_and_writes_event(

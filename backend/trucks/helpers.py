@@ -203,8 +203,8 @@ def infer_hybrid_truck_defaults(
 ):
     """Derive canonical catalog_type_key, volume_max_cbm, and bed dimensions
     from the Hybrid Truck Model or legacy body/detail fields when not explicitly
-    supplied, so every registered truck is immediately matchable by both
-    One-Time Orders and Long-Term Agreements."""
+    supplied, so every registered truck is immediately matchable by one-time
+    orders."""
     specs = _parse_specs_dict(catalog_specs_raw)
     body = (body_style or specs.get("body_type") or truck_type or "").strip()
     detail = str(specs.get("detail_type") or "").strip().lower()

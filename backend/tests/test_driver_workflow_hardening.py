@@ -20,7 +20,7 @@ def _driver(env):
     return user,code
 
 
-def _graph(env, *, owner=None, driver=None, kind="one_time", truck_id=None, fare="1000"):
+def _graph(env, *, owner=None, driver=None, truck_id=None, fare="1000"):
     owner = owner or env.user("logistics_provider")
     driver,code = driver or _driver(env)
     customer = env.user()
@@ -31,45 +31,24 @@ def _graph(env, *, owner=None, driver=None, kind="one_time", truck_id=None, fare
                 "VALUES(%s,%s,%s,'Cargo',10,'Cargo','active') RETURNING id",
                 (owner["id"],uuid4().hex,uuid4().hex),
             ).fetchone()["id"]
-        if kind == "one_time":
-            shipment_id = db.execute(
-                "INSERT INTO shipments(client_user_id,pickup_city,dropoff_city,pickup_date,pickup_time,goods_type,goods_weight_tons,seeker_kind_snapshot,status) "
-                "VALUES(%s,'Test A','Test B',CURRENT_DATE,'10:00','Test goods',1,'business','ready_to_start') RETURNING id",
-                (customer["id"],),
-            ).fetchone()["id"]
-            bid_id = db.execute(
-                "INSERT INTO shipment_bids(order_id,transporter_user_id,truck_id,bid_price,status) VALUES(%s,%s,%s,%s,'accepted') RETURNING id",
-                (shipment_id,owner["id"],truck_id,fare),
-            ).fetchone()["id"]
-            trip_id = db.execute(
-                "INSERT INTO shipment_trips(order_id,accepted_bid_id,transporter_user_id,truck_id,status) VALUES(%s,%s,%s,%s,'ready_to_start') RETURNING id",
-                (shipment_id,bid_id,owner["id"],truck_id),
-            ).fetchone()["id"]
-        else:
-            post_id = db.execute(
-                "INSERT INTO agreement_posts(client_user_id,title,cargo_type,service_area,status) VALUES(%s,'Test contract','Test goods','Test area','active') RETURNING id",
-                (customer["id"],),
-            ).fetchone()["id"]
-            agreement_id = db.execute(
-                "INSERT INTO agreements(post_id,client_user_id,duration_months,cargo_type,service_area,start_date,end_date) "
-                "VALUES(%s,%s,1,'Test goods','Test area',CURRENT_DATE,CURRENT_DATE+30) RETURNING id",
-                (post_id,customer["id"]),
-            ).fetchone()["id"]
-            agreement_truck_id = db.execute(
-                "INSERT INTO agreement_trucks(agreement_id,truck_id,transporter_user_id,per_km_rate,minimum_monthly_guarantee) VALUES(%s,%s,%s,10,100) RETURNING id",
-                (agreement_id,truck_id,owner["id"]),
-            ).fetchone()["id"]
-            trip_id = db.execute(
-                "INSERT INTO agreement_trips(agreement_id,agreement_truck_id,truck_id,transporter_user_id,pickup_description,trip_date,status) "
-                "VALUES(%s,%s,%s,%s,'Test pickup',CURRENT_DATE,'in_progress') RETURNING id",
-                (agreement_id,agreement_truck_id,truck_id,owner["id"]),
-            ).fetchone()["id"]
+        shipment_id = db.execute(
+            "INSERT INTO shipments(client_user_id,pickup_city,dropoff_city,pickup_date,pickup_time,goods_type,goods_weight_tons,seeker_kind_snapshot,status) "
+            "VALUES(%s,'Test A','Test B',CURRENT_DATE,'10:00','Test goods',1,'business','ready_to_start') RETURNING id",
+            (customer["id"],),
+        ).fetchone()["id"]
+        bid_id = db.execute(
+            "INSERT INTO shipment_bids(order_id,transporter_user_id,truck_id,bid_price,status) VALUES(%s,%s,%s,%s,'accepted') RETURNING id",
+            (shipment_id,owner["id"],truck_id,fare),
+        ).fetchone()["id"]
+        trip_id = db.execute(
+            "INSERT INTO shipment_trips(order_id,accepted_bid_id,transporter_user_id,truck_id,status) VALUES(%s,%s,%s,%s,'ready_to_start') RETURNING id",
+            (shipment_id,bid_id,owner["id"],truck_id),
+        ).fetchone()["id"]
     owner_client,_ = env.login(owner)
     driver_client,_ = env.login(driver)
-    payload = {"unique_driver_id":code,"truck_id":truck_id,"offer_amount":"100.00",
-               "agreement_trip_id" if kind == "agreement" else "trip_id":trip_id}
+    payload = {"unique_driver_id":code,"truck_id":truck_id,"offer_amount":"100.00","trip_id":trip_id}
     return SimpleNamespace(owner=owner,driver=driver,driver_code=code,customer=customer,owner_client=owner_client,
-                           driver_client=driver_client,truck_id=truck_id,trip_id=trip_id,kind=kind,payload=payload)
+                           driver_client=driver_client,truck_id=truck_id,trip_id=trip_id,kind="one_time",payload=payload)
 
 
 def _invite(env, graph):
@@ -84,22 +63,20 @@ def _accept(env, graph, assignment_id):
 
 
 def _set_status(env, graph, status):
-    table = "agreement_trips" if graph.kind == "agreement" else "shipment_trips"
     with env.db() as db:
-        db.execute(f"UPDATE {table} SET status=%s WHERE id=%s",(status,graph.trip_id))
+        db.execute("UPDATE shipment_trips SET status=%s WHERE id=%s",(status,graph.trip_id))
 
 
 def _review_payload(graph, assignment_id, **extra):
     return {"assignment_id":assignment_id,"driver_user_id":graph.driver["id"],"rating":5,**extra}
 
 
-@pytest.mark.parametrize("kind",["one_time","agreement"])
-def test_dispatch_requires_owned_trip_and_matching_truck(remediation_env,kind):
+def test_dispatch_requires_owned_trip_and_matching_truck(remediation_env):
     env = remediation_env
-    graph = _graph(env,kind=kind)
+    graph = _graph(env)
     outsider = env.user("logistics_provider")
-    outsider_graph = _graph(env,owner=outsider,kind=kind)
-    forged = {**graph.payload,"agreement_trip_id" if kind == "agreement" else "trip_id":outsider_graph.trip_id}
+    outsider_graph = _graph(env,owner=outsider)
+    forged = {**graph.payload,"trip_id":outsider_graph.trip_id}
     response = graph.owner_client.post("/api/transporter/dispatch-driver",headers=env.headers,json=forged)
     assert response.status_code == 404
     mismatched = {**graph.payload,"truck_id":outsider_graph.truck_id}
@@ -108,7 +85,7 @@ def test_dispatch_requires_owned_trip_and_matching_truck(remediation_env,kind):
         assert db.execute("SELECT count(*) AS n FROM driver_trip_assignments WHERE transporter_user_id=%s",(graph.owner["id"],)).fetchone()["n"] == 0
 
 
-@pytest.mark.parametrize("extra",[{"trip_id":None},{"agreement_trip_id":1},{"trip_id":True},{"truck_id":0}])
+@pytest.mark.parametrize("extra",[{"trip_id":None},{"trip_id":True},{"truck_id":0}])
 def test_dispatch_rejects_missing_ambiguous_or_wrong_identifier_shape(remediation_env,extra):
     env = remediation_env
     graph = _graph(env)
@@ -165,10 +142,9 @@ def test_two_drivers_cannot_accept_same_truck_and_trip(remediation_env):
         assert sorted(pool.map(accept,[(first.driver_client,first_id),(second_client,second_id)])) == [200,409]
 
 
-@pytest.mark.parametrize("kind",["one_time","agreement"])
-def test_gps_derives_active_assignment_identifiers_and_rejects_forgery(remediation_env,kind):
+def test_gps_derives_active_assignment_identifiers_and_rejects_forgery(remediation_env):
     env = remediation_env
-    graph = _graph(env,kind=kind)
+    graph = _graph(env)
     assignment_id = _invite(env,graph)
     assert graph.driver_client.post("/api/driver/gps/ping",headers=env.headers,json={"lat":31,"lng":74}).status_code == 409
     _accept(env,graph,assignment_id)
@@ -177,9 +153,8 @@ def test_gps_derives_active_assignment_identifiers_and_rejects_forgery(remediati
     assert response.status_code == 200,response.json
     assert response.json["assignment_id"] == assignment_id
     with env.db() as db:
-        ping = db.execute("SELECT truck_id,trip_id,agreement_trip_id,battery_level FROM driver_gps_pings WHERE driver_user_id=%s",(graph.driver["id"],)).fetchone()
-        assert ping == {"truck_id":graph.truck_id,"trip_id":graph.trip_id if kind == "one_time" else None,
-                        "agreement_trip_id":graph.trip_id if kind == "agreement" else None,"battery_level":0}
+        ping = db.execute("SELECT truck_id,trip_id,battery_level FROM driver_gps_pings WHERE driver_user_id=%s",(graph.driver["id"],)).fetchone()
+        assert ping == {"truck_id":graph.truck_id,"trip_id":graph.trip_id,"battery_level":0}
         assert db.execute("SELECT current_lat,current_lng FROM vehicles WHERE id=%s",(graph.truck_id,)).fetchone() == {"current_lat":31.5,"current_lng":74.25}
     _set_status(env,graph,"completed")
     assert graph.driver_client.post("/api/driver/gps/ping",headers=env.headers,json={"lat":32,"lng":75}).status_code == 409
@@ -200,10 +175,9 @@ def test_review_rejects_unrelated_roles(remediation_env,role):
     assert client.post("/api/driver/rate",headers=env.headers,json={"driver_user_id":1,"assignment_id":1,"rating":5}).status_code == 403
 
 
-@pytest.mark.parametrize("kind",["one_time","agreement"])
-def test_review_requires_owned_completed_assignment_and_incident_starts_investigating(remediation_env,kind):
+def test_review_requires_owned_completed_assignment_and_incident_starts_investigating(remediation_env):
     env = remediation_env
-    graph = _graph(env,kind=kind)
+    graph = _graph(env)
     assignment_id = _invite(env,graph)
     payload = _review_payload(graph,assignment_id,incident_type="theft",incident_description="Unverified allegation")
     assert graph.owner_client.post("/api/driver/rate",headers=env.headers,json=payload).status_code == 409
@@ -270,18 +244,17 @@ def test_database_rejects_second_active_assignment_even_without_route(remediatio
     next_graph = _graph(env,driver=(graph.driver,graph.driver_code))
     with pytest.raises(psycopg2.IntegrityError) as failure:
         with env.db() as db:
-            db.execute("INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_type,trip_id,status,accepted_at) VALUES(%s,%s,%s,'one_time',%s,'accepted',now())",
+            db.execute("INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_id,status,accepted_at) VALUES(%s,%s,%s,%s,'accepted',now())",
                        (graph.driver["id"],next_graph.owner["id"],next_graph.truck_id,next_graph.trip_id))
     assert failure.value.pgcode == "23505"
     assert failure.value.diag.constraint_name == "driver_assignment_one_active_driver"
 
 
-@pytest.mark.parametrize("kind",["one_time","agreement"])
-def test_assignment_listing_is_owned_and_exposes_only_safe_consent_review_fields(remediation_env,kind):
+def test_assignment_listing_is_owned_and_exposes_only_safe_consent_review_fields(remediation_env):
     env = remediation_env
-    graph = _graph(env,kind=kind)
+    graph = _graph(env)
     assignment_id = _invite(env,graph)
-    query = {"agreement_trip_id" if kind == "agreement" else "trip_id":graph.trip_id}
+    query = {"trip_id":graph.trip_id}
     url = "/api/transporter/driver-assignments"
     outsider,_ = env.login(env.user("logistics_provider"))
     assert outsider.get(url,query_string=query).status_code == 404
@@ -307,8 +280,8 @@ def test_assignment_listing_limit_cannot_hide_active_driver(remediation_env):
     _accept(env,graph,assignment_id)
     with env.db() as db:
         db.execute(
-            "INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_type,trip_id,status) "
-            "SELECT %s,%s,%s,'one_time',%s,'requested' FROM generate_series(1,101)",
+            "INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_id,status) "
+            "SELECT %s,%s,%s,%s,'requested' FROM generate_series(1,101)",
             (graph.driver["id"],graph.owner["id"],graph.truck_id,graph.trip_id),
         )
     response = graph.owner_client.get("/api/transporter/driver-assignments",query_string={"trip_id":graph.trip_id})
@@ -324,8 +297,8 @@ def test_legacy_foreign_assignment_cannot_leak_through_fuel_endpoints(remediatio
     foreign = _graph(env)
     with env.db() as db:
         assignment_id = db.execute(
-            "INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_type,trip_id,status,accepted_at) "
-            "VALUES(%s,%s,%s,'one_time',%s,'completed',now()) RETURNING id",
+            "INSERT INTO driver_trip_assignments(driver_user_id,transporter_user_id,truck_id,trip_id,status,accepted_at) "
+            "VALUES(%s,%s,%s,%s,'completed',now()) RETURNING id",
             (graph.driver["id"],graph.owner["id"],graph.truck_id,foreign.trip_id),
         ).fetchone()["id"]
         db.execute(
@@ -343,10 +316,9 @@ def test_legacy_foreign_assignment_cannot_leak_through_fuel_endpoints(remediatio
     assert history.json["logs"][0]["pickup_city"] is None and history.json["logs"][0]["dropoff_city"] is None
 
 
-@pytest.mark.parametrize("kind",["one_time","agreement"])
-def test_fuel_history_uses_consented_assignment_and_keeps_source_namespace(remediation_env,kind):
+def test_fuel_history_uses_consented_assignment(remediation_env):
     env = remediation_env
-    graph = _graph(env,kind=kind)
+    graph = _graph(env)
     assignment_id = _invite(env,graph)
     assert graph.driver_client.get("/api/driver/trips-for-fuel").json["trips"] == []
     _accept(env,graph,assignment_id)
@@ -357,6 +329,5 @@ def test_fuel_history_uses_consented_assignment_and_keeps_source_namespace(remed
     })
     assert logged.status_code == 200,logged.json
     with env.db() as db:
-        row = db.execute("SELECT trip_id,agreement_trip_id FROM driver_fuel_logs WHERE id=%s",(logged.json["log_id"],)).fetchone()
-        assert row == {"trip_id":graph.trip_id if kind == "one_time" else None,
-                       "agreement_trip_id":graph.trip_id if kind == "agreement" else None}
+        row = db.execute("SELECT trip_id FROM driver_fuel_logs WHERE id=%s",(logged.json["log_id"],)).fetchone()
+        assert row == {"trip_id":graph.trip_id}

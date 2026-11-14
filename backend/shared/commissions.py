@@ -3,9 +3,7 @@
 Single source of truth for platform commission math and for reading/creating
 the immutable, versioned commission policies + Terms versions.
 
-Two completely independent policy types exist:
-  - 'one_time_order'  : one-time shipment/order flow
-  - 'agreement'       : monthly agreement flow
+The active V1 policy type is ``one_time_order`` for shipment/order flows.
 
 Business rules enforced here:
   - company share is validated as >= 0 and < 100 with at most 2 decimal places
@@ -14,7 +12,7 @@ Business rules enforced here:
   - policy versions are append-only; a change creates a new version and a new
     Terms version in the same database transaction (see publish flow in
     admin/routes.py)
-  - accepted orders / finalized agreements keep their saved snapshot forever;
+  - accepted orders keep their saved snapshot forever;
     rows created before this feature fall back to the legacy 20/80 split
 """
 
@@ -22,12 +20,10 @@ from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 
 
 POLICY_TYPE_ONE_TIME = "one_time_order"
-POLICY_TYPE_AGREEMENT = "agreement"
-POLICY_TYPES = (POLICY_TYPE_ONE_TIME, POLICY_TYPE_AGREEMENT)
+POLICY_TYPES = (POLICY_TYPE_ONE_TIME,)
 
 POLICY_TYPE_LABELS = {
     POLICY_TYPE_ONE_TIME: "One-time Order",
-    POLICY_TYPE_AGREEMENT: "Agreement",
 }
 
 # Legacy fallback: split used before commission policies existed. Existing
@@ -155,18 +151,6 @@ def split_final_amount(final_amount, company_share_percent=None):
     return float(company_fee), float(transporter_amount)
 
 
-def recalculate_payment_fields(total_km, per_km_rate, minimum_guarantee, company_share_percent=None):
-    """Agreement monthly-payment amounts from distance, rate and guarantee.
-
-    Returns (total_earned, final_amount, company_fee, transporter_amount) as
-    2-decimal floats, splitting with the agreement's snapshot share.
-    """
-    total_earned = _round2(Decimal(str(total_km or 0)) * Decimal(str(per_km_rate or 0)))
-    final_amount = max(total_earned, _round2(minimum_guarantee))
-    company_fee, transporter_amount = split_final_amount(final_amount, company_share_percent)
-    return float(total_earned), float(final_amount), company_fee, transporter_amount
-
-
 def policy_company_share(policy):
     """Company share of a policy row; a missing policy -> legacy 20% default."""
     if not policy:
@@ -175,7 +159,7 @@ def policy_company_share(policy):
 
 
 def snapshot_company_share(row):
-    """Company share saved on a shipment/agreement row (legacy rows -> 20)."""
+    """Company share saved on a shipment row (legacy rows -> 20)."""
     value = (row or {}).get("company_share_percent_snapshot")
     if value is None:
         return DEFAULT_COMPANY_SHARE_PERCENT
@@ -221,7 +205,7 @@ def create_policy_version(db, policy_type, company_share_percent, change_summary
                           admin_user_id, effective_at_iso):
     """Append a new immutable policy version. Does NOT commit."""
     if policy_type not in POLICY_TYPES:
-        raise ValueError("Policy type must be one_time_order or agreement.")
+        raise ValueError("Policy type must be one_time_order.")
     company = Decimal(str(company_share_percent)).quantize(TWO_PLACES)
     transporter = transporter_share_percent_for(company)
     current = db.execute(
@@ -271,9 +255,9 @@ def list_terms_versions(db):
     return [dict(row) for row in rows]
 
 
-def create_terms_version(db, one_time_policy_id, agreement_policy_id, change_summary,
+def create_terms_version(db, one_time_policy_id, change_summary,
                          admin_user_id, published_at_iso):
-    """Append a new immutable Terms version referencing both policies. Does NOT commit."""
+    """Append an immutable Terms version for the one-time policy. Does NOT commit."""
     current = db.execute(
         "SELECT COALESCE(MAX(version_number), 0) AS latest FROM terms_versions"
     ).fetchone()
@@ -282,9 +266,9 @@ def create_terms_version(db, one_time_policy_id, agreement_policy_id, change_sum
         """
         INSERT INTO terms_versions (
             version_number, effective_at, change_summary,
-            one_time_policy_id, agreement_policy_id,
+            one_time_policy_id,
             published_by_admin_user_id, published_at
-        ) VALUES (%s, %s, %s, %s, %s, %s, %s)
+        ) VALUES (%s, %s, %s, %s, %s, %s)
         RETURNING id
         """,
         (
@@ -292,7 +276,6 @@ def create_terms_version(db, one_time_policy_id, agreement_policy_id, change_sum
             published_at_iso,
             (change_summary or "").strip(),
             one_time_policy_id,
-            agreement_policy_id,
             admin_user_id,
             published_at_iso,
         ),
@@ -303,17 +286,16 @@ def create_terms_version(db, one_time_policy_id, agreement_policy_id, change_sum
 
 def publish_commission_change(db, policy_type, company_share_percent, change_summary,
                               admin_user_id, stamp_iso):
-    """Publish a new commission rate for ONE policy type.
+    """Publish a one-time commission rate and matching Terms version.
 
-    Creates a new policy version plus a new Terms version (pointing at the new
-    policy and at the unchanged current policy of the other type) in the same
-    open transaction. Does NOT commit — the caller owns the transaction.
+    Creates both immutable versions in the same open transaction. Does NOT
+    commit — the caller owns the transaction.
 
     Returns {"old_policy", "new_policy", "terms_version"}.
     Raises ValueError for unknown types or a no-op rate.
     """
     if policy_type not in POLICY_TYPES:
-        raise ValueError("Policy type must be one_time_order or agreement.")
+        raise ValueError("Policy type must be one_time_order.")
     company = Decimal(str(company_share_percent)).quantize(TWO_PLACES)
 
     old_policy = get_active_policy(db, policy_type)
@@ -327,23 +309,8 @@ def publish_commission_change(db, policy_type, company_share_percent, change_sum
         db, policy_type, company, change_summary, admin_user_id, stamp_iso
     )
 
-    other_type = POLICY_TYPE_AGREEMENT if policy_type == POLICY_TYPE_ONE_TIME else POLICY_TYPE_ONE_TIME
-    other_policy = get_active_policy(db, other_type)
-    if other_policy is None:
-        # Unseeded environment: create the default 20% baseline so every Terms
-        # version always references both policy types.
-        other_policy = create_policy_version(
-            db, other_type, DEFAULT_COMPANY_SHARE_PERCENT,
-            "Initial platform commission rate (seed).", admin_user_id, stamp_iso,
-        )
-
-    if policy_type == POLICY_TYPE_ONE_TIME:
-        one_time_id, agreement_id = new_policy["id"], other_policy["id"]
-    else:
-        one_time_id, agreement_id = other_policy["id"], new_policy["id"]
-
     terms_version = create_terms_version(
-        db, one_time_id, agreement_id, change_summary, admin_user_id, stamp_iso
+        db, new_policy["id"], change_summary, admin_user_id, stamp_iso
     )
     return {"old_policy": old_policy, "new_policy": new_policy, "terms_version": terms_version}
 
@@ -381,8 +348,6 @@ def changed_policy_types(current_terms, previous_terms):
     changed = set()
     if current_terms.get("one_time_policy_id") != previous_terms.get("one_time_policy_id"):
         changed.add(POLICY_TYPE_ONE_TIME)
-    if current_terms.get("agreement_policy_id") != previous_terms.get("agreement_policy_id"):
-        changed.add(POLICY_TYPE_AGREEMENT)
     return changed
 
 
@@ -391,7 +356,6 @@ def requires_acknowledgement(role, terms_version_number, changed_types, acknowle
 
     - the seed version (v1) never demands review
     - already-acknowledged versions never demand review
-    - Everyday Users are not targeted by agreement-only changes
     - only client/transporter roles are targeted at all
     """
     normalized = (role or "").strip().lower()
@@ -404,8 +368,6 @@ def requires_acknowledgement(role, terms_version_number, changed_types, acknowle
     if int(terms_version_number or 0) <= 1:
         return False
     if acknowledged:
-        return False
-    if normalized == "everyday_user" and changed_types and changed_types == {POLICY_TYPE_AGREEMENT}:
         return False
     return True
 
@@ -435,7 +397,6 @@ def serialize_terms_version(terms):
         "effective_at": terms.get("effective_at"),
         "change_summary": terms.get("change_summary") or "",
         "one_time_policy_id": terms.get("one_time_policy_id"),
-        "agreement_policy_id": terms.get("agreement_policy_id"),
         "published_by_admin_user_id": terms.get("published_by_admin_user_id"),
         "published_at": terms.get("published_at"),
     }

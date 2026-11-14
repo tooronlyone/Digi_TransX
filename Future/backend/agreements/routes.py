@@ -9,7 +9,7 @@ from auth.helpers import json_response, login_required, csrf_error, timestamp_bu
 from chat.routes import insert_chat_message
 from shared.db import open_db
 from tracking.traccar import calculate_route_distance_km, get_positions_between
-from shared.commissions import (
+from .commissions import (
     POLICY_TYPE_AGREEMENT,
     get_active_policy,
     get_current_terms_version,

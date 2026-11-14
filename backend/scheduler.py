@@ -2,27 +2,18 @@
 Digi_TransX in-process background scheduler.
 
 Jobs (each wraps a single production service):
-- Daily 00:05  : process due agreement payments
-- Every 30 min : apply the late penalty to overdue failed agreement payments
-- Every 10 min : escalate legacy confirmations and release eligible new freight tranches
+- Every 10 min : escalate legacy confirmations and release eligible freight tranches
 - Every 1 min  : release expired undispensed fuel authorizations
-
-CONCURRENCY WARNING: the two agreement jobs are NOT safe to run in more than one
-process at a time. run_process_payments selects due payments without distributed
-ownership, and run_apply_penalties can charge a second Rs 5,000 penalty if two
-processes run the same interval. Only the one-time overdue-confirmation sweep is
-idempotent/concurrency-safe. Exactly ONE process must own these jobs.
 
 DEPLOYMENT CONTRACT (single owner):
 - Every WEB worker sets DIGITRANSX_ENABLE_SCHEDULER=0 (the default is also OFF —
   an absent flag never starts financial jobs on a web worker at import time).
-- Exactly ONE dedicated scheduler worker owns all four jobs. Start it with:
+- Exactly ONE dedicated scheduler worker owns these jobs. Start it with:
       cd backend && python -m scripts.run_scheduler
   (that entry point calls start_scheduler(force=True)).
 - Local development: run the scheduler worker as a SEPARATE process from the app.
 - scripts.process_overdue_confirmations is a one-off command for the one-time
-  confirmation-deadline sweep ONLY; it is NOT a replacement for the agreement
-  payment/penalty jobs.
+  confirmation-deadline sweep only.
 
 Safety layers:
 - Auto-start is disabled by default and gated by DIGITRANSX_ENABLE_SCHEDULER.
@@ -35,7 +26,6 @@ import logging
 import os
 
 from apscheduler.schedulers.background import BackgroundScheduler
-from apscheduler.triggers.cron import CronTrigger
 from apscheduler.triggers.interval import IntervalTrigger
 
 logger = logging.getLogger(__name__)
@@ -81,32 +71,6 @@ def _in_reloader_parent():
     child). Uses proper truth parsing so FLASK_DEBUG=0/false/no/off is NOT
     treated as debug. In the serving child WERKZEUG_RUN_MAIN == 'true'."""
     return env_flag("FLASK_DEBUG", default=False) and os.environ.get("WERKZEUG_RUN_MAIN") != "true"
-
-
-def run_process_payments():
-    """Process all pending agreement payments that are due."""
-    try:
-        from shared.db import open_db
-        from agreements.helpers import run_process_payments as process_due_payments
-
-        with open_db() as db:
-            result = process_due_payments(db)
-        logger.info(f"[Scheduler] process_payments: {result}")
-    except Exception:
-        logger.error("[Scheduler] process_payments failed")
-
-
-def run_apply_penalties():
-    """Apply the late penalty to all failed payments that are overdue."""
-    try:
-        from shared.db import open_db
-        from agreements.helpers import run_apply_penalties as apply_overdue_penalties
-
-        with open_db() as db:
-            result = apply_overdue_penalties(db)
-        logger.info(f"[Scheduler] apply_penalties: {result}")
-    except Exception:
-        logger.error("[Scheduler] apply_penalties failed")
 
 
 def run_process_overdue_confirmations():
@@ -191,28 +155,10 @@ def start_scheduler(force=False):
         misfire_grace_time=300,
     )
 
-    # Daily at 00:05 AM - process due payments
-    scheduler.add_job(
-        run_process_payments,
-        trigger=CronTrigger(hour=0, minute=5),
-        id="process_payments_daily",
-        replace_existing=True,
-        misfire_grace_time=3600,
-    )
-
-    # Every 30 minutes - apply penalties to failed payments
-    scheduler.add_job(
-        run_apply_penalties,
-        trigger=IntervalTrigger(minutes=30),
-        id="apply_penalties_interval",
-        replace_existing=True,
-        misfire_grace_time=300,
-    )
-
     scheduler.start()
     _scheduler = scheduler
     logger.info(
-        "[Scheduler] Started - process_payments daily 00:05, apply_penalties every 30 min, "
-        "process_overdue_confirmations and freight release every 10 min, fuel expiry every 1 min"
+        "[Scheduler] Started - overdue confirmations and freight release every 10 min, "
+        "fuel expiry every 1 min"
     )
     return scheduler

@@ -3,26 +3,25 @@ import TripOperationalActions from '../business/TripOperationalActions'
 import { AUTH_STATUSES, useAuthVerification } from '../../auth/AuthVerificationContext'
 import { apiGet, apiSend } from '../../pages/client/clientUtils'
 
-export default function DriverAssignmentPanel({ tripId = null, agreementTripId = null, defaultOpen = false }) {
+export default function DriverAssignmentPanel({ tripId = null, defaultOpen = false }) {
   const { user, status } = useAuthVerification()
   if (status !== AUTH_STATUSES.VERIFIED || !['transporter', 'logistics_provider'].includes(user?.role)
-      || Boolean(tripId) === Boolean(agreementTripId)) return null
-  return <TripDriverPanel key={`${user.id}:${tripId || ''}:${agreementTripId || ''}`}
-    tripId={tripId} agreementTripId={agreementTripId} defaultOpen={defaultOpen} />
+      || !tripId) return null
+  return <TripDriverPanel key={`${user.id}:${tripId}`} tripId={tripId} defaultOpen={defaultOpen} />
 }
 
-function TripDriverPanel({ tripId, agreementTripId, defaultOpen }) {
+function TripDriverPanel({ tripId, defaultOpen }) {
   const [open, setOpen] = useState(defaultOpen)
   return <section className="my-4 rounded-xl border border-slate-200 bg-white p-4">
     <button type="button" aria-expanded={open} onClick={() => setOpen(value => !value)} className="font-semibold text-indigo-700">
       Driver invitation &amp; review
     </button>
     <p className="mt-1 text-sm text-slate-600">The driver must accept this trip invitation before their profile and smartphone GPS are linked. Reviews are available after the trip is completed.</p>
-    {open && <AssignmentDetails tripId={tripId} agreementTripId={agreementTripId} />}
+    {open && <AssignmentDetails tripId={tripId} />}
   </section>
 }
 
-function AssignmentDetails({ tripId, agreementTripId }) {
+function AssignmentDetails({ tripId }) {
   const [data, setData] = useState(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
@@ -32,8 +31,8 @@ function AssignmentDetails({ tripId, agreementTripId }) {
   const [notes, setNotes] = useState('')
   const mounted = useRef(false), request = useRef(0), abort = useRef(null)
   const readBusy = useRef(false)
-  const sourceKey = tripId ? 'trip_id' : 'agreement_trip_id'
-  const sourceId = tripId || agreementTripId
+  const sourceKey = 'trip_id'
+  const sourceId = tripId
   const load = useCallback(async ({ replace = false } = {}) => {
     if (readBusy.current && !replace) return
     readBusy.current = true

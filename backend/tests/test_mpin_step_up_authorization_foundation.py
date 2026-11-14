@@ -121,7 +121,6 @@ def _route_database_after(url, hook):
         {"action_key": "wallet.withdrawal.request", "resource_type": "wallet", "resource_id": 1, "amount_minor": 1, "currency": "PKR", "destination_fingerprint": "a" * 64},
         {"action_key": "wallet.withdrawal_limit.purchase", "resource_type": "wallet", "resource_id": 1, "amount_minor": 1, "currency": "PKR", "funding_source": "wallet"},
         {"action_key": "wallet.payout_destination.replace", "resource_type": "wallet", "resource_id": 1, "destination_fingerprint": "b" * 64},
-        {"action_key": "agreement.finalize", "resource_type": "agreement", "resource_id": 1, "amount_minor": 1, "currency": "PKR"},
         {"action_key": "client.delivery.confirm_release", "resource_type": "trip", "resource_id": 1, "amount_minor": 1, "currency": "PKR"},
         {"action_key": "fuel.voucher.authorize", "resource_type": "trip", "resource_id": 1, "amount_minor": 1, "currency": "PKR", "funding_source": "wallet_and_credit", "destination_fingerprint": "c" * 64},
     ],
@@ -130,7 +129,7 @@ def test_approved_category_a_descriptors_and_security_extension(value):
     normalized = step_up_service.normalize_descriptor(value)
     assert normalized["action_key"] == value["action_key"]
     assert len(normalized["request_fingerprint"]) == 32
-    assert len(step_up_service.ACTION_POLICIES) == 8
+    assert len(step_up_service.ACTION_POLICIES) == 7
     assert "security.logout_all" in step_up_service.ACTION_POLICIES
 
 

@@ -39,7 +39,7 @@ BACKEND_ONLY = [
     "driver_trip_assignments", "driver_gps_pings", "driver_fuel_logs",
     "shop_products", "shop_sales", "shop_sale_items", "driver_hire_contracts",
     "marketplace_delivery_secrets",
-    "vehicles", "agreement_post_trucks", "agreement_bid_trucks",
+    "vehicles",
     "part_rfqs", "part_rfq_bids",
 ]
 
@@ -191,8 +191,7 @@ def test_service_role_keeps_portal_access_without_bypassrls(database):
 
 
 def test_private_operational_records_stay_hidden_after_accidental_read_grant(database):
-    private_tables = ["vehicles", "agreement_post_trucks", "agreement_bid_trucks",
-                      "part_rfqs", "part_rfq_bids"]
+    private_tables = ["vehicles", "part_rfqs", "part_rfq_bids"]
     with database.cursor() as cursor:
         owner, shop = _user(cursor, "transporter"), _user(cursor, "shopkeeper")
         cursor.execute("INSERT INTO public.vehicles(owner_user_id,truck_number,chassis_number,truck_type,"
@@ -239,31 +238,6 @@ def test_chat_insert_checks_membership_even_after_accidental_insert_grant(databa
         with _role(cursor, client):
             cursor.execute("INSERT INTO public.chat_messages(thread_id,sender_user_id,content) VALUES(%s,%s,'allowed')",
                            (thread_id, client["id"]))
-
-
-def test_agreement_policies_do_not_recurse_and_isolate_participants(database):
-    with database.cursor() as cursor:
-        client, transporter, stranger = _user(cursor), _user(cursor, "transporter"), _user(cursor)
-        cursor.execute("INSERT INTO public.agreement_posts(client_user_id,title,cargo_type,service_area) "
-                       "VALUES(%s,'Audit agreement','general','Lahore') RETURNING id", (client["id"],))
-        post_id = cursor.fetchone()[0]
-        cursor.execute("INSERT INTO public.agreements(post_id,client_user_id,duration_months,cargo_type,"
-                       "service_area,start_date,end_date) VALUES(%s,%s,1,'general','Lahore',CURRENT_DATE,CURRENT_DATE+30) "
-                       "RETURNING id", (post_id, client["id"]))
-        agreement_id = cursor.fetchone()[0]
-        cursor.execute("INSERT INTO public.vehicles(owner_user_id,truck_number,chassis_number,truck_type,capacity_tons,main_use) "
-                       "VALUES(%s,%s,%s,'flatbed',10,'goods') RETURNING id",
-                       (transporter["id"], uuid4().hex, uuid4().hex))
-        truck_id = cursor.fetchone()[0]
-        cursor.execute("INSERT INTO public.agreement_trucks(agreement_id,truck_id,transporter_user_id,"
-                       "per_km_rate,minimum_monthly_guarantee) VALUES(%s,%s,%s,100,10000)",
-                       (agreement_id, truck_id, transporter["id"]))
-        for user, expected in ((client, 1), (transporter, 1), (stranger, 0)):
-            with _role(cursor, user):
-                cursor.execute("SELECT count(*) FROM public.agreements WHERE id=%s", (agreement_id,))
-                assert cursor.fetchone()[0] == expected
-                cursor.execute("SELECT count(*) FROM public.agreement_trucks WHERE agreement_id=%s", (agreement_id,))
-                assert cursor.fetchone()[0] == expected
 
 
 def test_hire_contract_runtime_columns_and_one_active_contract(database):
@@ -328,11 +302,12 @@ def test_existing_administrator_survives_forward_migration():
         cleanup()
 
 
-def test_canonical_schema_contains_exact_forward_migration_mirrors():
+def test_canonical_schema_keeps_active_authorization_baseline_without_retired_domain():
     snapshot = SCHEMA_SQL.read_text(encoding="utf-8")
     assert FEATURE_MARKER in snapshot
-    for path in MIGRATION_PATHS:
-        assert path.read_text(encoding="utf-8").rstrip() in snapshot
+    assert "database_authorization_hardening.sql" in snapshot
+    for retired_name in ("agreement_posts", "agreement_bids", "agreement_trips"):
+        assert retired_name not in snapshot
 
 
 def test_manual_remote_hire_shape_converges_without_losing_offer_history():

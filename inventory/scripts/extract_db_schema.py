@@ -67,6 +67,7 @@ for mf in mig_files:
         "creates": [],
         "adds": [],
         "drops": [],
+        "drop_tables": [],
         "alters": [],
     }
 
@@ -79,6 +80,17 @@ for mf in mig_files:
         else:
             effective_tables[tbl]["columns"].update(data["columns"])
             effective_tables[tbl]["constraints"].extend(data["constraints"])
+
+    # DROP TABLE (the final Agreemental retirement migration intentionally
+    # removes tables that older immutable migrations created).
+    for drop_table in re.finditer(
+        r"DROP\s+TABLE\s+(?:IF\s+EXISTS\s+)?(?:public\.)?([a-zA-Z0-9_]+)",
+        sql,
+        re.I,
+    ):
+        tbl = drop_table.group(1).lower()
+        mig_info["drop_tables"].append(tbl)
+        effective_tables.pop(tbl, None)
 
     # ALTER TABLE ... (supports multi-column ADD COLUMN)
     for alter_block in re.finditer(r"ALTER\s+TABLE\s+(?:ONLY\s+)?(?:public\.)?([a-zA-Z0-9_]+)\s+(.*?);", sql, re.I | re.DOTALL):
@@ -106,6 +118,47 @@ for mf in mig_files:
             mig_info["drops"].append({"table": tbl, "column": col})
             if col in effective_tables[tbl]["columns"]:
                 del effective_tables[tbl]["columns"][col]
+            # PostgreSQL removes dependent CHECK/UNIQUE constraints when a
+            # column is dropped with CASCADE. Keep the effective inventory in
+            # sync instead of retaining a constraint for a retired column.
+            effective_tables[tbl]["constraints"] = [
+                constraint
+                for constraint in effective_tables[tbl]["constraints"]
+                if not re.search(rf"\b{re.escape(col)}\b", constraint, re.I)
+            ]
+
+        for drop_constraint in re.finditer(
+            r"DROP\s+CONSTRAINT\s+(?:IF\s+EXISTS\s+)?([a-zA-Z0-9_]+)",
+            block_body,
+            re.I,
+        ):
+            name = drop_constraint.group(1).lower()
+            # Baseline CREATE TABLE constraints are sometimes unnamed in the
+            # source. In that case infer the checked column from PostgreSQL's
+            # conventional <table>_<column>_check constraint name.
+            inferred_column = name
+            table_prefix = f"{tbl}_"
+            if inferred_column.startswith(table_prefix):
+                inferred_column = inferred_column[len(table_prefix):]
+            if inferred_column.endswith("_check"):
+                inferred_column = inferred_column[:-6]
+            effective_tables[tbl]["constraints"] = [
+                constraint
+                for constraint in effective_tables[tbl]["constraints"]
+                if name not in constraint.lower()
+                and not re.search(
+                    rf"\b{re.escape(inferred_column)}\b", constraint, re.I
+                )
+            ]
+
+        for add_constraint in re.finditer(
+            r"ADD\s+CONSTRAINT\s+([a-zA-Z0-9_]+)\s+(.+?)(?=,\s*(?:ADD|DROP|ALTER)\b|$)",
+            block_body,
+            re.I | re.DOTALL,
+        ):
+            definition = f"CONSTRAINT {add_constraint.group(1)} {add_constraint.group(2).strip()}"
+            if definition not in effective_tables[tbl]["constraints"]:
+                effective_tables[tbl]["constraints"].append(definition)
 
     migrations.append(mig_info)
 

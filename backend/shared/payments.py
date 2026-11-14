@@ -1024,7 +1024,7 @@ def perform_checkout(
 
     # 6-7. Recalculate the full quote server-side (wallet + vehicle rows locked).
     # Create both participants' rows before taking either wallet lock, then use
-    # the same user-id ordering as agreement payouts and dispute resolution.
+    # the same user-id ordering used by dispute resolution.
     # This prevents opposing Client/Transporter wallet-id creation order from
     # producing a rare cross-flow deadlock.
     wallet = None

@@ -85,18 +85,6 @@ export default function MyBids() {
               Available Orders
             </Link>
           )}
-          {isTransporterPathAllowed(presentedUser, '/transporter/agreement-bids') && (
-            <Link to="/transporter/agreement-bids" className="mybids-secondary-link">
-              <i className="fas fa-file-circle-check" aria-hidden="true"></i>
-              Agreement Jobs
-            </Link>
-          )}
-          {isTransporterPathAllowed(presentedUser, '/transporter/my-agreements') && (
-            <Link to="/transporter/my-agreements" className="mybids-secondary-link">
-              <i className="fas fa-file-contract" aria-hidden="true"></i>
-              My Agreements
-            </Link>
-          )}
         </div>
       </div>
 

@@ -79,8 +79,8 @@ def _metadata(definition):
     values = {
         "result_code": sorted(definition.allowed_result_codes or ("invalid_mpin",))[0],
         "authorization_ref": "authorization_" + "a" * 32,
-        "action_key": "agreement.finalize",
-        "resource_type": "agreement",
+        "action_key": "wallet.withdrawal.request",
+        "resource_type": "wallet",
         "resource_id": 23,
         "request_fingerprint_ref": "request_" + "b" * 64,
     }

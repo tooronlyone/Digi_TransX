@@ -12,7 +12,7 @@ import { useApi } from '../src/hooks/useApi'
 const json = body => new Response(JSON.stringify(body), { status: 200 })
 const transactions = [
   { id: 1, type: 'topup', amount: 100, description: 'Wallet credit' },
-  { id: 2, type: 'agreement_payment_paid', amount: -30, description: 'Monthly debit' },
+  { id: 2, type: 'order_payment', amount: -30, description: 'Delivery debit' },
   { id: 3, type: 'payout', amount: -5, description: 'Payout debit' },
   { id: 4, type: 'lock', amount: 40, description: 'Deposit reservation' },
   { id: 5, type: 'unlock', amount: 10, description: 'Deposit release' },
@@ -28,7 +28,7 @@ afterEach(() => { cleanup(); vi.restoreAllMocks(); vi.unstubAllGlobals() })
 test('history uses signed movements, excludes reservations from totals/filters and labels loaded coverage', async () => {
   fetch.mockImplementation(async () => json({ success: true, transactions, total: 120 }))
   render(<MemoryRouter><AcHistory /></MemoryRouter>)
-  await screen.findByText('Monthly debit')
+  await screen.findByText('Delivery debit')
   expect(screen.getByText('Total Credits').parentElement.textContent).toContain('PKR 100')
   expect(screen.getByText('Total Debits').parentElement.textContent).toContain('PKR 35')
   expect(screen.getByText('Net Movement').parentElement.textContent).toContain('PKR 65')
@@ -38,11 +38,11 @@ test('history uses signed movements, excludes reservations from totals/filters a
   expect(screen.getByText('PKR 10 (released)')).toBeTruthy()
   fireEvent.click(screen.getByRole('button', { name: 'Credits' }))
   expect(screen.getByText('Wallet credit')).toBeTruthy()
-  expect(screen.queryByText('Monthly debit')).toBeNull()
+  expect(screen.queryByText('Delivery debit')).toBeNull()
   expect(screen.queryByText('Deposit reservation')).toBeNull()
   expect(screen.queryByText('Deposit release')).toBeNull()
   fireEvent.click(screen.getByRole('button', { name: 'Debits' }))
-  expect(screen.getByText('Monthly debit')).toBeTruthy()
+  expect(screen.getByText('Delivery debit')).toBeTruthy()
   expect(screen.getByText('Payout debit')).toBeTruthy()
   expect(screen.queryByText('Wallet credit')).toBeNull()
   expect(fetch).toHaveBeenCalledTimes(1)
@@ -55,7 +55,7 @@ test('wallet shows one debit sign and identifies reservations without an income 
   render(<MemoryRouter><AuthVerificationProvider value={{ status: AUTH_STATUSES.VERIFIED, user: { id: 7 } }}>
     <WalletWorkspace />
   </AuthVerificationProvider></MemoryRouter>)
-  const debit = (await screen.findByText('Agreement Payment Paid')).closest('tr')
+  const debit = (await screen.findByText('Order Payment')).closest('tr')
   expect(within(debit).getAllByRole('cell')[2].textContent).toBe('-PKR 30')
   const payout = screen.getByText('Payout').closest('tr')
   expect(within(payout).getAllByRole('cell')[2].textContent).toBe('-PKR 5')

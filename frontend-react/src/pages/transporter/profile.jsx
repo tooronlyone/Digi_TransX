@@ -162,7 +162,6 @@ export default function Profile() {
                 <div className="detail-content">
                   <div className="detail-row"><Link to="/transporter/trucks" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-truck"></i> My Trucks</Link></div>
                   <div className="detail-row"><Link to="/transporter/available-bids" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-briefcase"></i> Available Bids</Link></div>
-                  <div className="detail-row"><Link to="/transporter/my-agreements" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-file-contract"></i> My Agreements</Link></div>
                   <div className="detail-row"><Link to="/transporter/wallet" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-credit-card"></i> Wallet</Link></div>
                   <div className="detail-row"><Link to="/transporter/earnings" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-wallet"></i> Earnings</Link></div>
                   <div className="detail-row"><Link to="/transporter/settings" className="detail-value" style={{ color: '#3b82f6' }}><i className="fas fa-cog"></i> Settings</Link></div>

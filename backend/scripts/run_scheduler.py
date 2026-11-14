@@ -1,23 +1,18 @@
-"""Dedicated production scheduler worker — the SINGLE owner of all background jobs.
+"""Dedicated production scheduler worker — the SINGLE owner of background jobs.
 
-Runs the in-process scheduler with ALL THREE jobs and stays alive until it is
-terminated:
-  - agreement due-payment processing (daily 00:05)
-  - agreement penalty processing (every 30 min)
-  - one-time delivery overdue processing (every 10 min)
-
-The two agreement jobs are NOT safe to run in more than one process (see
-scheduler.py). Deploy EXACTLY ONE of these workers per environment.
+Runs the in-process scheduler for one-time delivery deadlines and settlement
+release, and stays alive until it is terminated. Deploy exactly one scheduler
+worker per environment.
 
 Deployment contract:
   - Every web worker sets DIGITRANSX_ENABLE_SCHEDULER=0 (no auto-start).
-  - This worker is the only process that runs the financial jobs; it calls
+  - This worker is the only process that runs scheduled lifecycle jobs; it calls
     start_scheduler(force=True), so it does not depend on the env flag.
   - Local development: run this as a SEPARATE process from the app, e.g.
         cd backend && python -m scripts.run_scheduler
 
-scripts.process_overdue_confirmations is a one-off command that runs ONLY the
-one-time confirmation-deadline sweep — it is NOT a replacement for this worker.
+scripts.process_overdue_confirmations is a one-off command for the same
+one-time delivery lifecycle sweep.
 """
 
 import signal

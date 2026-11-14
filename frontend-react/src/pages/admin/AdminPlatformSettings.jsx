@@ -7,11 +7,6 @@ const POLICY_META = {
     icon: 'fa-box',
     description: 'Applied when a one-time shipment bid is accepted. Changes never affect already-accepted orders.',
   },
-  agreement: {
-    title: 'Agreement Commission',
-    icon: 'fa-file-contract',
-    description: 'Applied when an agreement is finalized. Changes never affect existing agreements or their future monthly payments.',
-  },
 }
 
 const S = {
@@ -183,7 +178,7 @@ function CommissionCard({ policyType, policy, onPublished }) {
         }}>
           <div style={{ fontSize: 13, color: '#92400e', fontWeight: 600, marginBottom: 10 }}>
             Publish {meta.title.toLowerCase()} as {percentText(parsedShare)} company / {percentText(derivedTransporter)} transporter?
-            This creates a new immutable version and updates the platform Terms. Existing orders and agreements keep their saved rates.
+            This creates a new immutable version and updates the platform Terms. Existing orders keep their saved rates.
           </div>
           <div style={{ display: 'flex', gap: 10 }}>
             <button style={S.btnBlue} disabled={saving} onClick={publish}>
@@ -232,7 +227,7 @@ export default function AdminPlatformSettings() {
       <div style={{ marginBottom: 24 }}>
         <h1 style={S.heading}>Platform Settings</h1>
         <p style={S.sub}>
-          Manage the two independent commission rates. Every change publishes a new immutable version and a new Terms version
+          Manage the one-time order commission rate. Every change publishes a new immutable version and a new Terms version
           {termsVersion ? ` — current Terms v${termsVersion.version_number} (effective ${dateText(termsVersion.effective_at)})` : ''}.
         </p>
       </div>
@@ -241,7 +236,6 @@ export default function AdminPlatformSettings() {
 
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(340px, 1fr))', gap: 20, marginBottom: 28 }}>
         <CommissionCard policyType="one_time_order" policy={policies.one_time_order} onPublished={load} />
-        <CommissionCard policyType="agreement" policy={policies.agreement} onPublished={load} />
       </div>
 
       <div style={{ ...S.card, padding: 0, marginBottom: 28 }}>

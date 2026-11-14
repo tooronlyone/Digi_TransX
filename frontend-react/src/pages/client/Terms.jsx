@@ -4,19 +4,17 @@ import PlatformFeesSection from '../../components/common/PlatformFeesSection'
 import useClientBasePath from '../../hooks/useClientBasePath'
 
 // The "Orders, Payments and Fees" section differs by audience: everyday users
-// pay the accepted bid by card (plus the card-processing fee) and have no
-// wallet or agreements; business seekers pay wallet-first and may hold
-// agreements. Every other section is shared.
+// pay the accepted bid by card (plus the card-processing fee), while business
+// seekers pay wallet-first. Every other section is shared.
 const businessPaymentsSection = {
   id: 'orders-payments',
   icon: 'fa-wallet',
   title: 'Orders, Payments and Fees',
   intro:
-    'Bookings are paid through your platform wallet, with a saved card covering any shortfall. The platform fee that applies to each order or agreement is shown in the Platform Fees section above.',
+    'Bookings are paid through your platform wallet, with a saved card covering any shortfall. The platform fee that applies to each order is shown in the Platform Fees section above.',
   points: [
     'One-time order checkout draws from your wallet first; a saved card covers any remaining shortfall plus the card-processing fee.',
     'The commission for a one-time order is locked in when you accept a bid; it never changes afterwards.',
-    'The commission for an agreement is locked in when the agreement is finalized and applies to every monthly payment for its full duration.',
     'Completed payments, invoices and payouts are never recalculated retroactively when platform fees change.',
   ],
 }
@@ -26,7 +24,7 @@ const everydayPaymentsSection = {
   icon: 'fa-credit-card',
   title: 'Orders and Payments',
   intro:
-    'You pay the transporter bid you accept directly by card. There is no wallet and there are no recurring agreements on an everyday account.',
+    'You pay the transporter bid you accept directly by card. There is no wallet on an everyday account.',
   points: [
     'When you accept a bid, you pay that bid amount by card plus a separate card-processing fee shown before you confirm.',
     'The platform commission applies only to the transporter bid amount and is locked in when you accept the bid.',
@@ -35,14 +33,14 @@ const everydayPaymentsSection = {
   ],
 }
 
-// "Your Account" differs by audience: everyday accounts are personal with no
-// business/agreement wording; business accounts keep the company/agreement copy.
+// "Your Account" differs by audience: everyday accounts are personal while
+// business accounts keep company-specific copy.
 const businessAccountSection = {
   id: 'account-use',
   icon: 'fa-id-badge',
   title: 'Your Account',
   intro:
-    'Your Digi_TransX account is personal to you or your business. You are responsible for every booking, agreement and payment made through your login.',
+    'Your Digi_TransX account is personal to you or your business. You are responsible for every booking and payment made through your login.',
   points: [
     'Keep login credentials, OTP flows, and account recovery channels secure.',
     'Profile, company, and contact information must stay accurate and current.',
@@ -113,7 +111,7 @@ export default function ClientTerms() {
         <p style={{ color: '#64748b', fontSize: 14, marginTop: 6 }}>
           {isEveryday
             ? 'These terms govern how your orders, payments and account activity work on Digi_TransX. '
-            : 'These terms govern how your bookings, agreements, payments and account activity work on Digi_TransX. '}
+            : 'These terms govern how your bookings, payments and account activity work on Digi_TransX. '}
           The fee section below always shows the currently approved commission rates.
         </p>
       </div>
@@ -159,7 +157,7 @@ export default function ClientTerms() {
           <p style={{ fontSize: 13, color: '#64748b', margin: '6px 0 0' }}>
             {isEveryday
               ? 'Review your orders and the bids you receive before accepting one if anything is unclear.'
-              : 'Reach out through Messages before accepting a bid or finalizing an agreement if anything is unclear.'}
+              : 'Reach out through Messages before accepting a bid if anything is unclear.'}
           </p>
         </div>
         <Link

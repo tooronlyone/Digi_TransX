@@ -32,7 +32,6 @@ def _terms_with_policies(db, terms):
         return None
     payload = serialize_terms_version(terms)
     payload["one_time"] = serialize_policy(get_policy_by_id(db, terms.get("one_time_policy_id")))
-    payload["agreement"] = serialize_policy(get_policy_by_id(db, terms.get("agreement_policy_id")))
     return payload
 
 

@@ -129,14 +129,11 @@ test('automatic replay is a fail-closed exact positive policy', () => {
     ['/uploads/trucks/file', {}],
     ['/uploads/chat/file', {}],
     ['/api/chat/threads/1/messages/media', {}],
-    ['/api/agreements/42/trips', {}],
-    ['/api/agreements/trips/7/live-location', {}],
     ['/api/trucks/9/live-location', {}],
     ['/api/orders/42/bids/7/payment-quote', {}],
     ['/api/orders/my-bids', {}],
     ['/api/payment-methods', {}],
     ['/api/wallet', {}],
-    ['/api/agreements/42/payments', {}],
     ['/api/notifications/1/read', {}],
     ['/admin/payments', {}],
     ['/api/admin/reports/export', {}],
@@ -283,7 +280,7 @@ test('fetch interception replays one exact safe GET and never replays prohibited
   }
   const uninstall = installAccessFetchInterceptor({ globalRef, coordinator })
   const read = globalRef.fetch('/api/platform/terms/current')
-  const prohibited = await globalRef.fetch('/api/agreements/42/trips')
+  const prohibited = await globalRef.fetch('/api/wallet')
   assert.equal(prohibited.status, 423)
   assert.equal(calls.length, 2)
   await coordinator.markUnlocked()

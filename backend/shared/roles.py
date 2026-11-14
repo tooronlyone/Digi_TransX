@@ -1,18 +1,17 @@
 """Shared client-role classification — the single source of truth for the
 everyday-vs-business distinction.
 
-`normalize_client_kind` lives here (not inside a payments or agreements module)
-so every layer — signup, order creation, payments, agreements authorization —
+`normalize_client_kind` lives here so every layer — signup, order creation and payments —
 classifies a client the same way with exactly one implementation. Transporter
 and other non-client roles classify as None.
 """
 
 # Everyday individuals: simple one-time orders only. No wallet, saved cards,
-# auto-shortfall preference, or agreements.
+# or auto-shortfall preference.
 EVERYDAY_ROLES = {"everyday_user"}
 
 # Business service seekers (and the legacy 'client' role): wallet-first
-# checkout, saved cards, auto-shortfall, one-time orders AND agreements.
+# checkout, saved cards, auto-shortfall and one-time orders.
 BUSINESS_CLIENT_ROLES = {"service_seeker", "client"}
 
 # Any client role (either kind) — the set allowed to post/track one-time orders.
@@ -39,7 +38,7 @@ def normalize_client_kind(role):
 
 
 def is_business_client(role):
-    """True only for business service seekers (wallet / cards / agreements)."""
+    """True only for business service seekers (wallet / saved cards)."""
     return normalize_client_kind(role) == SEEKER_KIND_BUSINESS
 
 
@@ -53,6 +52,22 @@ DRIVER_ROLES = {"driver"}
 
 # Transporter roles
 TRANSPORTER_ROLES = {"transporter", "logistics_provider"}
+
+
+def require_client_role(user):
+    """Return a standard 403 response unless this is any client role."""
+    if (user.get("role") or "").strip().lower() not in CLIENT_ROLES:
+        from auth.helpers import json_response
+        return json_response({"success": False, "message": "Client account required."}, 403)
+    return None
+
+
+def require_transporter_role(user):
+    """Return a standard 403 response unless this is a transporter role."""
+    if (user.get("role") or "").strip().lower() not in TRANSPORTER_ROLES:
+        from auth.helpers import json_response
+        return json_response({"success": False, "message": "Transporter account required."}, 403)
+    return None
 
 # Fuel station manager roles
 FUEL_STATION_ROLES = {"fuel_station_manager"}

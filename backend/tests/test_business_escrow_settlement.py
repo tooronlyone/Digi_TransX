@@ -33,9 +33,9 @@ def business_db_url():
         pytest.fail('Business financial integration requires isolated loopback PostgreSQL.')
     schema=SCHEMA_SQL.read_text(encoding='utf-8')
     extras=[]
-    for name,marker in [('20261026000000_financial_journal.sql','create table if not exists public.financial_journal'),('20261026010000_market_pricing_fees.sql','create table if not exists public.market_reference'),('20261026020000_business_escrow_settlement.sql','create table if not exists public.delivery_otp_challenges'),('20261026030000_fuel_credit_owner_operator.sql','create table if not exists public.fuel_credit_accounts')]:
+    for name,marker in [('20261026000000_financial_journal.sql','public.financial_journal'),('20261026010000_market_pricing_fees.sql','public.market_reference'),('20261026020000_business_escrow_settlement.sql','public.delivery_otp_challenges'),('20261026030000_fuel_credit_owner_operator.sql','public.fuel_credit_accounts')]:
         sql=(SCHEMA_SQL.parent/'migrations'/name).read_text(encoding='utf-8')
-        if sql.strip() not in schema:extras.append(sql)
+        if marker not in schema.lower():extras.append(sql)
     url,cleanup=make_disposable(base,STUBS,schema,*extras)
     try:yield url
     finally:cleanup()
@@ -301,14 +301,12 @@ def test_browser_roles_cannot_read_otp_or_write_financial_tables(business_env):
 
 
 def test_legacy_commission_terms_cannot_override_immutable_approved_booking_terms(business_env):
-    from shared.commissions import create_policy_version,create_terms_version,get_active_policy
+    from shared.commissions import create_policy_version,create_terms_version
     from shared.payments import serialize_payment_summary
     with business_env() as db:
         s=seed(db,open_order=True,client_balance=Decimal('100000'))
         legacy=create_policy_version(db,'one_time_order',Decimal('12.50'),'Legacy administrative rate',s['admin']['id'],NOW.isoformat())
-        agreement=get_active_policy(db,'agreement')
-        if agreement is None:agreement=create_policy_version(db,'agreement',Decimal('20'),'Historical agreement policy',s['admin']['id'],NOW.isoformat())
-        general_terms=create_terms_version(db,legacy['id'],agreement['id'],'General legacy terms reference',s['admin']['id'],NOW.isoformat())
+        general_terms=create_terms_version(db,legacy['id'],'General legacy terms reference',s['admin']['id'],NOW.isoformat())
         result=perform_checkout(db,s['client'],s['order_id'],s['bid_id'],ACCEPTANCE,'terms-'+uuid.uuid4().hex)
         summary=serialize_payment_summary(result['payment'])
         snapshot=summary['financial_terms_snapshot']

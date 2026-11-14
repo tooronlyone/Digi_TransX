@@ -20,7 +20,6 @@ const initialStats = {
 const QUICK_ACTIONS = [
   { to: '/client/post-order', icon: 'fa-shipping-fast', title: 'Post Order', subtitle: 'Request a new shipment' },
   { to: '/client/orders', icon: 'fa-clipboard-list', title: 'My Orders', subtitle: 'Track requests and bids' },
-  { to: '/client/post-agreement', icon: 'fa-file-circle-plus', title: 'Post Agreement', subtitle: 'Set up a recurring contract' },
   { to: '/client/wallet', icon: 'fa-wallet', title: 'Wallet', subtitle: 'Top up and view balance' },
   { to: '/client/messages', icon: 'fa-comments', title: 'Messages', subtitle: 'Chat with transporters' },
 ]

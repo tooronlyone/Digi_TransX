@@ -746,8 +746,6 @@ def test_exactly_one_event_table_aborts_atomically_without_repair():
 @pytest.mark.parametrize(
     "mutation",
     [
-        "ALTER TABLE public.security_events RENAME COLUMN agreement_id TO agreement_id_wrong",
-        "ALTER TABLE public.security_events ALTER COLUMN agreement_id TYPE integer",
         "ALTER TABLE public.security_events ALTER COLUMN request_id DROP NOT NULL",
         "ALTER TABLE public.security_events ALTER COLUMN before_state "
         "SET DEFAULT '{\"status\":\"changed\"}'::jsonb",
@@ -762,8 +760,6 @@ def test_exactly_one_event_table_aborts_atomically_without_repair():
         "RETURNS boolean LANGUAGE sql IMMUTABLE SET search_path=pg_catalog,public AS $$ SELECT true $$",
     ],
     ids=[
-        "wrong-column-name",
-        "wrong-type",
         "wrong-nullability",
         "wrong-default",
         "weakened-check",
@@ -1003,8 +999,8 @@ def test_only_integrated_writable_definitions_are_accepted_by_their_category_tab
                 values = {
                     "result_code": sorted(definition.allowed_result_codes or ("invalid_mpin",))[0],
                     "authorization_ref": "authorization_" + "a" * 32,
-                    "action_key": "agreement.finalize",
-                    "resource_type": "agreement",
+                    "action_key": "wallet.withdrawal.request",
+                    "resource_type": "wallet",
                     "resource_id": 1,
                     "request_fingerprint_ref": "request_" + "b" * 64,
                 }

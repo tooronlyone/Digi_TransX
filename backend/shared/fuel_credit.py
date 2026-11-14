@@ -38,13 +38,11 @@ def _digest(token):
 
 def _source(db, data, owner, *, active=True):
     trip = None if data.get("trip_id") is None else parse_positive_id(data["trip_id"], "Trip ID")
-    agreement = None if data.get("agreement_trip_id") is None else parse_positive_id(data["agreement_trip_id"], "Agreement trip ID")
-    if (trip is None) == (agreement is None):
-        raise CheckoutError("Select exactly one trip.", 400, "invalid_trip")
+    if trip is None:
+        raise CheckoutError("Select a shipment trip.", 400, "invalid_trip")
     truck_id = parse_positive_id(data.get("truck_id"), "Truck ID")
-    table, target = ("shipment_trips", trip) if trip is not None else ("agreement_trips", agreement)
-    row = db.execute_exact(f"SELECT * FROM {table} WHERE id=%s AND transporter_user_id=%s AND truck_id=%s FOR UPDATE",
-                           (target, owner, truck_id)).fetchone()
+    row = db.execute_exact("SELECT * FROM shipment_trips WHERE id=%s AND transporter_user_id=%s AND truck_id=%s FOR UPDATE",
+                           (trip, owner, truck_id)).fetchone()
     if not row:
         raise CheckoutError("Trip and truck were not found in your fleet.", 404, "fuel_trip_not_found")
     if active and row["status"] not in {"ready_to_start", "pending", "in_progress"}:
@@ -116,10 +114,9 @@ def _event(db, owner, voucher_id, kind, amount, reference):
 def _has_cancelled_debt(db, owner):
     return bool(db.execute_exact(
         "SELECT 1 FROM fuel_vouchers v LEFT JOIN shipment_trips s ON s.id=v.trip_id "
-        "LEFT JOIN agreement_trips a ON a.id=v.agreement_trip_id "
         "WHERE v.transporter_user_id=%s AND v.status='dispensed' AND v.credit_utilized> "
         "coalesce((SELECT sum(e.amount) FROM fuel_credit_events e WHERE e.voucher_id=v.id AND e.event_type='recover_allocation'),0) "
-        "AND coalesce(s.status,a.status) IN('cancelled','resolved_client') LIMIT 1", (owner,),
+        "AND s.status IN('cancelled','resolved_client') LIMIT 1", (owner,),
     ).fetchone())
 
 
@@ -142,12 +139,11 @@ def authorize_voucher(db, owner, data, key, *, now=None):
         raise CheckoutError("Select an approved fuel type, request mode and quantity.", 400, "invalid_fuel_request")
     station = None if data.get("station_id") in (None, "") else parse_positive_id(data["station_id"], "Station ID")
     _trip, truck = _source(db, data, owner)
-    canonical = [data.get("trip_id"), data.get("agreement_trip_id"), truck["id"], fuel, mode, str(cap), str(liters), station]
+    canonical = [data.get("trip_id"), truck["id"], fuel, mode, str(cap), str(liters), station]
     fingerprint = hashlib.sha256(json.dumps(canonical, separators=(",", ":")).encode()).hexdigest()
     wallet = _wallet(db, owner, "transporter")
-    # Historical agreement income can leave the approved minimum represented
-    # only by minimum_required. Establish attributable collateral before adding
-    # any fuel hold; otherwise repeated holds could reuse the same reserve floor.
+    # Establish attributable collateral before adding any fuel hold; otherwise
+    # repeated holds could reuse the same reserve floor.
     from shared.reserves import ensure_security_reserve
     ensure_security_reserve(db, owner)
     wallet = _wallet(db, owner)
@@ -179,10 +175,10 @@ def authorize_voucher(db, owner, data, key, *, now=None):
     if not 60 <= expiry_seconds <= 86400:
         raise CheckoutError("Fuel voucher expiry configuration is invalid.", 503, "fuel_configuration_invalid")
     row = db.execute_exact(
-        "INSERT INTO fuel_vouchers(transporter_user_id,trip_id,agreement_trip_id,truck_id,truck_plate,fuel_type,request_mode,max_amount,max_liters,"
+        "INSERT INTO fuel_vouchers(transporter_user_id,trip_id,truck_id,truck_plate,fuel_type,request_mode,max_amount,max_liters,"
         "wallet_authorized,credit_authorized,restricted_station_id,otp_digest,idempotency_key,request_hash,expires_at) "
-        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
-        (owner, data.get("trip_id"), data.get("agreement_trip_id"), truck["id"], truck["truck_number"], fuel, mode, cap, liters,
+        "VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",
+        (owner, data.get("trip_id"), truck["id"], truck["truck_number"], fuel, mode, cap, liters,
          funded, credit, station, _digest(otp), key, fingerprint, (now or datetime.now(timezone.utc)) + timedelta(seconds=expiry_seconds)),
     ).fetchone()
     reference = "fuel:" + str(row["id"])
@@ -207,8 +203,7 @@ def _voucher_context(db, voucher_id):
         raise CheckoutError("Voucher not found.", 404, "fuel_voucher_not_found")
     # Releasing old holds must remain possible after vehicle ownership,
     # eligibility, or source-trip lifecycle has changed.
-    source_table, target = ("shipment_trips",snapshot["trip_id"]) if snapshot["trip_id"] else ("agreement_trips",snapshot["agreement_trip_id"])
-    db.execute_exact(f"SELECT id FROM {source_table} WHERE id=%s FOR UPDATE", (target,))
+    db.execute_exact("SELECT id FROM shipment_trips WHERE id=%s FOR UPDATE", (snapshot["trip_id"],))
     db.execute_exact("SELECT id FROM vehicles WHERE id=%s FOR UPDATE", (snapshot["truck_id"],))
     wallet = _wallet(db, snapshot["transporter_user_id"])
     account = _account(db, snapshot["transporter_user_id"])
@@ -218,8 +213,7 @@ def _voucher_context(db, voucher_id):
 
 
 def _check_active(db, voucher):
-    table, target = ("shipment_trips", voucher["trip_id"]) if voucher["trip_id"] else ("agreement_trips", voucher["agreement_trip_id"])
-    source = db.execute_exact(f"SELECT status FROM {table} WHERE id=%s", (target,)).fetchone()
+    source = db.execute_exact("SELECT status FROM shipment_trips WHERE id=%s", (voucher["trip_id"],)).fetchone()
     if not source or source["status"] not in {"ready_to_start", "pending", "in_progress"}:
         raise CheckoutError("Trip is no longer eligible for dispensing.", 409, "fuel_trip_inactive")
     if voucher["expired"]:
@@ -419,7 +413,7 @@ def recover_legacy_earnings(db, transporter_id, entitlement, reference):
 
 def annotate_legacy_earnings(db, rows, source):
     """Batch invoice offsets without repricing original legacy snapshots."""
-    if source not in {'legacy_freight','agreement_monthly'}:
+    if source != 'legacy_freight':
         raise ValueError('Unknown earnings source.')
     rows=[dict(row) for row in rows]
     eligible=[row for row in rows if row.get('status') in {'released','paid'}

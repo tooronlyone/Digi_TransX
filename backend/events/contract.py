@@ -61,7 +61,6 @@ RELATED_ENTITY_KEYS = (
     "truck_id",
     "driver_id",
     "document_id",
-    "agreement_id",
 )
 
 STATE_KEY_TYPES = {

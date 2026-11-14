@@ -5,9 +5,9 @@ once and exits, printing the processed count/IDs as JSON. Safe to run repeatedly
 (idempotent) and concurrently (FOR UPDATE SKIP LOCKED). Uses the app database via
 shared.db — no secrets are read or printed here.
 
-SCOPE: this command processes the one-time order confirmation timeouts ONLY. It
-does NOT run the agreement due-payment or agreement penalty jobs. The full set of
-background jobs is owned by the dedicated scheduler worker:
+SCOPE: this command processes one-time order confirmation timeouts and releases
+due freight settlements. The recurring schedule is owned by the dedicated
+scheduler worker:
 
     cd backend && python -m scripts.run_scheduler
 

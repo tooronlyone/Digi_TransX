@@ -2,6 +2,8 @@
 
 > **27 October 2026 audit reconciliation:** the phase-specific verification dates and planning contracts below remain scoped to their recorded phases. Current open defects are in [the reconciled audit](../PROJECT_AUDIT_REPORT.md) and [ledger](../AUDIT_LEDGER.md). This audit did not re-inspect shared TEST or change the planned canonical-event rollout. Password revocation, frontend bootstrap ownership, database ACL hardening and business-rule implementations now present in source are summarized in [the current auth map](../AUTH_SYSTEM_FULL_MAP.md) and [local verification receipt](audit-evidence/2026-10-27/README.md).
 
+> **14 November 2026 Agreemental retirement:** Agreemental V1 is no longer an active product workflow. Its reference frontend, backend, tests, and exact V1 schema snapshot are archived under [`Future/`](../Future/README.md) for a future V2 redesign. Phase snapshots below that describe Agreemental as active are retained only as historical audit evidence and are superseded by this notice.
+
 ## 1. Purpose and authority
 
 This registry is the human-readable source for the current architecture, verified implementation status, ownership boundaries, compatibility findings, and future contracts for Digi_TransX tracking, security, business audit, general analytics, and operational monitoring.
@@ -90,7 +92,7 @@ The database also has the expected Auth-to-profile trigger on `auth.users`. Supa
 - Email is direct SMTP with no delivery ledger or provider abstraction. SMS is not a supported or planned communication channel.
 - Payment processing uses `DummyCardProvider`; Raast QR and a real card/payment provider are deferred.
 - There is no dedicated operational telemetry, health/readiness suite, incident store, outbox, or delivery ledger.
-- Agreemental workflows exist, but Agreemental tracking is a future extension and must not alter One-Time behavior.
+- Agreemental V1 is retired to `Future/`; any V2 workflow and tracking remain a separate future extension and must not alter One-Time behavior.
 - Retention periods in this registry are internal planning baselines pending professional privacy/legal review; they are not statutory claims.
 
 ## 2. Phase 0 verification evidence
@@ -309,9 +311,9 @@ The implemented tracking/security/business consumers are concentrated in:
 | Wallet/methods/preferences | [`WalletWorkspace.jsx`](../frontend-react/src/components/wallet/WalletWorkspace.jsx), `BidCheckout`, transporter `earning.jsx`, transporter `settings.jsx`, and client wallet/dashboard pages |
 | Delivery/dispute/review | `ClientOrderDetail`, `OrderTracking`, `PendingTransporterReviewGate`, `AdminDisputes`, and `AdminDisputeChat` |
 | Chat/notifications | [`ChatWindow.jsx`](../frontend-react/src/components/chat/ChatWindow.jsx), [`NotificationBell.jsx`](../frontend-react/src/components/common/NotificationBell.jsx), client/transporter message pages, and unread-count polling in both main layouts |
-| Trucks/location/documents | `add_truck`, `truck_configuration`, `truck_details`, `My Truck`, `track_truck`, transporter dashboard, and `AgreementTripMap` |
+| Trucks/location/documents | `add_truck`, `truck_configuration`, `truck_details`, `My Truck`, `track_truck`, and transporter dashboard |
 | Commission/Terms | `AdminPlatformSettings`, `PlatformFeesSection`, `TermsUpdateNotice`, and client/transporter Terms pages |
-| Agreemental | Client/transporter Agreement pages plus `AdminAgreements`; tracked here as current workflow consumers, not as implemented Agreemental event tracking |
+| Agreemental | V1 consumers retired from active code and archived under `Future/`; V2 remains unimplemented |
 | Generic tracking | [`ActivityTracker.jsx`](../frontend-react/src/components/ActivityTracker.jsx) and [`useTracker.js`](../frontend-react/src/hooks/useTracker.js) |
 
 Repository scans also found frontend calls for organization, shopkeeper, maintenance, fuel, predictions, about/contact, ratings, and other future/legacy APIs with no corresponding Flask blueprint in this repository. These calls are not verified capabilities and must not be treated as implemented analytics or audit owners.
@@ -372,7 +374,7 @@ Only the current digest resolves an active trusted device. `previous_token_diges
 | Delivery/dispute/review | `shipment_disputes` 9; `shipment_trip_reviews` 8; `shipment_notifications` 63 |
 | Chat | `chat_threads` 18; `chat_messages` 2 |
 | Commission/Terms | `commission_policies` 2; `terms_versions` 1; `terms_acknowledgements` 0 |
-| Agreemental | All nine Agreemental tables currently have 0 rows. |
+| Agreemental | Historical TEST snapshot: all nine V1 tables had 0 rows. Active schema retires those tables. |
 | Existing generic tracking | `user_action_logs` 1,899 |
 
 Verified status aggregates:
@@ -587,9 +589,9 @@ The responsive/mobile completion removes the hamburger, More destination/sheet, 
 
 Role navigation remains permission-bounded:
 
-- `service_seeker`: **Dashboard**, **Post Order**, **Wallet**, **Messages**. Post Order contextually exposes **One-Time Order**, **Agreemental Order**, **My Orders**, and **My Agreements**.
+- `service_seeker`: **Dashboard**, **Post Order**, **Wallet**, **Messages**. Post Order exposes the active One-Time Order workflow and My Orders.
 - `logistics_provider`: **Dashboard**, **Trucks**, **Bids**, **Messages**.
-- `everyday_user`: **Dashboard**, **Post Order**, **My Orders**, **Messages**. Wallet and Agreemental destinations are not exposed.
+- `everyday_user`: **Dashboard**, **Post Order**, **My Orders**, **Messages**. Wallet is not exposed; Agreemental V1 destinations have been retired for every role.
 
 The Phase 1B-2C3B2 frontend verification passed 74/74 Node/static tests, changed-file ESLint, a 754-module production build, and the responsive containment matrix at 320, 360, 375, 390, 414, 768, 1024, and 1440 pixels plus 667×320 landscape; the manual real-Chrome responsive/native-keyboard gate passed. At that phase boundary the six high-risk mutations and `StepUpProvider` were still Planned. Phase 1B-2C3C2 later implemented those exact six connections in main/shared TEST without changing the remaining logout-all, GPS/security, mandatory OTP, device/session-dashboard, operational-integration, or deployment classifications. The product remains under development/private testing.
 
@@ -1124,7 +1126,7 @@ Retention jobs must be observable, retryable, scoped by environment, and proven 
 | Saved methods/preferences | Payment service/routes | Tokenized tables/safe view | Present; cross-user anomaly zero | Reuse; re-auth/events missing | Add sensitive-action re-auth and events | Effective RLS/grants not proven under client roles |
 | Operational monitoring | Basic scheduler logging | None | No incident/telemetry objects | Missing | Structured redacted telemetry and health contracts | Body/header/secret collection cannot be excluded |
 | Analytics | Contained ActivityTracker | `user_action_logs` | One authenticated safe page-visit write shape; broad historical rows retained | Existing data may support limited historical aggregates only | New consent-aware allowlisted pipeline | Attempt to migrate arbitrary payloads without classification |
-| Agreemental tracking | Agreement routes/helpers/scheduler | Agreement tables | Workflow exists; tables empty in TEST | Future extension | Reuse shared infrastructure, separate Agreemental event rules | Any change alters One-Time contract |
+| Agreemental V2 tracking | Archived V1 reference under `Future/` | None in active schema | V1 retired | Future extension | Redesign authorization and event rules before restoring any workflow | Any change alters One-Time contract |
 
 ### 13.1 Current writer and transaction registry
 
@@ -1184,7 +1186,7 @@ Phase 1B-1 does not change a domain owner. Phase 1B-2A attaches the existing cur
 17. **Final audit and freeze** — drift, privilege, retention, volume, performance, privacy, and integrity review.
 18. **GPS tracking architecture afterward** — separate bounded architecture after the event foundations are stable.
 
-Agreemental tracking remains a clearly marked future extension. It may reuse common security, analytics, operations, envelope, outbox, and delivery infrastructure, but must add separate Agreemental business rules only after Agreemental workflow implementation is reviewed. It must never overwrite One-Time behavior.
+Agreemental V2 tracking remains a clearly marked future extension. It may reuse common security, analytics, operations, envelope, outbox, and delivery infrastructure, but must add redesigned Agreemental business and authorization rules only after the archived V1 workflow is reviewed. It must never overwrite One-Time behavior.
 
 ## 15. Code/database safety rules
 

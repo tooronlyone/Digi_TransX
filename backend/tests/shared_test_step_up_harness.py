@@ -13,7 +13,6 @@ from flask import Flask
 from auth import mpin_service, step_up_service
 import auth.helpers as auth_helpers
 import auth.routes as auth_routes
-import agreements.routes as agreements_routes
 import orders.routes as orders_routes
 import wallet.helpers as wallet_helpers
 import wallet.routes as wallet_routes
@@ -1034,7 +1033,7 @@ def shared_test_route_app(monkeypatch, fixture):
             raise
         finally:
             conn.close()
-    for module in (agreements_routes, auth_helpers, auth_routes, orders_routes, wallet_helpers, wallet_routes):
+    for module in (auth_helpers, auth_routes, orders_routes, wallet_helpers, wallet_routes):
         monkeypatch.setattr(module, "open_db", test_open_db)
     monkeypatch.setenv("DIGITRANSX_ENVIRONMENT", "test")
     monkeypatch.setenv("DIGITRANSX_MPIN_PEPPER", PEPPER)
@@ -1043,7 +1042,6 @@ def shared_test_route_app(monkeypatch, fixture):
     app.register_blueprint(auth_routes.auth_blueprint)
     app.register_blueprint(orders_routes.orders_blueprint)
     app.register_blueprint(wallet_routes.wallet_blueprint)
-    app.register_blueprint(agreements_routes.agreements_blueprint)
     yield app
 
 def open_shared_test_fixture():
@@ -1066,9 +1064,6 @@ def shared_test_state_snapshot():
         ("shipments", "SELECT count(*),md5(coalesce(string_agg(md5(row_to_json(t)::text),'|' ORDER BY md5(row_to_json(t)::text)),'') ) FROM public.shipments t"),
         ("shipment_bids", "SELECT count(*),md5(coalesce(string_agg(md5(row_to_json(t)::text),'|' ORDER BY md5(row_to_json(t)::text)),'') ) FROM public.shipment_bids t"),
         ("shipment_trips", "SELECT count(*),md5(coalesce(string_agg(md5(row_to_json(t)::text),'|' ORDER BY md5(row_to_json(t)::text)),'') ) FROM public.shipment_trips t"),
-        ("agreements", "SELECT count(*),md5(coalesce(string_agg(md5(row_to_json(t)::text),'|' ORDER BY md5(row_to_json(t)::text)),'') ) FROM public.agreements t"),
-        ("agreement_posts", "SELECT count(*),md5(coalesce(string_agg(md5(row_to_json(t)::text),'|' ORDER BY md5(row_to_json(t)::text)),'') ) FROM public.agreement_posts t"),
-        ("agreement_bids", "SELECT count(*),md5(coalesce(string_agg(md5(row_to_json(t)::text),'|' ORDER BY md5(row_to_json(t)::text)),'') ) FROM public.agreement_bids t"),
     )
     url = require_authorized_shared_test_url()
     result = {}

@@ -189,7 +189,7 @@ function OwnedDriverTrips() {
       <div className="driver-card">
         <h1 style={{ margin: 0, fontSize: '1.6rem', fontWeight: 800 }}>Per-Trip Dispatch Requests</h1>
         <p style={{ margin: '4px 0 0 0', color: '#64748b' }}>
-          Accept or decline shipment and agreement trip invitations. Only your acceptance links a truck and enables smartphone GPS for that trip.
+          Accept or decline shipment trip invitations. Only your acceptance links a truck and enables smartphone GPS for that trip.
         </p>
 
         {msg && (

@@ -8,8 +8,8 @@ import '../../styles/pages/client.css'
 import { logoutCurrentSession } from '../../auth/logout'
 import { AUTH_STATUSES, ShellPageSkeleton, useAuthVerification } from '../../auth/AuthVerificationContext'
 
-// Everyday users get the simple one-time-order flow only: NO wallet, NO
-// agreements, NO saved cards, NO company/business configuration. The shared
+// Everyday users get the simple one-time-order flow only: NO wallet, NO saved
+// cards, NO company/business configuration. The shared
 // order pages are reused under /everyday/* via useClientBasePath.
 const NAV_ITEMS = [
   { label: 'Dashboard', icon: 'fa-home', path: '/everyday/dashboard' },

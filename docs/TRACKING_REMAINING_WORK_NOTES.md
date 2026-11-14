@@ -39,7 +39,7 @@ Remaining examples:
 - Business profile/preferences evidence
 - Notification delivery/read evidence
 - Scheduler/worker business actions
-- Agreemental tracking after Agreemental workflow is separately reviewed
+- Agreemental V2 tracking only after the archived workflow in `Future/` is redesigned and separately reviewed
 
 Process:
 
