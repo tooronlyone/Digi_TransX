@@ -27,11 +27,11 @@ if str(BACKEND_DIR) not in sys.path:
 
 
 def main():
-    from shared.db import open_db
+    from shared.db import open_scheduler_db
     from orders.lifecycle import process_overdue_delivery_confirmations
     from orders.business_lifecycle import release_due_settlements
 
-    with open_db() as db:
+    with open_scheduler_db() as db:
         result = process_overdue_delivery_confirmations(db)
         result['freight_settlements'] = release_due_settlements(db)
         db.commit()

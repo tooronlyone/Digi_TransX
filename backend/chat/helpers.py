@@ -45,30 +45,38 @@ def parse_message_payload(data):
 
 
 def validate_media_file(file_storage):
-    if not file_storage or not file_storage.filename:
-        raise ValueError("Media file is required.")
+    from shared.upload_validation import validate_and_sanitize_upload
 
-    safe_name = secure_filename(file_storage.filename)
-    extension = safe_name.rsplit(".", 1)[-1].lower() if "." in safe_name else ""
-    if extension not in ALLOWED_MEDIA_EXTENSIONS:
-        raise ValueError("Only JPG, JPEG, PNG, MP4, and MOV files are allowed.")
-
-    file_storage.stream.seek(0, os.SEEK_END)
-    size = file_storage.stream.tell()
-    file_storage.stream.seek(0)
-    if size > MAX_MEDIA_BYTES:
-        raise ValueError("Media file must be 10MB or smaller.")
-
-    return safe_name, extension
+    filename, sanitized_file = validate_and_sanitize_upload(
+        file_storage,
+        owner_prefix="media",
+        allowed_extensions=ALLOWED_MEDIA_EXTENSIONS,
+        max_bytes=MAX_MEDIA_BYTES,
+        error_cls=ValueError,
+        invalid_extension_message="Only JPG, JPEG, PNG, MP4, and MOV files are allowed.",
+        oversized_message="Media file must be 10MB or smaller.",
+        invalid_content_message="Uploaded media content does not match a valid image or video file.",
+    )
+    extension = filename.rsplit(".", 1)[-1].lower()
+    return filename, extension, sanitized_file
 
 
 def make_chat_upload_relative_path(thread_id, file_storage):
-    """Upload chat media to Supabase Storage. Returns the stored filename."""
+    """Validate content, strip image metadata, and upload chat media cleanly."""
     from shared.storage import upload_file_storage
+    from shared.upload_validation import validate_and_sanitize_upload
 
-    _, extension = validate_media_file(file_storage)
-    filename = f"{thread_id}_{uuid4().hex}.{extension}"
-    upload_file_storage(f"uploads/chat/{filename}", file_storage)
+    filename, sanitized_file = validate_and_sanitize_upload(
+        file_storage,
+        owner_prefix=str(thread_id),
+        allowed_extensions=ALLOWED_MEDIA_EXTENSIONS,
+        max_bytes=MAX_MEDIA_BYTES,
+        error_cls=ValueError,
+        invalid_extension_message="Only JPG, JPEG, PNG, MP4, and MOV files are allowed.",
+        oversized_message="Media file must be 10MB or smaller.",
+        invalid_content_message="Uploaded media content does not match a valid image or video file.",
+    )
+    upload_file_storage(f"uploads/chat/{filename}", sanitized_file)
     return filename
 
 

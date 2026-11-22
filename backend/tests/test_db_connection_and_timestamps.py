@@ -34,7 +34,8 @@ def test_concurrent_first_use_constructs_one_pool(monkeypatch):
         second_caller_started.set()
         return database._get_pool()
 
-    monkeypatch.setattr(database, "_pool", None)
+    monkeypatch.setenv("DIGITRANSX_ENVIRONMENT", "test")
+    monkeypatch.setattr(database, "_pools", {})
     monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://unused-test-database")
     monkeypatch.setattr(database.psycopg2.pool, "ThreadedConnectionPool", make_pool)
 
@@ -57,14 +58,15 @@ def test_concurrent_first_use_constructs_one_pool(monkeypatch):
 def test_pool_initialization_can_retry_after_connection_failure(monkeypatch):
     pool = object()
     constructor = Mock(side_effect=[database.psycopg2.OperationalError("offline"), pool])
-    monkeypatch.setattr(database, "_pool", None)
+    monkeypatch.setenv("DIGITRANSX_ENVIRONMENT", "test")
+    monkeypatch.setattr(database, "_pools", {})
     monkeypatch.setenv("SUPABASE_DB_URL", "postgresql://unused-test-database")
     monkeypatch.setattr(database.psycopg2.pool, "ThreadedConnectionPool", constructor)
 
     with pytest.raises(database.psycopg2.OperationalError, match="offline"):
         database._get_pool()
 
-    assert database._pool is None
+    assert database._pools == {}
     assert database._get_pool() is pool
     assert database._get_pool() is pool
     assert constructor.call_count == 2

@@ -1,14 +1,12 @@
-import math
-from datetime import date, datetime
-from flask import Blueprint, jsonify, request
-from auth.helpers import csrf_error, json_response, login_required, timestamp_bundle
+from datetime import date
+from flask import Blueprint, request
+from auth.helpers import csrf_error, json_response, login_required
 from shared.db import open_db
 from shared.payments import round_money
 from shared.roles import DRIVER_ROLES, TRANSPORTER_ROLES
 from shared.validation import finite_decimal, finite_float, bounded_count
-from shared.coordinates import parse_optional_coordinate_pair, CoordinateValidationError
+from shared.coordinates import parse_optional_coordinate_pair
 from decimal import Decimal, ROUND_HALF_UP
-from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user
 
 driver_blueprint = Blueprint("driver", __name__)
 
@@ -575,6 +573,9 @@ def offer_permanent_hire():
     role = (request.current_user.get("role") or "").strip().lower()
     if role not in TRANSPORTER_ROLES:
         return json_response({"success": False, "message": "Transporter account required."}, 403)
+    err = csrf_error()
+    if err:
+        return err
 
     data = request.get_json(silent=True) or {}
     unique_driver_id = (data.get("unique_driver_id") or "").strip().upper()
@@ -651,6 +652,9 @@ def get_driver_hire_contracts():
 def respond_hire_contract(contract_id):
     """Driver accepts or declines a permanent monthly employment invitation."""
     err = ensure_driver_role(request.current_user)
+    if err:
+        return err
+    err = csrf_error()
     if err:
         return err
 
@@ -739,35 +743,40 @@ def get_driver_trips_for_fuel():
             (user_id,),
         ).fetchall()
 
-        # Also get registered fuel pumps on the platform if available
-        registered_pumps = db.execute(
-            """
-            SELECT fsp.user_id, fsp.station_name, u.city, u.address, u.phone
-            FROM fuel_station_profiles fsp
-            JOIN users u ON u.id = fsp.user_id
-            ORDER BY fsp.station_name ASC
-            """
-        ).fetchall()
-
     return json_response({
         "success": True,
         "trips": [dict(t) for t in trips],
-        "registered_pumps": [dict(p) for p in registered_pumps],
     })
 
 
 @driver_blueprint.get("/api/driver/fuel-logs")
 @login_required
 def get_driver_fuel_logs():
-    """Retrieve driver's fuel expenditure and consumption records."""
+    """Retrieve driver's fuel expenditure and consumption records, optionally filtered by truck_id."""
     err = ensure_driver_role(request.current_user)
     if err:
         return err
 
+    raw_truck_id = request.args.get("truck_id")
+    truck_id_filter = None
+    if raw_truck_id not in (None, ""):
+        try:
+            truck_id_filter = _positive_id(raw_truck_id, "Truck ID")
+        except (ValueError, TypeError) as exc:
+            return json_response({"success": False, "message": str(exc)}, 400)
+
     user_id = request.current_user["id"]
+    where_clause = "WHERE dfl.driver_user_id = %s"
+    stats_where = "WHERE driver_user_id = %s"
+    params = [user_id]
+    if truck_id_filter is not None:
+        where_clause += " AND dfl.truck_id = %s"
+        stats_where += " AND truck_id = %s"
+        params.append(truck_id_filter)
+
     with open_db() as db:
         logs = db.execute(
-            """
+            f"""
             SELECT dfl.*, v.truck_number, v.truck_model,
                    s.pickup_city, s.dropoff_city
             FROM driver_fuel_logs dfl
@@ -777,29 +786,42 @@ def get_driver_fuel_logs():
                 AND st.transporter_user_id=dta.transporter_user_id AND st.truck_id=dta.truck_id
                 AND dta.accepted_at IS NOT NULL
             LEFT JOIN shipments s ON s.id = st.order_id
-            WHERE dfl.driver_user_id = %s
+            {where_clause}
             ORDER BY dfl.fuel_date DESC, dfl.id DESC
             """,
-            (user_id,),
+            tuple(params),
         ).fetchall()
 
-        # Summary statistics
+        # Summary statistics scoped identically to driver and optional vehicle filter
         stats = db.execute(
-            """
+            f"""
             SELECT
                 COALESCE(SUM(total_amount), 0) AS total_fuel_spent,
                 COALESCE(SUM(liters), 0) AS total_liters,
                 COALESCE(AVG(NULLIF(fuel_average_km_per_liter, 0)), 0) AS avg_km_per_liter,
                 COUNT(*) AS total_refuels
             FROM driver_fuel_logs
-            WHERE driver_user_id = %s
+            {stats_where}
+            """,
+            tuple(params),
+        ).fetchone()
+
+        vehicles = db.execute(
+            """
+            SELECT DISTINCT v.id AS truck_id, v.truck_number, v.truck_model
+            FROM driver_fuel_logs dfl
+            JOIN vehicles v ON v.id = dfl.truck_id
+            WHERE dfl.driver_user_id = %s
+            ORDER BY v.truck_number ASC
             """,
             (user_id,),
-        ).fetchone()
+        ).fetchall()
 
     return json_response({
         "success": True,
         "logs": [dict(log) for log in logs],
+        "vehicles": [dict(vehicle) for vehicle in vehicles],
+        "selected_truck_id": truck_id_filter,
         "stats": {
             "total_fuel_spent": round_money(stats["total_fuel_spent"] or 0),
             "total_liters": round(float(stats["total_liters"] or 0), 2),
@@ -814,6 +836,9 @@ def get_driver_fuel_logs():
 def create_driver_fuel_log():
     """Record a fuel refuel log with exact pump name, brand, city, area/location, liters, cash/total, and trip calculation."""
     err = ensure_driver_role(request.current_user)
+    if err:
+        return err
+    err = csrf_error()
     if err:
         return err
 
@@ -835,17 +860,24 @@ def create_driver_fuel_log():
     notes = (data.get("notes") or "").strip()
     fuel_date = data.get("fuel_date") or None
 
+    allowed_fuel_types = {"diesel", "petrol", "hi_octane", "cng", "lpg", "other"}
+    allowed_payment_modes = {"cash", "driver_wallet", "transporter_account", "company_card", "card"}
+    if fuel_type not in allowed_fuel_types:
+        return json_response({"success": False, "message": "Invalid fuel type."}, 400)
+    if payment_mode not in allowed_payment_modes:
+        return json_response({"success": False, "message": "Invalid payment mode."}, 400)
+
     try:
         liters = finite_decimal(data.get("liters"),"Liters",minimum=Decimal("0.01"),maximum=Decimal("99999999.99"),scale=2)
         price_per_liter = finite_decimal(data.get("price_per_liter"),"Price per liter",minimum=Decimal("0.01"),maximum=Decimal("99999999.99"),scale=2)
         total_amount = (liters*price_per_liter).quantize(Decimal("0.01"),rounding=ROUND_HALF_UP)
         finite_decimal(total_amount,"Fuel total",maximum=Decimal("9999999999.99"),scale=2)
         pump_lat,pump_lng = parse_optional_coordinate_pair(data,"pump_location_lat","pump_location_lng",label="Fuel station")
-        odometer_km = None if data.get("odometer_km") in (None,"") else finite_decimal(data["odometer_km"],"Odometer",scale=2)
-        trip_distance_km = None if data.get("trip_distance_km") in (None,"") else finite_decimal(data["trip_distance_km"],"Trip distance",maximum=Decimal("99999999.99"),scale=2)
-        assignment_id = None if data.get("assignment_id") in (None,"") else bounded_count(data["assignment_id"],"Assignment ID",maximum=2**63-1)
-        if assignment_id is not None and assignment_id<=0:
-            raise ValueError("Assignment ID must be positive.")
+        odometer_km = None if data.get("odometer_km") in (None,"") else finite_decimal(data["odometer_km"],"Odometer",minimum=Decimal("0"),maximum=Decimal("9999999999.99"),scale=2)
+        trip_distance_km = None if data.get("trip_distance_km") in (None,"") else finite_decimal(data["trip_distance_km"],"Trip distance",minimum=Decimal("0"),maximum=Decimal("99999999.99"),scale=2)
+        assignment_id = _optional_id(data, "assignment_id")
+        supplied_truck_id = _optional_id(data, "truck_id")
+        supplied_trip_id = _optional_id(data, "trip_id")
         if fuel_date is not None:
             fuel_date = date.fromisoformat(fuel_date).isoformat()
     except (ValueError, TypeError):
@@ -885,11 +917,31 @@ def create_driver_fuel_log():
                 except ValueError as exc:
                     return json_response({"success": False,"message": str(exc)},400)
 
-        # If driver has an active truck in profile and no assignment truck
+        # If driver has an active verified assignment truck on their profile and no assignment selected
         if not truck_id:
-            drv = db.execute("SELECT current_truck_id FROM driver_profiles WHERE user_id = %s", (user_id,)).fetchone()
+            drv = db.execute(
+                """
+                SELECT dp.current_truck_id
+                FROM driver_profiles dp
+                JOIN vehicles v ON v.id = dp.current_truck_id
+                WHERE dp.user_id = %s
+                  AND EXISTS (
+                      SELECT 1 FROM driver_trip_assignments dta
+                      WHERE dta.driver_user_id = dp.user_id
+                        AND dta.truck_id = dp.current_truck_id
+                        AND dta.accepted_at IS NOT NULL
+                  )
+                """,
+                (user_id,),
+            ).fetchone()
             if drv and drv["current_truck_id"]:
                 truck_id = drv["current_truck_id"]
+
+        # Never trust client-supplied truck or trip ownership
+        if supplied_truck_id is not None and supplied_truck_id != truck_id:
+            return json_response({"success": False, "message": "Supplied truck does not match your authorized assignment or active vehicle."}, 403)
+        if supplied_trip_id is not None and supplied_trip_id != trip_id:
+            return json_response({"success": False, "message": "Supplied trip does not match your authorized assignment."}, 403)
 
         # Calculate average fuel consumption (km / liter) if distance is available
         fuel_avg = None

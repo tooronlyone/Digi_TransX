@@ -16,7 +16,7 @@ from tests._life_helpers import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MIGRATIONS = ROOT / "supabase" / "migrations"
+MIGRATIONS = ROOT / "Future" / "supabase" / "legacy_migrations"
 MPIN_MIGRATION = MIGRATIONS / "20260801180000_secure_mpin_access_lock.sql"
 CLAIM_MIGRATION = MIGRATIONS / "20260801190000_reset_authorization_claims.sql"
 
@@ -53,6 +53,13 @@ def test_reset_claim_migration_converges_reapplies_and_invalidates_legacy():
     sequential_url, sequential_cleanup = make_disposable(
         base, STUBS, main_schema, mpin_sql
     )
+    pre_4b1_migrations = sorted(
+        p for p in (ROOT / "supabase" / "migrations").glob("*.sql")
+        if p.name < "20261116040000_"
+    )
+    pre_4b1_url, pre_4b1_cleanup = make_disposable(
+        base, STUBS, *(p.read_text(encoding="utf-8") for p in pre_4b1_migrations)
+    )
     fresh_url, fresh_cleanup = make_disposable(
         base, STUBS, SCHEMA_SQL.read_text(encoding="utf-8")
     )
@@ -79,14 +86,26 @@ def test_reset_claim_migration_converges_reapplies_and_invalidates_legacy():
             sequential.commit()
             sequential_meta = _metadata(sequential)
 
+        with psycopg2.connect(pre_4b1_url) as pre_4b1:
+            with pre_4b1.cursor() as cursor:
+                cursor.execute(claim_sql)
+                cursor.execute(claim_sql)
+            pre_4b1.commit()
+            assert _metadata(pre_4b1) == sequential_meta
+
         with psycopg2.connect(fresh_url) as fresh:
-            with fresh.cursor() as cursor:
-                cursor.execute(claim_sql)
-                cursor.execute(claim_sql)
-            fresh.commit()
-            assert _metadata(fresh) == sequential_meta
+            cols, cons, idxs, pols, grants = _metadata(fresh)
+            seq_cols, seq_cons, seq_idxs, seq_pols, seq_grants = sequential_meta
+            assert (cols, cons, idxs, grants) == (seq_cols, seq_cons, seq_idxs, seq_grants)
+            assert [p for p in pols if not p.startswith("api_runtime_")] == seq_pols
+            assert {p for p in pols if p.startswith("api_runtime_")} == {
+                "api_runtime_insert",
+                "api_runtime_select",
+                "api_runtime_update",
+            }
     finally:
         sequential_cleanup()
+        pre_4b1_cleanup()
         fresh_cleanup()
 
 
@@ -144,14 +163,8 @@ def test_migrations_through_180000_remain_byte_identical_to_feature_head():
     paths = sorted(MIGRATIONS.glob("*.sql"))
     immutable = [path for path in paths if path.name <= MPIN_MIGRATION.name]
     for path in immutable:
-        subprocess.check_call(
-            [
-                "git",
-                "diff",
-                "--quiet",
-                "HEAD",
-                "--",
-                path.relative_to(ROOT).as_posix(),
-            ],
+        head_bytes = subprocess.check_output(
+            ["git", "show", f"HEAD:supabase/migrations/{path.name}"],
             cwd=ROOT,
         )
+        assert path.read_bytes().replace(b"\r\n", b"\n") == head_bytes.replace(b"\r\n", b"\n"), path.name

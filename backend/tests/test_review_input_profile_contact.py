@@ -88,7 +88,8 @@ def test_profile_keeps_legacy_full_name_input_and_role_boundaries(remediation_en
     assert response.status_code == 200, response.json
     assert response.json["user"]["full_name"] == "Full Legacy Name"
     with env.db() as db:
-        for table in ("shopkeeper_profiles", "service_seeker_profiles"):
+        assert db.execute("SELECT to_regclass('public.shopkeeper_profiles') AS rel").fetchone()["rel"] is None
+        for table in ("transporter_profiles", "service_seeker_profiles"):
             assert db.execute(f"SELECT id FROM {table} WHERE user_id=%s", (owner["id"],)).fetchone() is None
 
 

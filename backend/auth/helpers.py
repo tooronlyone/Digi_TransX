@@ -3,6 +3,7 @@ import os
 import re
 import secrets
 import smtplib
+import ssl
 from datetime import datetime, timedelta
 from email.message import EmailMessage
 from functools import wraps
@@ -13,6 +14,7 @@ from itsdangerous import BadSignature, SignatureExpired, URLSafeTimedSerializer
 from werkzeug.security import check_password_hash, generate_password_hash
 
 from shared.db import open_db
+from shared.rate_limit import client_ip_from_request
 from .signup_terms import signup_terms_error
 from shared.roles import BUSINESS_CLIENT_ROLES, EVERYDAY_ROLES
 from auth.session_service import (
@@ -37,6 +39,9 @@ MPIN_REGEX = re.compile(r"^[0-9]{4}$", re.ASCII)
 LOGIN_COOLDOWN_MINUTES = 15
 OTP_EXPIRY_MINUTES = 10
 OTP_ATTEMPT_LIMIT = 5
+OTP_RESEND_COOLDOWN_SECONDS = 60
+OTP_REQUEST_WINDOW_MINUTES = 60
+OTP_REQUEST_WINDOW_LIMIT = 5
 RESET_TOKEN_EXPIRY_MINUTES = 10
 DEVICE_COOKIE_NAME = "dtx_device_token"
 SESSION_TOKEN_COOKIE_NAME = "dtx_session_token"
@@ -121,29 +126,30 @@ def json_response(payload, status=200):
 
 
 def get_request_meta():
-    forwarded = request.headers.get("X-Forwarded-For", "")
-    ip_address = forwarded.split(",")[0].strip() if forwarded else (request.remote_addr or "")
     return {
-        "ip_address": ip_address,
+        "ip_address": client_ip_from_request(),
         "user_agent": (request.headers.get("User-Agent") or "")[:255],
     }
 
 
 def send_email(subject, recipient, body_lines):
-    smtp_host = os.environ.get("DIGITRANSX_SMTP_HOST", "smtp.gmail.com")
+    smtp_host = os.environ.get("DIGITRANSX_SMTP_HOST", "smtp.gmail.com").strip()
     smtp_port = int(os.environ.get("DIGITRANSX_SMTP_PORT", "587"))
     smtp_user = os.environ.get("DIGITRANSX_SMTP_USER", "")
     smtp_password = os.environ.get("DIGITRANSX_SMTP_PASSWORD", "")
     sender = os.environ.get("DIGITRANSX_SMTP_FROM", smtp_user)
-    if not smtp_user or not smtp_password or not sender:
+    if not smtp_host or not (1 <= smtp_port <= 65535) or not smtp_user or not smtp_password or not sender:
         raise RuntimeError("SMTP environment variables are missing.")
     message = EmailMessage()
     message["Subject"] = subject
     message["From"] = sender
     message["To"] = recipient
     message.set_content("\n".join(body_lines))
+    tls_context = ssl.create_default_context()
     with smtplib.SMTP(smtp_host, smtp_port, timeout=30) as smtp:
-        smtp.starttls()
+        smtp.ehlo()
+        smtp.starttls(context=tls_context)
+        smtp.ehlo()
         smtp.login(smtp_user, smtp_password)
         smtp.send_message(message)
 
@@ -193,8 +199,6 @@ LEGACY_TO_APP_ROLE = {
     "everyday_user": "customer",
     "transporter": "transporter",
     "logistics_provider": "transporter",
-    "fuel_station_manager": "fuel_station_manager",
-    "shopkeeper": "shopkeeper",
 }
 
 
@@ -216,10 +220,10 @@ def _with_legacy_role(user):
 
 def _attach_role_profile(db, user):
     """Merge the user's role-profile row (service_seeker_profiles /
-    everyday_user_profiles / transporter_profiles / fuel_station_profiles /
-    shopkeeper_profiles) into the user dict so the rest of the app keeps
-    reading the same field names as before. Business seekers and everyday
-    individuals now live in separate tables — read the one matching the role."""
+    everyday_user_profiles / transporter_profiles / driver_profiles) into the
+    user dict so the rest of the app keeps reading the same field names as
+    before. Business seekers and everyday individuals now live in separate
+    tables — read the one matching the role."""
     legacy = (user.get("legacy_role") or user.get("role") or "").strip().lower()
     row = None
     if legacy in BUSINESS_CLIENT_ROLES:
@@ -241,16 +245,6 @@ def _attach_role_profile(db, user):
                    payout_card_expiry, payout_card_bank
             FROM transporter_profiles WHERE user_id = %s
             """,
-            (user["id"],),
-        ).fetchone()
-    elif legacy == "fuel_station_manager":
-        row = db.execute(
-            "SELECT station_name, pumps_count, license_no FROM fuel_station_profiles WHERE user_id = %s",
-            (user["id"],),
-        ).fetchone()
-    elif legacy == "shopkeeper":
-        row = db.execute(
-            "SELECT shop_name FROM shopkeeper_profiles WHERE user_id = %s",
             (user["id"],),
         ).fetchone()
     elif legacy == "driver":
@@ -315,8 +309,6 @@ def serialize_user(user):
         "contact_phone": user.get("contact_phone", ""),
         "billing_address": user.get("billing_address", ""),
         "city": user.get("city", ""),
-        "shop_name": user.get("shop_name", ""),
-        "station_name": user.get("station_name", ""),
         "address": user.get("address", ""),
         "about": user.get("about", ""),
         "organization_default_route": role_redirect(user.get("role", "")),
@@ -473,8 +465,19 @@ def login_required(view=None, *, refresh_activity=True, allow_locked=False):
     return decorator(view)
 
 
+def is_admin_user(user):
+    """Return True strictly when user satisfies authoritative platform_admin checks."""
+    if not user or not isinstance(user, dict) or user.get("is_blocked"):
+        return False
+    role = (user.get("role") or "").strip().lower()
+    if "legacy_role" in user:
+        legacy = (user.get("legacy_role") or "").strip().lower()
+        return legacy == "platform_admin" and role in {"admin", "platform_admin"}
+    return role == "platform_admin"
+
+
 def require_admin_role(user):
-    if not user or (user.get("role") or "").strip().lower() != "platform_admin":
+    if not is_admin_user(user):
         return json_response({"success": False, "message": "Admin access required."}, 403)
     return None
 
@@ -590,6 +593,91 @@ def clear_authentication_cookies(response):
     return _clear_local_authentication(response)
 
 
+def _parse_iso_naive(value):
+    if not value:
+        return None
+    try:
+        parsed = datetime.fromisoformat(str(value))
+    except ValueError:
+        return None
+    if parsed.tzinfo is not None:
+        parsed = parsed.astimezone().replace(tzinfo=None)
+    return parsed
+
+
+def _otp_window_rows(db, user_id, purpose, *, limit=20):
+    completed = db.execute(
+        """
+        SELECT id FROM password_reset_otps
+        WHERE user_id = %s AND purpose = %s AND verified = 1 AND superseded_at IS NULL
+        ORDER BY id DESC
+        LIMIT 1
+        """,
+        (user_id, purpose),
+    ).fetchone()
+    since_id = int(completed["id"]) if completed else 0
+    rows = db.execute(
+        """
+        SELECT * FROM password_reset_otps
+        WHERE user_id = %s AND purpose = %s AND id > %s
+        ORDER BY id DESC
+        LIMIT %s
+        """,
+        (user_id, purpose, since_id, limit),
+    ).fetchall()
+    return [dict(row) for row in rows]
+
+
+def otp_request_block_reason(user_id, purpose, *, db=None):
+    """Return `(reason_code, message)` if issuing a new OTP must be blocked, else `(None, '')`."""
+    def _evaluate(executor):
+        all_recent = executor.execute(
+            """
+            SELECT id, created_at_iso, attempts, cooldown_until_iso
+            FROM password_reset_otps
+            WHERE user_id = %s AND purpose = %s
+            ORDER BY id DESC
+            LIMIT 20
+            """,
+            (user_id, purpose),
+        ).fetchall()
+        if not all_recent:
+            return None, ""
+
+        now = now_local()
+        latest = dict(all_recent[0])
+        if latest.get("cooldown_until_iso") and is_future(latest["cooldown_until_iso"]):
+            return (
+                "cooldown_locked",
+                "Too many wrong attempts. Please wait 15 minutes before requesting a new code.",
+            )
+
+        latest_created = _parse_iso_naive(latest.get("created_at_iso"))
+        if latest_created is not None and (now - latest_created).total_seconds() < OTP_RESEND_COOLDOWN_SECONDS:
+            return (
+                "resend_cooldown",
+                "Please wait 60 seconds before requesting another verification code.",
+            )
+
+        window_cutoff = now - timedelta(minutes=OTP_REQUEST_WINDOW_MINUTES)
+        window_count = 0
+        for row in all_recent:
+            created = _parse_iso_naive(row["created_at_iso"])
+            if created is not None and created >= window_cutoff:
+                window_count += 1
+        if window_count >= OTP_REQUEST_WINDOW_LIMIT:
+            return (
+                "hourly_limit",
+                "Too many verification code requests. Please try again later.",
+            )
+        return None, ""
+
+    if db is not None:
+        return _evaluate(db)
+    with open_db() as conn:
+        return _evaluate(conn)
+
+
 def latest_otp_record(user_id, purpose):
     with open_db() as db:
         row = db.execute(
@@ -606,13 +694,43 @@ def latest_otp_record(user_id, purpose):
 
 def create_otp_record(user_id, purpose, otp_code, recipient_email):
     stamp = timestamp_bundle()
+    now = datetime.fromisoformat(stamp["iso"])
+    window_cutoff = now - timedelta(minutes=OTP_REQUEST_WINDOW_MINUTES)
     with open_db() as db:
+        db.execute("SELECT id FROM users WHERE id = %s FOR UPDATE", (user_id,))
+        recent_rows = _otp_window_rows(db, user_id, purpose)
+        carried_attempts = 0
+        carried_cooldown = None
+        for row in recent_rows:
+            cooldown_iso = row.get("cooldown_until_iso")
+            if cooldown_iso and is_future(cooldown_iso):
+                if carried_cooldown is None or cooldown_iso > carried_cooldown:
+                    carried_cooldown = cooldown_iso
+                carried_attempts = max(carried_attempts, min(int(row["attempts"]), OTP_ATTEMPT_LIMIT))
+                continue
+            created = _parse_iso_naive(row.get("created_at_iso"))
+            if created is not None and created >= window_cutoff:
+                row_attempts = int(row["attempts"])
+                # Reset attempts only after a previously hit cooldown has expired;
+                # unfinished failure counts (< OTP_ATTEMPT_LIMIT) survive regeneration.
+                if row_attempts < OTP_ATTEMPT_LIMIT:
+                    carried_attempts = max(carried_attempts, row_attempts)
+
+        db.execute(
+            """
+            UPDATE password_reset_otps
+               SET verified = 1,
+                   superseded_at = COALESCE(superseded_at, NOW())
+             WHERE user_id = %s AND purpose = %s AND verified = 0
+            """,
+            (user_id, purpose),
+        )
         db.execute(
             """
             INSERT INTO password_reset_otps (
                 user_id, purpose, otp_hash, expires_at_iso, created_at, created_at_iso,
-                attempts, max_attempts, verified, cooldown_until_iso, delivery_target
-            ) VALUES (%s, %s, %s, %s, %s, %s, 0, %s, 0, NULL, %s)
+                attempts, max_attempts, verified, cooldown_until_iso, superseded_at, delivery_target
+            ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s, 0, %s, NULL, %s)
             """,
             (
                 user_id,
@@ -621,7 +739,9 @@ def create_otp_record(user_id, purpose, otp_code, recipient_email):
                 add_minutes(stamp["iso"], OTP_EXPIRY_MINUTES),
                 stamp["display"],
                 stamp["iso"],
+                carried_attempts,
                 OTP_ATTEMPT_LIMIT,
+                carried_cooldown,
                 recipient_email,
             ),
         )
@@ -859,17 +979,19 @@ def update_user_settings(user_id, settings_dict):
 def consume_otp_for_user(
     user_id, purpose, otp_code, *, issue_reset_authorization=False
 ):
-    """Consume the latest OTP once under a row lock.
+    """Consume the latest active OTP once under user and OTP row locks.
 
     Password-reset OTP consumption and reset-token creation share this one
-    transaction, so a challenge cannot mint multiple authorizations.
+    transaction, so a challenge cannot mint multiple authorizations and
+    superseded OTPs can never be accepted.
     """
 
     with open_db() as db:
+        db.execute("SELECT id FROM users WHERE id = %s FOR UPDATE", (user_id,))
         row = db.execute(
             """
             SELECT * FROM password_reset_otps
-             WHERE user_id = %s AND purpose = %s
+             WHERE user_id = %s AND purpose = %s AND superseded_at IS NULL
              ORDER BY id DESC
              LIMIT 1
              FOR UPDATE
@@ -879,7 +1001,7 @@ def consume_otp_for_user(
         if not row:
             return None, "No active OTP request found.", None
         record = dict(row)
-        if record["verified"]:
+        if record.get("superseded_at") is not None or record["verified"]:
             return None, "OTP is no longer valid.", None
         if record.get("cooldown_until_iso") and is_future(record["cooldown_until_iso"]):
             return None, "Too many wrong attempts. Please wait 15 minutes before requesting a new code.", None
@@ -903,7 +1025,7 @@ def consume_otp_for_user(
             """
             UPDATE password_reset_otps
                SET verified = 1
-             WHERE id = %s AND verified = 0
+             WHERE id = %s AND verified = 0 AND superseded_at IS NULL
             RETURNING *
             """,
             (record["id"],),

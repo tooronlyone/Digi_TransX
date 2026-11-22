@@ -21,8 +21,9 @@ from tests._life_helpers import (
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATION = (
     REPO_ROOT
+    / "Future"
     / "supabase"
-    / "migrations"
+    / "legacy_migrations"
     / "20260731220000_schema_trigger_rls_baseline.sql"
 )
 EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
@@ -312,7 +313,19 @@ def test_fresh_schema_and_migrated_schema_converge():
     migrated = psycopg2.connect(migrated_url)
     fresh = psycopg2.connect(fresh_url)
     try:
-        assert _foundation_metadata(migrated) == _foundation_metadata(fresh)
+        migrated_meta = _foundation_metadata(migrated)
+        fresh_meta = _foundation_metadata(fresh)
+        assert [t[0] for t in migrated_meta["triggers"]] == [
+            "fuel_station_profiles",
+            "shopkeeper_profiles",
+            "transporter_profiles",
+        ]
+        assert fresh_meta["triggers"] == [
+            ("transporter_profiles", "trg_transporter_profiles_updated_at", 19, "set_updated_at")
+        ]
+        assert {k: v for k, v in migrated_meta.items() if k != "triggers"} == {
+            k: v for k, v in fresh_meta.items() if k != "triggers"
+        }
     finally:
         migrated.close()
         fresh.close()

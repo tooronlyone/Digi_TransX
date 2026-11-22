@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { AUTH_STATUSES, useAuthVerification } from '../../auth/AuthVerificationContext'
 import { apiGet, apiSend } from '../../pages/client/clientUtils'
+import { requestAdminStepUp } from '../admin/adminStepUpBridge'
 
 function evidenceText(value) {
   if (typeof value !== 'string') return JSON.stringify(value ?? [], null, 2)
@@ -59,11 +60,22 @@ function OwnedOperationalInvestigations({ ownerId }) {
     const target = selected, version = detailVersion.current
     setBusy(true); setError(''); setNotice('')
     try {
-      await apiSend(`/api/admin/operational-incidents/${target}/decision`, { status, decision_evidence: notes.trim() }, 'POST', (url, options) => {
-        if (!alive.current || selectedRef.current !== target || detailVersion.current !== version) throw new DOMException('The selected investigation changed.', 'AbortError')
-        const controller = new AbortController()
-        mutation.current = controller
-        return fetch(url, { ...options, signal: controller.signal, headers: { ...options.headers, 'X-DTX-Expected-User-Id': String(ownerId) } })
+      await apiSend(`/api/admin/operational-incidents/${target}/decision`, { status, decision_evidence: notes.trim() }, 'POST', async (url, options) => {
+        const doFetch = (extraHeaders = {}) => {
+          if (!alive.current || selectedRef.current !== target || detailVersion.current !== version) throw new DOMException('The selected investigation changed.', 'AbortError')
+          const controller = new AbortController()
+          mutation.current = controller
+          return fetch(url, { ...options, signal: controller.signal, headers: { ...options.headers, ...extraHeaders, 'X-DTX-Expected-User-Id': String(ownerId) } })
+        }
+        const response = await doFetch()
+        if (response.status === 428) {
+          const challenge = await response.clone().json().catch(() => ({}))
+          if (challenge?.code === 'admin_step_up_required' && challenge.action) {
+            const stepUpProof = await requestAdminStepUp(challenge.action)
+            return doFetch({ 'X-Admin-Step-Up-Proof': stepUpProof })
+          }
+        }
+        return response
       })
       if (!alive.current || selectedRef.current !== target || detailVersion.current !== version) return
       selectedRef.current = null; detailVersion.current += 1

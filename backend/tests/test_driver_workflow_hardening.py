@@ -168,7 +168,7 @@ def test_gps_rejects_bad_coordinates_and_identifiers_before_write(remediation_en
     assert response.status_code == 400,response.json
 
 
-@pytest.mark.parametrize("role",["driver","shopkeeper","service_seeker"])
+@pytest.mark.parametrize("role",["driver","everyday_user","service_seeker"])
 def test_review_rejects_unrelated_roles(remediation_env,role):
     env = remediation_env
     client,_ = env.login(env.user(role))

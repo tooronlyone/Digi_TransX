@@ -4,14 +4,14 @@ import { Link, useLocation } from 'react-router-dom'
 import Notification from '../../components/common/Notification'
 import { useAuthSession } from '../../hooks/useAuth'
 import digiTransxLogo from '../../assets/brand/digi-transx-logo.png'
-import heroBackground from '../../assets/backgrounds/digi-transx-login-background.PNG'
+import heroBackground from '../../assets/backgrounds/digi-transx-login-background.png'
 import '../../styles/pages/portal-auth-v2.css'
 
 export default function Login() {
   const { cacheUser, clearCache, resolveRedirect } = useAuthSession()
   const location = useLocation()
   const [form, setForm] = useState({ 
-    loginId: localStorage.getItem('dtx_remember_loginId') || '', 
+    loginId: '', 
     password: '' 
   })
   const [errors, setErrors] = useState({})

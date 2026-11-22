@@ -24,7 +24,9 @@ export default function TruckDetails() {
   const api = useApi()
   const [truck, setTruck] = useState(null)
   const [_maintenance, setMaintenance] = useState([])
-  const [_fuel, setFuel] = useState([])
+  const [fuelLogs, setFuelLogs] = useState([])
+  const [fuelStats, setFuelStats] = useState(null)
+  const [fuelError, setFuelError] = useState('')
   const [loading, setLoading] = useState(() => Boolean(id))
 
   useEffect(() => {
@@ -33,7 +35,7 @@ export default function TruckDetails() {
     Promise.allSettled([
       api.get(`/api/trucks/${id}`),
       api.get(`/api/trucks/${id}/maintenance`).catch(() => ({ status: 'rejected' })),
-      api.get(`/api/trucks/${id}/fuel`).catch(() => ({ status: 'rejected' })),
+      api.get(`/api/trucks/${id}/fuel-logs`).catch((err) => ({ _fuelError: err?.message || 'Unable to load vehicle fuel history.' })),
     ]).then(([truckRes, maintRes, fuelRes]) => {
       if (ignore) return
       if (truckRes.status === 'fulfilled') setTruck(truckRes.value.truck || truckRes.value)
@@ -42,8 +44,13 @@ export default function TruckDetails() {
         setMaintenance(records.filter(r => !id || r.truck === id || r.truck_id === id).slice(0, 5))
       }
       if (fuelRes.status === 'fulfilled') {
-        const entries = fuelRes.value.entries || []
-        setFuel(entries.filter(r => !id || r.truck === id).slice(0, 5))
+        if (fuelRes.value?._fuelError) {
+          setFuelError(fuelRes.value._fuelError)
+        } else if (fuelRes.value?.success) {
+          setFuelLogs(fuelRes.value.logs || [])
+          setFuelStats(fuelRes.value.stats || null)
+          setFuelError('')
+        }
       }
     }).finally(() => {
       if (!ignore) setLoading(false)
@@ -321,6 +328,75 @@ export default function TruckDetails() {
               ))}
             </div>
           </div>
+        </div>
+
+        {/* G — Vehicle Fuel History (Read-Only) */}
+        <div style={S.card}>
+          <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: 12, marginBottom: 14 }}>
+            <div>
+              <h3 style={{ margin: '0 0 4px', fontSize: 15, fontWeight: 700, color: '#111827' }}>Vehicle Fuel History</h3>
+              <p style={{ margin: 0, fontSize: 13, color: '#6B7280' }}>Read-only driver refuel records for this vehicle.</p>
+            </div>
+            {fuelStats && (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: 8 }}>
+                <span style={S.badge('#3730A3', '#E0E7FF')}>Refuels: {fuelStats.total_refuels}</span>
+                <span style={S.badge('#1D4ED8', '#DBEAFE')}>{Number(fuelStats.total_liters || 0).toFixed(2)} L</span>
+                <span style={S.badge('#065F46', '#D1FAE5')}>Rs {Number(fuelStats.total_fuel_spent || 0).toLocaleString()}</span>
+                {Number(fuelStats.avg_km_per_liter || 0) > 0 && (
+                  <span style={S.badge('#92400E', '#FEF3C7')}>Avg {fuelStats.avg_km_per_liter} km/L</span>
+                )}
+              </div>
+            )}
+          </div>
+
+          {fuelError ? (
+            <p style={{ margin: 0, fontSize: 13, color: '#B91C1C' }}>{fuelError}</p>
+          ) : fuelLogs.length === 0 ? (
+            <p style={{ margin: 0, fontSize: 13, color: '#6B7280' }}>No driver fuel records logged for this vehicle yet.</p>
+          ) : (
+            <div style={{ overflowX: 'auto' }}>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', fontSize: 13 }}>
+                <thead>
+                  <tr style={{ borderBottom: '1px solid #E5E7EB', color: '#6B7280', fontSize: 11, textTransform: 'uppercase' }}>
+                    <th style={{ padding: '8px 10px' }}>Date</th>
+                    <th style={{ padding: '8px 10px' }}>Driver</th>
+                    <th style={{ padding: '8px 10px' }}>Pump &amp; City</th>
+                    <th style={{ padding: '8px 10px' }}>Trip</th>
+                    <th style={{ padding: '8px 10px' }}>Quantity</th>
+                    <th style={{ padding: '8px 10px' }}>Rate &amp; Cost</th>
+                    <th style={{ padding: '8px 10px' }}>Avg</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {fuelLogs.map((log) => (
+                    <tr key={log.id} style={{ borderBottom: '1px solid #F3F4F6' }}>
+                      <td style={{ padding: '10px', whiteSpace: 'nowrap', fontWeight: 600 }}>{log.fuel_date}</td>
+                      <td style={{ padding: '10px' }}>{log.driver_name || '—'}</td>
+                      <td style={{ padding: '10px' }}>
+                        <div style={{ fontWeight: 600, color: '#111827' }}>{log.pump_name}</div>
+                        <small style={{ color: '#6B7280' }}>{log.city}</small>
+                      </td>
+                      <td style={{ padding: '10px' }}>
+                        {log.pickup_city && log.dropoff_city
+                          ? `${log.pickup_city} -> ${log.dropoff_city}`
+                          : (log.trip_id ? `Trip #${log.trip_id}` : 'General / Standby')}
+                      </td>
+                      <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>
+                        <span style={{ textTransform: 'capitalize' }}>{log.fuel_type}</span> · {log.liters} L
+                      </td>
+                      <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>
+                        <div style={{ fontWeight: 600 }}>Rs {Number(log.total_amount || 0).toLocaleString()}</div>
+                        <small style={{ color: '#6B7280' }}>@Rs {Number(log.price_per_liter || 0).toLocaleString()}/L</small>
+                      </td>
+                      <td style={{ padding: '10px', whiteSpace: 'nowrap' }}>
+                        {log.fuel_average_km_per_liter ? `${log.fuel_average_km_per_liter} km/L` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
       </div>

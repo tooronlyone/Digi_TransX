@@ -45,12 +45,6 @@ FEE_COMPONENTS = {
         ("payments", "Digital Payment Gateway & Secure Wallet Processing", "3"),
         ("protection", "Escrow Guarantee & Dispute Protection Fund", "2"),
     ),
-    "marketplace": (
-        ("infrastructure", "Marketplace Listing & Tech Infrastructure", "6"),
-        ("visibility", "Digital Catalog & Search Visibility", "2"),
-        ("protection", "Escrow Protection & Fraud Settlement", "2"),
-    ),
-    "fuel": (),
     "client": (),
 }
 

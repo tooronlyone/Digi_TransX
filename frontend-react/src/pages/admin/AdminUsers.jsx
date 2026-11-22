@@ -108,10 +108,16 @@ export default function AdminUsers() {
             <h2 style={{ fontSize: 20, fontWeight: 800, color: '#0f172a', marginBottom: 20 }}>Create Admin Account</h2>
             {['name','email','password'].map(f => (
               <input key={f} style={{ ...S.input, width: '100%', boxSizing: 'border-box', marginBottom: 12 }}
-                placeholder={f.charAt(0).toUpperCase() + f.slice(1)}
-                type={f === 'password' ? 'password' : 'text'}
+                placeholder={f === 'password' ? 'Password (12+ chars, letters & number/symbol)' : f.charAt(0).toUpperCase() + f.slice(1)}
+                type={f === 'password' ? 'password' : f === 'email' ? 'email' : 'text'}
+                minLength={f === 'password' ? 12 : undefined}
+                maxLength={f === 'password' ? 128 : 120}
+                required
                 value={form[f]} onChange={e => setForm({ ...form, [f]: e.target.value })} />
             ))}
+            <p style={{ margin: '0 0 12px', fontSize: 12, color: '#64748b' }}>
+              Admin passwords require 12-128 characters including letters and at least one number or symbol.
+            </p>
             <div style={{ display: 'flex', justifyContent: 'flex-end', gap: 12, marginTop: 8 }}>
               <button type="button" onClick={() => setModal(false)} style={S.btnOutline}>Cancel</button>
               <button type="submit" style={S.btnPrimary}>Create</button>

@@ -33,12 +33,13 @@ from tests.test_canonical_event_acl_hardening import _semantic_signature
 REPO_ROOT = Path(__file__).resolve().parents[2]
 ACTIVATION_MIGRATION = (
     REPO_ROOT
+    / "Future"
     / "supabase"
-    / "migrations"
+    / "legacy_migrations"
     / "20260801100000_security_login_event_integration.sql"
 )
 DURABLE_RUNTIME_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations"
+    REPO_ROOT / "Future" / "supabase" / "legacy_migrations"
     / "20260801170000_durable_session_runtime_events.sql"
 )
 EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
@@ -113,6 +114,7 @@ def auth_client(auth_database_url, monkeypatch):
                 cursor.execute(
                     "truncate public.security_events, public.business_audit_events, "
                     "public.login_activity, public.trusted_devices, public.user_action_logs, "
+                    "public.password_reset_otps, public.reset_tokens, public.http_rate_limits, "
                     "public.users restart identity cascade"
                 )
     finally:

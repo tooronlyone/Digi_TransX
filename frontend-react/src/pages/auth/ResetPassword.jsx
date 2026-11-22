@@ -44,7 +44,10 @@ export default function ResetPassword() {
       const data = await response.json()
       if (response.ok && data.success) {
         setMaskedEmail(data.masked_email || '')
-        setNotification({ type: 'success', message: data.message || 'OTP sent to your registered email.' })
+        setNotification({
+          type: 'success',
+          message: data.message || 'If an account exists, a 6 digit code has been sent to the registered email.',
+        })
         setStep(STEPS.VERIFY)
       } else {
         setNotification({ type: 'error', message: data.message || 'Request failed.' })

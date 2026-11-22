@@ -3,7 +3,6 @@ Digi_TransX in-process background scheduler.
 
 Jobs (each wraps a single production service):
 - Every 10 min : escalate legacy confirmations and release eligible freight tranches
-- Every 1 min  : release expired undispensed fuel authorizations
 
 DEPLOYMENT CONTRACT (single owner):
 - Every WEB worker sets DIGITRANSX_ENABLE_SCHEDULER=0 (the default is also OFF —
@@ -78,11 +77,11 @@ def run_process_overdue_confirmations():
     lapsed to admin_review (payment stays held). Wraps the single production
     function used by the manual admin trigger and the tests."""
     try:
-        from shared.db import open_db
+        from shared.db import open_scheduler_db
         from orders.lifecycle import process_overdue_delivery_confirmations
         from orders.business_lifecycle import release_due_settlements
 
-        with open_db() as db:
+        with open_scheduler_db() as db:
             result = process_overdue_delivery_confirmations(db)
             result['freight_settlements'] = release_due_settlements(db)
             db.commit()
@@ -95,25 +94,6 @@ def run_process_overdue_confirmations():
             "processed_trip_ids": [],
             "error": "processing_failed",
         }
-
-
-def run_expire_fuel_vouchers():
-    """Independent, retry-safe transactions; a damaged hold cannot starve others."""
-    from shared.db import open_db
-    from shared.fuel_credit import cancel_voucher
-    processed = failed = 0
-    with open_db() as db:
-        due = db.execute("SELECT id FROM fuel_vouchers WHERE status IN('authorized','verified') AND expires_at<=now() ORDER BY expires_at,id LIMIT 200").fetchall()
-    for row in due:
-        try:
-            with open_db() as db:
-                result = cancel_voucher(db, row['id'], expired_only=True)
-                if not result['replayed']:
-                    processed += 1
-        except Exception:
-            failed += 1
-            logger.error("[Scheduler] fuel authorization release failed; financial reconciliation required (voucher %s)", row['id'])
-    return {'processed':processed,'failed':failed}
 
 
 def start_scheduler(force=False):
@@ -140,12 +120,6 @@ def start_scheduler(force=False):
 
     scheduler = BackgroundScheduler(daemon=True)
 
-    scheduler.add_job(
-        run_expire_fuel_vouchers, trigger=IntervalTrigger(minutes=1),
-        id="expire_fuel_vouchers_interval", replace_existing=True,
-        misfire_grace_time=300,
-    )
-
     # Every 10 minutes - escalate overdue one-time delivery confirmations.
     scheduler.add_job(
         run_process_overdue_confirmations,
@@ -158,7 +132,6 @@ def start_scheduler(force=False):
     scheduler.start()
     _scheduler = scheduler
     logger.info(
-        "[Scheduler] Started - overdue confirmations and freight release every 10 min, "
-        "fuel expiry every 1 min"
+        "[Scheduler] Started - overdue confirmations and freight release every 10 min"
     )
     return scheduler

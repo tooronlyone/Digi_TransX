@@ -8,9 +8,10 @@ BACKEND_DIR = Path(__file__).resolve().parent.parent
 if str(BACKEND_DIR) not in sys.path:
     sys.path.insert(0, str(BACKEND_DIR))
 
-from auth.helpers import normalize_email, split_name, timestamp_bundle
+from auth.admin_step_up_service import validate_admin_password
+from auth.helpers import normalize_email, timestamp_bundle
 from shared.db import open_db
-from shared.supabase_client import supabase_create_user, supabase_update_password
+from shared.supabase_client import supabase_create_user, supabase_delete_user, supabase_update_password
 from auth.credential_changes import execute_password_change
 
 
@@ -37,8 +38,9 @@ def main():
     email = normalize_email(args.email)
     if not email:
         raise SystemExit("Email is required.")
-    if len(args.password) < 8:
-        raise SystemExit("Password must be at least 8 characters.")
+    ok_pw, pw_msg = validate_admin_password(args.password)
+    if not ok_pw:
+        raise SystemExit(pw_msg)
 
     stamp = timestamp_bundle()["iso"]
     with open_db() as db:
@@ -63,9 +65,10 @@ def main():
             )
             action = "updated"
             user_id = existing["id"]
+            db.commit()
         else:
             cnic = available_admin_cnic(db)
-            supabase_create_user(
+            auth_user = supabase_create_user(
                 email,
                 args.password,
                 {
@@ -76,18 +79,40 @@ def main():
                     "legacy_role": "platform_admin",
                 },
             )
-            db.execute(
-                """
-                UPDATE users
-                SET full_name = %s, role = 'admin',
-                    legacy_role = 'platform_admin', city = '', updated_at = %s
-                WHERE email = %s
-                """,
-                (args.name.strip() or "Platform Admin", stamp, email),
-            )
+            auth_id = getattr(auth_user, "id", None)
+            if not auth_id:
+                raise SystemExit("Auth user creation did not return a valid identity.")
+            try:
+                updated = db.execute(
+                    """
+                    UPDATE users
+                    SET full_name = %s, role = 'admin',
+                        legacy_role = 'platform_admin', cnic = %s, city = '', updated_at = %s
+                    WHERE auth_id = %s
+                    RETURNING id
+                    """,
+                    (args.name.strip() or "Platform Admin", cnic, stamp, str(auth_id)),
+                ).fetchone()
+                if not updated:
+                    updated = db.execute(
+                        """
+                        UPDATE users
+                        SET full_name = %s, role = 'admin',
+                            legacy_role = 'platform_admin', cnic = %s, city = '', updated_at = %s
+                        WHERE email = %s
+                        RETURNING id
+                        """,
+                        (args.name.strip() or "Platform Admin", cnic, stamp, email),
+                    ).fetchone()
+                if not updated:
+                    raise RuntimeError("Profile promotion did not match a local user.")
+                user_id = updated["id"]
+                db.commit()
+            except Exception:
+                db.rollback()
+                supabase_delete_user(auth_id)
+                raise
             action = "created"
-            user_id = db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone()["id"]
-        db.commit()
 
     print(f"Platform admin {action}: id={user_id}, email={email}, role=platform_admin")
 

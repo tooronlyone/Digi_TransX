@@ -763,7 +763,7 @@ def approved_booking_financial_terms(fee_breakdown):
         'insurance_notice_legal_scope':'This notice does not override mandatory legal obligations or liability established through verified misconduct.',
         'delivery_verification':'Client MPIN-authorized, time-limited, single-use delivery OTP.',
         'settlement_tranches_percent':['50.00','50.00'],
-        'settlement_basis':'Net earnings after authorized fuel-credit recovery and separately approved reserve contributions.',
+        'settlement_basis':'Net earnings after separately approved reserve contributions.',
         'dispute_window_minutes':90,
         'release_eligibility_minutes':120,
         'timestamp_basis':'Authoritative server-side delivery completion timestamp in UTC.',
@@ -797,8 +797,6 @@ def serialize_payment_summary(payment, viewer="client"):
     }
     if viewer == "transporter":
         base["transporter_amount"] = round_money(payment.get("transporter_amount"))
-        if payment.get('fuel_credit_recovered'):
-            base.update({key:payment[key] for key in ('transporter_entitlement','fuel_credit_recovered','wallet_credit_amount')})
         return base
     base.update({
         "funding_source": payment.get("funding_source"),
@@ -818,15 +816,11 @@ def serialize_payment_summary(payment, viewer="client"):
 
 def get_active_payment_for_shipment(db, shipment_id, statuses=("processing", "held", "released")):
     placeholders = ",".join("%s" for _ in statuses)
-    row = db.execute(
+    return db.execute(
         f"SELECT * FROM payments WHERE shipment_id = %s AND status IN ({placeholders}) "
         "ORDER BY id DESC LIMIT 1",
         (shipment_id, *statuses),
     ).fetchone()
-    if not row:
-        return None
-    from shared.fuel_credit import annotate_legacy_earnings
-    return annotate_legacy_earnings(db,[row],'legacy_freight')[0]
 
 
 def _checkout_result(db, order_id, payment, replayed=False):
@@ -1517,16 +1511,13 @@ def _lock_payment(db, payment_id):
 def release_one_time_payment(db, payment_id, now_iso=None):
     """Release a held one-time payment to the transporter exactly once.
 
-    Locks the payment, credits the snapshotted transporter entitlement less
-    separately recorded new fuel-debt recovery, retains the saved commission
-    (payments.company_fee) and marks the payment released. Returns a dict with
-    "released" (False on an idempotent replay of an already-released payment).
-    Raises CheckoutError if the payment is missing or not in a releasable state.
+    Locks the payment, credits the snapshotted transporter entitlement, retains
+    the saved commission (payments.company_fee) and marks the payment released.
+    Returns a dict with "released" (False on an idempotent replay of an
+    already-released payment). Raises CheckoutError if the payment is missing
+    or not in a releasable state.
     """
     from wallet.helpers import adjust_wallet_balance, get_or_create_wallet_for_user
-    from shared.fuel_credit import legacy_earnings_recovery, recover_legacy_earnings
-
-    recovery_reference = f"legacy_freight:{payment_id}"
 
     payment = _lock_payment(db, payment_id)
     if not payment:
@@ -1535,12 +1526,10 @@ def release_one_time_payment(db, payment_id, now_iso=None):
         raise CheckoutError('Versioned bookings require verified delivery OTP and tranche settlement. Use the authorized settlement resolution flow for disputes.',409,'delivery_otp_required')
     if payment["status"] == "released":
         entitlement = Decimal(str(payment["transporter_amount"]))
-        recovered = legacy_earnings_recovery(db, recovery_reference)
         return {"released": False, "already_released": True, "payment": payment,
                 "transporter_entitlement": round_money(entitlement),
-                "fuel_credit_recovered": round_money(recovered),
-                "wallet_credit_amount": round_money(entitlement - recovered),
-                "payout_amount": round_money(entitlement - recovered)}
+                "wallet_credit_amount": round_money(entitlement),
+                "payout_amount": round_money(entitlement)}
     if payment["status"] != "held":
         raise CheckoutError(
             "Only a held payment can be released.", 409, "payment_not_held"
@@ -1570,15 +1559,7 @@ def release_one_time_payment(db, payment_id, now_iso=None):
     wallet = dict(db.execute_exact(
         "SELECT * FROM wallets WHERE user_id = %s FOR UPDATE", (transporter_id,)
     ).fetchone())
-    recovered = recover_legacy_earnings(db, transporter_id, transporter_amount, recovery_reference)
-    payout = transporter_amount - recovered
-    if recovered:
-        from shared.financial_ledger import post_journal
-        # Recognize only the new recovery against this future payable. The
-        # historical fare, commission and net entitlement remain untouched.
-        post_journal(db, f"fuel_recovery_source:{recovery_reference}", "legacy_earnings_fuel_recovery", str(payment_id),
-                     [(f"legacy_freight_payable:{payment_id}", -recovered),
-                      (f"fuel_credit_recovery:{recovery_reference}", recovered)])
+    payout = transporter_amount
     if payout:
         credit_error = adjust_wallet_balance(
             db, wallet, transporter_id, payout, "order_payout",
@@ -1603,7 +1584,6 @@ def release_one_time_payment(db, payment_id, now_iso=None):
         "already_released": False,
         "payout_amount": round_money(payout),
         "transporter_entitlement": round_money(transporter_amount),
-        "fuel_credit_recovered": round_money(recovered),
         "wallet_credit_amount": round_money(payout),
         "company_fee": round_money(company_fee),
         "payment": payment,

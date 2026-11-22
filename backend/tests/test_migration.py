@@ -20,7 +20,7 @@ from pathlib import Path
 import pytest
 
 BACKEND_DIR = Path(__file__).resolve().parent.parent
-MIGRATIONS_DIR = BACKEND_DIR.parent / "supabase" / "migrations"
+MIGRATIONS_DIR = BACKEND_DIR.parent / "Future" / "supabase" / "legacy_migrations"
 PAYMENT_MIGRATION = MIGRATIONS_DIR / "20260721120000_one_time_payment_foundation.sql"
 PAYOUT_MIGRATION = MIGRATIONS_DIR / "20260721130000_tokenize_payout_cards.sql"
 

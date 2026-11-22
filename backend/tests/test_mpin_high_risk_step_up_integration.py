@@ -15,7 +15,7 @@ from tests._life_helpers import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = ROOT / "supabase/migrations/20260801220000_mpin_step_up_high_risk_integration.sql"
+MIGRATION = ROOT / "Future/supabase/legacy_migrations/20260801220000_mpin_step_up_high_risk_integration.sql"
 WALLET_ROUTES = ROOT / "backend/wallet/routes.py"
 
 
@@ -27,7 +27,6 @@ def test_approved_financial_actions_and_security_extension():
         "wallet.withdrawal_limit.purchase",
         "wallet.payout_destination.replace",
         "client.delivery.confirm_release",
-        "fuel.voucher.authorize",
     }
     logout_all = step_up_service.normalize_descriptor({
         "action_key": "security.logout_all",
@@ -54,16 +53,6 @@ def test_approved_financial_actions_and_security_extension():
         {**base, "funding_source": "wallet"}
     )
     assert descriptor["funding_source"] == "wallet"
-    fuel = {
-        "action_key":"fuel.voucher.authorize","resource_type":"trip",
-        "resource_id":9,"amount_minor":100,"currency":"PKR",
-        "funding_source":"wallet_and_credit","destination_fingerprint":"a"*64,
-    }
-    assert step_up_service.normalize_descriptor(fuel)["destination_fingerprint"]=="a"*64
-    with pytest.raises(step_up_service.StepUpError):
-        step_up_service.normalize_descriptor({key:value for key,value in fuel.items() if key!='destination_fingerprint'})
-    with pytest.raises(step_up_service.StepUpError):
-        step_up_service.normalize_descriptor({**fuel,"funding_source":"client_escrow"})
 
 
 def test_money_and_destination_fingerprints_are_canonical_and_non_raw():

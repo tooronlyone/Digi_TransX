@@ -4,7 +4,13 @@ from .signup_terms import signup_terms_document, record_signup_terms, SIGNUP_TER
 from datetime import datetime, timedelta, timezone
 
 from flask import Blueprint, current_app, request, session
+from werkzeug.security import check_password_hash, generate_password_hash
 from shared.db import open_db
+from shared.rate_limit import (
+    client_ip_from_request,
+    enforce_rate_limits,
+    normalized_identifier_digest,
+)
 from shared.supabase_client import (
     PasswordProviderUnavailable,
     SignupProviderConflict,
@@ -19,12 +25,10 @@ from shared.supabase_client import (
 from events.contract import EventContext, EventData
 from events.writer import write_security_event
 from .helpers import (
-    _with_legacy_role,
     map_legacy_role,
     DEVICE_COOKIE_NAME,
     SESSION_TOKEN_COOKIE_NAME,
     ACCESS_PROOF_COOKIE_NAME,
-    LOGIN_COOLDOWN_MINUTES,
     OTP_EXPIRY_MINUTES,
     OTP_REGEX,
     build_auth_success_response,
@@ -49,6 +53,7 @@ from .helpers import (
     normalize_cnic,
     normalize_email,
     normalize_phone,
+    otp_request_block_reason,
     parse_login_id,
     record_login_activity,
     require_csrf,
@@ -56,9 +61,7 @@ from .helpers import (
     send_email,
     serialize_user,
     set_access_proof_cookie,
-    split_name,
     timestamp_bundle,
-    update_user_settings,
     validate_signup_payload,
 )
 from auth import logout_all_service, mpin_service, step_up_service
@@ -360,6 +363,12 @@ def signup():
     phone = normalize_phone(data.get("phone"))
     cnic = normalize_cnic(data.get("cnic"))
     role = (data.get("role") or "").strip()
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("auth.signup.ip", client_ip_from_request(), "auth.signup.ip")],
+    )
+    if rate_err:
+        return rate_err
     stamp = timestamp_bundle()
     with open_db() as db:
         email_exists = db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone()
@@ -524,6 +533,16 @@ def login():
         except Exception:
             current_app.logger.error("Canonical login failure evidence could not be persisted.")
         return validation_response
+
+    rate_err = enforce_rate_limits(
+        open_db,
+        [
+            ("auth.login.ip", client_ip_from_request(), "auth.login.ip"),
+            ("auth.login.identifier", normalized_identifier_digest(login_id), "auth.login.identifier"),
+        ],
+    )
+    if rate_err:
+        return rate_err
 
     try:
         with open_db() as db:
@@ -1037,22 +1056,45 @@ def logout_all():
     raise RuntimeError("Unknown logout-all result state.")
 
 
+_FORGOT_PASSWORD_UNIFORM_MESSAGE = (
+    "If an account exists, a 6 digit code has been sent to the registered email."
+)
+_VERIFY_OTP_UNIFORM_ERROR = "Invalid or expired OTP."
+_DUMMY_OTP_HASH = generate_password_hash("000000")
+
+
 @auth_blueprint.post("/forgot-password")
 def forgot_password():
     data = request.get_json(silent=True) or {}
-    if not isinstance(data,dict) or not isinstance(data.get("loginId",""),str):
-        return json_response({"success": False,"message": "Email or CNIC must be text."},400)
+    if not isinstance(data, dict) or not isinstance(data.get("loginId", ""), str):
+        return json_response({"success": False, "message": "Email or CNIC must be text."}, 400)
     login_id = data.get("loginId") or ""
     if not login_id.strip():
         return json_response({"success": False, "field": "loginId", "message": "Email or CNIC is required."}, 400)
+
+    login_digest = normalized_identifier_digest(login_id)
+    rate_err = enforce_rate_limits(
+        open_db,
+        [
+            ("auth.forgot_password.ip", client_ip_from_request(), "auth.forgot_password.ip"),
+            ("auth.forgot_password.cooldown", login_digest, "auth.forgot_password.cooldown"),
+            ("auth.forgot_password.hourly", login_digest, "auth.forgot_password.hourly"),
+        ],
+        message="Please wait before requesting another verification code.",
+    )
+    if rate_err:
+        return rate_err
+
     user, _, _ = get_user_by_login(login_id)
     if not user:
-        return json_response({"success": True, "message": "If an account exists, a 6 digit code has been sent to the registered email."})
-    latest = latest_otp_record(user["id"], "password_reset")
-    if latest and latest.get("cooldown_until_iso"):
-        from .helpers import is_future
-        if is_future(latest["cooldown_until_iso"]):
-            return json_response({"success": False, "message": "Too many wrong attempts. Please wait 15 minutes before requesting a new code."}, 429)
+        return json_response({"success": True, "message": _FORGOT_PASSWORD_UNIFORM_MESSAGE})
+
+    # Suppress silently when a locked account or cross-alias (email vs CNIC)
+    # request violates OTP cooldown/window rules so account state stays hidden.
+    block_reason, _ = otp_request_block_reason(user["id"], "password_reset")
+    if block_reason:
+        return json_response({"success": True, "message": _FORGOT_PASSWORD_UNIFORM_MESSAGE})
+
     otp_code = generate_numeric_code(6)
     try:
         send_email(
@@ -1074,29 +1116,41 @@ def forgot_password():
             503,
         )
     create_otp_record(user["id"], "password_reset", otp_code, user["email"])
-    return json_response({"success": True, "masked_email": mask_email(user["email"]), "message": "OTP sent to your registered email."})
+    return json_response({"success": True, "message": _FORGOT_PASSWORD_UNIFORM_MESSAGE})
 
 
 @auth_blueprint.post("/password-reset/verify-otp")
 def verify_password_reset_otp():
     data = request.get_json(silent=True) or {}
-    if not isinstance(data,dict) or any(not isinstance(data.get(key,""),str) for key in ("loginId","otp")):
-        return json_response({"success": False,"message": "Email/CNIC and OTP must be text."},400)
+    if not isinstance(data, dict) or any(not isinstance(data.get(key, ""), str) for key in ("loginId", "otp")):
+        return json_response({"success": False, "message": "Email/CNIC and OTP must be text."}, 400)
     login_id = data.get("loginId") or ""
     otp_code = (data.get("otp") or "").strip()
     if not login_id.strip():
         return json_response({"success": False, "field": "loginId", "message": "Email or CNIC is required."}, 400)
     if not OTP_REGEX.fullmatch(otp_code):
         return json_response({"success": False, "field": "otp", "message": "Enter a valid 6 digit OTP."}, 400)
+
+    rate_err = enforce_rate_limits(
+        open_db,
+        [
+            ("auth.verify_otp.ip", client_ip_from_request(), "auth.verify_otp.ip"),
+            ("auth.verify_otp.identifier", normalized_identifier_digest(login_id), "auth.verify_otp.identifier"),
+        ],
+    )
+    if rate_err:
+        return rate_err
+
     user, _, _ = get_user_by_login(login_id)
     if not user:
-        return json_response({"success": False, "message": "Account not found."}, 404)
+        check_password_hash(_DUMMY_OTP_HASH, otp_code)
+        return json_response({"success": False, "message": _VERIFY_OTP_UNIFORM_ERROR}, 400)
     _, error_message, reset_token = consume_otp_for_user(
         user["id"], "password_reset", otp_code,
         issue_reset_authorization=True,
     )
     if error_message:
-        return json_response({"success": False, "message": error_message}, 400)
+        return json_response({"success": False, "message": _VERIFY_OTP_UNIFORM_ERROR}, 400)
     return json_response({"success": True, "reset_token": reset_token})
 
 
@@ -1111,6 +1165,12 @@ def reset_password():
         return json_response({"success": False, "message": "Reset token is required."}, 400)
     if not 8 <= len(new_password) <= 4096:
         return json_response({"success": False, "field": "password", "message": "Password must be at least 8 characters."}, 400)
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("auth.reset_password.ip", client_ip_from_request(), "auth.reset_password.ip")],
+    )
+    if rate_err:
+        return rate_err
     token_record, claim_secret, error_message = claim_reset_token(
         raw_token, "password_reset"
     )
@@ -1318,6 +1378,12 @@ def mpin_unlock():
             {"success": False, "message": "MPIN is not supported for this account."},
             403,
         )
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("auth.mpin.unlock.user", request.current_user["id"], "auth.mpin.unlock.user")],
+    )
+    if rate_err:
+        return rate_err
 
     request_id = f"mpin.{uuid.uuid4().hex}"
     access_proof = None
@@ -1411,6 +1477,12 @@ def password_unlock():
     identifier = data.get("identifier", data.get("loginId"))
     if not _identifier_matches_current_user(request.current_user, identifier):
         return _generic_reverification_response()
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("auth.mpin.password_unlock.user", request.current_user["id"], "auth.mpin.password_unlock.user")],
+    )
+    if rate_err:
+        return rate_err
     try:
         if not _password_matches_current_user(
             request.current_user, data.get("password")
@@ -1647,6 +1719,12 @@ def mpin_step_up():
             {"success": False, "message": "MPIN is not supported for this account."},
             403,
         )
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("auth.mpin.step_up.user", request.current_user["id"], "auth.mpin.step_up.user")],
+    )
+    if rate_err:
+        return rate_err
 
     request_id = f"mpin.step_up.{uuid.uuid4().hex}"
     issued = None

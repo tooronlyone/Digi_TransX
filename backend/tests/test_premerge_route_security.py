@@ -44,6 +44,14 @@ def _register_profile_once(client):
         client.application.register_blueprint(profile_routes.profile_blueprint)
 
 
+def _valid_jpeg_bytes():
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (8, 8), color=(20, 120, 220)).save(buf, format="JPEG")
+    return buf.getvalue()
+
+
 def test_upload_keys_are_opaque_unique_and_reject_executable_extension(monkeypatch):
     uploaded = []
     monkeypatch.setattr(
@@ -52,13 +60,14 @@ def test_upload_keys_are_opaque_unique_and_reject_executable_extension(monkeypat
         lambda path, _file: uploaded.append(path) or path,
     )
     original = "customer-name-secret-contract.JPG"
-    chat_file = FileStorage(stream=BytesIO(b"image"), filename=original)
+    sample = _valid_jpeg_bytes()
+    chat_file = FileStorage(stream=BytesIO(sample), filename=original)
     chat_name = make_chat_upload_relative_path(7, chat_file)
     assert original.lower() not in chat_name.lower()
     assert re.fullmatch(r"7_[0-9a-f]{32}\.jpg", chat_name)
 
-    truck_file_a = FileStorage(stream=BytesIO(b"image"), filename=original)
-    truck_file_b = FileStorage(stream=BytesIO(b"image"), filename=original)
+    truck_file_a = FileStorage(stream=BytesIO(sample), filename=original)
+    truck_file_b = FileStorage(stream=BytesIO(sample), filename=original)
     path_a = make_upload_relative_path(9, truck_file_a)
     path_b = make_upload_relative_path(9, truck_file_b)
     assert path_a != path_b
@@ -85,7 +94,9 @@ def test_truck_upload_validation_is_bounded_and_provider_valueerror_is_sanitized
     ).fetchone()["id"]
     client.db.commit()
 
-    def form(filename, content=b"image"):
+    def form(filename, content=None):
+        if content is None:
+            content = _valid_jpeg_bytes()
         return {
             "truck_number": "UPLOAD-1",
             "truck_company": "Test Motors",
@@ -147,7 +158,7 @@ def test_truck_upload_validation_is_bounded_and_provider_valueerror_is_sanitized
     stored_path = make_upload_relative_path(
         truck_id,
         FileStorage(
-            stream=BytesIO(b"image"), filename="customer-private-name.jpg"
+            stream=BytesIO(_valid_jpeg_bytes()), filename="customer-private-name.jpg"
         ),
     )
     assert len(uploaded) == 1
@@ -390,7 +401,7 @@ def test_chat_storage_upload_exception_is_sanitized(client, monkeypatch, caplog)
     )
     response = client.post(
         f"/api/chat/threads/{thread_id}/messages/media",
-        data={"media": (BytesIO(b"image"), "private-name.jpg")},
+        data={"media": (BytesIO(_valid_jpeg_bytes()), "private-name.jpg")},
         headers=CSRF,
         content_type="multipart/form-data",
     )
@@ -452,7 +463,7 @@ def test_chat_storage_provider_runs_without_database_context(client, monkeypatch
     monkeypatch.setattr(chat_routes, "make_chat_upload_relative_path", provider)
     response = client.post(
         f"/api/chat/threads/{thread_id}/messages/media",
-        data={"media": (BytesIO(b"image"), "private-name.jpg")},
+        data={"media": (BytesIO(_valid_jpeg_bytes()), "private-name.jpg")},
         headers=CSRF,
         content_type="multipart/form-data",
     )
@@ -481,8 +492,3 @@ def test_latest_position_provider_exception_is_sanitized(client, monkeypatch, ca
     assert response.get_json()["reason"] == "fetch_error"
     assert sentinel not in response.get_data(as_text=True)
     assert sentinel not in caplog.text
-
-
-    for path in paths:
-        assert client.post(path, headers=CSRF).status_code == 200
-    assert calls == ["process", "penalties", "process", "penalties"]

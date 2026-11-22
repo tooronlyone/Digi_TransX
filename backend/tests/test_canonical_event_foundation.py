@@ -53,41 +53,20 @@ from tests._life_helpers import (
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 LOCKED_MAIN_SHA = "6f2c9211876959ad8df2ffad19ff4714ae9d284e"
-BASELINE_MIGRATION = (
-    REPO_ROOT
-    / "supabase"
-    / "migrations"
-    / "20260731220000_schema_trigger_rls_baseline.sql"
-)
-EVENT_MIGRATION = (
-    REPO_ROOT
-    / "supabase"
-    / "migrations"
-    / "20260731230000_canonical_event_foundation.sql"
-)
-ACTIVATION_MIGRATION = (
-    REPO_ROOT
-    / "supabase"
-    / "migrations"
-    / "20260801100000_security_login_event_integration.sql"
-)
-SIGNUP_FAILED_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations" / "20260801120000_add_signup_failed_event.sql"
-)
-SIGNUP_INTEGRATION_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations" / "20260801130000_security_signup_event_integration.sql"
-)
-DEVICE_SESSION_MPIN_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations"
-    / "20260801140000_device_session_mpin_event_contracts.sql"
-)
-DURABLE_SESSION_MIGRATION = REPO_ROOT / "supabase/migrations/20260801150000_durable_server_session_foundation.sql"
-TRUSTED_DEVICE_MIGRATION = REPO_ROOT / "supabase/migrations/20260801160000_trusted_device_hardening.sql"
-DURABLE_RUNTIME_MIGRATION = REPO_ROOT / "supabase/migrations/20260801170000_durable_session_runtime_events.sql"
-SECURE_MPIN_MIGRATION = REPO_ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
-GENUINE_ACTIVITY_MIGRATION = REPO_ROOT / "supabase/migrations/20260801200000_genuine_session_activity.sql"
-MPIN_STEP_UP_MIGRATION = REPO_ROOT / "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql"
-HIGH_RISK_STEP_UP_MIGRATION = REPO_ROOT / "supabase/migrations/20260801220000_mpin_step_up_high_risk_integration.sql"
+LEGACY_MIGRATIONS = REPO_ROOT / "Future" / "supabase" / "legacy_migrations"
+BASELINE_MIGRATION = LEGACY_MIGRATIONS / "20260731220000_schema_trigger_rls_baseline.sql"
+EVENT_MIGRATION = LEGACY_MIGRATIONS / "20260731230000_canonical_event_foundation.sql"
+ACTIVATION_MIGRATION = LEGACY_MIGRATIONS / "20260801100000_security_login_event_integration.sql"
+SIGNUP_FAILED_MIGRATION = LEGACY_MIGRATIONS / "20260801120000_add_signup_failed_event.sql"
+SIGNUP_INTEGRATION_MIGRATION = LEGACY_MIGRATIONS / "20260801130000_security_signup_event_integration.sql"
+DEVICE_SESSION_MPIN_MIGRATION = LEGACY_MIGRATIONS / "20260801140000_device_session_mpin_event_contracts.sql"
+DURABLE_SESSION_MIGRATION = LEGACY_MIGRATIONS / "20260801150000_durable_server_session_foundation.sql"
+TRUSTED_DEVICE_MIGRATION = LEGACY_MIGRATIONS / "20260801160000_trusted_device_hardening.sql"
+DURABLE_RUNTIME_MIGRATION = LEGACY_MIGRATIONS / "20260801170000_durable_session_runtime_events.sql"
+SECURE_MPIN_MIGRATION = LEGACY_MIGRATIONS / "20260801180000_secure_mpin_access_lock.sql"
+GENUINE_ACTIVITY_MIGRATION = LEGACY_MIGRATIONS / "20260801200000_genuine_session_activity.sql"
+MPIN_STEP_UP_MIGRATION = LEGACY_MIGRATIONS / "20260801210000_mpin_step_up_authorization_foundation.sql"
+HIGH_RISK_STEP_UP_MIGRATION = LEGACY_MIGRATIONS / "20260801220000_mpin_step_up_high_risk_integration.sql"
 EXPECTED_BASE_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EVENT_TABLES = ("security_events", "business_audit_events")
 CATALOG_PROJECTION = "canonical_event_catalog_projection"
@@ -607,7 +586,7 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
     event_sql = EVENT_MIGRATION.read_text(encoding="utf-8")
     activation_sql = ACTIVATION_MIGRATION.read_text(encoding="utf-8")
     guard_sql = (
-        REPO_ROOT / "supabase" / "migrations" / "20260801110000_canonical_event_integrated_guard.sql"
+        LEGACY_MIGRATIONS / "20260801110000_canonical_event_integrated_guard.sql"
     ).read_text(encoding="utf-8")
     signup_failed_sql = SIGNUP_FAILED_MIGRATION.read_text(encoding="utf-8")
     signup_integration_sql = SIGNUP_INTEGRATION_MIGRATION.read_text(encoding="utf-8")
@@ -655,15 +634,25 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
         mpin_step_up_sql,
         high_risk_step_up_sql,
     )
+    legacy_schema = REPO_ROOT / "Future" / "supabase" / "schema-with-agreements-v1.sql"
+    legacy_url, legacy_cleanup = _disposable(STUBS, legacy_schema.read_text(encoding="utf-8"))
     fresh_url, fresh_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     sequence = psycopg2.connect(sequence_url)
     corrected = psycopg2.connect(corrected_url)
+    legacy = psycopg2.connect(legacy_url)
     fresh = psycopg2.connect(fresh_url)
     try:
-        assert _foundation_metadata(sequence) == _foundation_metadata(corrected)
-        assert _foundation_metadata(corrected) == _foundation_metadata(fresh)
+        corrected_meta = _foundation_metadata(corrected)
+        assert _foundation_metadata(sequence) == corrected_meta
+        assert corrected_meta == _foundation_metadata(legacy)
+        fresh_meta = _foundation_metadata(fresh)
+        for tbl in EVENT_TABLES:
+            assert fresh_meta[(tbl, "columns")] == [
+                col for col in corrected_meta[(tbl, "columns")] if col[0] != "agreement_id"
+            ]
         assert _catalog_projection(sequence) == _expected_catalog_projection()
         assert _catalog_projection(corrected) == _expected_catalog_projection()
+        assert _catalog_projection(legacy) == _expected_catalog_projection()
         assert _catalog_projection(fresh) == _expected_catalog_projection()
         assert _event_counts(sequence) == _event_counts(corrected) == _event_counts(fresh) == (0, 0)
         with sequence.cursor() as cursor:
@@ -686,9 +675,11 @@ def test_full_sequence_corrected_main_and_fresh_schema_converge():
     finally:
         sequence.close()
         corrected.close()
+        legacy.close()
         fresh.close()
         sequence_cleanup()
         corrected_cleanup()
+        legacy_cleanup()
         fresh_cleanup()
 
 

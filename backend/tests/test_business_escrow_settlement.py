@@ -33,8 +33,10 @@ def business_db_url():
         pytest.fail('Business financial integration requires isolated loopback PostgreSQL.')
     schema=SCHEMA_SQL.read_text(encoding='utf-8')
     extras=[]
-    for name,marker in [('20261026000000_financial_journal.sql','public.financial_journal'),('20261026010000_market_pricing_fees.sql','public.market_reference'),('20261026020000_business_escrow_settlement.sql','public.delivery_otp_challenges'),('20261026030000_fuel_credit_owner_operator.sql','public.fuel_credit_accounts')]:
-        sql=(SCHEMA_SQL.parent/'migrations'/name).read_text(encoding='utf-8')
+    for name,marker in [('20261026000000_financial_journal.sql','public.financial_journal'),('20261026010000_market_pricing_fees.sql','preserve_bid_market_audit'),('20261026020000_business_escrow_settlement.sql','public.delivery_otp_challenges')]:
+        sql=(SCHEMA_SQL.parent.parent/'Future'/'supabase'/'legacy_migrations'/name).read_text(encoding='utf-8')
+        if name=='20261026010000_market_pricing_fees.sql':
+            sql=sql.split('ALTER TABLE public.marketplace_orders',1)[0]
         if marker not in schema.lower():extras.append(sql)
     url,cleanup=make_disposable(base,STUBS,schema,*extras)
     try:yield url
@@ -245,14 +247,12 @@ def test_concurrent_booking_acceptance_cannot_double_spend_wallet(business_env):
         assert db.execute('SELECT COUNT(*) AS n FROM payments WHERE client_user_id=%s',(first['client']['id'],)).fetchone()['n']==1
 
 
-def test_pending_escrow_refund_does_not_touch_fuel_debt_or_reserve(business_env):
+def test_pending_escrow_refund_does_not_touch_reserve(business_env):
     from shared.payments import refund_one_time_payment
     with business_env() as db:
         s=seed(db)
-        db.execute('INSERT INTO fuel_credit_accounts(transporter_user_id,outstanding_credit,utilized_credit) VALUES(%s,7000,7000)',(s['transporter']['id'],))
         result=refund_one_time_payment(db,s['payment_id'])
         assert Decimal(str(result['wallet_refund_amount']))==Decimal('100000')
-        assert db.execute_exact('SELECT outstanding_credit FROM fuel_credit_accounts WHERE transporter_user_id=%s',(s['transporter']['id'],)).fetchone()['outstanding_credit']==Decimal('7000')
         assert db.execute_exact('SELECT balance FROM security_reserves WHERE user_id=%s',(s['transporter']['id'],)).fetchone()['balance']==Decimal('30000')
 
 

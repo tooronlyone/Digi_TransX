@@ -6,6 +6,8 @@ const POPULAR_BRANDS = ['PSO', 'Shell', 'TotalParco', 'Attock Petroleum', 'Hasco
 export default function DriverFuelLogs() {
   const [logs, setLogs] = useState([])
   const [stats, setStats] = useState(null)
+  const [vehicles, setVehicles] = useState([])
+  const [selectedTruckId, setSelectedTruckId] = useState('')
   const [trips, setTrips] = useState([])
   const [loading, setLoading] = useState(true)
   const [submitting, setSubmitting] = useState(false)
@@ -32,8 +34,11 @@ export default function DriverFuelLogs() {
 
   useEffect(() => {
     let ignore = false
+    const fuelUrl = selectedTruckId
+      ? `/api/driver/fuel-logs?truck_id=${encodeURIComponent(selectedTruckId)}`
+      : '/api/driver/fuel-logs'
     Promise.all([
-      apiGet('/api/driver/fuel-logs'),
+      apiGet(fuelUrl),
       apiGet('/api/driver/trips-for-fuel'),
     ])
       .then(([logsRes, tripsRes]) => {
@@ -41,6 +46,7 @@ export default function DriverFuelLogs() {
         if (logsRes.success) {
           setLogs(logsRes.logs || [])
           setStats(logsRes.stats || null)
+          setVehicles(logsRes.vehicles || [])
         }
         if (tripsRes.success) {
           setTrips(tripsRes.trips || [])
@@ -53,7 +59,7 @@ export default function DriverFuelLogs() {
         if (!ignore) setLoading(false)
       })
     return () => { ignore = true }
-  }, [reloadKey])
+  }, [reloadKey, selectedTruckId])
 
   function handleTripSelect(e) {
     const asgnId = e.target.value
@@ -111,6 +117,7 @@ export default function DriverFuelLogs() {
         setAreaLandmark('')
         setLiters('')
         setNotes('')
+        setSelectedTruckId('')
         setReloadKey((k) => k + 1)
       } else {
         setError(res.message || 'Failed to add log.')
@@ -186,15 +193,43 @@ export default function DriverFuelLogs() {
 
       {/* Fuel Logs Table / Cards */}
       <div className="driver-card">
-        <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: '0 0 16px 0' }}>Refuel History &amp; Consumption Records</h2>
+        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', marginBottom: '16px' }}>
+          <h2 style={{ fontSize: '1.25rem', fontWeight: 700, margin: 0 }}>Refuel History &amp; Consumption Records</h2>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+            <label htmlFor="driver-fuel-vehicle-filter" style={{ fontSize: '0.85rem', fontWeight: 600, color: '#475569' }}>
+              Vehicle:
+            </label>
+            <select
+              id="driver-fuel-vehicle-filter"
+              aria-label="Filter fuel logs by vehicle"
+              value={selectedTruckId}
+              onChange={(e) => {
+                setLoading(true)
+                setSelectedTruckId(e.target.value)
+              }}
+              style={{ padding: '7px 12px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '0.85rem', background: '#fff' }}
+            >
+              <option value="">All vehicles</option>
+              {vehicles.map((v) => (
+                <option key={v.truck_id} value={String(v.truck_id)}>
+                  {v.truck_number || `Truck #${v.truck_id}`}{v.truck_model ? ` (${v.truck_model})` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
 
         {loading ? (
           <p>Loading fuel records...</p>
         ) : logs.length === 0 ? (
           <div style={{ textAlign: 'center', padding: '30px', color: '#64748b', background: '#f8fafc', borderRadius: '8px', border: '1px dashed #cbd5e1' }}>
             <i className="fas fa-gas-pump" style={{ fontSize: '2.5rem', color: '#94a3b8', marginBottom: '8px' }}></i>
-            <p style={{ margin: 0, fontWeight: 700 }}>No fuel entries recorded yet.</p>
-            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem' }}>Click &quot;Record New Refuel&quot; whenever you fill diesel or petrol during your journey.</p>
+            <p style={{ margin: 0, fontWeight: 700 }}>
+              {selectedTruckId ? 'No fuel entries recorded for the selected vehicle.' : 'No fuel entries recorded yet.'}
+            </p>
+            <p style={{ margin: '4px 0 0 0', fontSize: '0.85rem' }}>
+              {selectedTruckId ? 'Choose "All vehicles" or record a new refuel.' : 'Click "Record New Refuel" whenever you fill diesel or petrol during your journey.'}
+            </p>
           </div>
         ) : (
           <div style={{ overflowX: 'auto' }}>
@@ -202,8 +237,9 @@ export default function DriverFuelLogs() {
               <thead>
                 <tr style={{ borderBottom: '2px solid #e2e8f0', color: '#475569' }}>
                   <th style={{ padding: '10px 12px' }}>Date</th>
+                  <th style={{ padding: '10px 12px' }}>Truck</th>
                   <th style={{ padding: '10px 12px' }}>Pump &amp; Exact Location</th>
-                  <th style={{ padding: '10px 12px' }}>Trip / Route</th>
+                  <th style={{ padding: '10px 12px' }}>Associated Trip</th>
                   <th style={{ padding: '10px 12px' }}>Fuel Type &amp; Liters</th>
                   <th style={{ padding: '10px 12px' }}>Rate &amp; Total Paid</th>
                   <th style={{ padding: '10px 12px' }}>Trip Avg (km/L)</th>
@@ -214,6 +250,16 @@ export default function DriverFuelLogs() {
                 {logs.map((log) => (
                   <tr key={log.id} style={{ borderBottom: '1px solid #f1f5f9' }}>
                     <td style={{ padding: '12px', whiteSpace: 'nowrap', fontWeight: 600 }}>{log.fuel_date}</td>
+                    <td style={{ padding: '12px' }}>
+                      {log.truck_number || log.truck_model ? (
+                        <div>
+                          <div style={{ fontWeight: 700, color: '#0f172a' }}>{log.truck_number || 'Assigned Truck'}</div>
+                          {log.truck_model && <small style={{ color: '#64748b' }}>{log.truck_model}</small>}
+                        </div>
+                      ) : (
+                        <span style={{ color: '#94a3b8' }}>Unassigned / Standby</span>
+                      )}
+                    </td>
                     <td style={{ padding: '12px' }}>
                       <div style={{ fontWeight: 700, color: '#0f172a' }}>
                         {log.pump_brand ? `[${log.pump_brand}] ` : ''}{log.pump_name}
@@ -227,12 +273,19 @@ export default function DriverFuelLogs() {
                       {log.pickup_city && log.dropoff_city ? (
                         <div>
                           <span style={{ fontWeight: 600, color: '#1e293b' }}>{log.pickup_city} &rarr; {log.dropoff_city}</span>
+                          {log.trip_id && (
+                            <span style={{ display: 'block', fontSize: '0.75rem', color: '#475569' }}>
+                              Trip #{log.trip_id}
+                            </span>
+                          )}
                           {log.trip_distance_km && (
                             <span style={{ display: 'block', fontSize: '0.75rem', color: '#64748b' }}>
                               Dist: {log.trip_distance_km} km
                             </span>
                           )}
                         </div>
+                      ) : log.trip_id ? (
+                        <span style={{ fontWeight: 600, color: '#1e293b' }}>Trip #{log.trip_id}</span>
                       ) : (
                         <span style={{ color: '#94a3b8' }}>General / Standby</span>
                       )}
@@ -487,7 +540,7 @@ export default function DriverFuelLogs() {
                     <option value="cash">Cash (Driver Paid)</option>
                     <option value="driver_wallet">Driver App Wallet</option>
                     <option value="transporter_account">Transporter Fleet Account</option>
-                    <option value="company_card">Fuel Station Fleet Card</option>
+                    <option value="company_card">Fleet / Company Card</option>
                   </select>
                 </div>
                 <div>

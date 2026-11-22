@@ -488,7 +488,7 @@ def test_order_api_conflicting_volume_fields_cannot_bypass_discovery_or_bid(clie
     assert float(persisted["volume_liters"]) == 12000
     assert float(persisted["goods_volume_cbm"]) == 1
 
-    truck_id = _make_milk_tanker(db, transporter_id, 11.999)
+    truck_id = _make_milk_tanker(db, transporter_id, 10.9)
     db.commit()
     client.login({"id": transporter_id, "role": "transporter"})
 

@@ -335,3 +335,68 @@ def revoke_device(
         idempotency_key=f"{request_id}:{device_ref}",
     )
     return {"status": "revoked", "session_count": changed_sessions, "device_count": 1}
+
+
+def revoke_user_access_for_block(executor, user_id, *, request_id):
+    """Revoke every live session and trusted device when an account is blocked.
+
+    Runs inside the blocking transaction so an unblock cannot resurrect
+    previously valid cookies, access proofs, or trusted-device tokens.
+    """
+    revoked_sessions = executor.execute(
+        """
+        UPDATE user_sessions
+        SET revoked_at = now(),
+            revocation_reason = 'account_blocked',
+            access_locked = true,
+            access_locked_at = coalesce(access_locked_at, now()),
+            access_proof_digest = NULL,
+            access_proof_expires_at = NULL,
+            updated_at = now()
+        WHERE user_id = %s AND revoked_at IS NULL
+        RETURNING session_id
+        """,
+        (user_id,),
+    ).fetchall()
+    revoked_devices = executor.execute(
+        """
+        UPDATE trusted_devices
+        SET revoked_at = now()
+        WHERE user_id = %s AND revoked_at IS NULL
+        RETURNING id
+        """,
+        (user_id,),
+    ).fetchall()
+    for session in revoked_sessions:
+        ref = session_event_reference(session["session_id"])
+        write_security_event(
+            executor,
+            "security.session.revoked",
+            EventContext(
+                request_id=request_id,
+                source="server_route",
+                actor_type="system",
+                subject_user_id=user_id,
+                session_ref=ref,
+            ),
+            EventData(metadata={"result_code": "account_blocked"}),
+            idempotency_scope="security.session.revoked",
+            idempotency_key=f"{request_id}.{ref}",
+        )
+    for device in revoked_devices:
+        ref = trusted_device_reference(device["id"])
+        write_security_event(
+            executor,
+            "security.trusted_device.removed",
+            EventContext(
+                request_id=request_id,
+                source="server_route",
+                actor_type="system",
+                subject_user_id=user_id,
+                device_ref=ref,
+            ),
+            EventData(metadata={"result_code": "account_blocked"}),
+            idempotency_scope="security.trusted_device.removed",
+            idempotency_key=f"{request_id}.{ref}",
+        )
+    return len(revoked_sessions), len(revoked_devices)

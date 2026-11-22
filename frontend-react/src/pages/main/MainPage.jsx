@@ -1,108 +1,417 @@
-import { useEffect } from 'react';
-
-const mainPageHtml = "<!-- NAVBAR - Copied from transporter_dashboard.html style -->\n<nav class=\"navbar\" id=\"navbar\">\n    <div class=\"navbar-left\">\n        <div class=\"navbar-logo\">\n            <div class=\"logo-icon\">\n                <i class=\"fas fa-truck\"></i>\n            </div>\n            <a href=\"/\" class=\"navbar-brand\">Digi_TransX</a>\n        </div>\n        <img src=\"/src/assets/brand/logo-mark.svg\" alt=\"Transport Logo\" class=\"transport-logo\">\n    </div>\n    \n    <div class=\"navbar-right\">\n        <ul class=\"nav-links\">\n            <li><a href=\"#how-it-works\">How It Works</a></li>\n            <li><a href=\"#features\">Features</a></li>\n            <li><a href=\"#for-who\">For You</a></li>\n        </ul>\n        <a href=\"/login\" class=\"btn-ghost\">Login</a>\n        <a href=\"/signup\" class=\"btn-primary-nav\">Get Started</a>\n        <button class=\"hamburger\"><i class=\"fas fa-bars\"></i></button>\n    </div>\n</nav>\n\n<!-- HERO SECTION -->\n<section class=\"hero\">\n    <div class=\"hero-content\">\n        <div class=\"hero-badge\"><span class=\"dot\"></span> Now Live in Pakistan 🇵🇰</div>\n        <h1 class=\"hero-title\">\n            Pakistan's <span class=\"accent\">Smartest</span>\n            <span class=\"line-2\">Transport Platform</span>\n        </h1>\n        <p class=\"hero-subtitle\">Connect clients with trusted transporters. Place orders, track shipments in real time, manage your fleet, and grow your logistics business — all in one place.</p>\n        <div class=\"hero-cta\">\n            <a href=\"/signup?role=client\" class=\"btn-hero-primary\"><i class=\"fas fa-box\"></i> I Need Transport</a>\n            <a href=\"/signup?role=transporter\" class=\"btn-hero-secondary\"><i class=\"fas fa-truck\"></i> I'm a Transporter</a>\n        </div>\n    </div>\n\n    <!-- Floating Cards - Styled like dashboard cards -->\n    <div class=\"hero-visual\">\n        <div class=\"floating-card c1\">\n            <div class=\"card-row\">\n                <div class=\"cicon ci-orange\"><i class=\"fas fa-truck-moving\"></i></div>\n                <span class=\"sbadge sb-live\">● Live</span>\n            </div>\n            <div class=\"clabel\">Active Shipment</div>\n            <div class=\"cval\">DTX-2026-0142</div>\n            <div class=\"route-row\">\n                <span class=\"rdot\" style=\"background: var(--success)\"></span> Karachi\n                <div class=\"rline\"></div>\n                <span class=\"rdot\" style=\"background: var(--accent-primary)\"></span> Lahore\n            </div>\n            <div class=\"progress-bar\"><div class=\"progress-fill\"></div></div>\n        </div>\n        <div class=\"floating-card c2\">\n            <div class=\"card-row\">\n                <div class=\"cicon ci-green\"><i class=\"fas fa-wallet\"></i></div>\n                <span class=\"sbadge sb-blue\">This Month</span>\n            </div>\n            <div class=\"clabel\">Total Earnings</div>\n            <div class=\"cval\">Rs. 142,500 <small>+18%</small></div>\n        </div>\n        <div class=\"floating-card c3\">\n            <div class=\"card-row\">\n                <div class=\"cicon ci-blue\"><i class=\"fas fa-clipboard-list\"></i></div>\n                <span class=\"sbadge sb-pending\">Pending</span>\n            </div>\n            <div class=\"clabel\">New Job Request</div>\n            <div class=\"cval\" style=\"font-size:16px;margin-top:4px\">Islamabad → Faisalabad</div>\n            <div class=\"route-row\" style=\"margin-top:8px\">\n                <i class=\"fas fa-weight-hanging\" style=\"color:var(--text-muted)\"></i>\n                <span>12 Tons</span>\n                <span style=\"margin-left:auto;color:var(--accent-primary);font-weight:700\">Rs. 28,000</span>\n            </div>\n        </div>\n    </div>\n</section>\n\n<!-- STATS BAR - Dashboard style -->\n<div class=\"stats-bar\">\n    <div class=\"stats-grid\">\n        <div class=\"stat-item reveal\">\n            <div class=\"stat-number\"><span id=\"s1\">0</span><span class=\"acc\">+</span></div>\n            <div class=\"stat-label\">Active Transporters</div>\n        </div>\n        <div class=\"stat-item reveal\">\n            <div class=\"stat-number\"><span id=\"s2\">0</span><span class=\"acc\">+</span></div>\n            <div class=\"stat-label\">Orders Completed</div>\n        </div>\n        <div class=\"stat-item reveal\">\n            <div class=\"stat-number\"><span id=\"s3\">0</span></div>\n            <div class=\"stat-label\">Cities Covered</div>\n        </div>\n        <div class=\"stat-item reveal\">\n            <div class=\"stat-number\">Rs.<span id=\"s4\">0</span><span class=\"acc\">M+</span></div>\n            <div class=\"stat-label\">Paid to Transporters</div>\n        </div>\n    </div>\n</div>\n\n<!-- HOW IT WORKS SECTION -->\n<section class=\"section\" id=\"how-it-works\">\n    <span class=\"section-label reveal\">How It Works</span>\n    <h2 class=\"section-title reveal\">Simple. Fast. Reliable.</h2>\n    <p class=\"section-subtitle reveal\">Whether you're shipping goods or driving trucks, getting started takes less than 5 minutes.</p>\n    <div class=\"how-tabs reveal\">\n        <button class=\"how-tab active\" onclick=\"switchTab('client')\">For Clients</button>\n        <button class=\"how-tab\" onclick=\"switchTab('transporter')\">For Transporters</button>\n    </div>\n    <div class=\"steps-panel active\" id=\"panel-client\">\n        <div class=\"steps-grid\">\n            <div class=\"step-card reveal\">\n                <div class=\"step-number\">01</div>\n                <div class=\"step-icon\"><i class=\"fas fa-user-plus\"></i></div>\n                <div class=\"step-title\">Create Your Account</div>\n                <div class=\"step-desc\">Sign up in 2 minutes. Tell us what you ship, your city, and your business type.</div>\n            </div>\n            <div class=\"step-card reveal\">\n                <div class=\"step-number\">02</div>\n                <div class=\"step-icon\"><i class=\"fas fa-box\"></i></div>\n                <div class=\"step-title\">Post Your Order</div>\n                <div class=\"step-desc\">Enter pickup location, delivery destination, cargo type and weight. Get matched with verified transporters instantly.</div>\n            </div>\n            <div class=\"step-card reveal\">\n                <div class=\"step-number\">03</div>\n                <div class=\"step-icon\"><i class=\"fas fa-map-marked-alt\"></i></div>\n                <div class=\"step-title\">Track & Receive</div>\n                <div class=\"step-desc\">Follow your shipment live from pickup to delivery. Get notifications at every step.</div>\n            </div>\n        </div>\n    </div>\n    <div class=\"steps-panel\" id=\"panel-transporter\">\n        <div class=\"steps-grid\">\n            <div class=\"step-card reveal\">\n                <div class=\"step-number\">01</div>\n                <div class=\"step-icon\"><i class=\"fas fa-truck\"></i></div>\n                <div class=\"step-title\">Register Your Fleet</div>\n                <div class=\"step-desc\">Add your trucks with type, capacity, and documents. Get verified and go live on the platform.</div>\n            </div>\n            <div class=\"step-card reveal\">\n                <div class=\"step-number\">02</div>\n                <div class=\"step-icon\"><i class=\"fas fa-clipboard-check\"></i></div>\n                <div class=\"step-title\">Accept Jobs</div>\n                <div class=\"step-desc\">Browse available shipment orders near you. Accept jobs that match your fleet and route. No middlemen.</div>\n            </div>\n            <div class=\"step-card reveal\">\n                <div class=\"step-number\">03</div>\n                <div class=\"step-icon\"><i class=\"fas fa-wallet\"></i></div>\n                <div class=\"step-title\">Deliver & Earn</div>\n                <div class=\"step-desc\">Complete the delivery, update the status, and watch your earnings grow. Withdraw anytime to your bank account.</div>\n            </div>\n        </div>\n    </div>\n</section>\n\n<!-- FOR WHO SECTION -->\n<section class=\"section for-who\" id=\"for-who\">\n    <span class=\"section-label reveal\">Choose Your Path</span>\n    <h2 class=\"section-title reveal\">Built for Both Sides</h2>\n    <p class=\"section-subtitle reveal\">Digi_TransX serves both businesses that need to ship goods and transporters who want to grow their income.</p>\n    <div class=\"for-who-grid\">\n        <div class=\"for-card reveal\">\n            <div class=\"for-card-icon ci-blue2\"><i class=\"fas fa-building\"></i></div>\n            <h3 class=\"for-card-title\">For Clients</h3>\n            <p class=\"for-card-desc\">Businesses, factories, retailers — anyone who needs to move goods across Pakistan reliably and affordably.</p>\n            <ul class=\"feature-list\">\n                <li><span class=\"chk chk-blue\"><i class=\"fas fa-check\"></i></span> Post orders in under 2 minutes</li>\n                <li><span class=\"chk chk-blue\"><i class=\"fas fa-check\"></i></span> Verified, rated transporters only</li>\n                <li><span class=\"chk chk-blue\"><i class=\"fas fa-check\"></i></span> Real-time shipment tracking</li>\n                <li><span class=\"chk chk-blue\"><i class=\"fas fa-check\"></i></span> Digital invoices and payment history</li>\n                <li><span class=\"chk chk-blue\"><i class=\"fas fa-check\"></i></span> Cancel anytime before pickup</li>\n            </ul>\n            <a href=\"/signup?role=client\" class=\"btn-for btn-blue\"><i class=\"fas fa-box\"></i> Start Shipping Now</a>\n        </div>\n        <div class=\"for-card reveal\">\n            <div class=\"for-card-icon ci-orange2\"><i class=\"fas fa-truck\"></i></div>\n            <h3 class=\"for-card-title\">For Transporters</h3>\n            <p class=\"for-card-desc\">Fleet owners, individual truck owners — grow your business with a steady stream of verified shipment jobs.</p>\n            <ul class=\"feature-list\">\n                <li><span class=\"chk chk-orange\"><i class=\"fas fa-check\"></i></span> Manage your entire fleet in one place</li>\n                <li><span class=\"chk chk-orange\"><i class=\"fas fa-check\"></i></span> Browse & accept jobs instantly</li>\n                <li><span class=\"chk chk-orange\"><i class=\"fas fa-check\"></i></span> Track earnings and wallet balance</li>\n                <li><span class=\"chk chk-orange\"><i class=\"fas fa-check\"></i></span> Build your rating and reputation</li>\n                <li><span class=\"chk chk-orange\"><i class=\"fas fa-check\"></i></span> Department & team access control</li>\n            </ul>\n            <a href=\"/signup?role=transporter\" class=\"btn-for btn-orange\"><i class=\"fas fa-truck\"></i> Register Your Fleet</a>\n        </div>\n    </div>\n</section>\n\n<!-- FEATURES SECTION -->\n<section class=\"section\" id=\"features\">\n    <span class=\"section-label reveal\">Platform Features</span>\n    <h2 class=\"section-title reveal\">Everything You Need</h2>\n    <p class=\"section-subtitle reveal\">A complete logistics management system built specifically for Pakistan's transport industry.</p>\n    <div class=\"features-grid\">\n        <div class=\"feature-card reveal\">\n            <div class=\"feature-icon\"><i class=\"fas fa-map-marked-alt\"></i></div>\n            <div class=\"feature-title\">Live Shipment Tracking</div>\n            <div class=\"feature-desc\">Follow every shipment from pickup to delivery with real-time status updates and location checkpoints.</div>\n        </div>\n        <div class=\"feature-card reveal\">\n            <div class=\"feature-icon\"><i class=\"fas fa-shield-alt\"></i></div>\n            <div class=\"feature-title\">Verified Transporters</div>\n            <div class=\"feature-desc\">All transporters are verified with CNIC, license, and truck documents before they can accept jobs.</div>\n        </div>\n        <div class=\"feature-card reveal\">\n            <div class=\"feature-icon\"><i class=\"fas fa-wallet\"></i></div>\n            <div class=\"feature-title\">Digital Payments (PKR)</div>\n            <div class=\"feature-desc\">Transparent pricing, automatic commission, and digital invoices — all in Pakistani Rupees.</div>\n        </div>\n        <div class=\"feature-card reveal\">\n            <div class=\"feature-icon\"><i class=\"fas fa-sitemap\"></i></div>\n            <div class=\"feature-title\">Organization System</div>\n            <div class=\"feature-desc\">Manage your transport company with departments, team members, and role-based access control.</div>\n        </div>\n        <div class=\"feature-card reveal\">\n            <div class=\"feature-icon\"><i class=\"fas fa-star\"></i></div>\n            <div class=\"feature-title\">Ratings & Reviews</div>\n            <div class=\"feature-desc\">Build trust with a transparent rating system. Top-rated transporters get priority job visibility.</div>\n        </div>\n        <div class=\"feature-card reveal\">\n            <div class=\"feature-icon\"><i class=\"fas fa-robot\"></i></div>\n            <div class=\"feature-title\">AI Assistant</div>\n            <div class=\"feature-desc\">A built-in smart assistant that helps you navigate, place orders, and manage your account naturally.</div>\n        </div>\n    </div>\n</section>\n\n<!-- CTA SECTION -->\n<section class=\"cta-section\">\n    <div class=\"cta-box reveal\">\n        <h2 class=\"cta-title\">Ready to Transform<br><span>Your Logistics?</span></h2>\n        <p class=\"cta-subtitle\">Join Pakistan's growing network of businesses and transporters. Sign up free — no credit card required.</p>\n        <div class=\"cta-buttons\">\n            <a href=\"/signup?role=client\" class=\"btn-hero-primary\"><i class=\"fas fa-box\"></i> I Need Transport</a>\n            <a href=\"/signup?role=transporter\" class=\"btn-hero-secondary\"><i class=\"fas fa-truck\"></i> I'm a Transporter</a>\n        </div>\n    </div>\n</section>\n\n<!-- FOOTER -->\n<footer>\n    <div class=\"footer-top\">\n        <div class=\"footer-brand\">\n            <a href=\"/\" class=\"navbar-logo\" style=\"display:inline-flex;margin-bottom:10px;text-decoration:none;\">\n                <div class=\"logo-icon\"><i class=\"fas fa-truck\"></i></div>\n                <span class=\"navbar-brand\">Digi_TransX</span>\n            </a>\n            <p>Pakistan's smart transport and logistics platform. Connecting clients with trusted transporters since 2026.</p>\n        </div>\n        <div class=\"footer-col\">\n            <h4>Platform</h4>\n            <ul>\n                <li><a href=\"#how-it-works\">How It Works</a></li>\n                <li><a href=\"#features\">Features</a></li>\n                <li><a href=\"#for-who\">For Clients</a></li>\n                <li><a href=\"#for-who\">For Transporters</a></li>\n            </ul>\n        </div>\n        <div class=\"footer-col\">\n            <h4>Company</h4>\n            <ul>\n                      <li><a href=\"\">About Us</a></li>\n                <li><a href=\"\">Contact</a></li>\n                <li><a href=\"\">Help Center</a></li>\n            </ul>\n        </div>\n        <div class=\"footer-col\">\n            <h4>Legal</h4>\n            <ul>\n                <li><a href=\"/frontend/transporter/HTML/Terms/terms.html\">Terms & Conditions</a></li>\n                <li><a href=\"/frontend/transporter/HTML/Privacy/privacy.html\">Privacy Policy</a></li>\n            </ul>\n        </div>\n    </div>\n    <div class=\"footer-bottom\">\n        <p>© 2026 Digi_TransX Transport Services. All rights reserved.</p>\n        <p>Built for <a href=\"#\">Pakistan 🇵🇰</a></p>\n    </div>\n</footer>";
+import { useEffect, useState } from 'react'
+import logoMarkUrl from '../../assets/brand/logo-mark.svg'
 
 function counter(id, target) {
-  const el = document.getElementById(id);
-  if (!el) return;
+  const el = document.getElementById(id)
+  if (!el) return
 
-  let val = 0;
-  const step = target / (2000 / 16);
+  let val = 0
+  const step = target / (2000 / 16)
   const timer = window.setInterval(() => {
-    val += step;
+    val += step
     if (val >= target) {
-      val = target;
-      window.clearInterval(timer);
+      val = target
+      window.clearInterval(timer)
     }
-    el.textContent = Math.floor(val).toLocaleString();
-  }, 16);
+    el.textContent = Math.floor(val).toLocaleString()
+  }, 16)
 }
 
 export default function MainPage() {
+  const [activeTab, setActiveTab] = useState('client')
+  const [mobileNavOpen, setMobileNavOpen] = useState(false)
+  const [navScrolled, setNavScrolled] = useState(false)
+
   useEffect(() => {
-    document.documentElement.dataset.dtxPortal = 'intro';
-    document.documentElement.dataset.dtxPage = 'intro-main';
-    document.body.dataset.dtxPortal = 'intro';
-    document.body.dataset.dtxPage = 'intro-main';
+    document.documentElement.dataset.dtxPortal = 'intro'
+    document.documentElement.dataset.dtxPage = 'intro-main'
+    document.body.dataset.dtxPortal = 'intro'
+    document.body.dataset.dtxPage = 'intro-main'
 
-    const fontPreconnect = document.createElement('link');
-    fontPreconnect.rel = 'preconnect';
-    fontPreconnect.href = 'https://fonts.googleapis.com';
-    const fontStylesheet = document.createElement('link');
-    fontStylesheet.rel = 'stylesheet';
-    fontStylesheet.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap';
-    document.head.append(fontPreconnect, fontStylesheet);
-
-    window.switchTab = (type) => {
-      document.querySelectorAll('.how-tab').forEach((tab, index) => {
-        tab.classList.toggle('active', (index === 0 && type === 'client') || (index === 1 && type === 'transporter'));
-      });
-      document.querySelectorAll('.steps-panel').forEach((panel) => panel.classList.remove('active'));
-      document.getElementById('panel-' + type)?.classList.add('active');
-    };
+    const fontPreconnect = document.createElement('link')
+    fontPreconnect.rel = 'preconnect'
+    fontPreconnect.href = 'https://fonts.googleapis.com'
+    const fontStylesheet = document.createElement('link')
+    fontStylesheet.rel = 'stylesheet'
+    fontStylesheet.href = 'https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap'
+    document.head.append(fontPreconnect, fontStylesheet)
 
     const revealObserver = new IntersectionObserver(
       (entries) => {
         entries.forEach((entry, index) => {
           if (entry.isIntersecting) {
-            window.setTimeout(() => entry.target.classList.add('visible'), index * 80);
+            window.setTimeout(() => entry.target.classList.add('visible'), index * 80)
           }
-        });
+        })
       },
       { threshold: 0.1 },
-    );
-    document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el));
+    )
+    document.querySelectorAll('.reveal').forEach((el) => revealObserver.observe(el))
 
     const statsObserver = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting) {
-          counter('s1', 500);
-          counter('s2', 12000);
-          counter('s3', 35);
-          counter('s4', 48);
-          statsObserver.disconnect();
+          counter('s1', 500)
+          counter('s2', 12000)
+          counter('s3', 35)
+          counter('s4', 48)
+          statsObserver.disconnect()
         }
       },
       { threshold: 0.5 },
-    );
-    const statsBar = document.querySelector('.stats-bar');
-    if (statsBar) statsObserver.observe(statsBar);
+    )
+    const statsBar = document.querySelector('.stats-bar')
+    if (statsBar) statsObserver.observe(statsBar)
 
     const updateNavbarShadow = () => {
-      const navbar = document.getElementById('navbar');
-      if (navbar) {
-        navbar.style.boxShadow = window.scrollY > 50 ? '0 4px 12px rgba(0, 0, 0, 0.05)' : 'var(--shadow-medium)';
-      }
-    };
-    window.addEventListener('scroll', updateNavbarShadow);
-
-    const hamburger = document.querySelector('.hamburger');
-    const navLinks = document.querySelector('.nav-links');
-    const toggleMobileNav = () => {
-      if (navLinks) {
-        navLinks.style.display = navLinks.style.display === 'flex' ? 'none' : 'flex';
-      }
-    };
-    hamburger?.addEventListener('click', toggleMobileNav);
+      setNavScrolled(window.scrollY > 50)
+    }
+    window.addEventListener('scroll', updateNavbarShadow)
 
     return () => {
-      revealObserver.disconnect();
-      statsObserver.disconnect();
-      window.removeEventListener('scroll', updateNavbarShadow);
-      hamburger?.removeEventListener('click', toggleMobileNav);
-      delete window.switchTab;
-      document.head.removeChild(fontPreconnect);
-      document.head.removeChild(fontStylesheet);
-      delete document.documentElement.dataset.dtxPortal;
-      delete document.documentElement.dataset.dtxPage;
-      delete document.body.dataset.dtxPortal;
-      delete document.body.dataset.dtxPage;
-    };
-  }, []);
+      revealObserver.disconnect()
+      statsObserver.disconnect()
+      window.removeEventListener('scroll', updateNavbarShadow)
+      document.head.removeChild(fontPreconnect)
+      document.head.removeChild(fontStylesheet)
+      delete document.documentElement.dataset.dtxPortal
+      delete document.documentElement.dataset.dtxPage
+      delete document.body.dataset.dtxPortal
+      delete document.body.dataset.dtxPage
+    }
+  }, [])
 
-  const v1Html = mainPageHtml.replace(
-    /\s*<div class="feature-card reveal">\s*<div class="feature-icon"><i class="fas fa-robot"><\/i><\/div>[\s\S]*?<\/div>\s*<\/div>(?=\s*<\/div>\s*<\/section>)/,
-    '',
-  );
-  return <div dangerouslySetInnerHTML={{ __html: v1Html }} />;
+  return (
+    <div>
+      <nav
+        className="navbar"
+        id="navbar"
+        style={{
+          boxShadow: navScrolled ? '0 4px 12px rgba(0, 0, 0, 0.05)' : 'var(--shadow-medium)',
+        }}
+      >
+        <div className="navbar-left">
+          <div className="navbar-logo">
+            <div className="logo-icon">
+              <i className="fas fa-truck" />
+            </div>
+            <a href="/" className="navbar-brand">Digi_TransX</a>
+          </div>
+          <img src={logoMarkUrl} alt="Transport Logo" className="transport-logo" />
+        </div>
+
+        <div className="navbar-right">
+          <ul
+            className="nav-links"
+            style={mobileNavOpen ? { display: 'flex' } : undefined}
+          >
+            <li><a href="#how-it-works">How It Works</a></li>
+            <li><a href="#features">Features</a></li>
+            <li><a href="#for-who">For You</a></li>
+          </ul>
+          <a href="/login" className="btn-ghost">Login</a>
+          <a href="/signup" className="btn-primary-nav">Get Started</a>
+          <button
+            type="button"
+            className="hamburger"
+            aria-label="Toggle navigation menu"
+            aria-expanded={mobileNavOpen}
+            onClick={() => setMobileNavOpen((prev) => !prev)}
+          >
+            <i className="fas fa-bars" />
+          </button>
+        </div>
+      </nav>
+
+      <section className="hero">
+        <div className="hero-content">
+          <div className="hero-badge"><span className="dot" /> Now Live in Pakistan 🇵🇰</div>
+          <h1 className="hero-title">
+            Pakistan&apos;s <span className="accent">Smartest</span>
+            <span className="line-2">Transport Platform</span>
+          </h1>
+          <p className="hero-subtitle">
+            Connect clients with trusted transporters. Place orders, track shipments in real time,
+            manage your fleet, and grow your logistics business — all in one place.
+          </p>
+          <div className="hero-cta">
+            <a href="/signup?role=client" className="btn-hero-primary">
+              <i className="fas fa-box" /> I Need Transport
+            </a>
+            <a href="/signup?role=transporter" className="btn-hero-secondary">
+              <i className="fas fa-truck" /> I&apos;m a Transporter
+            </a>
+          </div>
+        </div>
+
+        <div className="hero-visual">
+          <div className="floating-card c1">
+            <div className="card-row">
+              <div className="cicon ci-orange"><i className="fas fa-truck-moving" /></div>
+              <span className="sbadge sb-live">● Live</span>
+            </div>
+            <div className="clabel">Active Shipment</div>
+            <div className="cval">DTX-2026-0142</div>
+            <div className="route-row">
+              <span className="rdot" style={{ background: 'var(--success)' }} /> Karachi
+              <div className="rline" />
+              <span className="rdot" style={{ background: 'var(--accent-primary)' }} /> Lahore
+            </div>
+            <div className="progress-bar"><div className="progress-fill" /></div>
+          </div>
+
+          <div className="floating-card c2">
+            <div className="card-row">
+              <div className="cicon ci-green"><i className="fas fa-wallet" /></div>
+              <span className="sbadge sb-blue">This Month</span>
+            </div>
+            <div className="clabel">Total Earnings</div>
+            <div className="cval">Rs. 142,500 <small>+18%</small></div>
+          </div>
+
+          <div className="floating-card c3">
+            <div className="card-row">
+              <div className="cicon ci-blue"><i className="fas fa-clipboard-list" /></div>
+              <span className="sbadge sb-pending">Pending</span>
+            </div>
+            <div className="clabel">New Job Request</div>
+            <div className="cval" style={{ fontSize: '16px', marginTop: '4px' }}>Islamabad → Faisalabad</div>
+            <div className="route-row" style={{ marginTop: '8px' }}>
+              <i className="fas fa-weight-hanging" style={{ color: 'var(--text-muted)' }} />
+              <span>12 Tons</span>
+              <span style={{ marginLeft: 'auto', color: 'var(--accent-primary)', fontWeight: 700 }}>Rs. 28,000</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div className="stats-bar">
+        <div className="stats-grid">
+          <div className="stat-item reveal">
+            <div className="stat-number"><span id="s1">0</span><span className="acc">+</span></div>
+            <div className="stat-label">Active Transporters</div>
+          </div>
+          <div className="stat-item reveal">
+            <div className="stat-number"><span id="s2">0</span><span className="acc">+</span></div>
+            <div className="stat-label">Orders Completed</div>
+          </div>
+          <div className="stat-item reveal">
+            <div className="stat-number"><span id="s3">0</span></div>
+            <div className="stat-label">Cities Covered</div>
+          </div>
+          <div className="stat-item reveal">
+            <div className="stat-number">Rs.<span id="s4">0</span><span className="acc">M+</span></div>
+            <div className="stat-label">Paid to Transporters</div>
+          </div>
+        </div>
+      </div>
+
+      <section className="section" id="how-it-works">
+        <span className="section-label reveal">How It Works</span>
+        <h2 className="section-title reveal">Simple. Fast. Reliable.</h2>
+        <p className="section-subtitle reveal">
+          Whether you&apos;re shipping goods or driving trucks, getting started takes less than 5 minutes.
+        </p>
+        <div className="how-tabs reveal">
+          <button
+            type="button"
+            className={`how-tab${activeTab === 'client' ? ' active' : ''}`}
+            onClick={() => setActiveTab('client')}
+          >
+            For Clients
+          </button>
+          <button
+            type="button"
+            className={`how-tab${activeTab === 'transporter' ? ' active' : ''}`}
+            onClick={() => setActiveTab('transporter')}
+          >
+            For Transporters
+          </button>
+        </div>
+
+        <div className={`steps-panel${activeTab === 'client' ? ' active' : ''}`} id="panel-client">
+          <div className="steps-grid">
+            <div className="step-card reveal">
+              <div className="step-number">01</div>
+              <div className="step-icon"><i className="fas fa-user-plus" /></div>
+              <div className="step-title">Create Your Account</div>
+              <div className="step-desc">Sign up in 2 minutes. Tell us what you ship, your city, and your business type.</div>
+            </div>
+            <div className="step-card reveal">
+              <div className="step-number">02</div>
+              <div className="step-icon"><i className="fas fa-box" /></div>
+              <div className="step-title">Post Your Order</div>
+              <div className="step-desc">Enter pickup location, delivery destination, cargo type and weight. Get matched with verified transporters instantly.</div>
+            </div>
+            <div className="step-card reveal">
+              <div className="step-number">03</div>
+              <div className="step-icon"><i className="fas fa-map-marked-alt" /></div>
+              <div className="step-title">Track &amp; Receive</div>
+              <div className="step-desc">Follow your shipment live from pickup to delivery. Get notifications at every step.</div>
+            </div>
+          </div>
+        </div>
+
+        <div className={`steps-panel${activeTab === 'transporter' ? ' active' : ''}`} id="panel-transporter">
+          <div className="steps-grid">
+            <div className="step-card reveal">
+              <div className="step-number">01</div>
+              <div className="step-icon"><i className="fas fa-truck" /></div>
+              <div className="step-title">Register Your Fleet</div>
+              <div className="step-desc">Add your trucks with type, capacity, and documents. Get verified and go live on the platform.</div>
+            </div>
+            <div className="step-card reveal">
+              <div className="step-number">02</div>
+              <div className="step-icon"><i className="fas fa-clipboard-check" /></div>
+              <div className="step-title">Accept Jobs</div>
+              <div className="step-desc">Browse available shipment orders near you. Accept jobs that match your fleet and route. No middlemen.</div>
+            </div>
+            <div className="step-card reveal">
+              <div className="step-number">03</div>
+              <div className="step-icon"><i className="fas fa-wallet" /></div>
+              <div className="step-title">Deliver &amp; Earn</div>
+              <div className="step-desc">Complete the delivery, update the status, and watch your earnings grow. Withdraw anytime to your bank account.</div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section className="section for-who" id="for-who">
+        <span className="section-label reveal">Choose Your Path</span>
+        <h2 className="section-title reveal">Built for Both Sides</h2>
+        <p className="section-subtitle reveal">
+          Digi_TransX serves both businesses that need to ship goods and transporters who want to grow their income.
+        </p>
+        <div className="for-who-grid">
+          <div className="for-card reveal">
+            <div className="for-card-icon ci-blue2"><i className="fas fa-building" /></div>
+            <h3 className="for-card-title">For Clients</h3>
+            <p className="for-card-desc">
+              Businesses, factories, retailers — anyone who needs to move goods across Pakistan reliably and affordably.
+            </p>
+            <ul className="feature-list">
+              <li><span className="chk chk-blue"><i className="fas fa-check" /></span> Post orders in under 2 minutes</li>
+              <li><span className="chk chk-blue"><i className="fas fa-check" /></span> Verified, rated transporters only</li>
+              <li><span className="chk chk-blue"><i className="fas fa-check" /></span> Real-time shipment tracking</li>
+              <li><span className="chk chk-blue"><i className="fas fa-check" /></span> Digital invoices and payment history</li>
+              <li><span className="chk chk-blue"><i className="fas fa-check" /></span> Cancel anytime before pickup</li>
+            </ul>
+            <a href="/signup?role=client" className="btn-for btn-blue">
+              <i className="fas fa-box" /> Start Shipping Now
+            </a>
+          </div>
+
+          <div className="for-card reveal">
+            <div className="for-card-icon ci-orange2"><i className="fas fa-truck" /></div>
+            <h3 className="for-card-title">For Transporters</h3>
+            <p className="for-card-desc">
+              Fleet owners, individual truck owners — grow your business with a steady stream of verified shipment jobs.
+            </p>
+            <ul className="feature-list">
+              <li><span className="chk chk-orange"><i className="fas fa-check" /></span> Manage your entire fleet in one place</li>
+              <li><span className="chk chk-orange"><i className="fas fa-check" /></span> Browse &amp; accept jobs instantly</li>
+              <li><span className="chk chk-orange"><i className="fas fa-check" /></span> Track earnings and wallet balance</li>
+              <li><span className="chk chk-orange"><i className="fas fa-check" /></span> Build your rating and reputation</li>
+              <li><span className="chk chk-orange"><i className="fas fa-check" /></span> Department &amp; team access control</li>
+            </ul>
+            <a href="/signup?role=transporter" className="btn-for btn-orange">
+              <i className="fas fa-truck" /> Register Your Fleet
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <section className="section" id="features">
+        <span className="section-label reveal">Platform Features</span>
+        <h2 className="section-title reveal">Everything You Need</h2>
+        <p className="section-subtitle reveal">
+          A complete logistics management system built specifically for Pakistan&apos;s transport industry.
+        </p>
+        <div className="features-grid">
+          <div className="feature-card reveal">
+            <div className="feature-icon"><i className="fas fa-map-marked-alt" /></div>
+            <div className="feature-title">Live Shipment Tracking</div>
+            <div className="feature-desc">Follow every shipment from pickup to delivery with real-time status updates and location checkpoints.</div>
+          </div>
+          <div className="feature-card reveal">
+            <div className="feature-icon"><i className="fas fa-shield-alt" /></div>
+            <div className="feature-title">Verified Transporters</div>
+            <div className="feature-desc">All transporters are verified with CNIC, license, and truck documents before they can accept jobs.</div>
+          </div>
+          <div className="feature-card reveal">
+            <div className="feature-icon"><i className="fas fa-wallet" /></div>
+            <div className="feature-title">Digital Payments (PKR)</div>
+            <div className="feature-desc">Transparent pricing, automatic commission, and digital invoices — all in Pakistani Rupees.</div>
+          </div>
+          <div className="feature-card reveal">
+            <div className="feature-icon"><i className="fas fa-sitemap" /></div>
+            <div className="feature-title">Organization System</div>
+            <div className="feature-desc">Manage your transport company with departments, team members, and role-based access control.</div>
+          </div>
+          <div className="feature-card reveal">
+            <div className="feature-icon"><i className="fas fa-star" /></div>
+            <div className="feature-title">Ratings &amp; Reviews</div>
+            <div className="feature-desc">Build trust with a transparent rating system. Top-rated transporters get priority job visibility.</div>
+          </div>
+        </div>
+      </section>
+
+      <section className="cta-section">
+        <div className="cta-box reveal">
+          <h2 className="cta-title">Ready to Transform<br /><span>Your Logistics?</span></h2>
+          <p className="cta-subtitle">
+            Join Pakistan&apos;s growing network of businesses and transporters. Sign up free — no credit card required.
+          </p>
+          <div className="cta-buttons">
+            <a href="/signup?role=client" className="btn-hero-primary">
+              <i className="fas fa-box" /> I Need Transport
+            </a>
+            <a href="/signup?role=transporter" className="btn-hero-secondary">
+              <i className="fas fa-truck" /> I&apos;m a Transporter
+            </a>
+          </div>
+        </div>
+      </section>
+
+      <footer>
+        <div className="footer-top">
+          <div className="footer-brand">
+            <a href="/" className="navbar-logo" style={{ display: 'inline-flex', marginBottom: '10px', textDecoration: 'none' }}>
+              <div className="logo-icon"><i className="fas fa-truck" /></div>
+              <span className="navbar-brand">Digi_TransX</span>
+            </a>
+            <p>Pakistan&apos;s smart transport and logistics platform. Connecting clients with trusted transporters since 2026.</p>
+          </div>
+          <div className="footer-col">
+            <h4>Platform</h4>
+            <ul>
+              <li><a href="#how-it-works">How It Works</a></li>
+              <li><a href="#features">Features</a></li>
+              <li><a href="#for-who">For Clients</a></li>
+              <li><a href="#for-who">For Transporters</a></li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h4>Company</h4>
+            <ul>
+              <li><a href="#how-it-works">About Us</a></li>
+              <li><a href="/login">Sign In</a></li>
+              <li><a href="#for-who">Help Center</a></li>
+            </ul>
+          </div>
+          <div className="footer-col">
+            <h4>Legal</h4>
+            <ul>
+              <li><a href="/signup">Create Account</a></li>
+              <li><a href="/reset-password">Account Recovery</a></li>
+            </ul>
+          </div>
+        </div>
+        <div className="footer-bottom">
+          <p>© 2026 Digi_TransX Transport Services. All rights reserved.</p>
+          <p>Built for <a href="#top">Pakistan 🇵🇰</a></p>
+        </div>
+      </footer>
+    </div>
+  )
 }

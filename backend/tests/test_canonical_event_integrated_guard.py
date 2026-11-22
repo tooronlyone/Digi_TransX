@@ -16,20 +16,20 @@ from tests.test_canonical_event_acl_hardening import _semantic_signature
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations" / "20260801110000_canonical_event_integrated_guard.sql"
+    REPO_ROOT / "Future" / "supabase" / "legacy_migrations" / "20260801110000_canonical_event_integrated_guard.sql"
 )
 EXPECTED_PRE_SIGNATURE = "f5168975e0605fe0f7b84c1276a0082a"
 EXPECTED_POST_SIGNATURE = "7b8157021244549cfed79416b40ab662"
 PRE_GUARD_SCHEMA_SHA = "7e6f154be7227317a83cbfbb2f088ac306cd578b"
 POST_GUARD_SCHEMA_SHA = "4f6be1035a8b9b80a0c474eb157b4a7c48c4bb2d"
 LOCKED_HASHES = {
-    "supabase/migrations/20260731230000_canonical_event_foundation.sql": (
+    "Future/supabase/legacy_migrations/20260731230000_canonical_event_foundation.sql": (
         "9D9C7A9AA8C674EE1A58A96C7AC5ECE831D51C0EABF4C96BD81B37EB79093151"
     ),
-    "supabase/migrations/20260731240000_canonical_event_acl_hardening.sql": (
+    "Future/supabase/legacy_migrations/20260731240000_canonical_event_acl_hardening.sql": (
         "AD2C21874AA3401B081534E56EB4FE18085DC6CCC39C9CCB47AB992BF49D5348"
     ),
-    "supabase/migrations/20260801100000_security_login_event_integration.sql": (
+    "Future/supabase/legacy_migrations/20260801100000_security_login_event_integration.sql": (
         "24B9E78501E57DEE56B3E53155A2A2EE248607D12056362723ADF375519ACBC7"
     ),
 }
@@ -81,10 +81,15 @@ def _insert_integrated_event(conn, request_id):
 def test_applied_migrations_remain_byte_identical_in_git():
     for path, expected in LOCKED_HASHES.items():
         if path.endswith("20260801100000_security_login_event_integration.sql"):
-            content = subprocess.check_output(["git", "show", f"HEAD:{path}"], cwd=REPO_ROOT)
+            content = (REPO_ROOT / path).read_bytes().replace(b"\r\n", b"\n")
+            head_blob = subprocess.check_output(
+                ["git", "show", "HEAD:supabase/migrations/20260801100000_security_login_event_integration.sql"],
+                cwd=REPO_ROOT,
+            )
+            assert content == head_blob
         else:
             # The two older files have their locked CRLF checkout bytes; Git
-            # stores their normalized blobs, so inspect the immutable checkout.
+            # stores their normalized blobs, so inspect the archived bytes.
             content = (REPO_ROOT / path).read_bytes()
         assert hashlib.sha256(content).hexdigest().upper() == expected
 

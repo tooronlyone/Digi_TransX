@@ -2,7 +2,7 @@
 import json
 from flask import request
 
-from auth.helpers import csrf_error, json_response, login_required
+from auth.helpers import csrf_error, is_admin_user, json_response, login_required, require_admin_role
 from shared.db import open_db
 from shared.payments import CheckoutError, parse_positive_id
 from shared.roles import TRANSPORTER_ROLES
@@ -10,7 +10,11 @@ from shared.roles import TRANSPORTER_ROLES
 
 def register_driver_business_routes(blueprint):
     def mutate(operation, roles):
-        if request.current_user.get("role") not in roles:
+        if roles == {"platform_admin"}:
+            role_err = require_admin_role(request.current_user)
+            if role_err:
+                return role_err
+        elif request.current_user.get("role") not in roles:
             return json_response({"success": False, "message": "This action is not permitted for your role."}, 403)
         err = csrf_error()
         if err:
@@ -21,6 +25,9 @@ def register_driver_business_routes(blueprint):
         try:
             with open_db() as db:
                 result = operation(db, data)
+                if not isinstance(result, dict):
+                    db.rollback()
+                    return result
             return json_response({"success": True, **result})
         except CheckoutError as exc:
             return json_response({"success": False, "message": str(exc), "code": exc.code}, exc.status)
@@ -81,11 +88,24 @@ def register_driver_business_routes(blueprint):
     def verify_owner_credentials(user_id):
         def verify(db, data):
             from datetime import date
+            from auth.admin_step_up_service import require_admin_step_up
+
+            if user_id <= 0:
+                raise ValueError("Invalid user ID.")
             license_number = str(data.get("license_number", "")).strip()
             evidence = str(data.get("verification_evidence", "")).strip()
             expiry = date.fromisoformat(str(data.get("license_expiry", "")))
             if not 1 <= len(license_number) <= 64 or len(evidence) < 10 or len(evidence) > 4000 or expiry < date.today():
                 raise ValueError("Current license and documented independent credential verification are required.")
+            step_err, _ = require_admin_step_up(
+                db,
+                request,
+                "admin.owner_operator.verify",
+                resource_id=user_id,
+                target={"license_number": license_number, "license_expiry": expiry.isoformat()},
+            )
+            if step_err:
+                return step_err
             user = db.execute_exact("SELECT id FROM users WHERE id=%s AND role='transporter'", (user_id,)).fetchone()
             if not user:
                 raise CheckoutError("Transporter not found.", 404, "transporter_not_found")
@@ -130,10 +150,23 @@ def register_driver_business_routes(blueprint):
     @login_required
     def decide_operational_incident(incident_id):
         def decide(db, data):
+            from auth.admin_step_up_service import require_admin_step_up
+
+            if incident_id <= 0:
+                raise ValueError("Invalid incident ID.")
             status = data.get("status")
             evidence = str(data.get("decision_evidence", "")).strip()
             if status not in {"confirmed", "dismissed"} or not 10 <= len(evidence) <= 10000:
                 raise ValueError("An evidence-based investigation decision is required.")
+            step_err, _ = require_admin_step_up(
+                db,
+                request,
+                "admin.incident.decide",
+                resource_id=incident_id,
+                target={"status": status, "decision_evidence": evidence},
+            )
+            if step_err:
+                return step_err
             row = db.execute_exact("SELECT * FROM operational_incidents WHERE id=%s FOR UPDATE", (incident_id,)).fetchone()
             if not row:
                 raise CheckoutError("Incident not found.", 404, "incident_not_found")
@@ -146,8 +179,9 @@ def register_driver_business_routes(blueprint):
     @blueprint.get("/api/admin/operational-incidents")
     @login_required
     def list_operational_investigations():
-        if request.current_user.get('role') != 'platform_admin':
-            return json_response({'success':False,'message':'Admin investigation access required.'},403)
+        role_err = require_admin_role(request.current_user)
+        if role_err:
+            return role_err
         status=request.args.get('status','investigating')
         if status not in {'investigating','confirmed','dismissed'}:
             return json_response({'success':False,'message':'Invalid investigation status.'},400)
@@ -175,7 +209,7 @@ def register_driver_business_routes(blueprint):
                 "SELECT i.*,a.driver_user_id,a.transporter_user_id,a.trip_id,a.truck_id "
                 "FROM operational_incidents i JOIN driver_trip_assignments a ON a.id=i.assignment_id "
                 "WHERE i.id=%s AND (%s OR a.driver_user_id=%s OR a.transporter_user_id=%s)",
-                (incident_id,request.current_user.get('role')=='platform_admin',request.current_user['id'],request.current_user['id']),
+                (incident_id,is_admin_user(request.current_user),request.current_user['id'],request.current_user['id']),
             ).fetchone()
         if not row:
             return json_response({'success':False,'message':'Incident not found.'},404)
@@ -194,5 +228,5 @@ def register_driver_business_routes(blueprint):
             if not 10 <= len(reason) <= 4000:
                 raise ValueError("A cancellation reason is required.")
             row = db.execute_exact("INSERT INTO trip_cancellation_requests(assignment_id,transporter_user_id,reason) VALUES(%s,%s,%s) ON CONFLICT(assignment_id) DO NOTHING RETURNING id", (assignment_id, request.current_user["id"], reason)).fetchone()
-            return {"request_id": row["id"] if row else None, "status": "pending_policy_review", "message": "Cancellation requested. Financial cancellation requires an approved refund policy; fuel debt cannot reduce Client escrow."}
+            return {"request_id": row["id"] if row else None, "status": "pending_policy_review", "message": "Cancellation requested. Financial cancellation requires an approved refund policy; Client escrow remains protected."}
         return mutate(initiate, TRANSPORTER_ROLES)

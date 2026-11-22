@@ -16,7 +16,7 @@ from tests.test_canonical_event_acl_hardening import _semantic_signature as even
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = REPO_ROOT / "supabase" / "migrations" / "20260801150000_durable_server_session_foundation.sql"
+MIGRATION = REPO_ROOT / "Future" / "supabase" / "legacy_migrations" / "20260801150000_durable_server_session_foundation.sql"
 LOCKED_MAIN = "72316b0e568c388cf0c35366db49d4ed98cf4f28"
 PRE_SCHEMA_REF = f"{LOCKED_MAIN}:supabase/schema.sql"
 EVENT_SIGNATURE = "3d9b730408336c82629c25342ddc7ea2"

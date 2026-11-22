@@ -10,7 +10,7 @@ from tests.remediation_harness import remediation_database_url, remediation_env
 from tests.test_driver_workflow_hardening import _graph, _driver, _invite, _accept, _set_status
 from tests._life_helpers import STUBS, make_disposable, require_test_db_url
 
-MIGRATION=Path(__file__).resolve().parents[2]/"supabase/migrations/20261025010000_driver_workflow_integrity.sql"
+MIGRATION=Path(__file__).resolve().parents[2]/"Future/supabase/legacy_migrations/20261025010000_driver_workflow_integrity.sql"
 LEGACY_SCHEMA=Path(__file__).resolve().parents[2]/"Future/supabase/schema-with-agreements-v1.sql"
 
 
@@ -113,7 +113,7 @@ def test_legacy_default_card_convergence_preserves_consent_and_is_idempotent(leg
         assert cursor.fetchone()==(1,)
 
 
-@pytest.mark.parametrize("role",["service_seeker","everyday_user","driver","shopkeeper","fuel_station_manager"])
+@pytest.mark.parametrize("role",["service_seeker","everyday_user","driver"])
 def test_non_transporter_cannot_register_truck_even_with_valid_csrf(remediation_env,role):
     env=remediation_env
     user=env.user(role)

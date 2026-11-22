@@ -8,6 +8,7 @@ from auth.helpers import (
 from auth.session_service import find_session_by_token, SessionFoundationError
 from auth.trusted_device_service import digest_token, TrustedDeviceError
 from shared.db import open_db
+from shared.rate_limit import client_ip_from_request, enforce_rate_limits
 
 logger = logging.getLogger(__name__)
 
@@ -41,6 +42,14 @@ def submit_contact():
         return json_response({"success": False, "message": "Subject is required."}, 400)
     if not message:
         return json_response({"success": False, "message": "Message cannot be empty."}, 400)
+
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("contact.submit.ip", client_ip_from_request(), "contact.submit.ip")],
+        message="Too many contact messages submitted. Please wait before trying again.",
+    )
+    if rate_err:
+        return rate_err
 
     user_id = None
     current_user = getattr(request, "current_user", None)

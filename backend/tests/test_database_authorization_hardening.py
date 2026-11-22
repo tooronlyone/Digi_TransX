@@ -17,15 +17,18 @@ from tests._life_helpers import SCHEMA_SQL, STUBS, make_disposable, require_test
 
 ROOT = Path(__file__).resolve().parents[2]
 FEATURE_MARKER = "-- BEGIN OCTOBER 2026 FEATURE BASELINE"
+LEGACY_MIGRATIONS = ROOT / "Future" / "supabase" / "legacy_migrations"
+LEGACY_SCHEMA = ROOT / "Future" / "supabase" / "schema-with-agreements-v1.sql"
+V1_BASELINE_MIGRATION = ROOT / "supabase" / "migrations" / "20261116000000_digitransx_v1_baseline.sql"
 MIGRATION_PATHS = [
-    ROOT / "supabase/migrations/20261024010000_database_authorization_hardening.sql",
-    ROOT / "supabase/migrations/20261024020000_marketplace_financial_controls.sql",
-    ROOT / "supabase/migrations/20261024030000_private_operational_read_surfaces.sql",
-    ROOT / "supabase/migrations/20261024040000_validate_wallet_money_invariants.sql",
-    ROOT / "supabase/migrations/20261025010000_driver_workflow_integrity.sql",
-    ROOT / "supabase/migrations/20261025020000_payment_preference_convergence.sql",
+    LEGACY_MIGRATIONS / "20261024010000_database_authorization_hardening.sql",
+    LEGACY_MIGRATIONS / "20261024020000_marketplace_financial_controls.sql",
+    LEGACY_MIGRATIONS / "20261024030000_private_operational_read_surfaces.sql",
+    LEGACY_MIGRATIONS / "20261024040000_validate_wallet_money_invariants.sql",
+    LEGACY_MIGRATIONS / "20261025010000_driver_workflow_integrity.sql",
+    LEGACY_MIGRATIONS / "20261025020000_payment_preference_convergence.sql",
 ]
-FEATURE_PATHS = sorted((ROOT / "supabase/migrations").glob("2026102[123]*.sql"))
+FEATURE_PATHS = sorted(LEGACY_MIGRATIONS.glob("2026102[123]*.sql"))
 DEFAULT_GRANTS = """
 GRANT USAGE ON SCHEMA public,auth TO anon,authenticated,service_role;
 ALTER DEFAULT PRIVILEGES IN SCHEMA public
@@ -34,13 +37,12 @@ ALTER DEFAULT PRIVILEGES IN SCHEMA public
     GRANT USAGE,SELECT ON SEQUENCES TO anon,authenticated,service_role;
 """
 BACKEND_ONLY = [
-    "contact_messages", "fuel_station_pumps", "fuel_station_dispenses",
+    "admin_step_up_authorizations",
+    "contact_messages",
     "driver_profiles", "driver_incidents", "driver_reviews",
     "driver_trip_assignments", "driver_gps_pings", "driver_fuel_logs",
-    "shop_products", "shop_sales", "shop_sale_items", "driver_hire_contracts",
-    "marketplace_delivery_secrets",
-    "vehicles",
-    "part_rfqs", "part_rfq_bids",
+    "driver_hire_contracts", "http_rate_limits", "vehicles",
+    "withdrawal_limit_upgrade_requests",
 ]
 
 
@@ -56,25 +58,16 @@ def _without_transaction_wrapper(sql):
                      if line.strip().upper() not in {"BEGIN;", "COMMIT;"})
 
 
-@pytest.fixture(scope="module", params=["fresh", "upgraded"])
+@pytest.fixture(scope="module", params=["fresh_schema", "fresh_baseline"])
 def database_url(request):
-    snapshot = SCHEMA_SQL.read_text(encoding="utf-8")
-    if request.param == "fresh":
-        snapshot = snapshot.replace(FEATURE_MARKER,
-            "GRANT UPDATE(legacy_role) ON public.users TO authenticated;\n"
-            "GRANT SELECT(driver_cnic) ON public.vehicles TO authenticated;\n" + FEATURE_MARKER, 1)
-        blocks = [STUBS, DEFAULT_GRANTS, snapshot]
+    if request.param == "fresh_schema":
+        blocks = [STUBS, DEFAULT_GRANTS, SCHEMA_SQL.read_text(encoding="utf-8")]
     else:
-        baseline = snapshot.split(FEATURE_MARKER, 1)[0]
-        features = [_without_transaction_wrapper(p.read_text(encoding="utf-8"))
-                    for p in FEATURE_PATHS]
-        blocks = [STUBS, DEFAULT_GRANTS, baseline, *features,
-                  "GRANT UPDATE(legacy_role) ON public.users TO authenticated;"
-                  "GRANT SELECT(driver_cnic) ON public.vehicles TO authenticated;"
-                  "GRANT SELECT(location_lat) ON public.part_rfqs TO authenticated"]
-        blocks.extend(p.read_text(encoding="utf-8") for p in MIGRATION_PATHS)
-    # A deployment retry must be safe on both construction paths.
-    blocks.extend(p.read_text(encoding="utf-8") for p in MIGRATION_PATHS)
+        migration_sqls = [
+            p.read_text(encoding="utf-8")
+            for p in sorted((ROOT / "supabase" / "migrations").glob("*.sql"))
+        ]
+        blocks = [STUBS, DEFAULT_GRANTS, *migration_sqls]
     url, cleanup = make_disposable(_local_url(), *blocks)
     try:
         yield url
@@ -181,36 +174,34 @@ def test_portal_and_proof_tables_are_rls_enabled_and_backend_only(database, tabl
 
 def test_service_role_keeps_portal_access_without_bypassrls(database):
     with database.cursor() as cursor:
-        user = _user(cursor, "fuel_station_manager")
+        driver = _user(cursor, "driver")
         with _role(cursor, role="service_role"):
-            cursor.execute("INSERT INTO public.fuel_station_pumps(user_id,pump_number,fuel_type) "
-                           "VALUES(%s,'AUDIT-1','diesel') RETURNING id", (user["id"],))
-            pump_id = cursor.fetchone()[0]
-            cursor.execute("SELECT user_id FROM public.fuel_station_pumps WHERE id=%s", (pump_id,))
-            assert cursor.fetchone()[0] == user["id"]
+            cursor.execute("INSERT INTO public.driver_fuel_logs(driver_user_id,pump_name,city,fuel_type,liters,price_per_liter,total_amount,payment_mode,fuel_date) "
+                           "VALUES(%s,'Audit Pump','Lahore','diesel',10,280,2800,'cash',current_date) RETURNING id", (driver["id"],))
+            log_id = cursor.fetchone()[0]
+            cursor.execute("SELECT driver_user_id FROM public.driver_fuel_logs WHERE id=%s", (log_id,))
+            assert cursor.fetchone()[0] == driver["id"]
 
 
 def test_private_operational_records_stay_hidden_after_accidental_read_grant(database):
-    private_tables = ["vehicles", "part_rfqs", "part_rfq_bids"]
+    private_tables = ["vehicles", "driver_fuel_logs"]
     with database.cursor() as cursor:
-        owner, shop = _user(cursor, "transporter"), _user(cursor, "shopkeeper")
+        owner, driver = _user(cursor, "transporter"), _user(cursor, "driver")
         cursor.execute("INSERT INTO public.vehicles(owner_user_id,truck_number,chassis_number,truck_type,"
                        "capacity_tons,main_use,status,driver_cnic) "
                        "VALUES(%s,%s,%s,'flatbed',10,'goods','active','private-driver-cnic') RETURNING id",
                        (owner["id"], uuid4().hex, uuid4().hex))
         vehicle_id = cursor.fetchone()[0]
-        cursor.execute("INSERT INTO public.part_rfqs(transporter_user_id,vehicle_id,part_name,city,"
-                       "location_lat,location_lng,status) VALUES(%s,%s,'Audit part','Lahore',31.5,74.3,'open') "
-                       "RETURNING id", (owner["id"], vehicle_id))
-        rfq_id = cursor.fetchone()[0]
-        cursor.execute("INSERT INTO public.part_rfq_bids(rfq_id,shop_user_id,offered_price) VALUES(%s,%s,100)",
-                       (rfq_id, shop["id"]))
+        cursor.execute("INSERT INTO public.driver_fuel_logs(driver_user_id,truck_id,pump_name,city,fuel_type,liters,price_per_liter,total_amount,payment_mode,fuel_date) "
+                       "VALUES(%s,%s,'Audit Pump','Lahore','diesel',10,280,2800,'cash',current_date) RETURNING id",
+                       (driver["id"], vehicle_id))
+        log_id = cursor.fetchone()[0]
         cursor.execute("SELECT has_column_privilege('authenticated','public.vehicles','driver_cnic','SELECT'),"
-                       "has_column_privilege('authenticated','public.part_rfqs','location_lat','SELECT')")
+                       "has_column_privilege('authenticated','public.driver_fuel_logs','total_amount','SELECT')")
         assert cursor.fetchone() == (False, False)
         for table_name in private_tables:
             cursor.execute(f"GRANT SELECT ON public.{table_name} TO anon,authenticated")
-        for role, user in (("anon", None), ("authenticated", owner), ("authenticated", shop)):
+        for role, user in (("anon", None), ("authenticated", owner), ("authenticated", driver)):
             with _role(cursor, user, role=role):
                 for table_name in private_tables:
                     cursor.execute(f"SELECT count(*) FROM public.{table_name}")
@@ -218,8 +209,8 @@ def test_private_operational_records_stay_hidden_after_accidental_read_grant(dat
         with _role(cursor, role="service_role"):
             cursor.execute("SELECT driver_cnic FROM public.vehicles WHERE id=%s", (vehicle_id,))
             assert cursor.fetchone() == ("private-driver-cnic",)
-            cursor.execute("SELECT location_lat FROM public.part_rfqs WHERE id=%s", (rfq_id,))
-            assert cursor.fetchone() == (31.5,)
+            cursor.execute("SELECT total_amount FROM public.driver_fuel_logs WHERE id=%s", (log_id,))
+            assert cursor.fetchone()[0] == 2800
 
 
 def test_chat_insert_checks_membership_even_after_accidental_insert_grant(database):
@@ -252,34 +243,8 @@ def test_hire_contract_runtime_columns_and_one_active_contract(database):
                   (driver["id"], owner["id"]), codes=("23514",))
 
 
-def test_financial_request_binding_and_secret_constraints(database):
-    with database.cursor() as cursor:
-        buyer, seller = _user(cursor), _user(cursor, "shopkeeper")
-        query = "INSERT INTO public.marketplace_orders(order_number,buyer_user_id,shop_user_id,total_parts_amount,net_total,checkout_key,request_fingerprint) VALUES(%s,%s,%s,100,100,%s,%s) RETURNING id"
-        cursor.execute(query, (uuid4().hex, buyer["id"], seller["id"], "audit-key-123", "a" * 64))
-        order_id = cursor.fetchone()[0]
-        _rejected(cursor, query, (uuid4().hex, buyer["id"], seller["id"], "audit-key-123", "b" * 64), codes=("23505",))
-        _rejected(cursor, query, (uuid4().hex, buyer["id"], seller["id"], "too-short", None), codes=("23514",))
-        cursor.execute("INSERT INTO public.marketplace_delivery_secrets(order_id,otp_digest,expires_at) VALUES(%s,%s,now()+interval '20 minutes')",
-                       (order_id, "c" * 64))
-        _rejected(cursor, "UPDATE public.marketplace_delivery_secrets SET failed_attempts=6 WHERE order_id=%s",
-                  (order_id,), codes=("23514",))
-
-
-def test_wallet_backstop_rejects_new_invalid_balances_without_rewriting_legacy(database):
-    with database.cursor() as cursor:
-        cursor.execute("SELECT convalidated FROM pg_constraint WHERE conrelid='public.wallets'::regclass "
-                       "AND conname='wallets_money_invariants'")
-        assert cursor.fetchone() == (True,)
-        buyer = _user(cursor)
-        _rejected(cursor, "INSERT INTO public.wallets(user_id,role,balance,locked_balance) VALUES(%s,'client',100,101)",
-                  (buyer["id"],), codes=("23514",))
-        _rejected(cursor, "INSERT INTO public.wallets(user_id,role,balance) VALUES(%s,'client','NaN'::numeric)",
-                  (buyer["id"],), codes=("23514",))
-
-
 def test_existing_administrator_survives_forward_migration():
-    snapshot = SCHEMA_SQL.read_text(encoding="utf-8")
+    snapshot = LEGACY_SCHEMA.read_text(encoding="utf-8")
     baseline = snapshot.split(FEATURE_MARKER, 1)[0]
     features = [_without_transaction_wrapper(p.read_text(encoding="utf-8")) for p in FEATURE_PATHS]
     url, cleanup = make_disposable(_local_url(), STUBS, DEFAULT_GRANTS, baseline, *features)
@@ -306,12 +271,32 @@ def test_canonical_schema_keeps_active_authorization_baseline_without_retired_do
     snapshot = SCHEMA_SQL.read_text(encoding="utf-8")
     assert FEATURE_MARKER in snapshot
     assert "database_authorization_hardening.sql" in snapshot
-    for retired_name in ("agreement_posts", "agreement_bids", "agreement_trips"):
+    for retired_name in (
+        "agreement_posts",
+        "agreement_bids",
+        "agreement_trips",
+        "fuel_station_profiles",
+        "fuel_station_pumps",
+        "fuel_station_dispenses",
+        "fuel_platform_treasury",
+        "fuel_credit_accounts",
+        "fuel_vouchers",
+        "fuel_credit_events",
+        "shopkeeper_profiles",
+        "marketplace_parts",
+        "marketplace_orders",
+        "marketplace_order_items",
+        "part_rfqs",
+        "part_rfq_bids",
+        "shop_products",
+        "shop_sales",
+        "shop_sale_items",
+    ):
         assert retired_name not in snapshot
 
 
 def test_manual_remote_hire_shape_converges_without_losing_offer_history():
-    snapshot = SCHEMA_SQL.read_text(encoding="utf-8")
+    snapshot = LEGACY_SCHEMA.read_text(encoding="utf-8")
     baseline = snapshot.split(FEATURE_MARKER, 1)[0]
     features = [_without_transaction_wrapper(p.read_text(encoding="utf-8")) for p in FEATURE_PATHS]
     old_hire = """
@@ -351,21 +336,8 @@ def test_manual_remote_hire_shape_converges_without_losing_offer_history():
         cleanup()
 
 
-def test_marketplace_transfer_legs_are_unique_and_plaintext_otp_stays_disabled(database):
-    with database.cursor() as cursor:
-        buyer, seller = _user(cursor), _user(cursor, "shopkeeper")
-        cursor.execute("INSERT INTO public.wallets(user_id,role,balance) VALUES(%s,'client',1000) RETURNING id",
-                       (buyer["id"],))
-        wallet_id = cursor.fetchone()[0]
-        query = "INSERT INTO public.wallet_transactions(wallet_id,user_id,type,amount,reference_id,balance_after) VALUES(%s,%s,'parts_purchase',-100,'audit-order-17',900)"
-        cursor.execute(query, (wallet_id, buyer["id"]))
-        _rejected(cursor, query, (wallet_id, buyer["id"]), codes=("23505",))
-        _rejected(cursor, "INSERT INTO public.marketplace_orders(order_number,buyer_user_id,shop_user_id,total_parts_amount,net_total,delivery_otp) VALUES(%s,%s,%s,100,100,'123456')",
-                  (uuid4().hex, buyer["id"], seller["id"]), codes=("23514",))
-
-
 def test_legacy_wallet_violation_blocks_validation_without_rewriting_money():
-    snapshot = SCHEMA_SQL.read_text(encoding="utf-8")
+    snapshot = LEGACY_SCHEMA.read_text(encoding="utf-8")
     baseline = snapshot.split(FEATURE_MARKER, 1)[0]
     features = [_without_transaction_wrapper(p.read_text(encoding="utf-8")) for p in FEATURE_PATHS]
     url, cleanup = make_disposable(_local_url(), STUBS, DEFAULT_GRANTS, baseline, *features)

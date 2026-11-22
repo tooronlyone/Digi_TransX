@@ -12,6 +12,7 @@ from flask import Flask
 from tests._life_helpers import SCHEMA_SQL, STUBS, make_disposable, require_test_db_url
 from shared.db import Db
 from auth import helpers as auth_helpers, routes as auth_routes, credential_changes
+from admin import routes as admin_routes
 from auth.session_service import create_session
 from auth.trusted_device_service import create_trusted_device
 from profile import routes as profile_routes
@@ -49,13 +50,14 @@ def remediation_env(remediation_database_url,monkeypatch):
             raise
         finally:
             conn.close()
-    for module in (auth_helpers,auth_routes,credential_changes,profile_routes,order_routes,contact_routes,wallet_routes,driver_routes,truck_routes,driver_business_routes):
+    for module in (auth_helpers,auth_routes,admin_routes,credential_changes,profile_routes,order_routes,contact_routes,wallet_routes,driver_routes,truck_routes,driver_business_routes):
         monkeypatch.setattr(module,"open_db",database)
     monkeypatch.setattr(contact_routes,"send_email",lambda *args,**kwargs:None)
+    monkeypatch.setattr(admin_routes,"supabase_verify_password",lambda *_a,**_k:True)
     monkeypatch.setenv("DIGITRANSX_ENVIRONMENT","test")
     app=Flask(__name__)
     app.config.update(TESTING=True,SECRET_KEY="isolated-audit-remediation",SESSION_COOKIE_SECURE=False)
-    for blueprint in (auth_routes.auth_blueprint,profile_routes.profile_blueprint,
+    for blueprint in (auth_routes.auth_blueprint,admin_routes.admin_blueprint,profile_routes.profile_blueprint,
                       order_routes.orders_blueprint,
                       contact_routes.contact_blueprint,wallet_routes.wallet_blueprint,driver_routes.driver_blueprint,truck_routes.trucks_blueprint):
         app.register_blueprint(blueprint)
@@ -80,5 +82,12 @@ def remediation_env(remediation_database_url,monkeypatch):
             state["csrf_token"]="remediation-csrf"
         return client,session_id
 
+    def admin_step_up_headers(client,challenge_action):
+        step_resp=client.post("/api/admin/step-up",headers={"X-CSRF-Token":"remediation-csrf"},
+                              json={"password":"AdminStepUpPass123!","action":challenge_action})
+        assert step_resp.status_code==200,step_resp.json
+        return {"X-CSRF-Token":"remediation-csrf","X-Admin-Step-Up-Proof":step_resp.json["step_up_proof"]}
+
     yield SimpleNamespace(app=app,db=database,user=user,login=login,
+                          admin_step_up_headers=admin_step_up_headers,
                           headers={"X-CSRF-Token":"remediation-csrf"},url=remediation_database_url)

@@ -7,6 +7,7 @@ from flask import Blueprint, current_app, request
 from auth import step_up_service
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
+from shared.rate_limit import enforce_rate_limits
 from shared.payments import (
     CheckoutError,
     DummyCardProvider,
@@ -18,8 +19,8 @@ from shared.payments import (
 )
 from .helpers import (
     available_balance,
+    available_balance_decimal,
     get_or_create_wallet,
-    get_or_create_wallet_for_user,
     insert_wallet_transaction,
     round_money,
     serialize_wallet,
@@ -137,9 +138,8 @@ def earnings_summary():
             (user["id"],),
         ).fetchone()
 
-        from .earnings import versioned_freight_earnings,legacy_fuel_recovery_totals
+        from .earnings import versioned_freight_earnings
         freight=versioned_freight_earnings(db,user['id'],current_month)
-        legacy_recovery=legacy_fuel_recovery_totals(db,user['id'],current_month)
 
         # Completed one-time shipment trips.
         order_trips_row = db.execute(
@@ -162,8 +162,8 @@ def earnings_summary():
             (user["id"],),
         ).fetchall()
 
-    lifetime_total = round_money((order_lifetime_row["total"] if order_lifetime_row else Decimal('0'))+freight['lifetime_credited']-legacy_recovery['total'])
-    month_total = round_money((order_month_row["total"] if order_month_row else Decimal('0'))+freight['month_credited']-legacy_recovery['month'])
+    lifetime_total = round_money((order_lifetime_row["total"] if order_lifetime_row else Decimal('0'))+freight['lifetime_credited'])
+    month_total = round_money((order_month_row["total"] if order_month_row else Decimal('0'))+freight['month_credited'])
     pending_total = round_money((order_pending_row["total"] if order_pending_row else Decimal('0'))+freight['pending'])
     completed_trips = int(order_trips_row["total"] if order_trips_row else 0)
 
@@ -187,11 +187,8 @@ def earnings_summary():
         "pending_earnings": pending_total,
         "completed_trips": completed_trips,
         "recent_transactions": transactions,
-        "freight_earnings_basis":'Actual wallet credits, including approved reserve credits; pending contains only unreleased earnings. Fuel-credit recovery is reported separately.',
+        "freight_earnings_basis":'Actual wallet credits, including approved reserve credits; pending contains only unreleased earnings.',
         "freight_net_entitlement_before_adjustments":format(freight['net_entitlement'],'.2f'),
-        "freight_fuel_credit_recovered":format(freight['fuel_credit_recovered'],'.2f'),
-        "legacy_fuel_credit_recovered":format(legacy_recovery['total'],'.2f'),
-        "total_fuel_credit_recovered":format(freight['fuel_credit_recovered']+legacy_recovery['total'],'.2f'),
         "freight_reserve_contributed":format(freight['reserve_contributed'],'.2f'),
     })
 
@@ -213,6 +210,12 @@ def topup_wallet():
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
         return json_response({"success": False, "message": "A JSON object is required."}, 400)
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("finance.topup.user", request.current_user["id"], "finance.topup.user")],
+    )
+    if rate_err:
+        return rate_err
     with open_db() as db:
         try:
             result = perform_wallet_topup(
@@ -343,9 +346,25 @@ def create_locked_withdrawal_request():
     data = request.get_json(silent=True) or {}
     if not isinstance(data, dict):
         return json_response({"success": False, "message": "A JSON object is required."}, 400)
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("finance.withdraw.user", request.current_user["id"], "finance.withdraw.user")],
+    )
+    if rate_err:
+        return rate_err
     wallet, error = get_or_create_wallet(request.current_user)
     if error:
         return error
+
+    raw_idem_key = request.headers.get("Idempotency-Key")
+    idempotency_key = None
+    if raw_idem_key is not None:
+        idempotency_key = raw_idem_key.strip()
+        if not idempotency_key or len(idempotency_key) > 200:
+            return json_response(
+                {"success": False, "message": "Idempotency-Key must be between 1 and 200 characters."},
+                400,
+            )
 
     try:
         amount = parse_money_amount(data.get("amount"))
@@ -374,8 +393,55 @@ def create_locked_withdrawal_request():
     })
     request_id = _step_up_request_id("wallet.withdrawal.request")
 
-    from wallet.withdrawal_limits import validate_withdrawal, get_limits, get_active_tier
+    from wallet.withdrawal_limits import (
+        validate_withdrawal,
+        get_limits_decimal,
+        get_active_tier,
+        max_withdrawable,
+        pending_withdrawal_total,
+    )
     with open_db() as db:
+        fresh_wallet_row = db.execute(
+            "SELECT * FROM wallets WHERE id=%s AND user_id=%s FOR UPDATE",
+            (wallet["id"], request.current_user["id"]),
+        ).fetchone()
+        if not fresh_wallet_row:
+            db.rollback()
+            return json_response({"success": False, "message": "Wallet not found."}, 404)
+        if idempotency_key is not None:
+            existing_req = db.execute(
+                "SELECT id, amount, status FROM wallet_withdrawal_requests WHERE user_id = %s AND idempotency_key = %s",
+                (request.current_user["id"], idempotency_key),
+            ).fetchone()
+            if existing_req:
+                if Decimal(str(existing_req["amount"])) != amount:
+                    db.rollback()
+                    return json_response(
+                        {
+                            "success": False,
+                            "code": "idempotency_conflict",
+                            "message": "Idempotency-Key was already used for a different withdrawal amount.",
+                        },
+                        409,
+                    )
+                pending_total = pending_withdrawal_total(db, request.current_user["id"])
+                db.rollback()
+                auto_approved = existing_req["status"] == "approved"
+                payload = {
+                    "success": True,
+                    "replayed": True,
+                    "request_id": existing_req["id"],
+                    "auto_approved": auto_approved,
+                    "message": "Withdrawal request already recorded for this Idempotency-Key.",
+                }
+                if auto_approved:
+                    payload["simulated"] = True
+                    payload["withdrawn"] = round_money(amount)
+                    payload["remaining_withdrawable"] = max_withdrawable(
+                        dict(fresh_wallet_row), pending_total=pending_total
+                    )
+                return json_response(payload)
+
         gate = step_up_service.consume_current_request(db, request, descriptor)
         gate_error = step_up_service.gate_error_response(gate, descriptor)
         if gate_error:
@@ -386,11 +452,7 @@ def create_locked_withdrawal_request():
             "WHERE user_id=%s FOR UPDATE",
             (request.current_user["id"],),
         ).fetchone()
-        fresh_wallet_row = db.execute(
-            "SELECT * FROM wallets WHERE id=%s AND user_id=%s FOR UPDATE",
-            (wallet["id"], request.current_user["id"]),
-        ).fetchone()
-        if not locked_destination or not fresh_wallet_row:
+        if not locked_destination:
             db.rollback()
             return json_response({"success": False, "message": "Wallet not found."}, 404)
         if step_up_service.stored_payout_destination_fingerprint(
@@ -405,22 +467,21 @@ def create_locked_withdrawal_request():
         # request.current_user already carries the transporter_profiles fields
         # (withdrawal_tier, withdrawal_tier_expires_at) merged in by get_user_by_id.
         user_row = dict(request.current_user)
-        error_msg = validate_withdrawal(db, user_row, fresh_wallet, rounded_amount)
+        error_msg = validate_withdrawal(db, user_row, fresh_wallet, amount)
         if error_msg:
             db.rollback()
             return json_response({"success": False, "message": error_msg}, 400)
 
         stamp = timestamp_bundle()
-        limits = get_limits(user_row)
+        limits_dec = get_limits_decimal(user_row)
         active_tier = get_active_tier(user_row)
         within_limits = (
-            rounded_amount <= limits["single_max"] and
-            rounded_amount <= limits["daily_max"]
+            amount <= limits_dec["single_max"] and
+            amount <= limits_dec["daily_max"]
         )
 
         if within_limits:
             # Auto-approve: deduct from balance only, preserve locked_balance
-            from decimal import Decimal
             new_balance = Decimal(str(fresh_wallet["balance"])) - amount
             db.execute(
                 "UPDATE wallets SET balance = %s, updated_at = %s WHERE user_id = %s",
@@ -429,42 +490,43 @@ def create_locked_withdrawal_request():
             fresh_wallet["balance"] = new_balance
             db.execute(
                 """
-                INSERT INTO wallet_withdrawal_requests (user_id, amount, status, requested_at, resolved_at)
-                VALUES (%s, %s, 'approved', %s, %s)
+                INSERT INTO wallet_withdrawal_requests (wallet_id, user_id, amount, status, idempotency_key, requested_at, resolved_at)
+                VALUES (%s, %s, %s, 'approved', %s, %s, %s)
                 """,
-                (request.current_user["id"], rounded_amount, stamp["iso"], stamp["iso"]),
+                (fresh_wallet["id"], request.current_user["id"], amount, idempotency_key, stamp["iso"], stamp["iso"]),
             )
             insert_wallet_transaction(
                 db,
                 fresh_wallet,
                 request.current_user["id"],
                 "withdrawal",
-                -rounded_amount,
+                -amount,
                 description="Simulated withdrawal; no bank transfer (within tier limit)",
                 reference_id=f"tier_{active_tier}_auto",
             )
+            pending_total = pending_withdrawal_total(db, request.current_user["id"])
             step_up_service.write_consumed_event(
                 db, request_id=request_id, gate=gate, descriptor=descriptor
             )
             db.commit()
-            from wallet.withdrawal_limits import max_withdrawable
-            remaining = max_withdrawable(fresh_wallet)
+            remaining = max_withdrawable(fresh_wallet, pending_total=pending_total)
+            withdrawn_num = round_money(amount)
             return json_response({
                 "success": True,
                 "auto_approved": True,
                 "simulated": True,
-                "message": f"Simulated Rs {rounded_amount:,.0f} withdrawal; no bank transfer was made. Remaining withdrawable: Rs {remaining:,.0f}.",
-                "withdrawn": rounded_amount,
+                "message": f"Simulated Rs {withdrawn_num:,.0f} withdrawal; no bank transfer was made. Remaining withdrawable: Rs {remaining:,.0f}.",
+                "withdrawn": withdrawn_num,
                 "remaining_withdrawable": remaining,
             })
         else:
             # Over tier limit → queue for admin approval
             db.execute(
                 """
-                INSERT INTO wallet_withdrawal_requests (user_id, amount, status, requested_at, resolved_at)
-                VALUES (%s, %s, 'pending', %s, NULL)
+                INSERT INTO wallet_withdrawal_requests (wallet_id, user_id, amount, status, idempotency_key, requested_at, resolved_at)
+                VALUES (%s, %s, %s, 'pending', %s, %s, NULL)
                 """,
-                (request.current_user["id"], rounded_amount, stamp["iso"]),
+                (fresh_wallet["id"], request.current_user["id"], amount, idempotency_key, stamp["iso"]),
             )
             step_up_service.write_consumed_event(
                 db, request_id=request_id, gate=gate, descriptor=descriptor
@@ -473,7 +535,7 @@ def create_locked_withdrawal_request():
             return json_response({
                 "success": True,
                 "auto_approved": False,
-                "message": f"Rs {rounded_amount:,.0f} withdrawal request submitted. Admin approval required (amount exceeds tier limit).",
+                "message": f"Rs {round_money(amount):,.0f} withdrawal request submitted. Admin approval required (amount exceeds tier limit).",
             })
 
 
@@ -485,7 +547,16 @@ def get_withdrawal_limits():
     if role_error:
         return role_error
 
-    from wallet.withdrawal_limits import TIERS, get_active_tier, get_limits, get_24h_withdrawn, max_withdrawable, PERMANENT_LOCK
+    from wallet.withdrawal_limits import (
+        TIERS,
+        get_active_tier,
+        get_limits,
+        get_limits_decimal,
+        get_24h_withdrawn_decimal,
+        max_withdrawable,
+        pending_withdrawal_total,
+        PERMANENT_LOCK,
+    )
 
     wallet, error = get_or_create_wallet(request.current_user)
     if error:
@@ -493,19 +564,23 @@ def get_withdrawal_limits():
 
     user_row = dict(request.current_user)
     with open_db() as db:
-        withdrawn_24h = get_24h_withdrawn(db, request.current_user["id"])
+        withdrawn_24h_dec = get_24h_withdrawn_decimal(db, request.current_user["id"])
+        pending_total = pending_withdrawal_total(db, request.current_user["id"])
 
     active_tier = get_active_tier(user_row)
     limits = get_limits(user_row)
-    withdrawable = max_withdrawable(wallet)
+    limits_dec = get_limits_decimal(user_row)
+    withdrawable = max_withdrawable(wallet, pending_total=pending_total)
+    remaining_daily = max(Decimal("0.00"), limits_dec["daily_max"] - withdrawn_24h_dec)
 
     return json_response({
         "success": True,
         "active_tier": active_tier,
         "tier_expires_at": user_row.get("withdrawal_tier_expires_at"),
         "limits": limits,
-        "withdrawn_24h": withdrawn_24h,
-        "remaining_daily": round_money(limits["daily_max"] - withdrawn_24h),
+        "withdrawn_24h": round_money(withdrawn_24h_dec),
+        "remaining_daily": round_money(remaining_daily),
+        "pending_withdrawals": round_money(pending_total),
         "max_withdrawable": withdrawable,
         "permanent_lock": PERMANENT_LOCK,
         "all_tiers": TIERS,
@@ -515,7 +590,7 @@ def get_withdrawal_limits():
 @wallet_blueprint.post("/api/wallet/upgrade-limit")
 @login_required
 def upgrade_withdrawal_limit():
-    """Purchase a withdrawal limit upgrade tier."""
+    """Purchase a withdrawal limit upgrade tier using exact Decimal math and idempotency."""
     role_error = ensure_transporter_role()
     if role_error:
         return role_error
@@ -524,7 +599,7 @@ def upgrade_withdrawal_limit():
         return err
 
     from datetime import datetime, timedelta, timezone
-    from wallet.withdrawal_limits import TIERS, PERMANENT_LOCK
+    from wallet.withdrawal_limits import TIERS, TIERS_DECIMAL, tier_fee_decimal, pending_withdrawal_total
 
     data = request.get_json(silent=True)
     if not isinstance(data, dict):
@@ -535,28 +610,35 @@ def upgrade_withdrawal_limit():
     except (TypeError, ValueError):
         return json_response({"success": False, "message": "Invalid tier or duration."}, 400)
 
-    if tier not in TIERS or tier == 0:
+    if tier not in TIERS_DECIMAL or tier == 0:
         return json_response({"success": False, "message": "Invalid tier selected."}, 400)
     if duration not in (3, 5):
         return json_response({"success": False, "message": "Duration must be 3 or 5 years."}, 400)
 
+    raw_idem_key = request.headers.get("Idempotency-Key")
+    idempotency_key = None
+    if raw_idem_key is not None:
+        idempotency_key = raw_idem_key.strip()
+        if not idempotency_key or len(idempotency_key) > 200:
+            return json_response(
+                {"success": False, "message": "Idempotency-Key must be between 1 and 200 characters."},
+                400,
+            )
+
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("finance.upgrade_limit.user", request.current_user["id"], "finance.upgrade_limit.user")],
+    )
+    if rate_err:
+        return rate_err
+
     tier_info = TIERS[tier]
-    fee = round_money(tier_info["fee_3yr"] if duration == 3 else tier_info["fee_5yr"])
+    fee = tier_fee_decimal(tier, duration)
     days = 1095 if duration == 3 else 1825
 
     wallet, error = get_or_create_wallet(request.current_user)
     if error:
         return error
-
-    spendable = available_balance(wallet)
-    if spendable + 1e-9 < fee:
-        return json_response(
-            {
-                "success": False,
-                "message": "Insufficient balance to purchase plan. Please top up your wallet.",
-            },
-            400,
-        )
 
     expires_at = (datetime.now(timezone.utc) + timedelta(days=days)).isoformat()
     stamp = timestamp_bundle()["iso"]
@@ -571,11 +653,6 @@ def upgrade_withdrawal_limit():
     request_id = _step_up_request_id("wallet.withdrawal_limit.purchase")
 
     with open_db() as db:
-        gate = step_up_service.consume_current_request(db, request, descriptor)
-        gate_error = step_up_service.gate_error_response(gate, descriptor)
-        if gate_error:
-            db.rollback()
-            return gate_error
         locked_wallet = db.execute(
             "SELECT * FROM wallets WHERE id=%s AND user_id=%s FOR UPDATE",
             (wallet["id"], request.current_user["id"]),
@@ -583,16 +660,57 @@ def upgrade_withdrawal_limit():
         if not locked_wallet:
             db.rollback()
             return json_response({"success": False, "message": "Wallet not found."}, 404)
-        locked_spendable = available_balance(dict(locked_wallet))
-        if locked_spendable + 1e-9 < fee:
+
+        if idempotency_key is not None:
+            existing_upgrade = db.execute(
+                "SELECT id, tier, duration_years, expires_at FROM withdrawal_limit_upgrade_requests "
+                "WHERE user_id = %s AND idempotency_key = %s",
+                (request.current_user["id"], idempotency_key),
+            ).fetchone()
+            if existing_upgrade:
+                if existing_upgrade["tier"] != tier or existing_upgrade["duration_years"] != duration:
+                    db.rollback()
+                    return json_response(
+                        {
+                            "success": False,
+                            "code": "idempotency_conflict",
+                            "message": "Idempotency-Key was already used for a different tier upgrade.",
+                        },
+                        409,
+                    )
+                db.rollback()
+                saved_tier = existing_upgrade["tier"]
+                saved_duration = existing_upgrade["duration_years"]
+                saved_info = TIERS[saved_tier]
+                return json_response({
+                    "success": True,
+                    "replayed": True,
+                    "message": (
+                        f"Tier {saved_tier} activated for {saved_duration} years. "
+                        f"New single limit: Rs {saved_info['single_max']:,.0f}."
+                    ),
+                    "tier": saved_tier,
+                    "expires_at": existing_upgrade["expires_at"],
+                })
+
+        pending_total = pending_withdrawal_total(db, request.current_user["id"])
+        locked_spendable = available_balance_decimal(dict(locked_wallet), pending_total=pending_total)
+        if locked_spendable < fee:
             db.rollback()
             return json_response(
                 {"success": False, "message": "Insufficient balance to purchase plan. Please top up your wallet."},
                 400,
             )
+
+        gate = step_up_service.consume_current_request(db, request, descriptor)
+        gate_error = step_up_service.gate_error_response(gate, descriptor)
+        if gate_error:
+            db.rollback()
+            return gate_error
+
         db.execute(
-            "UPDATE wallets SET balance = balance - %s, updated_at = %s WHERE user_id = %s",
-            (fee, stamp, request.current_user["id"]),
+            "UPDATE wallets SET balance = balance - %s, updated_at = %s WHERE id = %s AND user_id = %s",
+            (fee, stamp, locked_wallet["id"], request.current_user["id"]),
         )
         db.execute(
             """
@@ -600,7 +718,7 @@ def upgrade_withdrawal_limit():
             (wallet_id, user_id, type, amount, gross_amount, gateway_fee, description, reference_id, balance_after, created_at)
             SELECT id, user_id, 'plan_purchase', %s, %s, 0,
                    %s, %s, balance, %s
-            FROM wallets WHERE user_id = %s
+            FROM wallets WHERE id = %s AND user_id = %s
             """,
             (
                 -fee,
@@ -608,6 +726,7 @@ def upgrade_withdrawal_limit():
                 f"Withdrawal limit upgrade - Tier {tier} ({duration} years)",
                 f"tier_{tier}_{duration}yr",
                 stamp,
+                locked_wallet["id"],
                 request.current_user["id"],
             ),
         )
@@ -621,6 +740,23 @@ def upgrade_withdrawal_limit():
             """,
             (request.current_user["id"], tier, expires_at),
         )
+        if idempotency_key is not None:
+            db.execute(
+                """
+                INSERT INTO withdrawal_limit_upgrade_requests
+                    (user_id, wallet_id, tier, duration_years, fee_amount, expires_at, idempotency_key)
+                VALUES (%s, %s, %s, %s, %s, %s, %s)
+                """,
+                (
+                    request.current_user["id"],
+                    locked_wallet["id"],
+                    tier,
+                    duration,
+                    fee,
+                    expires_at,
+                    idempotency_key,
+                ),
+            )
         step_up_service.write_consumed_event(
             db, request_id=request_id, gate=gate, descriptor=descriptor
         )
@@ -681,6 +817,12 @@ def save_payout_card():
     summary, card_error = validate_payout_card(data)
     if card_error:
         return json_response({"success": False, "message": card_error}, 400)
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("finance.payout_card.user", request.current_user["id"], "finance.payout_card.user")],
+    )
+    if rate_err:
+        return rate_err
     wallet, wallet_error = get_or_create_wallet(request.current_user)
     if wallet_error:
         return wallet_error

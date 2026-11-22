@@ -17,8 +17,9 @@ from tests._life_helpers import (
 
 MIGRATION = (
     Path(__file__).resolve().parents[2]
+    / "Future"
     / "supabase"
-    / "migrations"
+    / "legacy_migrations"
     / "20260724190000_one_time_coordinate_integrity.sql"
 )
 CONSTRAINTS = (

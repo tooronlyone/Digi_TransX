@@ -5,7 +5,7 @@
       "portal": "AdminPortal",
       "element": "AdminDashboard",
       "redirect_to": null,
-      "line": 142,
+      "line": 140,
       "kind": "relative"
     },
     {
@@ -13,7 +13,7 @@
       "portal": "AdminPortal",
       "element": "AdminUsers",
       "redirect_to": null,
-      "line": 143,
+      "line": 141,
       "kind": "relative"
     },
     {
@@ -21,7 +21,7 @@
       "portal": "AdminPortal",
       "element": "AdminUserDetail",
       "redirect_to": null,
-      "line": 144,
+      "line": 142,
       "kind": "relative"
     },
     {
@@ -29,7 +29,7 @@
       "portal": "AdminPortal",
       "element": "AdminTrucks",
       "redirect_to": null,
-      "line": 145,
+      "line": 143,
       "kind": "relative"
     },
     {
@@ -37,7 +37,7 @@
       "portal": "AdminPortal",
       "element": "AdminWithdrawals",
       "redirect_to": null,
-      "line": 146,
+      "line": 144,
       "kind": "relative"
     },
     {
@@ -45,15 +45,7 @@
       "portal": "AdminPortal",
       "element": "AdminDisputes",
       "redirect_to": null,
-      "line": 147,
-      "kind": "relative"
-    },
-    {
-      "path": "/admin/dispute-chat/:threadId",
-      "portal": "AdminPortal",
-      "element": "AdminDisputeChat",
-      "redirect_to": null,
-      "line": 148,
+      "line": 145,
       "kind": "relative"
     },
     {
@@ -61,7 +53,7 @@
       "portal": "AdminPortal",
       "element": "AdminPlatformSettings",
       "redirect_to": null,
-      "line": 149,
+      "line": 146,
       "kind": "relative"
     },
     {
@@ -69,7 +61,7 @@
       "portal": "AdminPortal",
       "element": "Navigate",
       "redirect_to": "dashboard",
-      "line": 150,
+      "line": 147,
       "kind": "index"
     },
     {
@@ -77,7 +69,7 @@
       "portal": "AdminPortal",
       "element": "Navigate",
       "redirect_to": "dashboard",
-      "line": 151,
+      "line": 148,
       "kind": "relative"
     },
     {
@@ -85,7 +77,7 @@
       "portal": "ClientPortal",
       "element": "Navigate",
       "redirect_to": "dashboard",
-      "line": 163,
+      "line": 160,
       "kind": "index"
     },
     {
@@ -93,7 +85,7 @@
       "portal": "ClientPortal",
       "element": "ClientDashboard",
       "redirect_to": null,
-      "line": 164,
+      "line": 161,
       "kind": "relative"
     },
     {
@@ -101,7 +93,7 @@
       "portal": "ClientPortal",
       "element": "PostOrder",
       "redirect_to": null,
-      "line": 165,
+      "line": 162,
       "kind": "relative"
     },
     {
@@ -109,7 +101,7 @@
       "portal": "ClientPortal",
       "element": "MyOrders",
       "redirect_to": null,
-      "line": 166,
+      "line": 163,
       "kind": "relative"
     },
     {
@@ -117,7 +109,7 @@
       "portal": "ClientPortal",
       "element": "ClientOrderDetail",
       "redirect_to": null,
-      "line": 167,
+      "line": 164,
       "kind": "relative"
     },
     {
@@ -125,7 +117,7 @@
       "portal": "ClientPortal",
       "element": "BidCheckout",
       "redirect_to": null,
-      "line": 168,
+      "line": 165,
       "kind": "relative"
     },
     {
@@ -133,7 +125,7 @@
       "portal": "ClientPortal",
       "element": "Wallet",
       "redirect_to": null,
-      "line": 169,
+      "line": 166,
       "kind": "relative"
     },
     {
@@ -141,7 +133,7 @@
       "portal": "ClientPortal",
       "element": "Wallet",
       "redirect_to": null,
-      "line": 170,
+      "line": 167,
       "kind": "relative"
     },
     {
@@ -149,7 +141,7 @@
       "portal": "ClientPortal",
       "element": "ClientAccount",
       "redirect_to": null,
-      "line": 171,
+      "line": 168,
       "kind": "relative"
     },
     {
@@ -157,7 +149,7 @@
       "portal": "ClientPortal",
       "element": "SecuritySettings",
       "redirect_to": null,
-      "line": 172,
+      "line": 169,
       "kind": "relative"
     },
     {
@@ -165,7 +157,7 @@
       "portal": "ClientPortal",
       "element": "ClientMessages",
       "redirect_to": null,
-      "line": 173,
+      "line": 170,
       "kind": "relative"
     },
     {
@@ -173,7 +165,7 @@
       "portal": "ClientPortal",
       "element": "ClientTerms",
       "redirect_to": null,
-      "line": 174,
+      "line": 171,
       "kind": "relative"
     },
     {
@@ -181,7 +173,7 @@
       "portal": "ClientPortal",
       "element": "Navigate",
       "redirect_to": "/client/dashboard",
-      "line": 175,
+      "line": 172,
       "kind": "relative"
     },
     {
@@ -189,7 +181,7 @@
       "portal": "EverydayPortal",
       "element": "Navigate",
       "redirect_to": "dashboard",
-      "line": 191,
+      "line": 188,
       "kind": "index"
     },
     {
@@ -197,7 +189,7 @@
       "portal": "EverydayPortal",
       "element": "EverydayDashboard",
       "redirect_to": null,
-      "line": 192,
+      "line": 189,
       "kind": "relative"
     },
     {
@@ -205,7 +197,7 @@
       "portal": "EverydayPortal",
       "element": "PostOrder",
       "redirect_to": null,
-      "line": 193,
+      "line": 190,
       "kind": "relative"
     },
     {
@@ -213,7 +205,7 @@
       "portal": "EverydayPortal",
       "element": "MyOrders",
       "redirect_to": null,
-      "line": 194,
+      "line": 191,
       "kind": "relative"
     },
     {
@@ -221,7 +213,7 @@
       "portal": "EverydayPortal",
       "element": "ClientOrderDetail",
       "redirect_to": null,
-      "line": 195,
+      "line": 192,
       "kind": "relative"
     },
     {
@@ -229,7 +221,7 @@
       "portal": "EverydayPortal",
       "element": "BidCheckout",
       "redirect_to": null,
-      "line": 196,
+      "line": 193,
       "kind": "relative"
     },
     {
@@ -237,7 +229,7 @@
       "portal": "EverydayPortal",
       "element": "ClientMessages",
       "redirect_to": null,
-      "line": 198,
+      "line": 195,
       "kind": "relative"
     },
     {
@@ -245,7 +237,7 @@
       "portal": "EverydayPortal",
       "element": "ClientTerms",
       "redirect_to": null,
-      "line": 199,
+      "line": 196,
       "kind": "relative"
     },
     {
@@ -253,7 +245,7 @@
       "portal": "EverydayPortal",
       "element": "ClientAccount",
       "redirect_to": null,
-      "line": 200,
+      "line": 197,
       "kind": "relative"
     },
     {
@@ -261,7 +253,7 @@
       "portal": "EverydayPortal",
       "element": "SecuritySettings",
       "redirect_to": null,
-      "line": 201,
+      "line": 198,
       "kind": "relative"
     },
     {
@@ -269,7 +261,7 @@
       "portal": "EverydayPortal",
       "element": "Navigate",
       "redirect_to": "/everyday/dashboard",
-      "line": 202,
+      "line": 199,
       "kind": "relative"
     },
     {
@@ -277,7 +269,7 @@
       "portal": "TransporterPortal",
       "element": "Dashboard",
       "redirect_to": null,
-      "line": 214,
+      "line": 211,
       "kind": "relative"
     },
     {
@@ -285,7 +277,7 @@
       "portal": "TransporterPortal",
       "element": "MyTrucks",
       "redirect_to": null,
-      "line": 216,
+      "line": 213,
       "kind": "relative"
     },
     {
@@ -293,7 +285,7 @@
       "portal": "TransporterPortal",
       "element": "AddTruck",
       "redirect_to": null,
-      "line": 217,
+      "line": 214,
       "kind": "relative"
     },
     {
@@ -301,7 +293,7 @@
       "portal": "TransporterPortal",
       "element": "EditTruck",
       "redirect_to": null,
-      "line": 218,
+      "line": 215,
       "kind": "relative"
     },
     {
@@ -309,7 +301,7 @@
       "portal": "TransporterPortal",
       "element": "TruckConfiguration",
       "redirect_to": null,
-      "line": 219,
+      "line": 216,
       "kind": "relative"
     },
     {
@@ -317,7 +309,7 @@
       "portal": "TransporterPortal",
       "element": "TruckDetails",
       "redirect_to": null,
-      "line": 220,
+      "line": 217,
       "kind": "relative"
     },
     {
@@ -325,7 +317,7 @@
       "portal": "TransporterPortal",
       "element": "TrackTruck",
       "redirect_to": null,
-      "line": 221,
+      "line": 218,
       "kind": "relative"
     },
     {
@@ -333,7 +325,7 @@
       "portal": "TransporterPortal",
       "element": "TrackTruck",
       "redirect_to": null,
-      "line": 222,
+      "line": 219,
       "kind": "relative"
     },
     {
@@ -341,7 +333,7 @@
       "portal": "TransporterPortal",
       "element": "AvailableBids",
       "redirect_to": null,
-      "line": 226,
+      "line": 221,
       "kind": "relative"
     },
     {
@@ -349,7 +341,7 @@
       "portal": "TransporterPortal",
       "element": "Navigate",
       "redirect_to": "/transporter/available-bids",
-      "line": 227,
+      "line": 222,
       "kind": "relative"
     },
     {
@@ -357,7 +349,7 @@
       "portal": "TransporterPortal",
       "element": "MyBids",
       "redirect_to": null,
-      "line": 228,
+      "line": 223,
       "kind": "relative"
     },
     {
@@ -365,7 +357,7 @@
       "portal": "TransporterPortal",
       "element": "OrderTracking",
       "redirect_to": null,
-      "line": 229,
+      "line": 224,
       "kind": "relative"
     },
     {
@@ -373,7 +365,7 @@
       "portal": "TransporterPortal",
       "element": "MyBids",
       "redirect_to": null,
-      "line": 230,
+      "line": 225,
       "kind": "relative"
     },
     {
@@ -381,7 +373,7 @@
       "portal": "TransporterPortal",
       "element": "TransporterMessages",
       "redirect_to": null,
-      "line": 231,
+      "line": 226,
       "kind": "relative"
     },
     {
@@ -389,7 +381,7 @@
       "portal": "TransporterPortal",
       "element": "AccountHistory",
       "redirect_to": null,
-      "line": 233,
+      "line": 228,
       "kind": "relative"
     },
     {
@@ -397,7 +389,7 @@
       "portal": "TransporterPortal",
       "element": "Earnings",
       "redirect_to": null,
-      "line": 235,
+      "line": 230,
       "kind": "relative"
     },
     {
@@ -405,7 +397,7 @@
       "portal": "TransporterPortal",
       "element": "TransporterWallet",
       "redirect_to": null,
-      "line": 236,
+      "line": 231,
       "kind": "relative"
     },
     {
@@ -413,7 +405,7 @@
       "portal": "TransporterPortal",
       "element": "Profile",
       "redirect_to": null,
-      "line": 238,
+      "line": 233,
       "kind": "relative"
     },
     {
@@ -421,7 +413,7 @@
       "portal": "TransporterPortal",
       "element": "Settings",
       "redirect_to": null,
-      "line": 239,
+      "line": 234,
       "kind": "relative"
     },
     {
@@ -429,7 +421,7 @@
       "portal": "TransporterPortal",
       "element": "SecuritySettings",
       "redirect_to": null,
-      "line": 240,
+      "line": 235,
       "kind": "relative"
     },
     {
@@ -437,7 +429,7 @@
       "portal": "TransporterPortal",
       "element": "Leaderboard",
       "redirect_to": null,
-      "line": 242,
+      "line": 237,
       "kind": "relative"
     },
     {
@@ -445,7 +437,7 @@
       "portal": "TransporterPortal",
       "element": "Help",
       "redirect_to": null,
-      "line": 244,
+      "line": 239,
       "kind": "relative"
     },
     {
@@ -453,7 +445,7 @@
       "portal": "TransporterPortal",
       "element": "About",
       "redirect_to": null,
-      "line": 245,
+      "line": 240,
       "kind": "relative"
     },
     {
@@ -461,7 +453,7 @@
       "portal": "TransporterPortal",
       "element": "Contact",
       "redirect_to": null,
-      "line": 246,
+      "line": 241,
       "kind": "relative"
     },
     {
@@ -469,7 +461,7 @@
       "portal": "TransporterPortal",
       "element": "Terms",
       "redirect_to": null,
-      "line": 247,
+      "line": 242,
       "kind": "relative"
     },
     {
@@ -477,7 +469,7 @@
       "portal": "TransporterPortal",
       "element": "Privacy",
       "redirect_to": null,
-      "line": 248,
+      "line": 243,
       "kind": "relative"
     },
     {
@@ -485,7 +477,7 @@
       "portal": "TransporterPortal",
       "element": "TransporterPlaceholderPage",
       "redirect_to": null,
-      "line": 249,
+      "line": 244,
       "kind": "relative"
     },
     {
@@ -493,7 +485,7 @@
       "portal": "DriverPortal",
       "element": "DriverDashboard",
       "redirect_to": null,
-      "line": 270,
+      "line": 265,
       "kind": "relative"
     },
     {
@@ -501,7 +493,7 @@
       "portal": "DriverPortal",
       "element": "DriverActiveTrip",
       "redirect_to": null,
-      "line": 271,
+      "line": 266,
       "kind": "relative"
     },
     {
@@ -509,7 +501,7 @@
       "portal": "DriverPortal",
       "element": "DriverTrips",
       "redirect_to": null,
-      "line": 272,
+      "line": 267,
       "kind": "relative"
     },
     {
@@ -517,7 +509,7 @@
       "portal": "DriverPortal",
       "element": "DriverFuelLogs",
       "redirect_to": null,
-      "line": 273,
+      "line": 268,
       "kind": "relative"
     },
     {
@@ -525,7 +517,7 @@
       "portal": "DriverPortal",
       "element": "DriverWallet",
       "redirect_to": null,
-      "line": 274,
+      "line": 269,
       "kind": "relative"
     },
     {
@@ -533,7 +525,7 @@
       "portal": "DriverPortal",
       "element": "DriverReputation",
       "redirect_to": null,
-      "line": 275,
+      "line": 270,
       "kind": "relative"
     },
     {
@@ -541,7 +533,7 @@
       "portal": "DriverPortal",
       "element": "DriverProfile",
       "redirect_to": null,
-      "line": 276,
+      "line": 271,
       "kind": "relative"
     },
     {
@@ -549,7 +541,7 @@
       "portal": "DriverPortal",
       "element": "DriverDashboard",
       "redirect_to": null,
-      "line": 277,
+      "line": 272,
       "kind": "relative"
     },
     {
@@ -557,7 +549,7 @@
       "portal": "App",
       "element": "Login",
       "redirect_to": null,
-      "line": 297,
+      "line": 292,
       "kind": "absolute"
     },
     {
@@ -565,7 +557,7 @@
       "portal": "App",
       "element": "Login",
       "redirect_to": null,
-      "line": 298,
+      "line": 293,
       "kind": "absolute"
     },
     {
@@ -573,7 +565,7 @@
       "portal": "App",
       "element": "MainPage",
       "redirect_to": null,
-      "line": 299,
+      "line": 294,
       "kind": "absolute"
     },
     {
@@ -581,7 +573,7 @@
       "portal": "App",
       "element": "SignupWizardProvider",
       "redirect_to": null,
-      "line": 300,
+      "line": 295,
       "kind": "absolute"
     },
     {
@@ -589,7 +581,7 @@
       "portal": "App",
       "element": "Signup",
       "redirect_to": null,
-      "line": 301,
+      "line": 296,
       "kind": "index"
     },
     {
@@ -597,7 +589,7 @@
       "portal": "App",
       "element": "RequireSignupBasic",
       "redirect_to": null,
-      "line": 302,
+      "line": 297,
       "kind": "relative"
     },
     {
@@ -605,7 +597,7 @@
       "portal": "App",
       "element": "RequireSignupBasic",
       "redirect_to": null,
-      "line": 303,
+      "line": 298,
       "kind": "relative"
     },
     {
@@ -613,7 +605,7 @@
       "portal": "App",
       "element": "RequireSignupDraft",
       "redirect_to": null,
-      "line": 304,
+      "line": 299,
       "kind": "relative"
     },
     {
@@ -621,7 +613,7 @@
       "portal": "App",
       "element": "RequireSignupDraft",
       "redirect_to": null,
-      "line": 305,
+      "line": 300,
       "kind": "relative"
     },
     {
@@ -629,7 +621,7 @@
       "portal": "App",
       "element": "RequireSignupDraft",
       "redirect_to": null,
-      "line": 306,
+      "line": 301,
       "kind": "relative"
     },
     {
@@ -637,7 +629,7 @@
       "portal": "App",
       "element": "RequireSignupDraft",
       "redirect_to": null,
-      "line": 307,
+      "line": 302,
       "kind": "relative"
     },
     {
@@ -645,7 +637,7 @@
       "portal": "App",
       "element": "Navigate",
       "redirect_to": "/signup",
-      "line": 308,
+      "line": 303,
       "kind": "relative"
     },
     {
@@ -653,7 +645,7 @@
       "portal": "App",
       "element": "ResetPassword",
       "redirect_to": null,
-      "line": 310,
+      "line": 305,
       "kind": "absolute"
     },
     {
@@ -661,7 +653,7 @@
       "portal": "App",
       "element": "UnlockRoute",
       "redirect_to": null,
-      "line": 311,
+      "line": 306,
       "kind": "absolute"
     },
     {
@@ -669,7 +661,7 @@
       "portal": "App",
       "element": "AdminLogin",
       "redirect_to": null,
-      "line": 312,
+      "line": 307,
       "kind": "absolute"
     },
     {
@@ -677,7 +669,7 @@
       "portal": "App",
       "element": "AdminPortal",
       "redirect_to": null,
-      "line": 313,
+      "line": 308,
       "kind": "absolute"
     },
     {
@@ -685,7 +677,7 @@
       "portal": "App",
       "element": "Navigate",
       "redirect_to": "/transporter/dashboard",
-      "line": 315,
+      "line": 310,
       "kind": "absolute"
     },
     {
@@ -693,7 +685,7 @@
       "portal": "App",
       "element": "TransporterPortal",
       "redirect_to": null,
-      "line": 316,
+      "line": 311,
       "kind": "absolute"
     },
     {
@@ -701,7 +693,7 @@
       "portal": "App",
       "element": "ClientPortal",
       "redirect_to": null,
-      "line": 317,
+      "line": 312,
       "kind": "absolute"
     },
     {
@@ -709,7 +701,7 @@
       "portal": "App",
       "element": "EverydayPortal",
       "redirect_to": null,
-      "line": 318,
+      "line": 313,
       "kind": "absolute"
     },
     {
@@ -717,7 +709,7 @@
       "portal": "App",
       "element": "OrgPortal",
       "redirect_to": null,
-      "line": 319,
+      "line": 314,
       "kind": "absolute"
     },
     {
@@ -725,7 +717,7 @@
       "portal": "App",
       "element": "DriverPortal",
       "redirect_to": null,
-      "line": 320,
+      "line": 315,
       "kind": "absolute"
     },
     {
@@ -733,24 +725,11 @@
       "portal": "App",
       "element": "Login",
       "redirect_to": null,
-      "line": 322,
+      "line": 317,
       "kind": "relative"
     }
   ],
-  "commented_out": [
-    {
-      "line": 47,
-      "text": "// import ServiceHistory from './pages/future/service_history'"
-    },
-    {
-      "line": 223,
-      "text": "{/* <Route path=\"trucks/:id/service\" element={<ServiceHistory />} /> */}"
-    },
-    {
-      "line": 224,
-      "text": "{/* <Route path=\"service-history\" element={<ServiceHistory />} /> */}"
-    }
-  ],
+  "commented_out": [],
   "nav_items": [
     {
       "file": "frontend-react/src/components/admin/AdminLayout.jsx",
@@ -1292,85 +1271,85 @@
       "target": "/admin/login",
       "normalized": "/admin/login",
       "file": "frontend-react/src/App.jsx",
-      "line": 112
+      "line": 110
     },
     {
       "target": "/login",
       "normalized": "/login",
       "file": "frontend-react/src/App.jsx",
-      "line": 120
+      "line": 118
     },
     {
       "target": "/client/dashboard",
       "normalized": "/client/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 175
+      "line": 172
     },
     {
       "target": "/everyday/dashboard",
       "normalized": "/everyday/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 202
+      "line": 199
     },
     {
       "target": "/transporter/available-bids",
       "normalized": "/transporter/available-bids",
       "file": "frontend-react/src/App.jsx",
-      "line": 227
+      "line": 222
     },
     {
       "target": "/signup",
       "normalized": "/signup",
       "file": "frontend-react/src/App.jsx",
-      "line": 308
+      "line": 303
     },
     {
       "target": "/transporter/dashboard",
       "normalized": "/transporter/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 315
+      "line": 310
     },
     {
       "target": "/admin/login",
       "normalized": "/admin/login",
       "file": "frontend-react/src/App.jsx",
-      "line": 112
+      "line": 110
     },
     {
       "target": "/login",
       "normalized": "/login",
       "file": "frontend-react/src/App.jsx",
-      "line": 120
+      "line": 118
     },
     {
       "target": "/client/dashboard",
       "normalized": "/client/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 175
+      "line": 172
     },
     {
       "target": "/everyday/dashboard",
       "normalized": "/everyday/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 202
+      "line": 199
     },
     {
       "target": "/transporter/available-bids",
       "normalized": "/transporter/available-bids",
       "file": "frontend-react/src/App.jsx",
-      "line": 227
+      "line": 222
     },
     {
       "target": "/signup",
       "normalized": "/signup",
       "file": "frontend-react/src/App.jsx",
-      "line": 308
+      "line": 303
     },
     {
       "target": "/transporter/dashboard",
       "normalized": "/transporter/dashboard",
       "file": "frontend-react/src/App.jsx",
-      "line": 315
+      "line": 310
     },
     {
       "target": "/login",
@@ -1697,18 +1676,6 @@
       "line": 28
     },
     {
-      "target": "/login",
-      "normalized": "/login",
-      "file": "frontend-react/src/pages/auth/Unlock.jsx",
-      "line": 4
-    },
-    {
-      "target": "/login",
-      "normalized": "/login",
-      "file": "frontend-react/src/pages/auth/Unlock.jsx",
-      "line": 4
-    },
-    {
       "target": "${base}/order/${orderId}",
       "normalized": ":param/order/:param",
       "file": "frontend-react/src/pages/client/BidCheckout.jsx",
@@ -1915,24 +1882,6 @@
     {
       "target": "/transporter/trucks",
       "normalized": "/transporter/trucks",
-      "file": "frontend-react/src/pages/future/service_history.jsx",
-      "line": 102
-    },
-    {
-      "target": "/transporter/trucks/${id}",
-      "normalized": "/transporter/trucks/:param",
-      "file": "frontend-react/src/pages/future/service_history.jsx",
-      "line": 110
-    },
-    {
-      "target": "/transporter/trucks/${id}/track",
-      "normalized": "/transporter/trucks/:param/track",
-      "file": "frontend-react/src/pages/future/service_history.jsx",
-      "line": 113
-    },
-    {
-      "target": "/transporter/trucks",
-      "normalized": "/transporter/trucks",
       "file": "frontend-react/src/pages/transporter/add_truck.jsx",
       "line": 258
     },
@@ -1947,300 +1896,6 @@
       "normalized": "/transporter/trucks",
       "file": "frontend-react/src/pages/transporter/edit_truck.jsx",
       "line": 10
-    },
-    {
-      "target": "/transporter/dashboard",
-      "normalized": "/transporter/dashboard",
-      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
-      "line": 75
-    },
-    {
-      "target": "/transporter/personal-info",
-      "normalized": "/transporter/personal-info",
-      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
-      "line": 76
-    },
-    {
-      "target": "/transporter/maintenance",
-      "normalized": "/transporter/maintenance",
-      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
-      "line": 77
-    },
-    {
-      "target": "/transporter/fuel",
-      "normalized": "/transporter/fuel",
-      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
-      "line": 78
-    },
-    {
-      "target": "/transporter/analytics",
-      "normalized": "/transporter/analytics",
-      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
-      "line": 79
-    },
-    {
-      "target": "/transporter/insights",
-      "normalized": "/transporter/insights",
-      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
-      "line": 80
-    },
-    {
-      "target": "/transporter/bids",
-      "normalized": "/transporter/bids",
-      "file": "frontend-react/src/pages/transporter/future_features/analytics.jsx",
-      "line": 81
-    },
-    {
-      "target": "/transporter/dashboard",
-      "normalized": "/transporter/dashboard",
-      "file": "frontend-react/src/pages/transporter/future_features/customer_rating.jsx",
-      "line": 214
-    },
-    {
-      "target": "/transporter/bids",
-      "normalized": "/transporter/bids",
-      "file": "frontend-react/src/pages/transporter/future_features/customer_rating.jsx",
-      "line": 217
-    },
-    {
-      "target": "/transporter/earnings",
-      "normalized": "/transporter/earnings",
-      "file": "frontend-react/src/pages/transporter/future_features/customer_rating.jsx",
-      "line": 220
-    },
-    {
-      "target": "/transporter/profile",
-      "normalized": "/transporter/profile",
-      "file": "frontend-react/src/pages/transporter/future_features/customer_rating.jsx",
-      "line": 223
-    },
-    {
-      "target": "/transporter/rating",
-      "normalized": "/transporter/rating",
-      "file": "frontend-react/src/pages/transporter/future_features/customer_rating.jsx",
-      "line": 226
-    },
-    {
-      "target": "/transporter/dashboard",
-      "normalized": "/transporter/dashboard",
-      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
-      "line": 157
-    },
-    {
-      "target": "/transporter/personal-info",
-      "normalized": "/transporter/personal-info",
-      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
-      "line": 158
-    },
-    {
-      "target": "/transporter/maintenance",
-      "normalized": "/transporter/maintenance",
-      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
-      "line": 159
-    },
-    {
-      "target": "/transporter/fuel",
-      "normalized": "/transporter/fuel",
-      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
-      "line": 160
-    },
-    {
-      "target": "/transporter/analytics",
-      "normalized": "/transporter/analytics",
-      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
-      "line": 161
-    },
-    {
-      "target": "/transporter/insights",
-      "normalized": "/transporter/insights",
-      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
-      "line": 162
-    },
-    {
-      "target": "/transporter/bids",
-      "normalized": "/transporter/bids",
-      "file": "frontend-react/src/pages/transporter/future_features/fuel_management.jsx",
-      "line": 163
-    },
-    {
-      "target": "/transporter/dashboard",
-      "normalized": "/transporter/dashboard",
-      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
-      "line": 165
-    },
-    {
-      "target": "/transporter/personal-info",
-      "normalized": "/transporter/personal-info",
-      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
-      "line": 166
-    },
-    {
-      "target": "/transporter/maintenance",
-      "normalized": "/transporter/maintenance",
-      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
-      "line": 167
-    },
-    {
-      "target": "/transporter/fuel",
-      "normalized": "/transporter/fuel",
-      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
-      "line": 168
-    },
-    {
-      "target": "/transporter/analytics",
-      "normalized": "/transporter/analytics",
-      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
-      "line": 169
-    },
-    {
-      "target": "/transporter/insights",
-      "normalized": "/transporter/insights",
-      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
-      "line": 170
-    },
-    {
-      "target": "/transporter/bids",
-      "normalized": "/transporter/bids",
-      "file": "frontend-react/src/pages/transporter/future_features/Maintenance.jsx",
-      "line": 171
-    },
-    {
-      "target": "/transporter/dashboard",
-      "normalized": "/transporter/dashboard",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 160
-    },
-    {
-      "target": "/transporter/personal-info",
-      "normalized": "/transporter/personal-info",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 161
-    },
-    {
-      "target": "/transporter/maintenance",
-      "normalized": "/transporter/maintenance",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 162
-    },
-    {
-      "target": "/transporter/fuel",
-      "normalized": "/transporter/fuel",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 163
-    },
-    {
-      "target": "/transporter/analytics",
-      "normalized": "/transporter/analytics",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 164
-    },
-    {
-      "target": "/transporter/insights",
-      "normalized": "/transporter/insights",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 165
-    },
-    {
-      "target": "/transporter/bids",
-      "normalized": "/transporter/bids",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 166
-    },
-    {
-      "target": "/transporter/trucks",
-      "normalized": "/transporter/trucks",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 180
-    },
-    {
-      "target": "/transporter/available-bids",
-      "normalized": "/transporter/available-bids",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 208
-    },
-    {
-      "target": "/transporter/earnings",
-      "normalized": "/transporter/earnings",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 222
-    },
-    {
-      "target": "/transporter/insights",
-      "normalized": "/transporter/insights",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 236
-    },
-    {
-      "target": "/transporter/account-history",
-      "normalized": "/transporter/account-history",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 248
-    },
-    {
-      "target": "/transporter/insights",
-      "normalized": "/transporter/insights",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 263
-    },
-    {
-      "target": "/transporter/available-bids",
-      "normalized": "/transporter/available-bids",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 268
-    },
-    {
-      "target": "/transporter/maintenance",
-      "normalized": "/transporter/maintenance",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 312
-    },
-    {
-      "target": "/transporter/fuel",
-      "normalized": "/transporter/fuel",
-      "file": "frontend-react/src/pages/transporter/future_features/personal_info.jsx",
-      "line": 402
-    },
-    {
-      "target": "/transporter/dashboard",
-      "normalized": "/transporter/dashboard",
-      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
-      "line": 88
-    },
-    {
-      "target": "/transporter/personal-info",
-      "normalized": "/transporter/personal-info",
-      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
-      "line": 89
-    },
-    {
-      "target": "/transporter/maintenance",
-      "normalized": "/transporter/maintenance",
-      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
-      "line": 90
-    },
-    {
-      "target": "/transporter/fuel",
-      "normalized": "/transporter/fuel",
-      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
-      "line": 91
-    },
-    {
-      "target": "/transporter/analytics",
-      "normalized": "/transporter/analytics",
-      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
-      "line": 92
-    },
-    {
-      "target": "/transporter/insights",
-      "normalized": "/transporter/insights",
-      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
-      "line": 93
-    },
-    {
-      "target": "/transporter/bids",
-      "normalized": "/transporter/bids",
-      "file": "frontend-react/src/pages/transporter/future_features/pred_insights.jsx",
-      "line": 94
     },
     {
       "target": "/transporter/contact",
@@ -2588,7 +2243,6 @@
     {
       "file": "components/chat/ChatWindow.jsx",
       "imported_by": [
-        "pages/admin/AdminDisputeChat.jsx",
         "pages/client/Messages.jsx",
         "pages/transporter/Messages.jsx"
       ]
@@ -2793,10 +2447,6 @@
       ]
     },
     {
-      "file": "components/transporter/TransporterFooter.jsx",
-      "imported_by": []
-    },
-    {
       "file": "components/transporter/TransporterGuard.jsx",
       "imported_by": [
         "App.jsx"
@@ -2806,22 +2456,13 @@
       "file": "components/transporter/TransporterLayout.jsx",
       "imported_by": [
         "App.jsx",
-        "pages/transporter/future_features/analytics.jsx",
-        "pages/transporter/future_features/customer_rating.jsx",
-        "pages/transporter/future_features/fuel_management.jsx",
-        "pages/transporter/future_features/Maintenance.jsx",
-        "pages/transporter/future_features/payments.jsx",
-        "pages/transporter/future_features/personal_info.jsx",
-        "pages/transporter/future_features/pred_insights.jsx",
         "components/transporter/TransporterPlaceholderPage.jsx"
       ]
     },
     {
       "file": "components/transporter/TransporterPlaceholderPage.jsx",
       "imported_by": [
-        "App.jsx",
-        "pages/transporter/print_documents.jsx",
-        "pages/transporter/future_features/documentation.jsx"
+        "App.jsx"
       ]
     },
     {
@@ -2835,7 +2476,6 @@
     {
       "file": "components/transporter/navItems.js",
       "imported_by": [
-        "components/transporter/TransporterFooter.jsx",
         "components/transporter/TransporterLayout.jsx"
       ]
     },
@@ -2849,12 +2489,6 @@
     },
     {
       "file": "pages/admin/AdminDashboard.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
-      "file": "pages/admin/AdminDisputeChat.jsx",
       "imported_by": [
         "App.jsx"
       ]
@@ -2951,10 +2585,6 @@
       ]
     },
     {
-      "file": "pages/auth/Unlock.jsx",
-      "imported_by": []
-    },
-    {
       "file": "pages/auth/roledetails/DriverDetails.jsx",
       "imported_by": [
         "App.jsx"
@@ -2995,10 +2625,6 @@
         "pages/auth/roledetails/LogisticsProviderDetails.jsx",
         "pages/auth/roledetails/ServiceSeekerDetails.jsx"
       ]
-    },
-    {
-      "file": "pages/client/Balance.jsx",
-      "imported_by": []
     },
     {
       "file": "pages/client/BidCheckout.jsx",
@@ -3058,7 +2684,6 @@
       "file": "pages/client/clientUtils.jsx",
       "imported_by": [
         "auth/logout.js",
-        "pages/client/Balance.jsx",
         "pages/client/BidCheckout.jsx",
         "pages/client/ClientAccount.jsx",
         "pages/client/ClientDashboard.jsx",
@@ -3149,12 +2774,6 @@
       ]
     },
     {
-      "file": "pages/future/service_history.jsx",
-      "imported_by": [
-        "App.jsx"
-      ]
-    },
-    {
       "file": "pages/main/MainPage.jsx",
       "imported_by": [
         "App.jsx"
@@ -3233,38 +2852,6 @@
       ]
     },
     {
-      "file": "pages/transporter/future_features/Maintenance.jsx",
-      "imported_by": []
-    },
-    {
-      "file": "pages/transporter/future_features/analytics.jsx",
-      "imported_by": []
-    },
-    {
-      "file": "pages/transporter/future_features/customer_rating.jsx",
-      "imported_by": []
-    },
-    {
-      "file": "pages/transporter/future_features/documentation.jsx",
-      "imported_by": []
-    },
-    {
-      "file": "pages/transporter/future_features/fuel_management.jsx",
-      "imported_by": []
-    },
-    {
-      "file": "pages/transporter/future_features/payments.jsx",
-      "imported_by": []
-    },
-    {
-      "file": "pages/transporter/future_features/personal_info.jsx",
-      "imported_by": []
-    },
-    {
-      "file": "pages/transporter/future_features/pred_insights.jsx",
-      "imported_by": []
-    },
-    {
       "file": "pages/transporter/help.jsx",
       "imported_by": [
         "App.jsx"
@@ -3275,10 +2862,6 @@
       "imported_by": [
         "App.jsx"
       ]
-    },
-    {
-      "file": "pages/transporter/print_documents.jsx",
-      "imported_by": []
     },
     {
       "file": "pages/transporter/privacy.jsx",

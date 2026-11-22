@@ -21,7 +21,6 @@ export default defineConfig(() => {
               '/uploads': 'http://localhost:5000',
               '/trucks': 'http://localhost:5000',
               '/jobs': 'http://localhost:5000',
-              '/ai': 'http://localhost:5000',
               '^/client/.*\\.html$': 'http://localhost:5000',
             }),
       }

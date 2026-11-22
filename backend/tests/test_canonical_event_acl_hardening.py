@@ -22,42 +22,25 @@ from tests.test_canonical_event_foundation import (
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-FOUNDATION_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations"
-    / "20260731230000_canonical_event_foundation.sql"
-)
-ACL_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations"
-    / "20260731240000_canonical_event_acl_hardening.sql"
-)
-ACTIVATION_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations"
-    / "20260801100000_security_login_event_integration.sql"
-)
-INTEGRATED_GUARD_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations"
-    / "20260801110000_canonical_event_integrated_guard.sql"
-)
-SIGNUP_FAILED_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations" / "20260801120000_add_signup_failed_event.sql"
-)
-SIGNUP_INTEGRATION_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations" / "20260801130000_security_signup_event_integration.sql"
-)
-DURABLE_SESSION_MIGRATION = REPO_ROOT / "supabase/migrations/20260801150000_durable_server_session_foundation.sql"
-TRUSTED_DEVICE_MIGRATION = REPO_ROOT / "supabase/migrations/20260801160000_trusted_device_hardening.sql"
-DURABLE_RUNTIME_MIGRATION = REPO_ROOT / "supabase/migrations/20260801170000_durable_session_runtime_events.sql"
-SECURE_MPIN_MIGRATION = REPO_ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
-GENUINE_ACTIVITY_MIGRATION = REPO_ROOT / "supabase/migrations/20260801200000_genuine_session_activity.sql"
-MPIN_STEP_UP_MIGRATION = REPO_ROOT / "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql"
-HIGH_RISK_STEP_UP_MIGRATION = REPO_ROOT / "supabase/migrations/20260801220000_mpin_step_up_high_risk_integration.sql"
+LEGACY_SCHEMA = REPO_ROOT / "Future" / "supabase" / "schema-with-agreements-v1.sql"
+LEGACY_MIGRATIONS = REPO_ROOT / "Future" / "supabase" / "legacy_migrations"
+FOUNDATION_MIGRATION = LEGACY_MIGRATIONS / "20260731230000_canonical_event_foundation.sql"
+ACL_MIGRATION = LEGACY_MIGRATIONS / "20260731240000_canonical_event_acl_hardening.sql"
+ACTIVATION_MIGRATION = LEGACY_MIGRATIONS / "20260801100000_security_login_event_integration.sql"
+INTEGRATED_GUARD_MIGRATION = LEGACY_MIGRATIONS / "20260801110000_canonical_event_integrated_guard.sql"
+SIGNUP_FAILED_MIGRATION = LEGACY_MIGRATIONS / "20260801120000_add_signup_failed_event.sql"
+SIGNUP_INTEGRATION_MIGRATION = LEGACY_MIGRATIONS / "20260801130000_security_signup_event_integration.sql"
+DURABLE_SESSION_MIGRATION = LEGACY_MIGRATIONS / "20260801150000_durable_server_session_foundation.sql"
+TRUSTED_DEVICE_MIGRATION = LEGACY_MIGRATIONS / "20260801160000_trusted_device_hardening.sql"
+DURABLE_RUNTIME_MIGRATION = LEGACY_MIGRATIONS / "20260801170000_durable_session_runtime_events.sql"
+SECURE_MPIN_MIGRATION = LEGACY_MIGRATIONS / "20260801180000_secure_mpin_access_lock.sql"
+GENUINE_ACTIVITY_MIGRATION = LEGACY_MIGRATIONS / "20260801200000_genuine_session_activity.sql"
+MPIN_STEP_UP_MIGRATION = LEGACY_MIGRATIONS / "20260801210000_mpin_step_up_authorization_foundation.sql"
+HIGH_RISK_STEP_UP_MIGRATION = LEGACY_MIGRATIONS / "20260801220000_mpin_step_up_high_risk_integration.sql"
 GENUINE_ACTIVITY_PRE_SCHEMA_REF = (
     "1211d71e42436a7300eeae6ef4b6d466f515693b:supabase/schema.sql"
 )
-DEVICE_SESSION_MPIN_MIGRATION = (
-    REPO_ROOT / "supabase" / "migrations"
-    / "20260801140000_device_session_mpin_event_contracts.sql"
-)
+DEVICE_SESSION_MPIN_MIGRATION = LEGACY_MIGRATIONS / "20260801140000_device_session_mpin_event_contracts.sql"
 EXPECTED_DATABASE_PREFIX = "dtx_phase1b2c0_"
 EVENT_TABLES = ("security_events", "business_audit_events")
 PROJECTION = "canonical_event_catalog_projection"
@@ -253,24 +236,34 @@ def test_corrected_schema_and_old_plus_new_migrations_converge_and_reapply():
         _migration_text(MPIN_STEP_UP_MIGRATION),
         _migration_text(HIGH_RISK_STEP_UP_MIGRATION),
     )
+    legacy_url, legacy_cleanup = _disposable(STUBS, LEGACY_SCHEMA.read_text(encoding="utf-8"))
     schema_url, schema_cleanup = _disposable(STUBS, SCHEMA_SQL.read_text(encoding="utf-8"))
     migrated = psycopg2.connect(migrated_url)
+    legacy = psycopg2.connect(legacy_url)
     schema = psycopg2.connect(schema_url)
     try:
-        expected_metadata = _foundation_metadata(schema)
-        expected_projection = _projection(schema)
+        expected_metadata = _foundation_metadata(legacy)
+        expected_projection = _projection(legacy)
         assert _foundation_metadata(migrated) == expected_metadata
         assert _projection(migrated) == expected_projection == _expected_catalog_projection()
-        assert _semantic_signature(migrated) == _semantic_signature(schema)
-        assert _semantic_signature(schema) == "a2adfe352aaf6e3fa55347b284655714"
+        assert _projection(schema) == expected_projection
+        assert _semantic_signature(migrated) == _semantic_signature(legacy) == "a2adfe352aaf6e3fa55347b284655714"
+        schema_meta = _foundation_metadata(schema)
+        for tbl in EVENT_TABLES:
+            cols_no_agr = [c for c in expected_metadata[(tbl, "columns")] if c[0] != "agreement_id"]
+            assert schema_meta[(tbl, "columns")] == cols_no_agr
+        for tbl in EVENT_TABLES:
+            assert all(k != (tbl, "indexes") for k in schema_meta if "agreement_id" in str(schema_meta[k]))
         before = _foundation_metadata(schema), _projection(schema), _all_public_counts(schema)
         _apply(schema, _migration_text(HIGH_RISK_STEP_UP_MIGRATION))
         _apply(schema, _migration_text(HIGH_RISK_STEP_UP_MIGRATION))
         assert (_foundation_metadata(schema), _projection(schema), _all_public_counts(schema)) == before
     finally:
         migrated.close()
+        legacy.close()
         schema.close()
         migrated_cleanup()
+        legacy_cleanup()
         schema_cleanup()
 
 
@@ -284,16 +277,20 @@ def test_genuine_activity_activation_converges_reapplies_and_creates_no_rows():
         _migration_text(HIGH_RISK_STEP_UP_MIGRATION)
     )
     fresh_url, fresh_cleanup = _disposable(
+        STUBS, LEGACY_SCHEMA.read_text(encoding="utf-8")
+    )
+    active_url, active_cleanup = _disposable(
         STUBS, SCHEMA_SQL.read_text(encoding="utf-8")
     )
     migrated = psycopg2.connect(migrated_url)
     fresh = psycopg2.connect(fresh_url)
+    active = psycopg2.connect(active_url)
     try:
-        assert _projection(migrated) == _projection(fresh) == _expected_catalog_projection()
+        assert _projection(migrated) == _projection(fresh) == _projection(active) == _expected_catalog_projection()
         assert _semantic_signature(migrated) == _semantic_signature(fresh) == (
             "a2adfe352aaf6e3fa55347b284655714"
         )
-        for conn in (migrated, fresh):
+        for conn in (migrated, fresh, active):
             before = _all_public_counts(conn)
             _apply(conn, _migration_text(HIGH_RISK_STEP_UP_MIGRATION))
             _apply(conn, _migration_text(HIGH_RISK_STEP_UP_MIGRATION))
@@ -302,8 +299,10 @@ def test_genuine_activity_activation_converges_reapplies_and_creates_no_rows():
     finally:
         migrated.close()
         fresh.close()
+        active.close()
         migrated_cleanup()
         fresh_cleanup()
+        active_cleanup()
 
 
 def test_genuine_activity_activation_rejects_partial_projection_without_repair():

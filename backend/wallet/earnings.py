@@ -23,24 +23,8 @@ def versioned_freight_earnings(db,user_id,current_month):
     ).fetchone()
     earned=db.execute_exact(
         "SELECT COALESCE(SUM(net_entitlement),0) AS net_entitlement, "
-        "COALESCE(SUM(fuel_credit_recovered),0) AS fuel_credit_recovered, "
         "COALESCE(SUM(reserve_contribution),0) AS reserve_contributed "
         "FROM freight_settlements WHERE transporter_user_id=%s",
         (user_id,),
     ).fetchone()
     return {**credits,**holds,**earned}
-
-
-def legacy_fuel_recovery_totals(db,user_id,current_month):
-    """Offset new recovery using each legacy source's existing reporting month."""
-    from decimal import Decimal
-    if not db.execute("SELECT to_regclass('fuel_credit_accounts') AS relation").fetchone()['relation']:
-        return {'total':Decimal('0.00'),'month':Decimal('0.00')}
-    return db.execute_exact(
-        "SELECT COALESCE(SUM(e.amount),0) AS total,COALESCE(SUM(e.amount) FILTER(WHERE "
-        "p.id IS NOT NULL AND TO_CHAR(p.released_at AT TIME ZONE 'UTC','YYYY-MM')=%s),0) AS month "
-        "FROM fuel_credit_events e "
-        "LEFT JOIN payments p ON e.reference='recover:legacy_freight:'||p.id::text AND p.transporter_user_id=e.transporter_user_id AND p.status='released' "
-        "WHERE e.transporter_user_id=%s AND e.event_type='recover' AND p.id IS NOT NULL",
-        (current_month,user_id),
-    ).fetchone()

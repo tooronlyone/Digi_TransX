@@ -44,7 +44,6 @@ import TruckDetails from './pages/transporter/truck_details'
 import EditTruck from './pages/transporter/edit_truck'
 import TruckConfiguration from './pages/transporter/truck_configuration'
 import TrackTruck from './pages/transporter/track_truck'
-// import ServiceHistory from './pages/future/service_history'
 import AvailableBids from './pages/transporter/AvailableBids'
 import MyBids from './pages/transporter/MyBids'
 import OrderTracking from './pages/transporter/OrderTracking'
@@ -77,7 +76,6 @@ import AdminUserDetail from './pages/admin/AdminUserDetail'
 import AdminTrucks from './pages/admin/AdminTrucks'
 import AdminWithdrawals from './pages/admin/AdminWithdrawals'
 import AdminDisputes from './pages/admin/AdminDisputes'
-import AdminDisputeChat from './pages/admin/AdminDisputeChat'
 import AdminPlatformSettings from './pages/admin/AdminPlatformSettings'
 import ClientTerms from './pages/client/Terms'
 import SecuritySettings from './pages/shared/SecuritySettings'
@@ -145,7 +143,6 @@ function AdminPortal() {
           <Route path="trucks" element={<AdminTrucks />} />
           <Route path="withdrawals" element={<AdminWithdrawals />} />
           <Route path="disputes" element={<AdminDisputes />} />
-          <Route path="dispute-chat/:threadId" element={<AdminDisputeChat />} />
           <Route path="platform-settings" element={<AdminPlatformSettings />} />
           <Route index element={<Navigate to="dashboard" replace />} />
           <Route path="*" element={<Navigate to="dashboard" replace />} />
@@ -220,8 +217,6 @@ function TransporterPortal() {
           <Route path="trucks/:id" element={<TruckDetails />} />
           <Route path="trucks/:id/track" element={<TrackTruck />} />
           <Route path="track" element={<TrackTruck />} />
-          {/* <Route path="trucks/:id/service" element={<ServiceHistory />} /> */}
-          {/* <Route path="service-history" element={<ServiceHistory />} /> */}
 
           <Route path="available-bids" element={<AvailableBids />} />
           <Route path="jobs" element={<Navigate to="/transporter/available-bids" replace />} />

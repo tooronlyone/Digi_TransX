@@ -272,10 +272,6 @@ function OwnedOrderTracking() {
                   <i className="fas fa-lock" aria-hidden="true"></i> The full booking fare is held in escrow. Start the trip to begin.
                 </p>
               )}
-              {payment?.fuel_credit_recovered && <>
-                <div className="detail-row"><span className="detail-label">Authorized fuel credit recovered</span><span className="detail-value amount">{formatMoney(payment.fuel_credit_recovered)}</span></div>
-                <div className="detail-row"><span className="detail-label">Actual wallet credit</span><span className="detail-value amount">{formatMoney(payment.wallet_credit_amount)}</span></div>
-              </>}
               <button
                 onClick={startTrip}
                 disabled={actionLoading === 'start' || !paymentHeld}

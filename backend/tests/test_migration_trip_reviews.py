@@ -19,8 +19,9 @@ from tests._life_helpers import (
 
 MIGRATION = (
     Path(__file__).resolve().parents[2]
+    / "Future"
     / "supabase"
-    / "migrations"
+    / "legacy_migrations"
     / "20260726200000_shipment_trip_reviews.sql"
 )
 REVIEW_CONSTRAINTS = (
@@ -186,7 +187,7 @@ def _insert_review(conn, trip, rating=5, comment="Good delivery"):
     return review_id
 
 
-def _metadata(conn):
+def _metadata(conn, *, include_runtime_role_policies=True):
     with conn.cursor() as cursor:
         cursor.execute(
             """
@@ -213,8 +214,10 @@ def _metadata(conn):
             FROM pg_policies
             WHERE schemaname = 'public'
               AND tablename = 'shipment_trip_reviews'
+              AND (%s OR policyname !~ '^(api_runtime|scheduler_worker|auditor_ro)_')
             ORDER BY policyname
-            """
+            """,
+            (include_runtime_role_policies,),
         )
         policies = cursor.fetchall()
         cursor.execute(
@@ -280,7 +283,9 @@ def test_fresh_schema_loads_and_converges_semantically_with_migrated_origin():
     fresh = psycopg2.connect(fresh_url)
     try:
         run_sql(fresh, MIGRATION.read_text(encoding="utf-8"))
-        assert _metadata(migrated) == _metadata(fresh)
+        assert _metadata(migrated, include_runtime_role_policies=False) == _metadata(
+            fresh, include_runtime_role_policies=False
+        )
     finally:
         migrated.close()
         fresh.close()

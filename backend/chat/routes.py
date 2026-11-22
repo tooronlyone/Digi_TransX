@@ -3,7 +3,6 @@ from flask import Blueprint, Response, current_app, request
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
 from .helpers import (
-    CHAT_UPLOADS_DIR,
     MEDIA_MESSAGE,
     MEDIA_REQUEST_APPROVED,
     MEDIA_REQUEST_DENIED,

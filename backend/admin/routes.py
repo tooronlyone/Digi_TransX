@@ -1,11 +1,30 @@
 import json
 from decimal import Decimal
-from datetime import date, datetime
+from datetime import datetime
+import uuid
 
 from flask import Blueprint, request
-from werkzeug.security import generate_password_hash
 
-from auth.helpers import csrf_error, json_response, login_required, normalize_email, require_admin_role, split_name, timestamp_bundle
+from auth.admin_step_up_service import (
+    AdminStepUpValidationError,
+    build_admin_descriptor,
+    invalidate_user_step_up_authorizations,
+    issue_admin_authorization,
+    lock_current_admin_authentication,
+    require_admin_step_up,
+    validate_admin_password,
+)
+from auth.helpers import (
+    EMAIL_REGEX,
+    csrf_error,
+    is_admin_user,
+    json_response,
+    login_required,
+    normalize_email,
+    require_admin_role,
+    timestamp_bundle,
+)
+from auth.session_device_management import revoke_user_access_for_block
 from shared.commissions import (
     POLICY_TYPES,
     POLICY_TYPE_LABELS,
@@ -20,11 +39,23 @@ from shared.commissions import (
 )
 from shared.db import open_db
 from shared.notifications import notify_best_effort as notify
+from shared.rate_limit import client_ip_from_request, enforce_rate_limits
+from shared.supabase_client import (
+    PasswordProviderUnavailable,
+    supabase_create_user,
+    supabase_delete_user,
+    supabase_verify_password,
+)
 from wallet.helpers import get_or_create_wallet_for_user, insert_wallet_transaction, round_money
-from shared.payments import DummyCardProvider, get_payment_provider, parse_money_amount
+from wallet.withdrawal_limits import max_withdrawable_decimal, pending_withdrawal_total
+from shared.payments import CheckoutError, DummyCardProvider, get_payment_provider, parse_money_amount
 
 
 admin_blueprint = Blueprint("admin", __name__, url_prefix="/api/admin")
+
+
+def _new_request_id():
+    return f"req-{uuid.uuid4().hex}"
 
 
 def admin_required(view):
@@ -37,6 +68,99 @@ def admin_required(view):
 
     wrapped.__name__ = view.__name__
     return wrapped
+
+
+@admin_blueprint.post("/step-up")
+@admin_required
+def admin_step_up():
+    """Verify current admin password and issue a 3-minute action-bound proof."""
+    err = csrf_error()
+    if err:
+        return err
+    current = getattr(request, "current_user", None) or {}
+    rl = enforce_rate_limits(
+        open_db,
+        [("admin.step_up.user", f"{current.get('id')}:{client_ip_from_request()}", "admin.step_up.user")],
+        message="Too many administrator reauthentication attempts. Please wait before trying again.",
+    )
+    if rl:
+        return rl
+
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return json_response({"success": False, "message": "Invalid request payload."}, 400)
+    password = data.get("password")
+    if (
+        not isinstance(password, str)
+        or not password
+        or len(password) > 128
+        or any(ord(ch) < 32 for ch in password)
+    ):
+        return json_response({"success": False, "message": "Valid administrator password is required."}, 400)
+
+    action = data.get("action")
+    if not isinstance(action, dict):
+        return json_response({"success": False, "message": "Step-up action descriptor is required."}, 400)
+    try:
+        descriptor = build_admin_descriptor(
+            action.get("action_key"),
+            resource_id=action.get("resource_id"),
+            resource_type=action.get("resource_type"),
+            target=action.get("target"),
+            request_fingerprint_hex=action.get("request_fingerprint"),
+        )
+    except AdminStepUpValidationError as exc:
+        return json_response({"success": False, "message": str(exc)}, 400)
+
+    with open_db() as db:
+        durable, user, device, auth_err = lock_current_admin_authentication(db, request)
+        if auth_err in {"user_blocked", "not_admin"}:
+            return json_response({"success": False, "message": "Administrator authorization required."}, 403)
+        if auth_err:
+            return json_response({"success": False, "message": "Authentication session is no longer valid."}, 401)
+        email = user["email"]
+        expected_user_id = user["id"]
+        expected_version = user["credentials_version"]
+        expected_session_id = durable["session_id"]
+
+    try:
+        verified = supabase_verify_password(email, password, raise_provider_errors=True)
+    except PasswordProviderUnavailable:
+        return json_response({"success": False, "message": "Authentication verification service unavailable."}, 503)
+
+    if not verified:
+        return json_response({"success": False, "message": "Invalid administrator password."}, 401)
+
+    with open_db() as db:
+        durable, user, device, auth_err = lock_current_admin_authentication(db, request)
+        if auth_err in {"user_blocked", "not_admin"}:
+            return json_response({"success": False, "message": "Administrator authorization required."}, 403)
+        if (
+            auth_err
+            or user["id"] != expected_user_id
+            or str(durable["session_id"]) != str(expected_session_id)
+            or user["credentials_version"] != expected_version
+        ):
+            return json_response({"success": False, "message": "Authentication session changed during verification."}, 401)
+        issued = issue_admin_authorization(
+            db,
+            user_id=user["id"],
+            session_id=durable["session_id"],
+            trusted_device_id=device["id"],
+            credentials_version=user["credentials_version"],
+            descriptor=descriptor,
+        )
+        db.commit()
+
+    return json_response(
+        {
+            "success": True,
+            "step_up_proof": issued["proof"],
+            "authorization_id": issued["authorization_id"],
+            "expires_at": issued["expires_at"],
+            "action": issued["action"],
+        }
+    )
 
 
 def pagination():
@@ -114,27 +238,87 @@ def available_admin_cnic(db):
     return datetime.now().strftime("%y%m%d%H%M%S")[:13]
 
 
+_ADMIN_FORBIDDEN_FIELDS = frozenset({
+    "id",
+    "role",
+    "legacy_role",
+    "is_blocked",
+    "block_reason",
+    "auth_id",
+    "credentials_version",
+    "password_change_pending",
+})
+
+
+def _log_admin_action(db, admin_user, action_name, page_url, payload, created_at):
+    db.execute(
+        """
+        INSERT INTO user_action_logs (
+            user_id, user_email, user_role, action_type, action_name, page_url, payload_json, created_at
+        ) VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+        """,
+        (
+            str(admin_user["id"]),
+            admin_user.get("email") or "",
+            "platform_admin",
+            "admin_action",
+            action_name,
+            page_url,
+            json.dumps(payload),
+            created_at,
+        ),
+    )
+
+
 def create_admin_user(db, name, email, password):
-    """Create a platform admin in Supabase Auth + profile row (via DB trigger)."""
-    from shared.supabase_client import supabase_create_user
+    """Create a platform admin in Supabase Auth + profile row with Auth rollback on DB failure."""
+    from supabase_auth.errors import AuthApiError, AuthWeakPasswordError
+
+    ok_pw, pw_msg = validate_admin_password(password)
+    if not ok_pw:
+        raise ValueError(pw_msg)
 
     stamp = timestamp_bundle()["iso"]
     cnic = available_admin_cnic(db)
-    supabase_create_user(
-        email,
-        password,
-        {"full_name": name, "phone": "", "cnic": cnic, "role": "admin", "legacy_role": "platform_admin"},
-    )
-    db.execute(
-        """
-        UPDATE users
-        SET full_name = %s, cnic = %s, legacy_role = 'platform_admin',
-            role = 'admin', city = '', updated_at = %s
-        WHERE email = %s
-        """,
-        (name, cnic, stamp, email),
-    )
-    return db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone()["id"]
+    try:
+        auth_user = supabase_create_user(
+            email,
+            password,
+            {"full_name": name, "phone": "", "cnic": cnic, "role": "admin", "legacy_role": "platform_admin"},
+        )
+    except (AuthWeakPasswordError, AuthApiError):
+        raise
+    auth_id = getattr(auth_user, "id", None)
+    if not auth_id:
+        raise RuntimeError("Authentication provider did not return an identity.")
+    try:
+        updated = db.execute(
+            """
+            UPDATE users
+            SET full_name = %s, cnic = %s, legacy_role = 'platform_admin',
+                role = 'admin', city = '', updated_at = %s
+            WHERE auth_id = %s
+            RETURNING id
+            """,
+            (name, cnic, stamp, str(auth_id)),
+        ).fetchone()
+        if not updated:
+            updated = db.execute(
+                """
+                UPDATE users
+                SET full_name = %s, cnic = %s, legacy_role = 'platform_admin',
+                    role = 'admin', city = '', updated_at = %s
+                WHERE email = %s
+                RETURNING id
+                """,
+                (name, cnic, stamp, email),
+            ).fetchone()
+        if not updated:
+            raise RuntimeError("Administrator profile row was not linked.")
+        return updated["id"]
+    except Exception:
+        supabase_delete_user(auth_id)
+        raise
 
 
 @admin_blueprint.get("/dashboard")
@@ -200,18 +384,114 @@ def create_admin():
     err = csrf_error()
     if err:
         return err
-    data = request.get_json(silent=True) or {}
-    name = (data.get("name") or "").strip()
-    email = normalize_email(data.get("email"))
-    password = data.get("password") or ""
-    if not name or not email or len(password) < 8:
-        return json_response({"success": False, "message": "Name, valid email, and 8+ character password are required."}, 400)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict):
+        return json_response({"success": False, "message": "Invalid JSON object."}, 400)
+    if any(field in data for field in _ADMIN_FORBIDDEN_FIELDS):
+        return json_response(
+            {"success": False, "message": "Privileged or system fields cannot be supplied directly."},
+            400,
+        )
+    raw_name = data.get("name")
+    raw_email = data.get("email")
+    password = data.get("password")
+    if not isinstance(raw_name, str) or not isinstance(raw_email, str):
+        return json_response({"success": False, "message": "Name and email must be strings."}, 400)
+    name = raw_name.strip()
+    email = normalize_email(raw_email)
+    if not name or len(name) > 120 or not email or not EMAIL_REGEX.match(email):
+        return json_response({"success": False, "message": "Valid name and email are required."}, 400)
+    ok_pw, pw_msg = validate_admin_password(password)
+    if not ok_pw:
+        return json_response({"success": False, "message": pw_msg}, 400)
+
+    admin_user = request.current_user
     with open_db() as db:
+        step_err, _ = require_admin_step_up(
+            db,
+            request,
+            "admin.user.create",
+            resource_id=1,
+            target={"email": email, "name": name},
+        )
+        if step_err:
+            return step_err
         if db.execute("SELECT id FROM users WHERE email = %s", (email,)).fetchone():
+            db.commit()
             return json_response({"success": False, "message": "Email is already registered."}, 409)
-        user_id = create_admin_user(db, name, email, password)
+        cnic = available_admin_cnic(db)
         db.commit()
-        user = db.execute(f"SELECT *, {user_display_sql('users')} AS name FROM users WHERE id = %s", (user_id,)).fetchone()
+
+    from supabase_auth.errors import AuthApiError, AuthWeakPasswordError
+
+    auth_user = None
+    try:
+        auth_user = supabase_create_user(
+            email,
+            password,
+            {"full_name": name, "phone": "", "cnic": cnic, "role": "admin", "legacy_role": "platform_admin"},
+        )
+    except AuthWeakPasswordError:
+        return json_response({"success": False, "message": "Password rejected by authentication provider."}, 400)
+    except AuthApiError as exc:
+        code = (getattr(exc, "code", None) or "").lower()
+        status = getattr(exc, "status", None)
+        if status == 409 or code in {"email_exists", "identity_already_exists", "user_already_exists"}:
+            return json_response({"success": False, "message": "Email is already registered."}, 409)
+        if status in {400, 422}:
+            return json_response({"success": False, "message": "Administrator account details were rejected."}, 400)
+        return json_response({"success": False, "message": "Authentication service unavailable."}, 503)
+    except Exception:
+        return json_response({"success": False, "message": "Authentication service unavailable."}, 503)
+
+    auth_id = getattr(auth_user, "id", None)
+    if not auth_id:
+        return json_response({"success": False, "message": "Authentication service unavailable."}, 503)
+
+    stamp = timestamp_bundle()["iso"]
+    try:
+        with open_db() as db:
+            updated = db.execute(
+                """
+                UPDATE users
+                SET full_name = %s, cnic = %s, legacy_role = 'platform_admin',
+                    role = 'admin', city = '', updated_at = %s
+                WHERE auth_id = %s
+                RETURNING id
+                """,
+                (name, cnic, stamp, str(auth_id)),
+            ).fetchone()
+            if not updated:
+                updated = db.execute(
+                    """
+                    UPDATE users
+                    SET full_name = %s, cnic = %s, legacy_role = 'platform_admin',
+                        role = 'admin', city = '', updated_at = %s
+                    WHERE email = %s
+                    RETURNING id
+                    """,
+                    (name, cnic, stamp, email),
+                ).fetchone()
+            if not updated:
+                raise RuntimeError("Created Auth identity did not link to a local user row.")
+            user_id = updated["id"]
+            _log_admin_action(
+                db,
+                admin_user,
+                "create_admin",
+                "/admin/users",
+                {"created_admin_id": user_id, "email": email, "name": name},
+                stamp,
+            )
+            user = db.execute(f"SELECT *, {user_display_sql('users')} AS name FROM users WHERE id = %s", (user_id,)).fetchone()
+            db.commit()
+    except Exception:
+        supabase_delete_user(auth_id)
+        return json_response(
+            {"success": False, "message": "Could not finalize administrator account; creation rolled back."},
+            500,
+        )
+
     return json_response({"success": True, "user": serialize_admin_user(user)}, 201)
 
 
@@ -233,13 +513,75 @@ def block_user(user_id):
     err = csrf_error()
     if err:
         return err
-    data = request.get_json(silent=True) or {}
-    blocked = bool(data.get("blocked"))
-    reason = (data.get("reason") or "").strip()
+    if user_id <= 0:
+        return json_response({"success": False, "message": "Invalid user ID."}, 400)
+    data = request.get_json(silent=True)
+    if not isinstance(data, dict) or not isinstance(data.get("blocked"), bool):
+        return json_response({"success": False, "message": "Boolean 'blocked' status is required."}, 400)
+    blocked = data["blocked"]
+    raw_reason = data.get("reason")
+    if raw_reason is not None and not isinstance(raw_reason, str):
+        return json_response({"success": False, "message": "Reason must be text."}, 400)
+    reason = (raw_reason or "").strip()[:500]
+    admin_user = request.current_user
+    if blocked and user_id == admin_user["id"]:
+        return json_response({"success": False, "message": "Administrators cannot block their own active account."}, 400)
+
+    stamp = timestamp_bundle()
+    req_id = _new_request_id()
     with open_db() as db:
-        result = db.execute("UPDATE users SET is_blocked = %s, block_reason = %s, updated_at = %s WHERE id = %s", (blocked, reason if blocked else None, timestamp_bundle()["display"], user_id))
-        if result.rowcount == 0:
+        step_err, _ = require_admin_step_up(
+            db,
+            request,
+            "admin.user.block_status",
+            resource_id=user_id,
+            target={"blocked": blocked},
+        )
+        if step_err:
+            return step_err
+
+        target = rowdict(db.execute("SELECT * FROM users WHERE id = %s FOR NO KEY UPDATE", (user_id,)).fetchone())
+        if not target:
             return json_response({"success": False, "message": "User not found."}, 404)
+
+        revoked_sessions_count = 0
+        revoked_devices_count = 0
+        if blocked:
+            db.execute(
+                """
+                UPDATE users
+                SET is_blocked = TRUE,
+                    block_reason = %s,
+                    credentials_version = credentials_version + 1,
+                    updated_at = %s
+                WHERE id = %s
+                """,
+                (reason or None, stamp["display"], user_id),
+            )
+            revoked_sessions_count, revoked_devices_count = revoke_user_access_for_block(
+                db, user_id, request_id=req_id
+            )
+            invalidate_user_step_up_authorizations(db, user_id)
+        else:
+            db.execute(
+                "UPDATE users SET is_blocked = FALSE, block_reason = NULL, updated_at = %s WHERE id = %s",
+                (stamp["display"], user_id),
+            )
+
+        _log_admin_action(
+            db,
+            admin_user,
+            "block_user" if blocked else "unblock_user",
+            f"/admin/users/{user_id}",
+            {
+                "target_user_id": user_id,
+                "blocked": blocked,
+                "reason": reason or None,
+                "revoked_sessions_count": revoked_sessions_count,
+                "revoked_devices_count": revoked_devices_count,
+            },
+            stamp["iso"],
+        )
         db.commit()
     return json_response({"success": True})
 
@@ -325,6 +667,8 @@ def approve_withdrawal(request_id):
     err = csrf_error()
     if err:
         return err
+    if request_id <= 0:
+        return json_response({"success": False, "message": "Invalid withdrawal request ID."}, 400)
     try:
         simulated = isinstance(get_payment_provider(), DummyCardProvider)
     except CheckoutError:
@@ -333,13 +677,22 @@ def approve_withdrawal(request_id):
         return json_response({"success": False, "code": "payout_provider_unavailable",
                               "message": "Withdrawals are unavailable until payout processing is configured."}, 503)
     stamp = timestamp_bundle()
+    admin_user = request.current_user
     with open_db() as db:
-        req = rowdict(db.execute("SELECT * FROM wallet_withdrawal_requests WHERE id = %s FOR UPDATE", (request_id,)).fetchone())
-        if not req:
+        step_err, _ = require_admin_step_up(
+            db,
+            request,
+            "admin.withdrawal.approve",
+            resource_id=request_id,
+        )
+        if step_err:
+            return step_err
+        peek = rowdict(db.execute("SELECT * FROM wallet_withdrawal_requests WHERE id = %s", (request_id,)).fetchone())
+        if not peek:
             return json_response({"success": False, "message": "Withdrawal request not found."}, 404)
-        if req["status"] != "pending":
+        if peek["status"] != "pending":
             return json_response({"success": False, "message": "Withdrawal request is already resolved."}, 400)
-        user = rowdict(db.execute("SELECT id, role, legacy_role FROM users WHERE id = %s", (req["user_id"],)).fetchone())
+        user = rowdict(db.execute("SELECT id, role, legacy_role FROM users WHERE id = %s", (peek["user_id"],)).fetchone())
         if user is None:
             return json_response({"success": False, "message": "Account not found."}, 404)
         user["role"] = user.get("legacy_role") or user["role"]
@@ -348,22 +701,51 @@ def approve_withdrawal(request_id):
         wallet, wallet_error = get_or_create_wallet_for_user(db, user)
         if wallet_error:
             return wallet_error
-        wallet = rowdict(db.execute("SELECT * FROM wallets WHERE id=%s AND user_id=%s FOR UPDATE",
-                                    (wallet["id"], req["user_id"])).fetchone())
+        wallet = rowdict(
+            db.execute(
+                "SELECT * FROM wallets WHERE id=%s AND user_id=%s FOR UPDATE",
+                (wallet["id"], peek["user_id"]),
+            ).fetchone()
+        )
+        req = rowdict(db.execute("SELECT * FROM wallet_withdrawal_requests WHERE id = %s FOR UPDATE", (request_id,)).fetchone())
+        if not req:
+            return json_response({"success": False, "message": "Withdrawal request not found."}, 404)
+        if req["status"] != "pending":
+            return json_response({"success": False, "message": "Withdrawal request is already resolved."}, 400)
         try:
             amount = parse_money_amount(req["amount"])
         except ValueError as exc:
             return json_response({"success": False, "message": str(exc)}, 400)
-        from decimal import Decimal
-        from wallet.withdrawal_limits import max_withdrawable
-        if wallet is None or amount > Decimal(str(max_withdrawable(wallet))):
+        other_pending = pending_withdrawal_total(db, req["user_id"], exclude_request_id=request_id)
+        if wallet is None or amount > max_withdrawable_decimal(wallet, pending_total=other_pending):
             return json_response({"success": False, "message": "Insufficient unreserved withdrawal balance."}, 400)
-        wallet = rowdict(db.execute("UPDATE wallets SET balance=balance-%s,updated_at=%s WHERE id=%s RETURNING *",
-                                    (amount, stamp["iso"], wallet["id"])).fetchone())
-        db.execute("UPDATE wallet_withdrawal_requests SET status='approved',resolved_at=%s WHERE id=%s AND status='pending'",
-                   (stamp["iso"],request_id))
-        insert_wallet_transaction(db, wallet, req["user_id"], "withdrawal", -amount,
-                                  description="Admin-approved simulated withdrawal; no bank transfer", reference_id=str(request_id))
+        wallet = rowdict(
+            db.execute(
+                "UPDATE wallets SET balance=balance-%s,updated_at=%s WHERE id=%s RETURNING *",
+                (amount, stamp["iso"], wallet["id"]),
+            ).fetchone()
+        )
+        db.execute(
+            "UPDATE wallet_withdrawal_requests SET status='approved',resolved_at=%s WHERE id=%s AND status='pending'",
+            (stamp["iso"], request_id),
+        )
+        insert_wallet_transaction(
+            db,
+            wallet,
+            req["user_id"],
+            "withdrawal",
+            -amount,
+            description="Admin-approved simulated withdrawal; no bank transfer",
+            reference_id=str(request_id),
+        )
+        _log_admin_action(
+            db,
+            admin_user,
+            "approve_withdrawal",
+            f"/admin/wallet/withdrawals/{request_id}/approve",
+            {"withdrawal_request_id": request_id, "user_id": req["user_id"], "amount": str(amount)},
+            stamp["iso"],
+        )
         db.commit()
         notify(
             db,
@@ -384,15 +766,38 @@ def reject_withdrawal(request_id):
     err = csrf_error()
     if err:
         return err
+    if request_id <= 0:
+        return json_response({"success": False, "message": "Invalid withdrawal request ID."}, 400)
+    stamp = timestamp_bundle()
+    admin_user = request.current_user
     with open_db() as db:
+        step_err, _ = require_admin_step_up(
+            db,
+            request,
+            "admin.withdrawal.reject",
+            resource_id=request_id,
+        )
+        if step_err:
+            return step_err
         req = rowdict(db.execute("SELECT * FROM wallet_withdrawal_requests WHERE id = %s FOR UPDATE", (request_id,)).fetchone())
         if not req or req.get("status") != "pending":
             return json_response({"success": False, "message": "Pending withdrawal request not found."}, 404)
-        result = db.execute("UPDATE wallet_withdrawal_requests SET status = 'rejected', resolved_at = %s WHERE id = %s AND status = 'pending'", (timestamp_bundle()["iso"], request_id))
+        result = db.execute(
+            "UPDATE wallet_withdrawal_requests SET status = 'rejected', resolved_at = %s WHERE id = %s AND status = 'pending'",
+            (stamp["iso"], request_id),
+        )
         if result.rowcount == 0:
             return json_response({"success": False, "message": "Pending withdrawal request not found."}, 404)
-        db.commit()
         amount = parse_money_amount(req["amount"])
+        _log_admin_action(
+            db,
+            admin_user,
+            "reject_withdrawal",
+            f"/admin/wallet/withdrawals/{request_id}/reject",
+            {"withdrawal_request_id": request_id, "user_id": req["user_id"], "amount": str(amount)},
+            stamp["iso"],
+        )
+        db.commit()
         notify(
             db,
             None,
@@ -484,6 +889,19 @@ def publish_commission():
     stamp = timestamp_bundle()["iso"]
     admin_user = request.current_user
     with open_db() as db:
+        step_err, _ = require_admin_step_up(
+            db,
+            request,
+            "admin.commission.publish",
+            resource_id=1,
+            target={
+                "policy_type": policy_type,
+                "company_share_percent": str(company_share),
+                "change_summary": change_summary,
+            },
+        )
+        if step_err:
+            return step_err
         try:
             result = publish_commission_change(
                 db, policy_type, company_share, change_summary, admin_user["id"], stamp,
@@ -672,6 +1090,8 @@ def resolve_one_time_dispute(dispute_id):
     err = csrf_error()
     if err:
         return err
+    if dispute_id <= 0:
+        return json_response({"success": False, "message": "Invalid dispute ID."}, 400)
     data = request.get_json(silent=True) or {}
     resolution = (data.get("resolution") or "").strip().lower()
     notes = data.get("notes")
@@ -679,7 +1099,18 @@ def resolve_one_time_dispute(dispute_id):
         return json_response(
             {"success": False, "message": "resolution must be 'transporter_win' or 'client_win'."}, 400
         )
+    if notes is not None and not isinstance(notes, str):
+        return json_response({"success": False, "message": "Notes must be text."}, 400)
     with open_db() as db:
+        step_err, _ = require_admin_step_up(
+            db,
+            request,
+            "admin.dispute.resolve",
+            resource_id=dispute_id,
+            target={"resolution": resolution, "notes": (notes or "").strip()},
+        )
+        if step_err:
+            return step_err
         try:
             if resolution == "transporter_win":
                 result = resolve_dispute_transporter_win(db, request.current_user, dispute_id, notes)
@@ -688,6 +1119,14 @@ def resolve_one_time_dispute(dispute_id):
         except CheckoutError as exc:
             db.rollback()
             return json_response({"success": False, "message": exc.message, "code": exc.code}, exc.status)
+        _log_admin_action(
+            db,
+            request.current_user,
+            "resolve_one_time_dispute",
+            f"/admin/one-time-disputes/{dispute_id}/resolve",
+            {"dispute_id": dispute_id, "resolution": resolution, "already": bool(result.get("already"))},
+            timestamp_bundle()["iso"],
+        )
         db.commit()
     return json_response({
         "success": True,
@@ -706,6 +1145,22 @@ def trigger_overdue_delivery_sweep():
     if err:
         return err
     with open_db() as db:
+        step_err, _ = require_admin_step_up(
+            db,
+            request,
+            "admin.delivery_overdue.process",
+            resource_id=1,
+        )
+        if step_err:
+            return step_err
         result = process_overdue_delivery_confirmations(db)
+        _log_admin_action(
+            db,
+            request.current_user,
+            "process_overdue_delivery_confirmations",
+            "/admin/delivery-confirmations/process-overdue",
+            result,
+            timestamp_bundle()["iso"],
+        )
         db.commit()
     return json_response({"success": True, **result})

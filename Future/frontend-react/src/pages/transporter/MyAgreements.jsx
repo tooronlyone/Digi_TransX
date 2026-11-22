@@ -209,6 +209,7 @@ function OwnedAgreements() {
                           {driverTrips.map(trip => <option key={trip.id} value={trip.id}>Trip #{trip.id} · {String(trip.status).replaceAll('_', ' ')}</option>)}
                         </select>
                       </label>
+                      {/* V2 TODO: DriverAssignmentPanel currently accepts V1 `tripId` only; restore agreement-trip assignment support before re-enabling. */}
                       <DriverAssignmentPanel agreementTripId={driverTrip.id} />
                     </div>}
                   </div>

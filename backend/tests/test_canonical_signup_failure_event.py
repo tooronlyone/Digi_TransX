@@ -17,7 +17,7 @@ from tests.test_canonical_event_foundation import _direct_insert, _event_counts
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = REPO_ROOT / "supabase" / "migrations" / "20260801120000_add_signup_failed_event.sql"
+MIGRATION = REPO_ROOT / "Future" / "supabase" / "legacy_migrations" / "20260801120000_add_signup_failed_event.sql"
 EXPECTED_PRE_SIGNATURE = "7b8157021244549cfed79416b40ab662"
 EXPECTED_POST_SIGNATURE = "993b1de965a1791a2a84ccff5fcfbdf9"
 INTEGRATED_NAMES = {

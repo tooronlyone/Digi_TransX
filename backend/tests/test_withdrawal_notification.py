@@ -63,6 +63,7 @@ def test_approve_withdrawal_calls_notify(monkeypatch):
     )
     monkeypatch.setattr(admin_routes, "open_db", lambda: fake_db)
     monkeypatch.setattr(admin_routes, "csrf_error", lambda: None)
+    monkeypatch.setattr(admin_routes, "require_admin_step_up", lambda *_a, **_k: (None, {"authorization_id": "unit-test"}))
     monkeypatch.setattr(admin_routes, "get_payment_provider", lambda: DummyCardProvider())
     monkeypatch.setattr(admin_routes, "get_or_create_wallet_for_user", lambda db, u: (fake_db.wallet_row, None))
 
@@ -104,6 +105,7 @@ def test_reject_withdrawal_calls_notify(monkeypatch):
     )
     monkeypatch.setattr(admin_routes, "open_db", lambda: fake_db)
     monkeypatch.setattr(admin_routes, "csrf_error", lambda: None)
+    monkeypatch.setattr(admin_routes, "require_admin_step_up", lambda *_a, **_k: (None, {"authorization_id": "unit-test"}))
 
     notifications_called = []
     commit_at_notify = []

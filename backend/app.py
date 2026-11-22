@@ -2,6 +2,7 @@ import os
 import sys
 from pathlib import Path
 from datetime import datetime, timedelta, timezone
+from urllib.parse import unquote
 
 from flask import Flask, render_template_string, request, send_from_directory
 
@@ -18,7 +19,11 @@ from auth.helpers import (
     json_response,
     role_redirect,
 )
-from auth.security_config import configure_flask_security
+from auth.security_config import (
+    configure_flask_security,
+    validate_production_security_config,
+)
+from auth.security_headers import ensure_csp_nonce, install_security_headers
 from auth.session_service import (
     access_proof_reference,
     find_session_by_token,
@@ -44,6 +49,8 @@ from driver.routes import driver_blueprint
 
 app = Flask(__name__)
 configure_flask_security(app)
+validate_production_security_config(app)
+install_security_headers(app)
 
 app.register_blueprint(auth_blueprint)
 # Preserve the established /auth contract while exposing the bounded API
@@ -164,9 +171,10 @@ def _serve_index():
         return json_response({"success": True, "message": "Digi_TransX Flask backend is running."})
     html = index_path.read_text(encoding="utf-8")
     auth_bootstrap = _bootstrap_auth_from_session()
+    csp_nonce = ensure_csp_nonce()
     marker = "</head>"
     script_template = """
-<script>
+<script nonce="{{ csp_nonce }}">
   window.__BOOTSTRAP__ = {{ bootstrap|tojson }};
 </script>
 """
@@ -174,6 +182,7 @@ def _serve_index():
     script = render_template_string(
         script_template,
         bootstrap={"auth": auth_bootstrap, "user": legacy_user},
+        csp_nonce=csp_nonce,
     )
     if marker in html:
         html = html.replace(marker, f"{script}{marker}", 1)
@@ -193,18 +202,45 @@ def serve_root():
 
 @app.get("/<path:path>")
 def serve_frontend(path):
-    if path.startswith("auth/") or path.startswith("api/"):
+    decoded = unquote(unquote(path))
+    lower_raw = path.lower()
+    lower_dec = decoded.lower()
+    if (
+        lower_raw in {"auth", "api", "uploads"}
+        or lower_dec in {"auth", "api", "uploads"}
+        or lower_raw.startswith(("auth/", "api/", "uploads/"))
+        or lower_dec.startswith(("auth/", "api/", "uploads/"))
+        or "\\" in path
+        or "\\" in decoded
+        or "\x00" in path
+        or "\x00" in decoded
+    ):
         return json_response({"success": False, "message": "Not found."}, 404)
-    asset_path = FRONTEND_DIST / path
-    if FRONTEND_DIST.exists() and asset_path.exists():
-        return send_from_directory(FRONTEND_DIST, path)
-    if FRONTEND_DIST.exists():
-        return _serve_index()
-    return json_response({"success": False, "message": "Not found."}, 404)
+    if not FRONTEND_DIST.exists():
+        return json_response({"success": False, "message": "Not found."}, 404)
+    raw_parts = path.split("/")
+    dec_parts = decoded.replace("\\", "/").split("/")
+    if ".." in raw_parts or ".." in dec_parts:
+        return json_response({"success": False, "message": "Not found."}, 404)
+    if any(part.startswith(".") for part in raw_parts + dec_parts if part):
+        return json_response({"success": False, "message": "Not found."}, 404)
+    dist_root = FRONTEND_DIST.resolve()
+    candidate = (dist_root / path).resolve()
+    if not candidate.is_relative_to(dist_root):
+        return json_response({"success": False, "message": "Not found."}, 404)
+    if candidate != dist_root and candidate.is_file():
+        rel = candidate.relative_to(dist_root).as_posix()
+        return send_from_directory(dist_root, rel)
+    if "." in raw_parts[-1] or "." in dec_parts[-1]:
+        return json_response({"success": False, "message": "Not found."}, 404)
+    return _serve_index()
 
 
 if __name__ == "__main__":
+    from scheduler import env_flag
+
     host = os.environ.get("FLASK_HOST", "127.0.0.1")
     port = int(os.environ.get("FLASK_PORT", "5000"))
-    debug = os.environ.get("FLASK_DEBUG", "true").lower() == "true"
+    environment = str(os.environ.get("DIGITRANSX_ENVIRONMENT") or "").strip().lower()
+    debug = environment in {"local", "test"} and env_flag("FLASK_DEBUG", default=False)
     app.run(host=host, port=port, debug=debug)

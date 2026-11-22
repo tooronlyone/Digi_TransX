@@ -13,7 +13,6 @@ import pytest
 BACKEND_DIR = Path(__file__).resolve().parent.parent
 REQUIRED_JOB_IDS = {
     "process_overdue_confirmations_interval",
-    "expire_fuel_vouchers_interval",
 }
 
 

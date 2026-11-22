@@ -28,7 +28,7 @@ from tests.test_secure_mpin_access import (
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = ROOT / "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql"
+MIGRATION = ROOT / "Future/supabase/legacy_migrations/20260801210000_mpin_step_up_authorization_foundation.sql"
 
 
 def _action(**overrides):
@@ -122,14 +122,13 @@ def _route_database_after(url, hook):
         {"action_key": "wallet.withdrawal_limit.purchase", "resource_type": "wallet", "resource_id": 1, "amount_minor": 1, "currency": "PKR", "funding_source": "wallet"},
         {"action_key": "wallet.payout_destination.replace", "resource_type": "wallet", "resource_id": 1, "destination_fingerprint": "b" * 64},
         {"action_key": "client.delivery.confirm_release", "resource_type": "trip", "resource_id": 1, "amount_minor": 1, "currency": "PKR"},
-        {"action_key": "fuel.voucher.authorize", "resource_type": "trip", "resource_id": 1, "amount_minor": 1, "currency": "PKR", "funding_source": "wallet_and_credit", "destination_fingerprint": "c" * 64},
     ],
 )
 def test_approved_category_a_descriptors_and_security_extension(value):
     normalized = step_up_service.normalize_descriptor(value)
     assert normalized["action_key"] == value["action_key"]
     assert len(normalized["request_fingerprint"]) == 32
-    assert len(step_up_service.ACTION_POLICIES) == 7
+    assert len(step_up_service.ACTION_POLICIES) == 6
     assert "security.logout_all" in step_up_service.ACTION_POLICIES
 
 
@@ -416,7 +415,7 @@ def test_issuance_requires_enrollment_csrf_and_current_software_proof(mpin_clien
     # Start a clean enrolled authentication, then remove only the software proof.
     with psycopg2.connect(url) as conn:
         with conn.cursor() as cursor:
-            cursor.execute("truncate public.security_events,public.trusted_devices,public.users restart identity cascade")
+            cursor.execute("truncate public.security_events,public.trusted_devices,public.http_rate_limits,public.users restart identity cascade")
     client.delete_cookie(auth_helpers.DEVICE_COOKIE_NAME)
     client.delete_cookie(auth_helpers.SESSION_TOKEN_COOKIE_NAME)
     client.delete_cookie(auth_helpers.ACCESS_PROOF_COOKIE_NAME)

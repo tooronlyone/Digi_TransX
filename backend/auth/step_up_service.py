@@ -32,12 +32,8 @@ class ActionPolicy:
 
 
 # Canonical policies for approved action-bound targets. Logout-all is a
-# security action, not an alias for one of the six Category A business actions.
+# security action, not an alias for one of the V1 Category A business actions.
 ACTION_POLICIES = {
-    "fuel.voucher.authorize": ActionPolicy(
-        "trip", amount_required=True, destination_required=True,
-        funding_sources=frozenset({"wallet_and_credit"}),
-    ),
     "one_time.checkout.wallet_only": ActionPolicy(
         "order", amount_required=True, funding_sources=frozenset({"wallet"})
     ),

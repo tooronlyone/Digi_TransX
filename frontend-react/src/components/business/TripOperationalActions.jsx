@@ -39,7 +39,7 @@ export default function TripOperationalActions({ assignment, transporter = false
       </form>
       {transporter && <form onSubmit={event => { event.preventDefault(); void run(() => send(`/api/transporter/trips/${assignment.id}/cancellation-request`, { reason: reason.trim() })) }} className="mt-4 grid gap-2">
         <label className="grid gap-1">Transporter cancellation reason<textarea required maxLength={4000} value={reason} onChange={event => setReason(event.target.value)} className="rounded border p-2" /></label>
-        <p className="text-xs">Cancellation requests require the applicable cancellation and refund policy review. Outstanding fuel debt remains the Transporter's responsibility and cannot reduce Client escrow.</p>
+        <p className="text-xs">Cancellation requests require the applicable cancellation and refund policy review. Client escrow remains protected pending review.</p>
         <button type="submit" disabled={busy} className="rounded border border-red-700 p-2 font-semibold text-red-800">Request trip cancellation</button>
       </form>}
     </details>

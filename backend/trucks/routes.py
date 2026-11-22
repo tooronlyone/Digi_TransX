@@ -4,16 +4,16 @@ import re
 
 from flask import Blueprint, Response, current_app, request
 
-from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
+from auth.helpers import is_admin_user, json_response, login_required, csrf_error, timestamp_bundle
 from shared.roles import TRANSPORTER_ROLES
 from shared.db import IntegrityError, open_db
+from shared.payments import round_money
 from shared.reserves import review_reserve_requirement
 from .helpers import (
     STATUS_OPTIONS,
     STATUS_REASON_LABELS,
     TRUCK_TYPES,
     TruckUploadValidationError,
-    UPLOADS_DIR,
     build_truck_payload,
     build_configuration_payload,
     get_catalog_fields,
@@ -114,10 +114,7 @@ def serve_truck_upload(filename):
     if not rows:
         return json_response({"success": False, "message": "File not found."}, 404)
     sensitive = [row for row in rows if row["doc_type"] != "vehicle_photo"]
-    is_admin = (
-        (request.current_user.get("role") or "").strip().lower()
-        == "platform_admin"
-    )
+    is_admin = is_admin_user(request.current_user)
     owns_every_sensitive_mapping = all(
         row["owner_user_id"] == request.current_user["id"] for row in sensitive
     )
@@ -388,6 +385,76 @@ def get_truck(truck_id):
     if error:
         return error
     return json_response({"success": True, "truck": build_truck_payload(truck)})
+
+
+@trucks_blueprint.get("/api/trucks/<int:truck_id>/fuel-logs")
+@login_required
+def get_truck_fuel_logs(truck_id):
+    """Read-only fuel history for a truck owned by the authenticated transporter."""
+    role_error = require_transporter_role(request.current_user)
+    if role_error:
+        return role_error
+    truck, error = get_owned_truck_or_error(truck_id, request.current_user["id"])
+    if error:
+        return error
+
+    owner_user_id = request.current_user["id"]
+    with open_db() as db:
+        rows = db.execute(
+            """
+            SELECT dfl.id, dfl.truck_id, dfl.assignment_id, dfl.trip_id,
+                   dfl.pump_name, dfl.pump_brand, dfl.city, dfl.area_landmark,
+                   dfl.fuel_type, dfl.liters, dfl.price_per_liter, dfl.total_amount,
+                   dfl.payment_mode, dfl.odometer_km, dfl.trip_distance_km,
+                   dfl.fuel_average_km_per_liter, dfl.notes, dfl.fuel_date, dfl.created_at,
+                   v.truck_number, v.truck_model,
+                   u.full_name AS driver_name,
+                   s.pickup_city, s.dropoff_city
+            FROM driver_fuel_logs dfl
+            JOIN vehicles v ON v.id = dfl.truck_id AND v.owner_user_id = %s
+            LEFT JOIN users u ON u.id = dfl.driver_user_id
+            LEFT JOIN driver_trip_assignments dta
+                ON dta.id = dfl.assignment_id AND dta.transporter_user_id = %s
+            LEFT JOIN shipment_trips st
+                ON st.id = dfl.trip_id AND st.id = dta.trip_id
+               AND st.transporter_user_id = %s AND st.truck_id = v.id
+            LEFT JOIN shipments s ON s.id = st.order_id
+            WHERE dfl.truck_id = %s AND v.owner_user_id = %s
+            ORDER BY dfl.fuel_date DESC, dfl.id DESC
+            LIMIT 200
+            """,
+            (owner_user_id, owner_user_id, owner_user_id, truck_id, owner_user_id),
+        ).fetchall()
+
+        stats = db.execute(
+            """
+            SELECT
+                COALESCE(SUM(dfl.total_amount), 0) AS total_fuel_spent,
+                COALESCE(SUM(dfl.liters), 0) AS total_liters,
+                COALESCE(AVG(NULLIF(dfl.fuel_average_km_per_liter, 0)), 0) AS avg_km_per_liter,
+                COUNT(*) AS total_refuels
+            FROM driver_fuel_logs dfl
+            JOIN vehicles v ON v.id = dfl.truck_id AND v.owner_user_id = %s
+            WHERE dfl.truck_id = %s AND v.owner_user_id = %s
+            """,
+            (owner_user_id, truck_id, owner_user_id),
+        ).fetchone()
+
+    return json_response({
+        "success": True,
+        "truck": {
+            "id": truck["id"],
+            "truck_number": truck["truck_number"],
+            "truck_model": truck["truck_model"],
+        },
+        "logs": [dict(row) for row in rows],
+        "stats": {
+            "total_fuel_spent": round_money(stats["total_fuel_spent"] or 0),
+            "total_liters": round(float(stats["total_liters"] or 0), 2),
+            "avg_km_per_liter": round(float(stats["avg_km_per_liter"] or 0), 2),
+            "total_refuels": int(stats["total_refuels"] or 0),
+        },
+    })
 
 
 @trucks_blueprint.get("/api/trucks/<int:truck_id>/live-location")

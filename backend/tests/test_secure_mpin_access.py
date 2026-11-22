@@ -31,13 +31,10 @@ from tests.test_canonical_event_acl_hardening import _semantic_signature
 
 
 ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = ROOT / "supabase/migrations/20260801180000_secure_mpin_access_lock.sql"
-GENUINE_ACTIVITY_MIGRATION = (
-    ROOT / "supabase/migrations/20260801200000_genuine_session_activity.sql"
-)
-MPIN_STEP_UP_MIGRATION = (
-    ROOT / "supabase/migrations/20260801210000_mpin_step_up_authorization_foundation.sql"
-)
+LEGACY_MIGRATIONS = ROOT / "Future" / "supabase" / "legacy_migrations"
+MIGRATION = LEGACY_MIGRATIONS / "20260801180000_secure_mpin_access_lock.sql"
+GENUINE_ACTIVITY_MIGRATION = LEGACY_MIGRATIONS / "20260801200000_genuine_session_activity.sql"
+MPIN_STEP_UP_MIGRATION = LEGACY_MIGRATIONS / "20260801210000_mpin_step_up_authorization_foundation.sql"
 PEPPER = base64.urlsafe_b64encode(b"P" * 32).decode()
 NEW_INTEGRATIONS = {
     "security.session.access_locked",
@@ -109,7 +106,7 @@ def mpin_client(mpin_database_url, monkeypatch):
         with conn.cursor() as cursor:
             cursor.execute(
                 "truncate public.security_events, public.login_activity, "
-                "public.trusted_devices, public.users restart identity cascade"
+                "public.trusted_devices, public.http_rate_limits, public.users restart identity cascade"
             )
 
 

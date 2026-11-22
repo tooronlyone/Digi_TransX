@@ -454,7 +454,7 @@ test('one canonical management component owns all operations and all three role 
 test('legacy MPIN endpoints and browser-persisted signup secrets have no frontend callers', async () => {
   const files = [
     '../src/pages/auth/Login.jsx',
-    '../src/pages/auth/Unlock.jsx',
+    '../src/App.jsx',
     '../src/pages/transporter/settings.jsx',
     '../src/pages/auth/Signup.jsx',
     '../src/pages/auth/RoleSelect.jsx',

@@ -68,7 +68,7 @@ export function SettlementSummary({ settlement }) {
     <h3 className="font-semibold">Delivery settlement</h3>
     <dl className="mt-2 grid gap-2 sm:grid-cols-2">{[
       ['Gross fare', settlement.gross_amount], ['Platform deductions', settlement.company_fee], ['Net entitlement', settlement.net_entitlement],
-      ['Fuel credit recovered from earnings', settlement.fuel_credit_recovered], ['Security reserve contribution', settlement.reserve_contribution],
+      ['Security reserve contribution', settlement.reserve_contribution],
       ['First tranche', settlement.tranche1_amount], ['Second tranche held', settlement.tranche2_amount],
     ].filter(([, value]) => value != null).map(([label, value]) => <div key={label}><dt>{label}</dt><dd className="font-semibold">{moneyText(value)}</dd></div>)}</dl>
     {settlement.dispute_deadline_at && <p className="mt-2">Delivery dispute deadline: {new Date(settlement.dispute_deadline_at).toLocaleString('en-PK')}.</p>}

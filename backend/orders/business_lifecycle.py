@@ -135,7 +135,6 @@ def settle_verified_delivery(db,payment,now=None):
     transporter = payment['transporter_user_id']
     if not _exact(db,'SELECT id FROM wallets WHERE user_id=%s FOR UPDATE',(transporter,)).fetchone():
         raise CheckoutError('Transporter wallet unavailable.',409,'wallet_unavailable')
-    from shared.fuel_credit import recover_from_earnings
     from shared.reserves import progressive_contribution
     from shared.financial_ledger import post_journal
     gross = Decimal(str(payment['bid_price']))
@@ -143,18 +142,15 @@ def settle_verified_delivery(db,payment,now=None):
     net = Decimal(str(payment['transporter_amount']))
     if commission+net != gross or commission != (gross*Decimal('.20')).quantize(CENT,rounding=ROUND_HALF_UP):
         raise CheckoutError('Commission snapshot does not match the approved booking policy.',409,'split_mismatch')
-    recovered = recover_from_earnings(db,transporter,net,f'freight:{payment["id"]}')
-    if recovered < 0 or recovered > net:
-        raise CheckoutError('Fuel recovery exceeds payable earnings.',409,'fuel_recovery_mismatch')
-    contribution,policy_state = progressive_contribution(db,transporter,net-recovered,f'freight:reserve:{payment["id"]}')
-    payable = net-recovered-contribution
+    contribution,policy_state = progressive_contribution(db,transporter,net,f'freight:reserve:{payment["id"]}')
+    payable = net-contribution
     first = (payable/2).quantize(CENT,rounding=ROUND_HALF_UP)
     second = payable-first
     _wallet_credit(db,transporter,first,'freight_tranche1',f'freight:{payment["id"]}:1')
     fees = payment.get('fee_breakdown') or {}
     if isinstance(fees,str): fees=json.loads(fees)
-    settlement = _exact(db,"INSERT INTO freight_settlements(payment_id,trip_id,transporter_user_id,client_user_id,gross_amount,company_fee,net_entitlement,fuel_credit_recovered,reserve_contribution,tranche1_amount,tranche2_amount,fee_breakdown,reserve_policy_state,completed_at,dispute_deadline_at,release_eligible_at) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",(payment['id'],payment['trip_id'],transporter,payment['client_user_id'],gross,commission,net,recovered,contribution,first,second,json.dumps(fees),policy_state,now,now+timedelta(minutes=90),now+timedelta(minutes=120))).fetchone()
-    post_journal(db,f'freight:settle:{payment["id"]}','freight_settlement',str(payment['id']),[(f'escrow:{payment["id"]}',-gross),('revenue:freight',commission),(f'wallet:{transporter}',first),(f'reserve:{transporter}',contribution),(f'freight_payable:{payment["id"]}',second),(f'fuel_credit_recovery:freight:{payment["id"]}',recovered)])
+    settlement = _exact(db,"INSERT INTO freight_settlements(payment_id,trip_id,transporter_user_id,client_user_id,gross_amount,company_fee,net_entitlement,reserve_contribution,tranche1_amount,tranche2_amount,fee_breakdown,reserve_policy_state,completed_at,dispute_deadline_at,release_eligible_at) VALUES(%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s,%s) RETURNING *",(payment['id'],payment['trip_id'],transporter,payment['client_user_id'],gross,commission,net,contribution,first,second,json.dumps(fees),policy_state,now,now+timedelta(minutes=90),now+timedelta(minutes=120))).fetchone()
+    post_journal(db,f'freight:settle:{payment["id"]}','freight_settlement',str(payment['id']),[(f'escrow:{payment["id"]}',-gross),('revenue:freight',commission),(f'wallet:{transporter}',first),(f'reserve:{transporter}',contribution),(f'freight_payable:{payment["id"]}',second)])
     return serialize_settlement(settlement)
 
 def verify_delivery_otp(db,user,order_id,trip_id,code,now=None):

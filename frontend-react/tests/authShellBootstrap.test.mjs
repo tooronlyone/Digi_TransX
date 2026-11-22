@@ -58,8 +58,7 @@ test('role guards consume shared auth verification without owning auth/me', () =
   const guard = source('src/components/transporter/TransporterGuard.jsx')
   const clientHook = source('src/hooks/useClientAuth.js')
   const everydayHook = source('src/hooks/useEverydayAuth.js')
-  const shopkeeper = source('src/components/shopkeeper/ShopkeeperGuard.jsx')
-  for (const text of [guard, clientHook, everydayHook, shopkeeper]) {
+  for (const text of [guard, clientHook, everydayHook]) {
     assert.match(text, /useAuthVerification\(\)/)
     assert.doesNotMatch(text, /fetch\(['"]\/auth\/me/)
     assert.doesNotMatch(text, /AuthVerificationProvider/)
@@ -91,29 +90,6 @@ test('auth owner handles locked, 401, and transient failures distinctly', () => 
   assert.match(provider, /window\.addEventListener\('focus', refreshIfStale\)/)
   assert.match(provider, /document\.addEventListener\('visibilitychange', refreshIfStale\)/)
   assert.match(provider, /if \(refreshInFlight\.current\) return refreshInFlight\.current/)
-})
-
-test('AI assistant waits for verified auth before protected assistant APIs', () => {
-  const assistant = source('src/components/ai/GlobalAiAssistant.jsx')
-  assert.match(assistant, /const verified = authStatus === AUTH_STATUSES\.VERIFIED/)
-  assert.match(assistant, /if \(!verified \|\| !assistantVisible \|\| aiBackendAvailableRef\.current !== true\) return/)
-  assert.match(assistant, /if \(!verified \|\| !assistantVisible \|\| aiBackendAvailableRef\.current === false\) return/)
-  assert.match(assistant, /if \(location\.pathname === AI_CHAT_ROUTE \|\| !verified\)/)
-  assert.match(assistant, /\$\{AI_API_BASE\}\/preferences/)
-  assert.match(assistant, /\$\{AI_API_BASE\}\/capabilities/)
-})
-
-test('AI assistant quietly disables unavailable preference and capability endpoints', () => {
-  const assistant = source('src/components/ai/GlobalAiAssistant.jsx')
-  const chat = source('src/pages/shared/AiChat.jsx')
-  for (const text of [assistant, chat]) {
-    assert.match(text, /function isUnavailableAiEndpoint\(response\)/)
-    assert.match(text, /response\?\.status === 404 \|\| response\?\.status === 405/)
-    assert.match(text, /aiBackendAvailableRef\.current = false/)
-  }
-  assert.match(assistant, /aiBackendAvailableRef\.current = true[\s\S]*setCapabilities\(payload\.capabilities\)[\s\S]*await syncRemotePreferences\(\)/)
-  assert.doesNotMatch(assistant, /console\.(error|warn|log)/)
-  assert.doesNotMatch(chat, /console\.(error|warn|log)/)
 })
 
 test('unlock route is not a dead login redirect', () => {

@@ -33,7 +33,11 @@ def test_investigation_read_authorization_and_immutable_evidence(remediation_env
     assert 'fixture-handoff-123' in saved['evidence']
     with pytest.raises(psycopg2.errors.CheckViolation):
         with env.db() as db: db.execute("UPDATE operational_incidents SET evidence='[]'::jsonb WHERE id=%s",(incident,))
-    decision=admin.post(f'/api/admin/operational-incidents/{incident}/decision',headers=env.headers,
+    challenge=admin.post(f'/api/admin/operational-incidents/{incident}/decision',headers=env.headers,
+                         json={'status':'dismissed','decision_evidence':'Independent GPS, handoff and communications review cleared the Driver.'})
+    assert challenge.status_code==428 and challenge.json['code']=='admin_step_up_required'
+    step_headers=env.admin_step_up_headers(admin,challenge.json['action'])
+    decision=admin.post(f'/api/admin/operational-incidents/{incident}/decision',headers=step_headers,
                         json={'status':'dismissed','decision_evidence':'Independent GPS, handoff and communications review cleared the Driver.'})
     assert decision.status_code==200,decision.json
     with pytest.raises(psycopg2.errors.CheckViolation):
@@ -51,7 +55,12 @@ def _credential(env,owner,*,client=None,expiry=None):
     if client is None:
         admin=_admin(env)
         client,_=env.login(admin)
-    return client.post(f'/api/admin/owner-operator-credentials/{owner["id"]}',headers=env.headers,json={'license_number':'VERIFIED-LTV-123','license_expiry':(expiry or date.today()+timedelta(days=365)).isoformat(),'verification_evidence':'Independent licensing authority verification receipt 12345'})
+    payload={'license_number':'VERIFIED-LTV-123','license_expiry':(expiry or date.today()+timedelta(days=365)).isoformat(),'verification_evidence':'Independent licensing authority verification receipt 12345'}
+    res=client.post(f'/api/admin/owner-operator-credentials/{owner["id"]}',headers=env.headers,json=payload)
+    if res.status_code==428 and res.json.get('code')=='admin_step_up_required':
+        step_headers=env.admin_step_up_headers(client,res.json['action'])
+        return client.post(f'/api/admin/owner-operator-credentials/{owner["id"]}',headers=step_headers,json=payload)
+    return res
 
 def _self_payload(graph):
     return {'truck_id':graph.truck_id,'trip_id':graph.trip_id}
@@ -147,7 +156,10 @@ def test_incidents_and_confirmed_decisions_never_automatically_confiscate_funds(
     assert graph.owner_client.post(f'/api/admin/operational-incidents/{incident}/decision',headers=env.headers,json={'status':'confirmed','decision_evidence':'Verified investigation evidence'}).status_code==403
     admin=_admin(env)
     admin_client,_=env.login(admin)
-    decision=admin_client.post(f'/api/admin/operational-incidents/{incident}/decision',headers=env.headers,json={'status':'confirmed','decision_evidence':'Verified investigation evidence and signed handoff'})
+    challenge=admin_client.post(f'/api/admin/operational-incidents/{incident}/decision',headers=env.headers,json={'status':'confirmed','decision_evidence':'Verified investigation evidence and signed handoff'})
+    assert challenge.status_code==428 and challenge.json['code']=='admin_step_up_required'
+    step_headers=env.admin_step_up_headers(admin_client,challenge.json['action'])
+    decision=admin_client.post(f'/api/admin/operational-incidents/{incident}/decision',headers=step_headers,json={'status':'confirmed','decision_evidence':'Verified investigation evidence and signed handoff'})
     assert decision.status_code==200,decision.json
     assert decision.json['financial_adjustment']=='blocked_pending_approved_penalty_policy'
     with env.db() as db:

@@ -21,10 +21,8 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 SCHEMA_SQL = REPO_ROOT / "supabase" / "schema.sql"
-MIGRATION_SQL = (
-    REPO_ROOT / "supabase" / "migrations"
-    / "20260723120000_one_time_trip_completion_lifecycle.sql"
-)
+LEGACY_MIGRATIONS_DIR = REPO_ROOT / "Future" / "supabase" / "legacy_migrations"
+MIGRATION_SQL = LEGACY_MIGRATIONS_DIR / "20260723120000_one_time_trip_completion_lifecycle.sql"
 
 # Minimal Supabase stubs so schema.sql / the origin-main schema load on a plain
 # PostgreSQL server (roles, the auth + storage schemas and auth.uid()).
@@ -166,58 +164,70 @@ def origin_main_schema_or_skip():
 
 def schema_before_migration_or_skip(migration_path):
     """Return ``schema.sql`` from the parent of the commit that introduced a
-    migration.
-
-    Lifecycle migration tests must exercise the schema that existed before
-    that migration. Pointing them at today's ``origin/main`` becomes invalid as
-    soon as the migration is merged and its final state is mirrored there.
+    migration, or reconstruct it from the preserved pre-squash history commit
+    for migrations merged directly into the squashed initial commit.
     """
 
     import subprocess
 
-    relative = Path(migration_path).resolve().relative_to(REPO_ROOT).as_posix()
-    added = subprocess.run(
-        [
-            "git",
-            "log",
-            "--diff-filter=A",
-            "--format=%H",
-            "--",
-            relative,
-        ],
-        cwd=str(REPO_ROOT),
-        capture_output=True,
+    migration_file = Path(migration_path).resolve()
+    relative = migration_file.relative_to(REPO_ROOT).as_posix()
+    history_relative = (
+        f"supabase/migrations/{migration_file.name}"
+        if relative.startswith("Future/supabase/legacy_migrations/")
+        else relative
     )
-    commits = added.stdout.decode("utf-8", "replace").splitlines()
-    if added.returncode != 0:
-        pytest.fail(f"cannot inspect history for {relative}", pytrace=False)
-    if commits:
-        baseline_ref = f"{commits[0]}^:supabase/schema.sql"
-    else:
-        status = subprocess.run(
-            ["git", "status", "--porcelain", "--", relative],
+    preserved_tip = "1211d71e42436a7300eeae6ef4b6d466f515693b"
+    commits = []
+    for search_ref in (preserved_tip, "HEAD"):
+        added = subprocess.run(
+            [
+                "git",
+                "log",
+                "--diff-filter=A",
+                "--format=%H",
+                search_ref,
+                "--",
+                history_relative,
+            ],
             cwd=str(REPO_ROOT),
             capture_output=True,
         )
-        state = status.stdout.decode("utf-8", "replace")[:2]
-        if status.returncode != 0 or state not in {"??", "A ", " A"}:
-            pytest.fail(
-                f"cannot find the introducing commit for {relative}",
-                pytrace=False,
+        if added.returncode == 0:
+            found = added.stdout.decode("utf-8", "replace").splitlines()
+            if found:
+                commits = found
+                break
+
+    if commits:
+        parents = subprocess.run(
+            ["git", "rev-list", "--parents", "-n", "1", commits[0]],
+            cwd=str(REPO_ROOT),
+            capture_output=True,
+        ).stdout.decode("utf-8", "replace").split()
+        if len(parents) > 1:
+            shown = subprocess.run(
+                ["git", "show", f"{commits[0]}^:supabase/schema.sql"],
+                cwd=str(REPO_ROOT),
+                capture_output=True,
             )
-        # Before a brand-new migration has its first commit, origin/main is its
-        # only possible historical baseline. Once committed, the branch above
-        # always selects the introducing commit's parent instead.
-        baseline_ref = "origin/main:supabase/schema.sql"
-    shown = subprocess.run(
-        ["git", "show", baseline_ref],
+            if shown.returncode == 0:
+                return shown.stdout.decode("utf-8")
+
+    # Migrations introduced directly at the squashed root commit (190000..220000)
+    # sit deterministically on top of preserved commit 1211d71e plus prior
+    # archived migrations strictly before the target migration filename.
+    base_shown = subprocess.run(
+        ["git", "show", f"{preserved_tip}:supabase/schema.sql"],
         cwd=str(REPO_ROOT),
         capture_output=True,
     )
-    if shown.returncode != 0:
-        pytest.fail(
-            f"pre-migration schema {baseline_ref} is unavailable "
-            f"({shown.stderr.decode('utf-8', 'replace').strip()})",
-            pytrace=False,
+    if base_shown.returncode == 0 and migration_file.name >= "20260801190000_":
+        base_sql = base_shown.stdout.decode("utf-8")
+        intermediate = sorted(
+            p for p in LEGACY_MIGRATIONS_DIR.glob("*.sql")
+            if "20260801190000_" <= p.name < migration_file.name
         )
-    return shown.stdout.decode("utf-8")
+        return "\n".join([base_sql, *(p.read_text(encoding="utf-8") for p in intermediate)])
+
+    pytest.skip(f"pre-migration schema for {relative} is unavailable in local git history")

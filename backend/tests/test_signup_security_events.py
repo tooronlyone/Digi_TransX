@@ -30,7 +30,7 @@ from tests.test_canonical_event_foundation import _direct_insert
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = REPO_ROOT / "supabase" / "migrations" / "20260801130000_security_signup_event_integration.sql"
+MIGRATION = REPO_ROOT / "Future" / "supabase" / "legacy_migrations" / "20260801130000_security_signup_event_integration.sql"
 PRE_SIGNATURE = "993b1de965a1791a2a84ccff5fcfbdf9"
 POST_SIGNATURE = "371c7010a0553c7953708dea164ed0bc"
 INTEGRATED = {
@@ -108,7 +108,7 @@ def signup_client(signup_database_url, monkeypatch):
     try:
         with conn:
             with conn.cursor() as cursor:
-                cursor.execute("truncate public.security_events, public.business_audit_events, public.login_activity, public.trusted_devices, public.users, auth.users restart identity cascade")
+                cursor.execute("truncate public.security_events, public.business_audit_events, public.login_activity, public.trusted_devices, public.http_rate_limits, public.users, auth.users restart identity cascade")
     finally:
         conn.close()
 
@@ -254,8 +254,6 @@ def test_started_or_failed_evidence_write_failure_never_calls_provider_or_issues
         ("service_seeker", "service_seeker_profiles", {"company_name": "One", "business_type": "Retail"}),
         ("everyday_user", "everyday_user_profiles", {}),
         ("logistics_provider", "transporter_profiles", {}),
-        ("fuel_station_manager", "fuel_station_profiles", {"station_name": "Station"}),
-        ("shopkeeper", "shopkeeper_profiles", {"shop_name": "Shop"}),
     ),
 )
 def test_each_supported_signup_role_creates_only_its_server_selected_profile(signup_client, monkeypatch, role, profile_table, extra):

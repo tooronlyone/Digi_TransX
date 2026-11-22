@@ -16,7 +16,7 @@ from tests._life_helpers import SCHEMA_SQL, STUBS, make_disposable, require_test
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
-MIGRATION = REPO_ROOT / "supabase" / "migrations" / "20260801140000_device_session_mpin_event_contracts.sql"
+MIGRATION = REPO_ROOT / "Future" / "supabase" / "legacy_migrations" / "20260801140000_device_session_mpin_event_contracts.sql"
 PRE_SCHEMA_REF = "9944bd5fa6c8acbe790e55c39edc8b3b951c6ef8:supabase/schema.sql"
 PRE_SIGNATURE = "371c7010a0553c7953708dea164ed0bc"
 POST_SIGNATURE = "3d9b730408336c82629c25342ddc7ea2"

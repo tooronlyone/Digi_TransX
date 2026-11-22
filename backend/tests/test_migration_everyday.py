@@ -16,7 +16,7 @@ from urllib.parse import urlsplit, urlunsplit
 
 import pytest
 
-_MIG_DIR = Path(__file__).resolve().parent.parent.parent / "supabase" / "migrations"
+_MIG_DIR = Path(__file__).resolve().parent.parent.parent / "Future" / "supabase" / "legacy_migrations"
 MIGRATION = _MIG_DIR / "20260723090000_everyday_user_separation.sql"
 HARDENING = _MIG_DIR / "20260723100000_everyday_profile_hardening.sql"
 

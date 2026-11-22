@@ -630,13 +630,14 @@ def test_legacy_null_funding_source_skips_equality_checks(db):
     assert pid
 
 
-def test_legacy_null_shipment_id_payment_accepted(db):
-    """payments.shipment_id may be NULL (ON DELETE SET NULL legacy path); the
-    trip/shipment and shipment/client composite FKs are then skipped."""
+def test_null_shipment_id_payment_rejected(db):
+    """payments.shipment_id is mandatory (NOT NULL ON DELETE RESTRICT) so NULL
+    cannot bypass the trip/shipment and shipment/client composite FKs."""
     seed = seed_order(db)
-    pid = insert_payment(db, seed, shipment_id=None)
-    db.commit()
-    assert pid
+    expect_violation(
+        db, "shipment_id",
+        lambda: insert_payment(db, seed, shipment_id=None),
+    )
 
 
 def test_dispute_with_null_payment_and_thread_accepted(db):

@@ -8,6 +8,7 @@ Two clients:
 """
 
 import os
+from urllib.parse import urlsplit
 
 import httpx
 from supabase import create_client
@@ -17,10 +18,28 @@ from supabase_auth.errors import AuthApiError, AuthRetryableError, AuthWeakPassw
 from shared.db import BASE_DIR  # noqa: F401  (ensures .env is loaded first)
 
 
+_LOOPBACK_HOSTS = frozenset({"127.0.0.1", "localhost", "::1"})
+SUPABASE_HTTP_TIMEOUT = httpx.Timeout(15.0, connect=5.0)
+
+
+def validate_supabase_url(url):
+    raw = str(url or "").strip()
+    if not raw:
+        raise RuntimeError("SUPABASE_URL is not set. Copy .env.example to .env and fill in your Supabase URL.")
+    parsed = urlsplit(raw)
+    host = (parsed.hostname or "").strip("[]").lower()
+    scheme = (parsed.scheme or "").lower()
+    if scheme != "https" and not (scheme == "http" and host in _LOOPBACK_HOSTS):
+        raise RuntimeError("SUPABASE_URL must use https:// for non-local Supabase endpoints.")
+    return raw
+
+
 def _require(name):
     value = os.environ.get(name, "")
     if not value:
         raise RuntimeError(f"{name} is not set. Copy .env.example to .env and fill it in.")
+    if name == "SUPABASE_URL":
+        return validate_supabase_url(value)
     return value
 
 
@@ -28,7 +47,13 @@ _service_client = None
 
 
 def _client_options():
-    return SyncClientOptions(httpx_client=httpx.Client(trust_env=False))
+    return SyncClientOptions(
+        httpx_client=httpx.Client(
+            timeout=SUPABASE_HTTP_TIMEOUT,
+            verify=True,
+            trust_env=False,
+        )
+    )
 
 
 def get_service_client():
@@ -189,3 +214,14 @@ def supabase_update_password(auth_user_id, new_password):
     user = getattr(response,"user",None)
     if user is None or str(getattr(user,"id","")) != str(auth_user_id):
         raise PasswordProviderUnavailable("Password update outcome is unavailable.")
+
+
+def supabase_delete_user(auth_user_id):
+    """Best-effort delete a Supabase Auth identity (for admin creation rollback)."""
+    if not auth_user_id:
+        return False
+    try:
+        get_service_client().auth.admin.delete_user(str(auth_user_id), should_soft_delete=False)
+        return True
+    except Exception:
+        return False

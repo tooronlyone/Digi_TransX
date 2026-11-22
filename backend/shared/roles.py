@@ -69,13 +69,6 @@ def require_transporter_role(user):
         return json_response({"success": False, "message": "Transporter account required."}, 403)
     return None
 
-# Fuel station manager roles
-FUEL_STATION_ROLES = {"fuel_station_manager"}
-
-# Shopkeeper roles
-SHOPKEEPER_ROLES = {"shopkeeper"}
-
-
 def is_driver(role):
     """True only for drivers."""
     return (role or "").strip().lower() in DRIVER_ROLES

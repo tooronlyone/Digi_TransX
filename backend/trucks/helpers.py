@@ -431,21 +431,18 @@ def get_status_reason_label(reason_code):
 
 
 def make_upload_relative_path(truck_id, file_storage):
-    """Upload a truck document to Supabase Storage. Returns the storage path."""
-    from werkzeug.utils import secure_filename
-
+    """Validate content, strip image metadata, and upload a truck file cleanly."""
     from shared.storage import upload_file_storage
+    from shared.upload_validation import validate_and_sanitize_upload
 
-    original = secure_filename(file_storage.filename or "")
-    extension = Path(original).suffix.lower().lstrip(".")
-    if extension not in ALLOWED_TRUCK_UPLOAD_EXTENSIONS:
-        raise TruckUploadValidationError(
-            "Truck files must be JPG, JPEG, PNG, WEBP, or PDF."
-        )
-    file_storage.stream.seek(0, 2)
-    size = file_storage.stream.tell()
-    file_storage.stream.seek(0)
-    if size > MAX_TRUCK_UPLOAD_BYTES:
-        raise TruckUploadValidationError("Truck files must be 10MB or smaller.")
-    filename = f"{truck_id}_{uuid4().hex}.{extension}"
-    return upload_file_storage(f"uploads/trucks/{filename}", file_storage)
+    filename, sanitized_file = validate_and_sanitize_upload(
+        file_storage,
+        owner_prefix=str(truck_id),
+        allowed_extensions=ALLOWED_TRUCK_UPLOAD_EXTENSIONS,
+        max_bytes=MAX_TRUCK_UPLOAD_BYTES,
+        error_cls=TruckUploadValidationError,
+        invalid_extension_message="Truck files must be JPG, JPEG, PNG, WEBP, or PDF.",
+        oversized_message="Truck files must be 10MB or smaller.",
+        invalid_content_message="Uploaded truck document does not match a valid image or PDF file.",
+    )
+    return upload_file_storage(f"uploads/trucks/{filename}", sanitized_file)

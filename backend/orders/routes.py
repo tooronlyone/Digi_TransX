@@ -6,6 +6,7 @@ from .pickup_schedule import validate_pickup_schedule
 from auth import step_up_service
 from auth.helpers import json_response, login_required, csrf_error, timestamp_bundle
 from shared.db import open_db
+from shared.rate_limit import enforce_rate_limits
 from shared.validation import finite_float, bounded_count
 from decimal import Decimal
 from .goods_taxonomy import (
@@ -13,7 +14,6 @@ from .goods_taxonomy import (
     required_fields as goods_required_fields,
     required_truck_types as goods_required_trucks,
     commodity_flags,
-    FIELD_DIMENSIONS,
     FIELD_VOLUME_LITERS,
     FIELD_WEIGHT,
     FIELD_ANIMAL_COUNT,
@@ -52,18 +52,15 @@ from .reviews import (
     submit_pending_review,
     validate_review_payload,
 )
-from wallet.helpers import round_money
 from shared.roles import require_client_role, require_transporter_role
 from .helpers import (
     serialize_order,
     serialize_bid,
     serialize_trip,
-    get_or_create_order_for_client,
     validate_order_creation,
     fetch_order,
     fetch_enriched_bids,
     fetch_trip_for_order,
-    calculate_no_show_penalty,
     order_access_for_user,
     truck_order_mismatch,
     truck_order_eligibility_mismatch,
@@ -155,19 +152,46 @@ def open_delivery_dispute_route(order_id,trip_id):
 @orders_blueprint.post('/api/admin/freight-settlements/<int:settlement_id>/resolve')
 @login_required
 def resolve_delivery_settlement_route(settlement_id):
+    from auth.admin_step_up_service import require_admin_step_up
     from auth.helpers import require_admin_role
     from .business_lifecycle import resolve_delivery_settlement
-    error=require_admin_role(request.current_user) or csrf_error()
-    if error:return error
-    data=request.get_json(silent=True) or {}
+    error = require_admin_role(request.current_user) or csrf_error()
+    if error:
+        return error
+    if settlement_id <= 0:
+        return json_response({'success': False, 'message': 'Invalid settlement ID.'}, 400)
+    data = request.get_json(silent=True) or {}
+    if not isinstance(data, dict):
+        return json_response({'success': False, 'message': 'Invalid JSON object.'}, 400)
     with open_db() as db:
+        step_err, _ = require_admin_step_up(
+            db,
+            request,
+            'admin.settlement.resolve',
+            resource_id=settlement_id,
+            target={
+                'client_refund_amount': data.get('client_refund_amount'),
+                'notes': (data.get('notes') or '').strip() if isinstance(data.get('notes'), str) else '',
+                'investigation_result': data.get('investigation_result'),
+            },
+        )
+        if step_err:
+            return step_err
         try:
-            result=resolve_delivery_settlement(db,request.current_user,settlement_id,data.get('client_refund_amount'),data.get('notes'),data.get('evidence'),data.get('investigation_result'))
+            result = resolve_delivery_settlement(
+                db,
+                request.current_user,
+                settlement_id,
+                data.get('client_refund_amount'),
+                data.get('notes'),
+                data.get('evidence'),
+                data.get('investigation_result'),
+            )
             db.commit()
         except CheckoutError as exc:
             db.rollback()
             return _checkout_error_response(exc)
-    return json_response({'success':True,**result})
+    return json_response({'success': True, **result})
 
 
 @orders_blueprint.get("/api/business-rules/fees")
@@ -802,6 +826,13 @@ def checkout_bid(order_id, bid_id):
     # retries; a missing/invalid key is rejected inside perform_checkout —
     # the server never invents one (that would defeat idempotency).
     idempotency_key = request.headers.get("Idempotency-Key")
+
+    rate_err = enforce_rate_limits(
+        open_db,
+        [("finance.checkout.user", request.current_user["id"], "finance.checkout.user")],
+    )
+    if rate_err:
+        return rate_err
 
     descriptor = None
     gate = None

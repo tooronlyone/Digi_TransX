@@ -16,17 +16,24 @@ async function apiGet(url) {
   return json
 }
 
-async function apiPost(url, body, fetchImpl = fetch) {
+async function apiPost(url, body, fetchImpl = fetch, extraHeaders = {}) {
   const csrf = await getCsrf()
   const res = await fetchImpl(url, {
     method: 'POST',
     credentials: 'same-origin',
-    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf },
+    headers: { 'Content-Type': 'application/json', 'X-CSRF-Token': csrf, ...extraHeaders },
     body: JSON.stringify(body),
   })
   const json = await res.json()
   if (!json.success) throw new Error(json.message || 'Request failed.')
   return json
+}
+
+function generateIdempotencyKey() {
+  if (typeof crypto !== 'undefined' && typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  return `wlu-${Date.now()}-${Math.random().toString(16).slice(2)}`
 }
 
 function fmtPKR(n) {
@@ -118,19 +125,26 @@ export default function Earning() {
 
   function openUpgradeConfirm(tier, duration_years, tierInfo) {
     const fee = duration_years === 3 ? tierInfo.fee_3yr : tierInfo.fee_5yr
-    setUpgradeConfirm({ tier, duration_years, fee, label: `Tier ${tier} - ${duration_years} Year Plan` })
+    setUpgradeConfirm({
+      tier,
+      duration_years,
+      fee,
+      label: `Tier ${tier} - ${duration_years} Year Plan`,
+      idempotencyKey: generateIdempotencyKey(),
+    })
     setError('')
     setNotice('')
   }
 
   async function handleUpgrade() {
     if (!upgradeConfirm) return
-    const { tier, duration_years } = upgradeConfirm
+    const { tier, duration_years, idempotencyKey } = upgradeConfirm
     setError('')
     setNotice('')
     setUpgrading(true)
     try {
-      const res = await apiPost('/api/wallet/upgrade-limit', { tier, duration_years }, protectedFetch)
+      const headers = idempotencyKey ? { 'Idempotency-Key': idempotencyKey } : {}
+      const res = await apiPost('/api/wallet/upgrade-limit', { tier, duration_years }, protectedFetch, headers)
       setNotice(res.message)
       setUpgradeConfirm(null)
       await loadData()
@@ -178,7 +192,6 @@ export default function Earning() {
       <div className="payout-page-title">
         <h1>Earnings</h1>
         <p>Track shipment income, wallet balances, withdrawal limits, and payout readiness.</p>
-          {summary?.total_fuel_credit_recovered != null && <p>Authorized platform fuel credit recovered from payable earnings: {fmtPKR(summary.total_fuel_credit_recovered)}. Wallet earnings shown here exclude these recovered amounts.</p>}
       </div>
 
       {error && (

@@ -1,5 +1,4 @@
 from flask import Blueprint, current_app, request
-from werkzeug.security import generate_password_hash
 
 from auth.helpers import (
     OTP_EXPIRY_MINUTES,
@@ -10,6 +9,7 @@ from auth.helpers import (
     latest_otp_record,
     login_required,
     normalize_phone,
+    otp_request_block_reason,
     csrf_error,
     send_email,
     serialize_user,
@@ -20,6 +20,7 @@ from auth.helpers import (
 )
 from auth.credential_changes import execute_password_change, PasswordProviderUpdateFailed
 from shared.db import open_db
+from shared.rate_limit import enforce_rate_limits
 from shared.roles import BUSINESS_CLIENT_ROLES
 
 
@@ -89,16 +90,6 @@ def profile_update():
                 (user["id"], text_value("company_name"), text_value("contact_phone"),
                  text_value("billing_address"), stamp["display"]),
             )
-        shop_name = (data.get("shop_name") or "").strip()
-        if shop_name and user.get("role") == "shopkeeper":
-            db.execute(
-                """
-                INSERT INTO shopkeeper_profiles (user_id, shop_name, updated_at)
-                VALUES (%s, %s, %s)
-                ON CONFLICT (user_id) DO UPDATE SET shop_name = EXCLUDED.shop_name, updated_at = EXCLUDED.updated_at
-                """,
-                (request.current_user["id"], shop_name, stamp["display"]),
-            )
         db.commit()
     return json_response({"success": True, "user": serialize_user(get_user_by_id(request.current_user["id"]))})
 
@@ -115,14 +106,22 @@ def request_password_change_otp():
     current_password = data.get("current_password") or ""
     if not current_password:
         return json_response({"success": False, "message": "Current password is required."}, 400)
+    rate_err = enforce_rate_limits(
+        open_db,
+        [
+            ("profile.password_otp.cooldown", request.current_user["id"], "profile.password_otp.cooldown"),
+            ("profile.password_otp.hourly", request.current_user["id"], "profile.password_otp.hourly"),
+        ],
+        message="Please wait before requesting another password change code.",
+    )
+    if rate_err:
+        return rate_err
     from shared.supabase_client import supabase_verify_password
     if not supabase_verify_password(request.current_user.get("email", ""), current_password):
         return json_response({"success": False, "message": "Current password is incorrect."}, 400)
-    latest = latest_otp_record(request.current_user["id"], "password_change")
-    if latest and latest.get("cooldown_until_iso"):
-        from auth.helpers import is_future
-        if is_future(latest["cooldown_until_iso"]):
-            return json_response({"success": False, "message": "Too many wrong attempts. Please wait 15 minutes before requesting a new code."}, 429)
+    block_reason, block_message = otp_request_block_reason(request.current_user["id"], "password_change")
+    if block_reason:
+        return json_response({"success": False, "message": block_message}, 429)
     otp_code = "".join(__import__("secrets").choice("0123456789") for _ in range(6))
     try:
         send_email(

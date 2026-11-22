@@ -34,10 +34,6 @@ def normalize_wallet_role(user_role):
         return "client"
     if role in {"transporter", "logistics_provider"}:
         return "transporter"
-    if role in {"shopkeeper"}:
-        return "shopkeeper"
-    if role == "fuel_station_manager":
-        return "fuel_station"
     if role == "driver":
         return "driver"
     return None
@@ -51,10 +47,18 @@ def minimum_required_for_role(wallet_role):
     return 0.0
 
 
-def available_balance(wallet_row):
+def available_balance_decimal(wallet_row, *, pending_total=Decimal("0.00")):
     balance = Decimal(str(wallet_row.get("balance") or 0))
     locked = Decimal(str(wallet_row.get("locked_balance") or 0))
-    return float(max(Decimal("0"), balance - max(locked, security_deposit_floor(wallet_row))))
+    pending = Decimal(str(pending_total or 0))
+    if not balance.is_finite() or not locked.is_finite() or not pending.is_finite():
+        return Decimal("0.00")
+    reserved = max(locked, security_deposit_floor(wallet_row))
+    return max(Decimal("0.00"), balance - reserved - pending).quantize(Decimal("0.01"))
+
+
+def available_balance(wallet_row, *, pending_total=Decimal("0.00")):
+    return float(available_balance_decimal(wallet_row, pending_total=pending_total))
 
 
 def security_deposit_floor(wallet_row):
@@ -155,7 +159,7 @@ def ensure_wallet_locked_balance(db, wallet, user_id, amount, reason="wallet_loc
         return json_response({"success": False, "message": str(exc)}, 400)
     if lock_wallet_for_update(db, wallet, user_id) is None:
         return json_response({"success": False, "message": "Wallet not found."}, 404)
-    if Decimal(str(available_balance(wallet))) < amount:
+    if available_balance_decimal(wallet) < amount:
         return json_response({"success": False, "message": "Insufficient available balance"}, 400)
 
     stamp = timestamp_bundle()["iso"]

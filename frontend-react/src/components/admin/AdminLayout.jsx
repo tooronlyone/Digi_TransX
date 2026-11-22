@@ -4,6 +4,7 @@ import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { adminRequest, adminUser } from '../../pages/admin/adminApi'
 import { clearAuthPresentation } from '../../auth/presentation'
 import NotificationBell from '../common/NotificationBell'
+import AdminStepUpModal from './AdminStepUpModal'
 
 const NAV_ITEMS = [
   { path: '/admin/dashboard',   label: 'Dashboard',    icon: 'fa-gauge-high' },
@@ -137,6 +138,7 @@ export default function AdminLayout({ children }) {
       }}>
         {children}
       </main>
+      <AdminStepUpModal />
     </div>
   )
 }

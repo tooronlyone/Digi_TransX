@@ -1,3 +1,5 @@
+import { requestAdminStepUp } from '../../components/admin/adminStepUpBridge'
+
 export function adminUser() {
   try {
     return JSON.parse(sessionStorage.getItem('user') || 'null')
@@ -17,10 +19,24 @@ export async function getCsrfToken() {
 
 export async function adminRequest(url, options = {}) {
   const method = (options.method || 'GET').toUpperCase()
-  const headers = { ...(options.headers || {}) }
-  if (!(options.body instanceof FormData)) headers['Content-Type'] = 'application/json'
-  if (method !== 'GET') headers['X-CSRF-Token'] = await getCsrfToken()
-  const response = await fetch(url, { credentials: 'same-origin', ...options, headers })
+  const baseHeaders = { ...(options.headers || {}) }
+  if (!(options.body instanceof FormData)) baseHeaders['Content-Type'] = 'application/json'
+  if (method !== 'GET') baseHeaders['X-CSRF-Token'] = await getCsrfToken()
+
+  let response = await fetch(url, { credentials: 'same-origin', ...options, headers: baseHeaders })
+  if (response.status === 428) {
+    const challenge = await response.clone().json().catch(() => ({}))
+    if (challenge?.code === 'admin_step_up_required' && challenge.action) {
+      const stepUpProof = await requestAdminStepUp(challenge.action)
+      const retryHeaders = {
+        ...baseHeaders,
+        'X-Admin-Step-Up-Proof': stepUpProof,
+      }
+      if (method !== 'GET') retryHeaders['X-CSRF-Token'] = await getCsrfToken()
+      response = await fetch(url, { credentials: 'same-origin', ...options, headers: retryHeaders })
+    }
+  }
+
   const json = await response.json().catch(() => ({}))
   if (!response.ok || json.success === false) throw new Error(json.message || `Request failed (${response.status})`)
   if (json.csrf_token) sessionStorage.setItem('csrf_token', json.csrf_token)

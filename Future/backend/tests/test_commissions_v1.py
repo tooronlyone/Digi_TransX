@@ -10,8 +10,8 @@ from decimal import Decimal
 import psycopg2
 import pytest
 
-from shared import commissions
-from shared.commissions import (
+from agreements import commissions
+from agreements.commissions import (
     POLICY_TYPE_AGREEMENT,
     POLICY_TYPE_ONE_TIME,
     changed_policy_types,

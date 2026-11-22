@@ -223,7 +223,7 @@ test('password has no persistence, router-state, URL, tracking, logging, or DOM 
 test('every production details caller uses the canonical route-scoped store', async () => {
   const files = [
     'ServiceSeekerDetails.jsx', 'LogisticsProviderDetails.jsx', 'EverydayUserDetails.jsx',
-    'FuelStationDetails.jsx', 'ShopkeeperDetails.jsx', 'DriverDetails.jsx',
+    'DriverDetails.jsx',
   ]
   for (const file of files) {
     const content = await source(`../src/pages/auth/roledetails/${file}`)
